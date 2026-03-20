@@ -2133,11 +2133,20 @@
                     </ul>
                 </div>
                 <button class="btn btn-success" onclick="exportBackup(false)" style="width: 100%; margin-bottom: 8px;">📥 全データを保存（JSON）</button>
-                <button class="btn" onclick="exportBackup(true)" style="width: 100%; margin-bottom: 8px; background: #8E44AD; color: white;">🔐 暗号化して保存（推奨）</button>
+                <button class="btn" id="btn-enc-export" style="width: 100%; margin-bottom: 8px; background: #8E44AD; color: white;">🔐 暗号化して保存（推奨）</button>
+                <div id="enc-password-area" style="display:none; background:#F3E5F5; border-radius:8px; padding:12px; margin-bottom:8px;">
+                    <input type="password" id="enc-pass1" placeholder="パスワードを入力" style="width:100%; padding:10px; border:2px solid #8E44AD; border-radius:6px; font-size:1rem; margin-bottom:8px;">
+                    <input type="password" id="enc-pass2" placeholder="パスワード再入力" style="width:100%; padding:10px; border:2px solid #8E44AD; border-radius:6px; font-size:1rem; margin-bottom:8px;">
+                    <button class="btn" id="btn-enc-confirm" style="width:100%; background:#8E44AD; color:white;">🔐 この暗号で保存</button>
+                </div>
                 <p style="font-size: 0.75rem; color: var(--text-light); text-align: center; margin-bottom: 16px;">暗号化保存はパスワードで児童の個人情報を保護します</p>
                 <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
                 <h4 style="font-size: 0.9rem; margin-bottom: 12px;">📤 復元</h4>
                 <input type="file" id="restoreFile" accept=".json,.enc" style="margin-bottom: 8px; font-size: 0.85rem;">
+                <div id="dec-password-area" style="display:none; background:#E3F2FD; border-radius:8px; padding:12px; margin-bottom:8px;">
+                    <input type="password" id="dec-pass" placeholder="暗号化パスワードを入力" style="width:100%; padding:10px; border:2px solid var(--primary); border-radius:6px; font-size:1rem; margin-bottom:8px;">
+                    <button class="btn" id="btn-dec-confirm" style="width:100%; background:var(--primary); color:white;">🔓 このパスワードで復元</button>
+                </div>
                 <button class="btn btn-outline" onclick="importBackup()" style="width: 100%;">📤 バックアップから復元</button>
             </div>
         </div>
@@ -3252,7 +3261,7 @@
         }
     }
 
-    async function exportBackup(useEncryption) {
+    async function exportBackup(useEncryption, password) {
         flushSaveQueue();
         var backup = {
             version: 10,
@@ -3271,12 +3280,9 @@
         var jsonStr = JSON.stringify(backup, null, 2);
 
         if (useEncryption) {
-            var pass = prompt('暗号化パスワードを入力してください:');
-            if (!pass) return;
-            var pass2 = prompt('パスワードを再入力してください:');
-            if (pass !== pass2) { showToast('パスワードが一致しません', 'error'); return; }
+            if (!password) return;
             try {
-                var encrypted = await encryptData(jsonStr, pass);
+                var encrypted = await encryptData(jsonStr, password);
                 var blob = new Blob([encrypted], { type: 'application/octet-stream' });
                 var ci = master.classInfo;
                 var fileName = ci.year + '年度' + ci.grade + '年' + ci.class + '組_SPA_backup_encrypted.enc';
@@ -3292,7 +3298,7 @@
         }
     }
 
-    async function importBackup() {
+    async function importBackup(decryptPassword) {
         var fileInput = document.getElementById('restoreFile');
         if (!fileInput.files || !fileInput.files[0]) {
             showToast('ファイルを選択してください', 'warning');
@@ -3304,10 +3310,14 @@
 
         // 暗号化ファイルの場合
         if (file.name.endsWith('.enc') || !text.startsWith('{')) {
-            var pass = prompt('暗号化パスワードを入力してください:');
-            if (!pass) return;
+            if (!decryptPassword) {
+                // パスワード入力欄を表示
+                document.getElementById('dec-password-area').style.display = 'block';
+                document.getElementById('dec-pass').focus();
+                return;
+            }
             try {
-                jsonStr = await decryptData(text, pass);
+                jsonStr = await decryptData(text, decryptPassword);
             } catch (e) {
                 showToast(e.message, 'error');
                 return;
@@ -8256,6 +8266,30 @@
     window.karteRecCancelEdit = karteRecCancelEdit;
     window.karteUndoLast = karteUndoLast;
     window.renderPatrolHistory = renderPatrolHistory;
+
+    // --- 暗号化バックアップ: prompt()の代わりにモーダルUI ---
+    document.getElementById('btn-enc-export').addEventListener('click', function() {
+        var area = document.getElementById('enc-password-area');
+        area.style.display = area.style.display === 'none' ? 'block' : 'none';
+        if (area.style.display === 'block') document.getElementById('enc-pass1').focus();
+    });
+    document.getElementById('btn-enc-confirm').addEventListener('click', function() {
+        var p1 = document.getElementById('enc-pass1').value;
+        var p2 = document.getElementById('enc-pass2').value;
+        if (!p1) { showToast('パスワードを入力してください', 'warning'); return; }
+        if (p1 !== p2) { showToast('パスワードが一致しません', 'error'); return; }
+        document.getElementById('enc-password-area').style.display = 'none';
+        document.getElementById('enc-pass1').value = '';
+        document.getElementById('enc-pass2').value = '';
+        exportBackup(true, p1);
+    });
+    document.getElementById('btn-dec-confirm').addEventListener('click', function() {
+        var pass = document.getElementById('dec-pass').value;
+        if (!pass) { showToast('パスワードを入力してください', 'warning'); return; }
+        document.getElementById('dec-password-area').style.display = 'none';
+        document.getElementById('dec-pass').value = '';
+        importBackup(pass);
+    });
     // ▲▲▲ MODULE:WINDOW_EXPORTS ▲▲▲
 
     </script>

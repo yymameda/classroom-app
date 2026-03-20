@@ -2142,7 +2142,7 @@
                 <p style="font-size: 0.75rem; color: var(--text-light); text-align: center; margin-bottom: 16px;">暗号化保存はパスワードで児童の個人情報を保護します</p>
                 <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
                 <h4 style="font-size: 0.9rem; margin-bottom: 12px;">📤 復元</h4>
-                <input type="file" id="restoreFile" accept=".json,.enc" style="margin-bottom: 8px; font-size: 0.85rem;">
+                <input type="file" id="restoreFile" accept="*/*" style="margin-bottom: 8px; font-size: 0.85rem;">
                 <div id="dec-password-area" style="display:none; background:#E3F2FD; border-radius:8px; padding:12px; margin-bottom:8px;">
                     <input type="password" id="dec-pass" placeholder="暗号化パスワードを入力" style="width:100%; padding:10px; border:2px solid var(--primary); border-radius:6px; font-size:1rem; margin-bottom:8px;">
                     <button class="btn" id="btn-dec-confirm" style="width:100%; background:var(--primary); color:white;">🔓 このパスワードで復元</button>
@@ -3310,6 +3310,7 @@
             return;
         }
         var file = fileInput.files[0];
+        showToast('読み込み中: ' + file.name, 'info');
         var text = await file.text();
         var jsonStr = text;
 
@@ -3331,16 +3332,12 @@
 
         try {
             var backup = JSON.parse(jsonStr);
-            if (!confirm('バックアップデータを復元しますか？\n現在のデータは上書きされます。\n\n' +
-                '日時: ' + (backup.exportDateLocal || backup.exportDate || '不明'))) return;
 
             // SPA形式（version >= 10）
             if (backup.appType === 'classroom-spa') {
-                // rawLocalStorageがあれば全キーを復元（KEYS定義漏れのキーも含む）
                 if (backup.rawLocalStorage) {
                     StorageManager.importAll(backup.rawLocalStorage);
                 }
-                // backup.dataで上書き（より新しい可能性があるため後勝ち）
                 if (backup.data) {
                     StorageManager.importAll(backup.data);
                 }

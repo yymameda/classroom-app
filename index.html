@@ -2141,6 +2141,20 @@
                 </div>
                 <p style="font-size: 0.75rem; color: var(--text-light); text-align: center; margin-bottom: 16px;">暗号化保存はパスワードで児童の個人情報を保護します</p>
                 <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
+                <div id="wipe-section" style="background: #FDE8E8; border: 2px solid var(--danger); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <h4 style="color: var(--danger); margin-bottom: 8px;">🔒 退勤モード（端末データ消去）</h4>
+                    <p style="font-size: 0.82rem; line-height: 1.6; margin-bottom: 12px;">暗号化バックアップを保存した後に押してください。<br>iPad本体から児童データを完全に消去し、通勤中の情報漏洩を防ぎます。</p>
+                    <button class="btn btn-danger" id="btn-wipe-data" style="width: 100%;">🗑️ 端末データを消去する</button>
+                    <div id="wipe-confirm-area" style="display:none; margin-top: 12px; background: white; border-radius: 8px; padding: 12px;">
+                        <p style="font-size: 0.85rem; font-weight: 700; color: var(--danger); margin-bottom: 8px;">⚠️ 本当に消去しますか？</p>
+                        <p style="font-size: 0.8rem; margin-bottom: 12px;">バックアップを保存済みであることを確認してください。<br>消去後はバックアップからの復元が必要です。</p>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-danger" id="btn-wipe-confirm" style="flex: 1;">消去する</button>
+                            <button class="btn btn-outline" id="btn-wipe-cancel" style="flex: 1;">やめる</button>
+                        </div>
+                    </div>
+                </div>
+                <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
                 <h4 style="font-size: 0.9rem; margin-bottom: 12px;">📤 復元</h4>
                 <input type="file" id="restoreFile" accept="*/*" style="margin-bottom: 8px; font-size: 0.85rem;">
                 <div id="dec-password-area" style="display:none; background:#E3F2FD; border-radius:8px; padding:12px; margin-bottom:8px;">
@@ -2154,6 +2168,22 @@
 
     <!-- トースト -->
     <div class="toast" id="toast"></div>
+
+    <!-- 復元案内オーバーレイ（起動時にデータが空の場合） -->
+    <div class="modal-overlay" id="restoreGuideOverlay">
+        <div class="modal">
+            <div class="modal-header" style="background: linear-gradient(135deg, #E67E22, #F39C12);">
+                <h3>📂 データがありません</h3>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;">退勤モードでデータが消去されています</p>
+                <p style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 20px;">OneDrive等に保存した暗号化バックアップから復元してください。</p>
+                <button class="btn btn-primary" id="btn-restore-guide" style="width: 100%; font-size: 1rem; padding: 14px;">📤 バックアップから復元する</button>
+                <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 16px;">または、新規にクラスを設定する場合は下のボタンを押してください。</p>
+                <button class="btn btn-outline" id="btn-restore-skip" style="width: 100%; margin-top: 8px;">新規で始める</button>
+            </div>
+        </div>
+    </div>
 
     <!-- リカバリーバー -->
     <div id="recoveryBar" style="display:none; position:fixed; bottom:0; left:0; right:0; background: var(--danger); color:white; padding:12px; text-align:center; z-index:99999;">
@@ -2588,6 +2618,32 @@
         updateSettingsUI();
         updateDashboard();
         setTimeout(updateStorageDisplay, 300);
+
+        // --- 起動時: データが空なら復元案内を表示 ---
+        var wasWiped = false;
+        try { wasWiped = localStorage.getItem('spa_wiped') === '1'; } catch(e) {}
+        if (wasWiped || (!master.students || master.students.length === 0)) {
+            var guideOverlay = document.getElementById('restoreGuideOverlay');
+            if (guideOverlay && wasWiped) {
+                guideOverlay.classList.add('active');
+                try { localStorage.removeItem('spa_wiped'); } catch(e) {}
+            }
+        }
+        // 復元案内ボタンのイベント
+        var btnRestoreGuide = document.getElementById('btn-restore-guide');
+        if (btnRestoreGuide) {
+            btnRestoreGuide.addEventListener('click', function() {
+                document.getElementById('restoreGuideOverlay').classList.remove('active');
+                openBackupModal();
+            });
+        }
+        var btnRestoreSkip = document.getElementById('btn-restore-skip');
+        if (btnRestoreSkip) {
+            btnRestoreSkip.addEventListener('click', function() {
+                document.getElementById('restoreGuideOverlay').classList.remove('active');
+                showView('settings');
+            });
+        }
 
         // Phase B/C: IndexedDB初期化（非同期、UIをブロックしない）
         StorageManager.initIDB().then(function(ok) {
@@ -3357,6 +3413,30 @@
             showToast('復元に失敗しました: ' + e.message, 'error');
         }
     }
+    // --- 退勤モード: 端末データ消去 ---
+    function wipeLocalData() {
+        try {
+            // 全SPAキーを削除
+            Object.keys(KEYS).forEach(function(k) {
+                StorageManager.remove(KEYS[k]);
+            });
+            // マスターデータをリセット
+            master = {
+                version: 2,
+                classInfo: { year: new Date().getFullYear(), grade: 4, class: 1, teacher: '', termSystem: 3 },
+                students: [],
+                lastSync: null
+            };
+            // 退勤モードフラグを立てる（起動時の案内表示用）
+            try { localStorage.setItem('spa_wiped', '1'); } catch(e) {}
+            showToast('🔒 端末データを消去しました。安全に退勤できます。', 'success');
+            closeBackupModal();
+            setTimeout(function() { location.reload(); }, 1500);
+        } catch (e) {
+            showToast('消去に失敗しました: ' + e.message, 'error');
+        }
+    }
+    window.wipeLocalData = wipeLocalData;
     // ▲▲▲ MODULE:BACKUP ▲▲▲
 
 
@@ -8291,6 +8371,17 @@
         document.getElementById('dec-password-area').style.display = 'none';
         document.getElementById('dec-pass').value = '';
         importBackup(pass);
+    });
+
+    // --- 退勤モード: データ消去ボタン ---
+    document.getElementById('btn-wipe-data').addEventListener('click', function() {
+        document.getElementById('wipe-confirm-area').style.display = 'block';
+    });
+    document.getElementById('btn-wipe-confirm').addEventListener('click', function() {
+        wipeLocalData();
+    });
+    document.getElementById('btn-wipe-cancel').addEventListener('click', function() {
+        document.getElementById('wipe-confirm-area').style.display = 'none';
     });
     // ▲▲▲ MODULE:WINDOW_EXPORTS ▲▲▲
 

@@ -2142,14 +2142,16 @@
                 <p style="font-size: 0.75rem; color: var(--text-light); text-align: center; margin-bottom: 16px;">暗号化保存はパスワードで児童の個人情報を保護します</p>
                 <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
                 <div id="wipe-section" style="background: #FDE8E8; border: 2px solid var(--danger); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-                    <h4 style="color: var(--danger); margin-bottom: 8px;">🔒 退勤モード（端末データ消去）</h4>
-                    <p style="font-size: 0.82rem; line-height: 1.6; margin-bottom: 12px;">暗号化バックアップを保存した後に押してください。<br>iPad本体から児童データを完全に消去し、通勤中の情報漏洩を防ぎます。</p>
-                    <button class="btn btn-danger" id="btn-wipe-data" style="width: 100%;">🗑️ 端末データを消去する</button>
-                    <div id="wipe-confirm-area" style="display:none; margin-top: 12px; background: white; border-radius: 8px; padding: 12px;">
-                        <p style="font-size: 0.85rem; font-weight: 700; color: var(--danger); margin-bottom: 8px;">⚠️ 本当に消去しますか？</p>
-                        <p style="font-size: 0.8rem; margin-bottom: 12px;">バックアップを保存済みであることを確認してください。<br>消去後はバックアップからの復元が必要です。</p>
+                    <h4 style="color: var(--danger); margin-bottom: 8px;">🔒 退勤モード</h4>
+                    <p style="font-size: 0.82rem; line-height: 1.6; margin-bottom: 12px;">暗号化バックアップを保存してから、iPad本体のデータを自動で消去します。<br>ボタン1つで安全に退勤できます。</p>
+                    <button class="btn btn-danger" id="btn-wipe-start" style="width: 100%; font-size: 1rem; padding: 14px;">🔒 退勤する</button>
+                    <div id="wipe-password-area" style="display:none; margin-top: 12px; background: white; border-radius: 8px; padding: 12px;">
+                        <p style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px;">🔐 暗号化パスワードを入力</p>
+                        <input type="password" id="wipe-pass1" placeholder="パスワードを入力" style="width:100%; padding:10px; border:2px solid var(--danger); border-radius:6px; font-size:1rem; margin-bottom:8px;">
+                        <input type="password" id="wipe-pass2" placeholder="パスワード再入力" style="width:100%; padding:10px; border:2px solid var(--danger); border-radius:6px; font-size:1rem; margin-bottom:8px;">
+                        <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 12px;">保存先を選んだ後、端末データが自動で消去されます。</p>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-danger" id="btn-wipe-confirm" style="flex: 1;">消去する</button>
+                            <button class="btn btn-danger" id="btn-wipe-go" style="flex: 1;">🔐 保存して消去</button>
                             <button class="btn btn-outline" id="btn-wipe-cancel" style="flex: 1;">やめる</button>
                         </div>
                     </div>
@@ -3413,30 +3415,59 @@
             showToast('復元に失敗しました: ' + e.message, 'error');
         }
     }
-    // --- 退勤モード: 端末データ消去 ---
-    function wipeLocalData() {
+    // --- 退勤モード: 暗号化保存 → データ消去の一連処理 ---
+    async function startLeaveMode(password) {
+        // Step 1: 暗号化バックアップを保存
+        flushSaveQueue();
+        var backup = {
+            version: 10,
+            appType: 'classroom-spa',
+            exportDate: new Date().toISOString(),
+            exportDateLocal: new Date().toLocaleString('ja-JP'),
+            data: {}
+        };
+        Object.keys(KEYS).forEach(function(k) {
+            var raw = StorageManager.getRaw(KEYS[k]);
+            if (raw !== null) backup.data[KEYS[k]] = raw;
+        });
+        backup.rawLocalStorage = StorageManager.exportAll();
+        var jsonStr = JSON.stringify(backup, null, 2);
+
         try {
-            // 全SPAキーを削除
+            var encrypted = await encryptData(jsonStr, password);
+            var blob = new Blob([encrypted], { type: 'application/octet-stream' });
+            var ci = master.classInfo;
+            var fileName = ci.year + '年度' + ci.grade + '年' + ci.class + '組_SPA_backup_encrypted.enc';
+            var shared = await universalShare(blob, fileName);
+            if (!shared) {
+                showToast('保存がキャンセルされました。データは消去されていません。', 'warning');
+                return;
+            }
+        } catch (e) {
+            showToast('暗号化に失敗しました: ' + e.message, 'error');
+            return;
+        }
+
+        // Step 2: 保存成功 → 端末データを消去
+        try {
             Object.keys(KEYS).forEach(function(k) {
                 StorageManager.remove(KEYS[k]);
             });
-            // マスターデータをリセット
             master = {
                 version: 2,
                 classInfo: { year: new Date().getFullYear(), grade: 4, class: 1, teacher: '', termSystem: 3 },
                 students: [],
                 lastSync: null
             };
-            // 退勤モードフラグを立てる（起動時の案内表示用）
             try { localStorage.setItem('spa_wiped', '1'); } catch(e) {}
-            showToast('🔒 端末データを消去しました。安全に退勤できます。', 'success');
+            showToast('🔒 保存完了・データ消去しました。安全に退勤できます。', 'success');
             closeBackupModal();
             setTimeout(function() { location.reload(); }, 1500);
         } catch (e) {
             showToast('消去に失敗しました: ' + e.message, 'error');
         }
     }
-    window.wipeLocalData = wipeLocalData;
+    window.startLeaveMode = startLeaveMode;
     // ▲▲▲ MODULE:BACKUP ▲▲▲
 
 
@@ -8373,15 +8404,25 @@
         importBackup(pass);
     });
 
-    // --- 退勤モード: データ消去ボタン ---
-    document.getElementById('btn-wipe-data').addEventListener('click', function() {
-        document.getElementById('wipe-confirm-area').style.display = 'block';
+    // --- 退勤モード ---
+    document.getElementById('btn-wipe-start').addEventListener('click', function() {
+        document.getElementById('wipe-password-area').style.display = 'block';
+        document.getElementById('wipe-pass1').focus();
     });
-    document.getElementById('btn-wipe-confirm').addEventListener('click', function() {
-        wipeLocalData();
+    document.getElementById('btn-wipe-go').addEventListener('click', function() {
+        var p1 = document.getElementById('wipe-pass1').value;
+        var p2 = document.getElementById('wipe-pass2').value;
+        if (!p1) { showToast('パスワードを入力してください', 'warning'); return; }
+        if (p1 !== p2) { showToast('パスワードが一致しません', 'error'); return; }
+        document.getElementById('wipe-pass1').value = '';
+        document.getElementById('wipe-pass2').value = '';
+        document.getElementById('wipe-password-area').style.display = 'none';
+        startLeaveMode(p1);
     });
     document.getElementById('btn-wipe-cancel').addEventListener('click', function() {
-        document.getElementById('wipe-confirm-area').style.display = 'none';
+        document.getElementById('wipe-password-area').style.display = 'none';
+        document.getElementById('wipe-pass1').value = '';
+        document.getElementById('wipe-pass2').value = '';
     });
     // ▲▲▲ MODULE:WINDOW_EXPORTS ▲▲▲
 

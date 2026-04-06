@@ -3568,7 +3568,7 @@
                     <div class="grid-cell-status-badge ${hasSt?'done':'empty'}">${hasSt?'✓':''}</div>
                 </div>
                 <span class="name" title="${escapeHtml(s.name||'')}">${displayName}</span>
-                <span class="status">${escapeHtml(status)}</span>`;
+                <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>`;
             cell.onclick = () => attOpenModal(i);
             frag.appendChild(cell);
         });
@@ -8093,7 +8093,8 @@
                 var row = [i + 1, s.name || ''];
                 dates.forEach(function(d) {
                     var dayData = att[d] || {};
-                    row.push(dayData[i] || '○');
+                    var st = dayData[i] || '';
+                    row.push(st === '○' ? '' : st);
                 });
                 rows.push(row);
             });

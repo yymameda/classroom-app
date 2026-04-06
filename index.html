@@ -1111,6 +1111,34 @@
         .sub-badge.ng { background: #FEF3E2; color: #E67E22; }
         .sub-stu-score { font-size: 0.85rem; font-weight: 800; min-width: 36px; text-align: right; flex-shrink: 0; }
 
+        /* ルーブリック参照パネル */
+        .rubric-panel { margin: 0 0 6px; border-radius: 10px; border: 1.5px solid #90CAF9; background: #F7FAFC; overflow: hidden; }
+        .rubric-toggle { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; background: linear-gradient(135deg, #E3F2FD, #EDE7F6); font-size: 0.8rem; font-weight: 700; color: #1565C0; user-select: none; -webkit-user-select: none; }
+        .rubric-toggle .rubric-arrow { transition: transform 0.2s; font-size: 0.7rem; }
+        .rubric-toggle.open .rubric-arrow { transform: rotate(180deg); }
+        .rubric-body { display: none; padding: 8px 12px 10px; font-size: 0.75rem; line-height: 1.6; }
+        .rubric-body.open { display: block; }
+        .rubric-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 4px; }
+        .rubric-badge { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: #fff; }
+        .rubric-badge.a { background: #27AE60; }
+        .rubric-badge.b { background: #3498DB; }
+        .rubric-badge.c { background: #E67E22; }
+        .rubric-text { color: var(--text); flex: 1; }
+        .rubric-empty { color: var(--text-light); font-style: italic; padding: 6px 0; }
+        /* ルーブリック入力フィールド（課題登録フォーム内） */
+        .rubric-fields { display: none; flex-direction: column; gap: 6px; grid-column: 1 / -1; }
+        .rubric-fields.show { display: flex; }
+        .rubric-field-row { display: flex; align-items: center; gap: 6px; }
+        .rubric-field-label { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: #fff; }
+        .rubric-field-label.a { background: #27AE60; }
+        .rubric-field-label.b { background: #3498DB; }
+        .rubric-field-label.c { background: #E67E22; }
+        .rubric-field-input { flex: 1; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.78rem; min-height: 34px; }
+        .rubric-field-input:focus { outline: none; border-color: var(--primary); }
+        .rubric-field-input::placeholder { color: #bbb; }
+        /* 課題一覧のルーブリックバッジ */
+        .rubric-has-badge { display: inline-block; padding: 1px 5px; background: #E8F5E9; color: #2E7D32; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 4px; }
+
         /* 課題登録フォーム（元アプリ準拠） */
         .sub-assign-form { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 1rem; }
         .sub-form-group { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -1471,6 +1499,14 @@
                         </div>
                         <!-- フィルターバー -->
                         <div id="recFilterBar" class="rec-filter-bar" style="display:none;"></div>
+                        <!-- ルーブリック参照パネル -->
+                        <div id="recRubricPanel" class="rubric-panel" style="display:none;">
+                            <div class="rubric-toggle" id="recRubricToggle" onclick="recToggleRubricPanel()">
+                                <span>📐 ルーブリック</span>
+                                <span class="rubric-arrow">▼</span>
+                            </div>
+                            <div class="rubric-body" id="recRubricBody"></div>
+                        </div>
                         <!-- 未選択メッセージ -->
                         <div class="rec-input-info" id="recInputInfo">課題管理から課題を追加し、上のプルダウンから選択してください</div>
                         <!-- 入力グリッド -->
@@ -1575,6 +1611,22 @@
                                     <input type="number" id="recTestPeTrials" value="1" min="1" max="10"
                                         style="width:44px;padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;text-align:center;font-size:0.82rem;">
                                     <span style="font-size:0.78rem;">回</span>
+                                </div>
+                            </div>
+                            <!-- ルーブリック入力フィールド -->
+                            <div class="rubric-fields" id="recRubricFields">
+                                <div style="font-size:0.82rem;font-weight:700;color:#1565C0;margin-bottom:2px;">📐 ルーブリック（任意）</div>
+                                <div class="rubric-field-row">
+                                    <span class="rubric-field-label a">A</span>
+                                    <input type="text" class="rubric-field-input" id="recRubricA" placeholder="A判定の目安（例：応用・統合ができる）">
+                                </div>
+                                <div class="rubric-field-row">
+                                    <span class="rubric-field-label b">B</span>
+                                    <input type="text" class="rubric-field-input" id="recRubricB" placeholder="B判定の目安（例：基本的な理解ができている）">
+                                </div>
+                                <div class="rubric-field-row">
+                                    <span class="rubric-field-label c">C</span>
+                                    <input type="text" class="rubric-field-input" id="recRubricC" placeholder="C判定の目安（例：つまずきの具体的な姿）">
                                 </div>
                             </div>
                             <button class="btn-rec-primary" onclick="recAddTest()" id="recAddTestBtn" style="max-width:180px;">課題を追加</button>
@@ -3707,12 +3759,9 @@
             days.forEach(({ ds, dow }) => {
                 const st  = (allData[ds] || {})[String(i)] || '';
                 const info = ATT_STATUS_MAP[st];
-                const isPresent = st === '○';
-                const colBg = dow===0 ? '#FFF3F3' : dow===6 ? '#F3F5FF' : '';
-                const cellBg = isPresent ? '#d4edda' : colBg;
-                const col = cellBg ? ` style="background:${cellBg};"` : '';
-                const stStyle = info && !isPresent ? ` style="font-weight:700;color:${attStatusColor(st)};"` : '';
-                html += `<td${col}><span${stStyle}>${isPresent ? '' : escapeHtml(st)}</span></td>`;
+                const col = dow===0 ? ' style="background:#FFF3F3;"' : dow===6 ? ' style="background:#F3F5FF;"' : '';
+                const stStyle = info ? ` style="font-weight:700;color:${attStatusColor(st)};"` : '';
+                html += `<td${col}><span${stStyle}>${escapeHtml(st)}</span></td>`;
             });
             html += '</tr>';
         });
@@ -3920,12 +3969,20 @@
         function recRenderInputArea() {
             var info = document.getElementById('recInputInfo');
             var bulk = document.getElementById('recBulkWrap');
+            var rubricPanel = document.getElementById('recRubricPanel');
             if (!recCurrentTestId) {
-                info.style.display = ''; bulk.style.display = 'none'; return;
+                info.style.display = ''; bulk.style.display = 'none';
+                if (rubricPanel) rubricPanel.style.display = 'none';
+                return;
             }
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
-            if (!test) { info.style.display = ''; bulk.style.display = 'none'; return; }
+            if (!test) {
+                info.style.display = ''; bulk.style.display = 'none';
+                if (rubricPanel) rubricPanel.style.display = 'none';
+                return;
+            }
             info.style.display = 'none'; bulk.style.display = '';
+            recUpdateRubricPanel(test);
             recRenderList(test);
             recUpdateProgress(test);
             recRenderFilterBar(test);
@@ -4568,7 +4625,34 @@
             var maxEl = document.getElementById('recTestMaxScore');
             if (cat === '主体性') { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
             else { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
+            // ルーブリックフィールド表示（観点が選択されたら表示）
+            var rf = document.getElementById('recRubricFields');
+            if (rf) { rf.classList.toggle('show', !!cat); }
         };
+
+        // ルーブリック参照パネルの開閉
+        window.recToggleRubricPanel = function() {
+            var toggle = document.getElementById('recRubricToggle');
+            var body = document.getElementById('recRubricBody');
+            toggle.classList.toggle('open');
+            body.classList.toggle('open');
+        };
+
+        // ルーブリック参照パネルの内容を更新
+        function recUpdateRubricPanel(test) {
+            var panel = document.getElementById('recRubricPanel');
+            if (!panel) return;
+            var hasRubric = test && (test.rubricA || test.rubricB || test.rubricC);
+            if (!hasRubric) { panel.style.display = 'none'; return; }
+            panel.style.display = '';
+            var body = document.getElementById('recRubricBody');
+            var html = '';
+            if (test.rubricA) html += '<div class="rubric-row"><span class="rubric-badge a">A</span><span class="rubric-text">' + escapeHtml(test.rubricA) + '</span></div>';
+            if (test.rubricB) html += '<div class="rubric-row"><span class="rubric-badge b">B</span><span class="rubric-text">' + escapeHtml(test.rubricB) + '</span></div>';
+            if (test.rubricC) html += '<div class="rubric-row"><span class="rubric-badge c">C</span><span class="rubric-text">' + escapeHtml(test.rubricC) + '</span></div>';
+            body.innerHTML = html;
+        }
+
 
         // まとめテストプレビュー
         window.recRenderMatomePreview = function() {
@@ -4663,6 +4747,9 @@
             }
 
             var tests = recGetTests();
+            var rubricA = (document.getElementById('recRubricA').value || '').trim();
+            var rubricB = (document.getElementById('recRubricB').value || '').trim();
+            var rubricC = (document.getElementById('recRubricC').value || '').trim();
             var test = {
                 id: recEditingTestId !== null ? recEditingTestId : Date.now(),
                 subject: subject, testType: testType, name: name, category: category,
@@ -4670,6 +4757,9 @@
                 maxScore: isMatome ? matomeMaxScore : maxScore,
                 date: date, createdAt: new Date().toISOString()
             };
+            if (rubricA) test.rubricA = rubricA;
+            if (rubricB) test.rubricB = rubricB;
+            if (rubricC) test.rubricC = rubricC;
             if (isMatome) {
                 test.matomePoints = matomePoints;
                 test.matomeQuestionTypes = matomeTypes;
@@ -4704,6 +4794,12 @@
             ['recTestSubject','recTestType','recTestName','recTestCategory','recTestDate'].forEach(function(id) {
                 var el = document.getElementById(id); if (el) el.value = '';
             });
+            // ルーブリックフィールドクリア
+            ['recRubricA','recRubricB','recRubricC'].forEach(function(id) {
+                var el = document.getElementById(id); if (el) el.value = '';
+            });
+            var rf = document.getElementById('recRubricFields');
+            if (rf) rf.classList.remove('show');
             var ms = document.getElementById('recTestMaxScore');
             if (ms) { ms.value = ''; ms.disabled = false; ms.placeholder = '満点（例：100）'; }
             document.getElementById('recMatomeFields').style.display = 'none';
@@ -4724,6 +4820,12 @@
             document.getElementById('recTestName').value = test.name || '';
             document.getElementById('recTestCategory').value = test.category || '';
             document.getElementById('recTestDate').value = test.date || '';
+            // ルーブリック復元
+            document.getElementById('recRubricA').value = test.rubricA || '';
+            document.getElementById('recRubricB').value = test.rubricB || '';
+            document.getElementById('recRubricC').value = test.rubricC || '';
+            var rf = document.getElementById('recRubricFields');
+            if (rf) rf.classList.toggle('show', !!test.category);
             var ms = document.getElementById('recTestMaxScore');
             if (test.category === '主体性') { ms.value = ''; ms.disabled = true; ms.placeholder = 'ABC評価'; }
             else if (test.testType === '実技記録') { ms.value = ''; ms.disabled = true; ms.placeholder = '自動'; }
@@ -4817,7 +4919,8 @@
                     (isPE ? ' pe-item' : '') + (isMatome ? ' matome-item' : '') + '">' +
                     '<div class="rec-test-item-info" onclick="recSelectTestGoto(' + test.id + ')">' +
                     '<div class="rec-test-item-name">' + (isPE?'🏃 ':'') + (isMatome?'📝 ':'') +
-                    escapeHtml(test.subject) + '　' + (test.testType||'') + '　' + escapeHtml(test.name) + '</div>' +
+                    escapeHtml(test.subject) + '　' + (test.testType||'') + '　' + escapeHtml(test.name) +
+                    ((test.rubricA || test.rubricB || test.rubricC) ? '<span class="rubric-has-badge">📐</span>' : '') + '</div>' +
                     '<div class="rec-test-item-meta">' + test.category + ' ｜ ' + scoreInfo + ' ｜ ' + (test.date||'') + ' ｜ 入力済: ' + cnt + '/' + students.length + '</div>' +
                     '</div>' +
                     '<div class="rec-test-item-acts">' +
@@ -8093,8 +8196,7 @@
                 var row = [i + 1, s.name || ''];
                 dates.forEach(function(d) {
                     var dayData = att[d] || {};
-                    var st = dayData[i] || '';
-                    row.push(st === '○' ? '' : st);
+                    row.push(dayData[i] || '○');
                 });
                 rows.push(row);
             });

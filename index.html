@@ -3709,7 +3709,7 @@
                 const info = ATT_STATUS_MAP[st];
                 const col = dow===0 ? ' style="background:#FFF3F3;"' : dow===6 ? ' style="background:#F3F5FF;"' : '';
                 const stStyle = info ? ` style="font-weight:700;color:${attStatusColor(st)};"` : '';
-                html += `<td${col}><span${stStyle}>${escapeHtml(st)}</span></td>`;
+                html += `<td${col}><span${stStyle}>${st === '○' ? '' : escapeHtml(st)}</span></td>`;
             });
             html += '</tr>';
         });

@@ -4629,6 +4629,8 @@
                 var cat = document.getElementById('recTestCategory').value;
                 if (rf) rf.classList.toggle('show', !!cat);
             }
+            // 課題名プレフィックス自動挿入
+            recAutoPrefix();
         };
 
         window.recOnCategoryChange = function() {
@@ -4641,7 +4643,39 @@
             // ルーブリックフィールド表示
             var rf = document.getElementById('recRubricFields');
             if (rf) { rf.classList.toggle('show', !!(cat || isRubric)); }
+            // 課題名プレフィックス自動挿入
+            recAutoPrefix();
         };
+
+        // 課題名プレフィックス自動挿入
+        var REC_PREFIX_MAP_RUBRIC = { '知識・技能': 'ル【知技】', '思考・判断・表現': 'ル【思判表】', '主体性': 'ル【主体】' };
+        var REC_PREFIX_MAP_TYPE = { '単元テスト': '単テ_', '小テスト': '小テ_', '授業課題': '授課_', '作文': '作文_', '実技記録': '実技_', '授業態度': '態度_', '振り返り': '振返_', 'まとめテスト': 'まテ_' };
+        var REC_ALL_PREFIXES = ['ル【知技】','ル【思判表】','ル【主体】','単テ_','小テ_','授課_','作文_','実技_','態度_','振返_','まテ_'];
+
+        function recAutoPrefix() {
+            var type = document.getElementById('recTestType').value;
+            var cat = document.getElementById('recTestCategory').value;
+            var nameEl = document.getElementById('recTestName');
+            if (!nameEl) return;
+            var curName = nameEl.value;
+            // 既存のプレフィックスを除去
+            var stripped = curName;
+            REC_ALL_PREFIXES.forEach(function(p) { if (stripped.indexOf(p) === 0) stripped = stripped.substring(p.length); });
+            // 新しいプレフィックスを決定
+            var prefix = '';
+            if (type === 'ルーブリック' && cat) {
+                prefix = REC_PREFIX_MAP_RUBRIC[cat] || '';
+            } else if (type && type !== 'ルーブリック') {
+                prefix = REC_PREFIX_MAP_TYPE[type] || '';
+            }
+            nameEl.value = prefix + stripped;
+            // プレースホルダーも更新
+            if (prefix) {
+                nameEl.placeholder = prefix + '単元名';
+            } else {
+                nameEl.placeholder = '課題名（例：単元1まとめ）';
+            }
+        }
 
         // ルーブリック参照パネルの開閉
         window.recToggleRubricPanel = function() {

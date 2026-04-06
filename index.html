@@ -3568,7 +3568,7 @@
                     <div class="grid-cell-status-badge ${hasSt?'done':'empty'}">${hasSt?'✓':''}</div>
                 </div>
                 <span class="name" title="${escapeHtml(s.name||'')}">${displayName}</span>
-                <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>`;
+                <span class="status">${escapeHtml(status)}</span>`;
             cell.onclick = () => attOpenModal(i);
             frag.appendChild(cell);
         });
@@ -3707,9 +3707,12 @@
             days.forEach(({ ds, dow }) => {
                 const st  = (allData[ds] || {})[String(i)] || '';
                 const info = ATT_STATUS_MAP[st];
-                const col = dow===0 ? ' style="background:#FFF3F3;"' : dow===6 ? ' style="background:#F3F5FF;"' : '';
-                const stStyle = info ? ` style="font-weight:700;color:${attStatusColor(st)};"` : '';
-                html += `<td${col}><span${stStyle}>${st === '○' ? '' : escapeHtml(st)}</span></td>`;
+                const isPresent = st === '○';
+                const colBg = dow===0 ? '#FFF3F3' : dow===6 ? '#F3F5FF' : '';
+                const cellBg = isPresent ? '#d4edda' : colBg;
+                const col = cellBg ? ` style="background:${cellBg};"` : '';
+                const stStyle = info && !isPresent ? ` style="font-weight:700;color:${attStatusColor(st)};"` : '';
+                html += `<td${col}><span${stStyle}>${isPresent ? '' : escapeHtml(st)}</span></td>`;
             });
             html += '</tr>';
         });

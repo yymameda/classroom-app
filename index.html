@@ -3885,7 +3885,7 @@
         var recCurrentTestId = null;
         var recEditingTestId = null;
         var recMatomeStudentIndex = null;
-        var recInputFilters = { subject: '', type: '' };
+        var recInputFilters = { subject: '', category: '', type: '' };
         var recTestSortKey = 'id';
         var recTestSortAsc = false;
 
@@ -3917,10 +3917,10 @@
         // ============================================================
         function recInitInput() {
             recUpdateTestSelect();
+            recRenderInputArea();
             if (recCurrentTestId) {
                 var sel = document.getElementById('recInputTestSelect');
                 if (sel) sel.value = recCurrentTestId;
-                recRenderInputArea();
             }
         }
 
@@ -3930,7 +3930,7 @@
             var tests = recGetTests();
             var f = recInputFilters;
             var filtered = tests.filter(function(t) {
-                return (!f.subject || t.subject === f.subject) && (!f.type || t.testType === f.type);
+                return (!f.subject || t.subject === f.subject) && (!f.category || t.category === f.category) && (!f.type || t.testType === f.type);
             });
             // 教科別にグルーピング
             var groups = {};
@@ -3971,6 +3971,7 @@
             var info = document.getElementById('recInputInfo');
             var bulk = document.getElementById('recBulkWrap');
             var rubricPanel = document.getElementById('recRubricPanel');
+            recRenderFilterBar();
             if (!recCurrentTestId) {
                 info.style.display = ''; bulk.style.display = 'none';
                 if (rubricPanel) rubricPanel.style.display = 'none';
@@ -3986,34 +3987,52 @@
             recUpdateRubricPanel(test);
             recRenderList(test);
             recUpdateProgress(test);
-            recRenderFilterBar(test);
         }
 
-        function recRenderFilterBar(test) {
+        function recRenderFilterBar() {
             var bar = document.getElementById('recFilterBar');
             if (!bar) return;
-            bar.style.display = '';
             var tests = recGetTests();
-            // 教科リスト
+            if (tests.length === 0) { bar.style.display = 'none'; return; }
+            bar.style.display = '';
+            // 教科リスト（REC_SUBJ_ORDER順）
             var subjects = [];
-            tests.forEach(function(t) { if (subjects.indexOf(t.subject) < 0) subjects.push(t.subject); });
-            subjects.sort(function(a, b) { return REC_SUBJ_ORDER.indexOf(a) - REC_SUBJ_ORDER.indexOf(b); });
+            tests.forEach(function(t) { if (t.subject && subjects.indexOf(t.subject) < 0) subjects.push(t.subject); });
+            subjects.sort(function(a, b) {
+                var ia = REC_SUBJ_ORDER.indexOf(a), ib = REC_SUBJ_ORDER.indexOf(b);
+                if (ia < 0) ia = 999; if (ib < 0) ib = 999;
+                return ia - ib;
+            });
+            // 観点リスト
+            var categories = [];
+            tests.forEach(function(t) { if (t.category && categories.indexOf(t.category) < 0) categories.push(t.category); });
             // 種別リスト
             var types = [];
             tests.forEach(function(t) { if (t.testType && types.indexOf(t.testType) < 0) types.push(t.testType); });
             var f = recInputFilters;
             var html = '';
             // 教科ボタン
-            subjects.forEach(function(s) {
-                html += '<button class="rec-filter-btn' + (f.subject === s ? ' active' : '') + '" data-fsubj="' + s + '">' + s + '</button>';
-            });
-            html += '<span style="width:1px;height:16px;background:var(--border);flex-shrink:0;margin:0 2px;"></span>';
+            if (subjects.length > 0) {
+                subjects.forEach(function(s) {
+                    html += '<button class="rec-filter-btn' + (f.subject === s ? ' active' : '') + '" data-fsubj="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
+                });
+                if (categories.length > 0 || types.length > 0) html += '<span style="width:1px;height:16px;background:var(--border);flex-shrink:0;margin:0 2px;"></span>';
+            }
+            // 観点ボタン
+            if (categories.length > 0) {
+                categories.forEach(function(c) {
+                    html += '<button class="rec-filter-btn' + (f.category === c ? ' active' : '') + '" data-fcat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+                });
+                if (types.length > 0) html += '<span style="width:1px;height:16px;background:var(--border);flex-shrink:0;margin:0 2px;"></span>';
+            }
             // 種別ボタン
-            types.forEach(function(t) {
-                html += '<button class="rec-filter-btn' + (f.type === t ? ' active' : '') + '" data-ftype="' + t + '">' + t + '</button>';
-            });
+            if (types.length > 0) {
+                types.forEach(function(t) {
+                    html += '<button class="rec-filter-btn' + (f.type === t ? ' active' : '') + '" data-ftype="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+                });
+            }
             // クリアボタン
-            if (f.subject || f.type) {
+            if (f.subject || f.category || f.type) {
                 html += '<button class="rec-filter-btn clear" data-fclear="1">✕ 解除</button>';
             }
             bar.innerHTML = html;
@@ -4021,22 +4040,30 @@
                 btn.addEventListener('click', function() {
                     recInputFilters.subject = recInputFilters.subject === btn.dataset.fsubj ? '' : btn.dataset.fsubj;
                     recUpdateTestSelect();
-                    recRenderFilterBar(test);
+                    recRenderInputArea();
+                });
+            });
+            bar.querySelectorAll('[data-fcat]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    recInputFilters.category = recInputFilters.category === btn.dataset.fcat ? '' : btn.dataset.fcat;
+                    recUpdateTestSelect();
+                    recRenderInputArea();
                 });
             });
             bar.querySelectorAll('[data-ftype]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     recInputFilters.type = recInputFilters.type === btn.dataset.ftype ? '' : btn.dataset.ftype;
                     recUpdateTestSelect();
-                    recRenderFilterBar(test);
+                    recRenderInputArea();
                 });
             });
             bar.querySelectorAll('[data-fclear]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     recInputFilters.subject = '';
+                    recInputFilters.category = '';
                     recInputFilters.type = '';
                     recUpdateTestSelect();
-                    recRenderFilterBar(test);
+                    recRenderInputArea();
                 });
             });
         }

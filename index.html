@@ -1559,6 +1559,7 @@
                                 <option>小テスト</option><option>授業課題</option>
                                 <option>授業態度</option><option>実技記録</option>
                                 <option>作文</option><option>振り返り</option>
+                                <option>ルーブリック</option>
                             </select>
                             <input type="text" id="recTestName" placeholder="課題名（例：単元1まとめ）">
                             <select id="recTestCategory" onchange="recOnCategoryChange()">
@@ -4045,7 +4046,7 @@
             if (!list) return;
             var students = recGetStudents();
             var scores = recGetScores();
-            var isABC = test.category === '主体性';
+            var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
             var isMatome = test.type === 'matome' || test.testType === 'まとめテスト';
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && test.peUnit === 'なわとびカード';
@@ -4158,7 +4159,7 @@
                 return;
             }
 
-            var isABC = test.category === '主体性';
+            var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
             var isNawatobi = test.testType === '実技記録' && test.peUnit === 'なわとびカード';
             var count = scores.length;
 
@@ -4464,7 +4465,7 @@
             if (!test) return;
             var students = recGetStudents();
             var scores = recGetScores();
-            var isABC = test.category === '主体性';
+            var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
             var isMatome = test.type === 'matome' || test.testType === 'まとめテスト';
             if (isABC || isMatome) { showToast('保存済みです', 'success'); return; }
             var saved = 0;
@@ -4606,6 +4607,7 @@
             var maxEl = document.getElementById('recTestMaxScore');
             var matomeF = document.getElementById('recMatomeFields');
             var peF = document.getElementById('recPeFields');
+            var rf = document.getElementById('recRubricFields');
             matomeF.style.display = 'none'; peF.style.display = 'none';
             maxEl.disabled = false; maxEl.placeholder = '満点（例：100）';
             if (type === 'まとめテスト') {
@@ -4617,17 +4619,28 @@
                 maxEl.disabled = true; maxEl.placeholder = '自動'; maxEl.value = '';
             } else if (type === '授業態度') {
                 maxEl.value = '10'; maxEl.disabled = true;
+            } else if (type === 'ルーブリック') {
+                maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価';
+                // ルーブリック種別ではルーブリック入力欄を自動表示
+                if (rf) rf.classList.add('show');
+            }
+            // ルーブリック種別以外で、観点未選択なら非表示に
+            if (type !== 'ルーブリック') {
+                var cat = document.getElementById('recTestCategory').value;
+                if (rf) rf.classList.toggle('show', !!cat);
             }
         };
 
         window.recOnCategoryChange = function() {
             var cat = document.getElementById('recTestCategory').value;
+            var type = document.getElementById('recTestType').value;
             var maxEl = document.getElementById('recTestMaxScore');
-            if (cat === '主体性') { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
-            else { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
-            // ルーブリックフィールド表示（観点が選択されたら表示）
+            var isRubric = type === 'ルーブリック';
+            if (cat === '主体性' || isRubric) { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
+            else if (type !== 'まとめテスト' && type !== '実技記録' && type !== '授業態度') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
+            // ルーブリックフィールド表示
             var rf = document.getElementById('recRubricFields');
-            if (rf) { rf.classList.toggle('show', !!cat); }
+            if (rf) { rf.classList.toggle('show', !!(cat || isRubric)); }
         };
 
         // ルーブリック参照パネルの開閉
@@ -4729,10 +4742,11 @@
             var maxScoreVal = document.getElementById('recTestMaxScore').value;
             var date     = document.getElementById('recTestDate').value;
 
-            var isABC     = category === '主体性';
+            var isABC     = category === '主体性' || testType === 'ルーブリック';
             var isMatome  = testType === 'まとめテスト';
             var isPE      = testType === '実技記録';
             var isAttitude= testType === '授業態度';
+            var isRubric  = testType === 'ルーブリック';
 
             if (!subject || !testType || !name || !category || !date) { alert('全項目を入力してください'); return; }
 
@@ -4914,7 +4928,7 @@
                 var cnt = scores.filter(function(s) { return s.testId === test.id; }).length;
                 var isMatome = test.type === 'matome' || test.testType === 'まとめテスト';
                 var isPE = test.testType === '実技記録';
-                var scoreInfo = test.category === '主体性' ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
+                var scoreInfo = (test.category === '主体性' || test.testType === 'ルーブリック') ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
                 return '<div class="rec-test-item' + (test.id === recCurrentTestId ? ' selected' : '') +
                     (isPE ? ' pe-item' : '') + (isMatome ? ' matome-item' : '') + '">' +
                     '<div class="rec-test-item-info" onclick="recSelectTestGoto(' + test.id + ')">' +

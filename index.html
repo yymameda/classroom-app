@@ -1454,6 +1454,7 @@
                         <button class="btn btn-danger" id="seatResetBtn" onclick="resetSeating()" style="display:none;">🔄 リセット</button>
                         <button class="btn btn-success" id="seatSaveBtn" onclick="saveSeatingAndExit()" style="display:none;">💾 保存</button>
                         <button class="btn btn-outline" id="seatVisionBtn" onclick="toggleVisionMode()" style="border-color: #E74C3C; color: #E74C3C;">👁 視力表示</button>
+                        <button class="btn btn-outline" id="seatPrintBtn" onclick="printSeating()" style="border-color: #6B7280; color: #6B7280;">🖨️ 印刷</button>
                     </div>
                     <div style="background: linear-gradient(180deg, #2E5339, #3D6B4A); color: white; text-align: center; padding: 0.75rem; border-radius: 8px; margin-bottom: 12px; font-weight: 500;">【 黒 板 】</div>
                     <div id="seatEditHint" style="display:none; text-align: center; padding: 8px; background: #FEF9E7; border-radius: 8px; margin-bottom: 12px; color: #92400E; font-size: 0.85rem;">
@@ -3294,6 +3295,128 @@
             btn.textContent = '👁 視力表示';
         }
         renderSeating();
+    }
+
+    function printSeating() {
+        var ci = master.classInfo || {};
+        var year  = ci.year  || new Date().getFullYear();
+        var grade = ci.grade || '';
+        var cls   = ci.class || '';
+        var teacher = ci.teacher || '';
+        var today = new Date();
+        var dateStr = today.getFullYear() + '年' + (today.getMonth()+1) + '月' + today.getDate() + '日';
+
+        // 座席データ取得（編集中でなければStorageから）
+        var sd = seatEditing ? seatingData : getSeating();
+
+        // グリッドHTML生成（6行×6列）
+        var rows = '';
+        for (var r = 0; r < SEAT_ROWS; r++) {
+            var cells = '';
+            for (var c = 0; c < SEAT_COLS; c++) {
+                var key = r + '-' + c;
+                var idx = sd[key];
+                var s = (idx !== undefined && idx !== null) ? master.students[idx] : null;
+                var cellCls = 'seat';
+                var nameHtml = '<span class="empty-label">（空席）</span>';
+                var visionHtml = '';
+                var numHtml = '';
+                if (s) {
+                    var worst = getWorstVision(s);
+                    if (worst === 'D') cellCls += ' vision-D';
+                    else if (worst === 'C') cellCls += ' vision-C';
+                    // 名前（長い場合は改行して表示）
+                    var nm = s.name || '';
+                    nameHtml = '<span class="seat-name">' + escapeHtml(nm) + '</span>';
+                    // 視力ラベル
+                    if (s.visionL || s.visionR) {
+                        visionHtml = '<span class="vision-tag">' +
+                            escapeHtml(s.visionL||'-') + '/' + escapeHtml(s.visionR||'-') + '</span>';
+                    }
+                    // 出席番号（インデックス+1）
+                    numHtml = '<span class="seat-num">' + (idx+1) + '</span>';
+                }
+                cells += '<div class="' + cellCls + '">' +
+                    numHtml + nameHtml + visionHtml + '</div>';
+            }
+            rows += '<div class="seat-row">' + cells + '</div>';
+        }
+
+        var html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+            '<title>' + year + '年度 ' + grade + '年' + cls + '組 座席表</title>' +
+            '<style>' +
+            '@page { size: A4 landscape; margin: 12mm 14mm 12mm 14mm; }' +
+            'body { font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;' +
+            '  margin: 0; padding: 0; background: white; color: #1a1a1a; }' +
+            '.page { width: 100%; height: 100%; display: flex; flex-direction: column; }' +
+            /* ---- ヘッダー ---- */
+            '.header { display: flex; justify-content: space-between; align-items: flex-end;' +
+            '  border-bottom: 2px solid #2D7D9A; padding-bottom: 6px; margin-bottom: 10px; }' +
+            '.header-title { font-size: 18pt; font-weight: 700; color: #1a2332; }' +
+            '.header-sub { font-size: 9pt; color: #555; text-align: right; line-height: 1.6; }' +
+            /* ---- 黒板 ---- */
+            '.blackboard { background: linear-gradient(135deg, #2E5339, #3D6B4A);' +
+            '  color: white; text-align: center; padding: 7px 0; border-radius: 6px;' +
+            '  font-size: 11pt; font-weight: 600; letter-spacing: 0.2em; margin-bottom: 10px; }' +
+            /* ---- グリッド ---- */
+            '.seat-grid { flex: 1; display: flex; flex-direction: column; gap: 6px; }' +
+            '.seat-row { display: flex; gap: 6px; flex: 1; }' +
+            '.seat { flex: 1; border: 1.5px solid #CBD5E0; border-radius: 8px; background: #F7FAFC;' +
+            '  display: flex; flex-direction: column; align-items: center; justify-content: center;' +
+            '  padding: 4px 2px; min-height: 0; position: relative; }' +
+            '.seat-num { position: absolute; top: 3px; left: 5px; font-size: 6.5pt; color: #999; }' +
+            '.seat-name { font-size: 11.5pt; font-weight: 700; text-align: center;' +
+            '  line-height: 1.3; word-break: break-all; }' +
+            '.vision-tag { font-size: 6.5pt; color: #666; margin-top: 2px; }' +
+            '.empty-label { font-size: 7.5pt; color: #bbb; }' +
+            /* ---- 視力色分け ---- */
+            '.vision-D { background: #FDEDEC; border-color: #E74C3C; }' +
+            '.vision-C { background: #FEF9E7; border-color: #F39C12; }' +
+            /* ---- 窓/廊下ラベル ---- */
+            '.side-labels { display: flex; justify-content: space-between;' +
+            '  font-size: 8pt; color: #888; margin-top: 8px; }' +
+            /* ---- 凡例 ---- */
+            '.legend { display: flex; gap: 16px; align-items: center;' +
+            '  font-size: 7.5pt; color: #555; margin-top: 8px; }' +
+            '.legend-box { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-right: 3px; vertical-align: middle; border: 1px solid; }' +
+            '.legend-D { background: #FDEDEC; border-color: #E74C3C; }' +
+            '.legend-C { background: #FEF9E7; border-color: #F39C12; }' +
+            /* ---- PDF案内バナー（印刷時は非表示） ---- */
+            '.pdf-guide { background: #EFF6FF; border: 1.5px solid #3B82F6; border-radius: 10px;' +
+            '  padding: 14px 18px; margin-bottom: 16px; font-size: 13px; color: #1E40AF; line-height: 1.8; }' +
+            '.pdf-guide strong { font-size: 14px; display: block; margin-bottom: 4px; }' +
+            '.pdf-guide .step { display: flex; align-items: baseline; gap: 8px; }' +
+            '.pdf-guide .num { font-weight: 700; min-width: 20px; }' +
+            '@media print { .pdf-guide { display: none; } }' +
+            '</style></head><body>' +
+            '<div class="pdf-guide">' +
+            '  <strong>📄 PDF として保存して OneDrive 経由で印刷する手順</strong>' +
+            '  <div class="step"><span class="num">①</span><span>画面下の <strong>共有ボタン（□↑）</strong> をタップ</span></div>' +
+            '  <div class="step"><span class="num">②</span><span>「<strong>PDFを作成</strong>」を選択 → 右上「保存」</span></div>' +
+            '  <div class="step"><span class="num">③</span><span>保存先で <strong>OneDrive</strong> フォルダを指定</span></div>' +
+            '  <div class="step"><span class="num">④</span><span>Windows PC の OneDrive から開いて印刷</span></div>' +
+            '</div>' +
+            '<div class="page">' +
+            '<div class="header">' +
+            '  <div class="header-title">' + escapeHtml(String(year)) + '年度&nbsp;' +
+            escapeHtml(String(grade)) + '年' + escapeHtml(String(cls)) + '組&nbsp;座席表</div>' +
+            '  <div class="header-sub">担任：' + escapeHtml(teacher) + '&nbsp;&nbsp;&nbsp;' +
+            dateStr + '時点</div>' +
+            '</div>' +
+            '<div class="blackboard">【 黒　板 】</div>' +
+            '<div class="seat-grid">' + rows + '</div>' +
+            '<div class="side-labels"><span>← 窓側</span><span>廊下側 →</span></div>' +
+            '<div class="legend">' +
+            '  <span><span class="legend-box legend-D"></span>視力D（0.3未満）</span>' +
+            '  <span><span class="legend-box legend-C"></span>視力C（0.3〜0.7未満）</span>' +
+            '</div>' +
+            '</div>' +
+            '</body></html>';
+
+        var w = window.open('', '_blank');
+        if (!w) { showToast('⚠️ ポップアップがブロックされました。ブラウザの設定を確認してください。', 'warning'); return; }
+        w.document.write(html);
+        w.document.close();
     }
 
     function toggleSeatingEdit() {

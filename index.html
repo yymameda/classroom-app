@@ -3392,14 +3392,53 @@
             '  <span class="side-label">◀ 窓側</span>' +
             '  <span class="side-label">廊下側 ▶</span>' +
             '</div>' +
-            '<script>window.onload=function(){window.print();}<\/script>' +
             '</body></html>';
 
-        showToast('💡 共有ボタン→「PDFを作成」→ OneDrive へ保存してください', 'info');
-        var w = window.open('', '_blank');
-        if (!w) { showToast('⚠️ ポップアップがブロックされました。Safari設定でポップアップを許可してください。', 'warning'); return; }
-        w.document.write(html);
-        w.document.close();
+        // PWA対応：window.open不使用・同一ページ内で印刷して元に戻す
+        var overlay = document.createElement('div');
+        overlay.id = 'print-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:white;overflow:auto;';
+        overlay.innerHTML = html
+            .replace(/^[\s\S]*?<body[^>]*>/i, '')  // head〜bodyタグを除去
+            .replace(/<\/body>[\s\S]*$/i, '')        // /body以降を除去
+            .replace(/<script[\s\S]*?<\/script>/gi, ''); // scriptタグを除去
+        document.body.appendChild(overlay);
+
+        // 印刷スタイルを動的に追加
+        var printStyle = document.createElement('style');
+        printStyle.id = 'print-style-override';
+        printStyle.textContent =
+            '@media print {' +
+            '  body > *:not(#print-overlay) { display: none !important; }' +
+            '  #print-overlay { position: static !important; }' +
+            '}';
+        document.head.appendChild(printStyle);
+
+        // 共有シート表示（PDF化の案内）後に印刷
+        setTimeout(function() {
+            window.print();
+        }, 300);
+
+        // 印刷/PDF保存完了後にオーバーレイを削除して元の画面に戻る
+        function cleanup() {
+            var el = document.getElementById('print-overlay');
+            if (el) el.remove();
+            var ps = document.getElementById('print-style-override');
+            if (ps) ps.remove();
+            window.removeEventListener('afterprint', cleanup);
+        }
+        window.addEventListener('afterprint', cleanup);
+
+        // afterprintが発火しない場合の保険（戻るボタン表示）
+        overlay.insertAdjacentHTML('afterbegin',
+            '<div id="print-back-btn" style="position:fixed;bottom:24px;right:24px;z-index:100000;' +
+            'background:#2D7D9A;color:white;border:none;border-radius:50px;padding:14px 24px;' +
+            'font-size:16px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.3);cursor:pointer;' +
+            '@media print{display:none;}" onclick="(function(){' +
+            'var el=document.getElementById(\'print-overlay\');if(el)el.remove();' +
+            'var ps=document.getElementById(\'print-style-override\');if(ps)ps.remove();' +
+            '})()">✕ 元の画面に戻る</div>'
+        );
     }
 
     function toggleSeatingEdit() {

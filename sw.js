@@ -1,7 +1,7 @@
 // Service Worker for 教室管理アプリ PWA
 // キャッシュファースト + バージョン管理
 
-const CACHE_VERSION = 'v1.3.1';
+const CACHE_VERSION = 'v1.3.2';
 const CACHE_NAME = 'classroom-app-' + CACHE_VERSION;
 const ASSETS = [
   './',

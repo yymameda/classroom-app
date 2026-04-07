@@ -3304,11 +3304,8 @@
         var teacher = ci.teacher || '';
         var today = new Date();
         var dateStr = (today.getMonth()+1) + '月' + today.getDate() + '日';
-
-        // 座席データ取得
         var sd = seatEditing ? seatingData : getSeating();
 
-        // グリッドHTML生成（6行×6列）
         var rows = '';
         for (var r = 0; r < SEAT_ROWS; r++) {
             var cells = '';
@@ -3317,100 +3314,108 @@
                 var idx = sd[key];
                 var s = (idx !== undefined && idx !== null) ? master.students[idx] : null;
                 if (s) {
-                    var parts = (s.name || '').split(/[\s　]+/);
+                    var parts = (s.name || '').split(/[\s\u3000]+/);
                     var nameInner = parts.length >= 2
-                        ? '<span class="po-sei">' + escapeHtml(parts[0]) + '</span>' +
-                          '<span class="po-mei">' + escapeHtml(parts.slice(1).join('')) + '</span>'
-                        : '<span class="po-sei">' + escapeHtml(s.name || '') + '</span>';
-                    cells += '<div class="po-seat po-occ">' +
-                        '<span class="po-num">' + (idx+1) + '</span>' +
-                        '<div class="po-name">' + nameInner + '</div>' +
-                        '</div>';
+                        ? '<div class="sei">' + escapeHtml(parts[0]) + '</div><div class="mei">' + escapeHtml(parts.slice(1).join('')) + '</div>'
+                        : '<div class="sei">' + escapeHtml(s.name || '') + '</div>';
+                    cells += '<div class="seat occ"><span class="num">' + (idx+1) + '</span>' + nameInner + '</div>';
                 } else {
-                    cells += '<div class="po-seat po-emp"></div>';
+                    cells += '<div class="seat emp"></div>';
                 }
             }
-            rows += '<div class="po-row">' + cells + '</div>';
+            rows += '<div class="row">' + cells + '</div>';
         }
 
-        var titleStr = escapeHtml(String(grade)) + '年' + escapeHtml(String(cls)) + '組　座席表';
+        var titleStr = escapeHtml(String(grade)) + '年' + escapeHtml(String(cls)) + '組\u3000座席表';
 
-        // ---- オーバーレイ本体をDOMで構築（innerHTML汚染を避ける） ----
+        var printDoc =
+            '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>' +
+            '@page{size:A4 landscape;margin:10mm 12mm;}' +
+            '*{box-sizing:border-box;margin:0;padding:0;}' +
+            'html,body{width:277mm;height:190mm;overflow:hidden;' +
+            '  font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}' +
+            'body{display:flex;flex-direction:column;}' +
+            '.header{display:flex;justify-content:space-between;align-items:flex-end;' +
+            '  border-bottom:3px solid #2D7D9A;padding-bottom:5px;margin-bottom:8px;flex-shrink:0;}' +
+            '.title{font-size:20pt;font-weight:900;color:#1a2332;}' +
+            '.meta{font-size:9pt;color:#555;text-align:right;line-height:1.8;}' +
+            '.bb{background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:#fff;' +
+            '  text-align:center;padding:5px 0;border-radius:6px;' +
+            '  font-size:12pt;font-weight:700;letter-spacing:0.5em;margin-bottom:8px;flex-shrink:0;}' +
+            '.grid{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;}' +
+            '.row{display:flex;gap:4px;flex:1;min-height:0;}' +
+            '.seat{flex:1;border-radius:8px;display:flex;flex-direction:column;' +
+            '  align-items:center;justify-content:center;position:relative;}' +
+            '.occ{background:#fff;border:2px solid #2D7D9A;}' +
+            '.emp{background:#F8FAFC;border:2px dashed #CBD5E0;}' +
+            '.num{position:absolute;top:3px;left:5px;font-size:6pt;color:#bbb;font-weight:600;}' +
+            '.sei{font-size:13pt;font-weight:900;color:#1a2332;line-height:1.1;text-align:center;}' +
+            '.mei{font-size:11pt;font-weight:700;color:#2D7D9A;line-height:1.1;text-align:center;}' +
+            '.footer{display:flex;justify-content:space-between;padding:5px 2px 0;flex-shrink:0;}' +
+            '.side{font-size:8pt;color:#999;font-weight:600;}' +
+            '</style></head><body>' +
+            '<div class="header"><div class="title">' + titleStr + '</div>' +
+            '<div class="meta">' + dateStr + ' 現在\u3000担任：' + escapeHtml(teacher) + '</div></div>' +
+            '<div class="bb">\uff5e\u3000\u9ed2\u3000\u677f\u3000\uff5e</div>' +
+            '<div class="grid">' + rows + '</div>' +
+            '<div class="footer"><span class="side">\u25c4 \u7a93\u5074</span><span class="side">\u5eca\u4e0b\u5074 \u25ba</span></div>' +
+            '</body></html>';
+
+        // Blob URLでiframeに渡す（PWAモードでも@pageが正しく効く）
+        var blob = new Blob([printDoc], {type: 'text/html;charset=utf-8'});
+        var blobUrl = URL.createObjectURL(blob);
+
         var overlay = document.createElement('div');
         overlay.id = 'po-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
 
-        // 専用スタイル（クラス名を po- プレフィックスで衝突回避）
-        var styleEl = document.createElement('style');
-        styleEl.id = 'po-style';
-        styleEl.textContent = [
-            '#po-overlay{position:fixed;inset:0;z-index:99999;background:#fff;',
-            '  display:flex;flex-direction:column;',
-            '  padding:8mm 10mm;',
-            '  font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;',
-            '  box-sizing:border-box;overflow:hidden;}',
-            '.po-header{display:flex;justify-content:space-between;align-items:flex-end;',
-            '  border-bottom:3px solid #2D7D9A;padding-bottom:6px;margin-bottom:10px;flex-shrink:0;}',
-            '.po-title{font-size:22pt;font-weight:900;color:#1a2332;letter-spacing:0.05em;}',
-            '.po-meta{font-size:9pt;color:#555;text-align:right;line-height:2;}',
-            '.po-bb{background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:#fff;',
-            '  text-align:center;padding:6px 0;border-radius:6px;font-size:13pt;',
-            '  font-weight:700;letter-spacing:0.5em;margin-bottom:10px;flex-shrink:0;}',
-            '.po-grid{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;}',
-            '.po-row{display:flex;gap:6px;flex:1;min-height:0;}',
-            '.po-seat{flex:1;border-radius:10px;display:flex;flex-direction:column;',
-            '  align-items:center;justify-content:center;position:relative;min-height:0;}',
-            '.po-occ{background:#fff;border:2px solid #2D7D9A;box-shadow:0 2px 5px rgba(45,125,154,.18);}',
-            '.po-emp{background:#F8FAFC;border:2px dashed #CBD5E0;}',
-            '.po-num{position:absolute;top:4px;left:6px;font-size:7pt;color:#aaa;font-weight:600;}',
-            '.po-name{display:flex;flex-direction:column;align-items:center;gap:1px;width:100%;padding:2px;}',
-            '.po-sei{font-size:14pt;font-weight:900;color:#1a2332;line-height:1.1;text-align:center;}',
-            '.po-mei{font-size:12pt;font-weight:700;color:#2D7D9A;line-height:1.1;text-align:center;}',
-            '.po-footer{display:flex;justify-content:space-between;padding:6px 2px 0;flex-shrink:0;}',
-            '.po-side{font-size:8pt;color:#999;font-weight:600;}',
-            '.po-back{position:fixed;bottom:24px;right:24px;background:#2D7D9A;color:#fff;',
-            '  border:none;border-radius:50px;padding:14px 24px;font-size:16px;font-weight:700;',
-            '  box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;z-index:100000;}',
-            '@page{size:A4 landscape;margin:10mm 12mm;}',
-            '@media print{',
-            '  html,body{width:277mm!important;height:190mm!important;margin:0!important;padding:0!important;overflow:hidden!important;}',
-            '  body>*:not(#po-overlay){display:none!important;}',
-            '  #po-overlay{position:static!important;width:277mm!important;height:190mm!important;padding:8mm 10mm!important;overflow:hidden!important;}',
-            '  .po-back{display:none!important;}',
-            '  .po-title{font-size:18pt!important;}',
-            '}'
-        ].join('');
-        document.head.appendChild(styleEl);
+        // プレビュー（A4横比率）
+        var iframe = document.createElement('iframe');
+        iframe.src = blobUrl;
+        iframe.style.cssText = 'width:min(90vw,calc(85vh*297/210));height:min(calc(90vw*210/297),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
 
-        overlay.innerHTML =
-            '<div class="po-header">' +
-            '  <div class="po-title">' + titleStr + '</div>' +
-            '  <div class="po-meta">' + dateStr + ' 現在&nbsp;&nbsp;担任：' + escapeHtml(teacher) + '</div>' +
-            '</div>' +
-            '<div class="po-bb">〜　黒　板　〜</div>' +
-            '<div class="po-grid">' + rows + '</div>' +
-            '<div class="po-footer">' +
-            '  <span class="po-side">◀ 窓側</span>' +
-            '  <span class="po-side">廊下側 ▶</span>' +
-            '</div>' +
-            '<button class="po-back" id="po-back-btn">✕ 元の画面に戻る</button>';
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
 
+        var printBtn = document.createElement('button');
+        printBtn.textContent = '🖨️ 印刷 / PDF保存';
+        printBtn.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+
+        var backBtn = document.createElement('button');
+        backBtn.textContent = '✕ 元の画面に戻る';
+        backBtn.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+
+        btnRow.appendChild(printBtn);
+        btnRow.appendChild(backBtn);
+        overlay.appendChild(iframe);
+        overlay.appendChild(btnRow);
         document.body.appendChild(overlay);
 
-        // 戻るボタン
-        document.getElementById('po-back-btn').addEventListener('click', poCleanup);
-
-        // 印刷後に自動で戻る
         function poCleanup() {
+            URL.revokeObjectURL(blobUrl);
             var ov = document.getElementById('po-overlay');
             if (ov) ov.remove();
-            var st = document.getElementById('po-style');
-            if (st) st.remove();
-            window.removeEventListener('afterprint', poCleanup);
         }
-        window.addEventListener('afterprint', poCleanup);
 
-        // 共有シートを開く
-        setTimeout(function() { window.print(); }, 200);
+        // 印刷ボタン：iframeのwindow.printを呼ぶ
+        printBtn.addEventListener('click', function() {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch(e) {
+                // セキュリティ制限でiframe.printが使えない場合はBlob URLを新タブで開く
+                window.open(blobUrl, '_blank');
+            }
+        });
+
+        backBtn.addEventListener('click', poCleanup);
+
+        // 印刷後に自動で戻る
+        iframe.addEventListener('load', function() {
+            try {
+                iframe.contentWindow.addEventListener('afterprint', poCleanup);
+            } catch(e) {}
+        });
     }
 
     function toggleSeatingEdit() {

@@ -3299,7 +3299,6 @@
 
     function printSeating() {
         var ci = master.classInfo || {};
-        var year  = ci.year  || new Date().getFullYear();
         var grade = ci.grade || '';
         var cls   = ci.class || '';
         var teacher = ci.teacher || '';
@@ -3318,127 +3317,96 @@
                 var idx = sd[key];
                 var s = (idx !== undefined && idx !== null) ? master.students[idx] : null;
                 if (s) {
-                    var nm = escapeHtml(s.name || '');
-                    // 姓・名を分割して大きく表示（スペース区切り）
                     var parts = (s.name || '').split(/[\s　]+/);
                     var nameInner = parts.length >= 2
-                        ? '<span class="sei">' + escapeHtml(parts[0]) + '</span>' +
-                          '<span class="mei">' + escapeHtml(parts.slice(1).join('')) + '</span>'
-                        : '<span class="sei">' + nm + '</span>';
-                    cells += '<div class="seat occupied">' +
-                        '<span class="seat-num">' + (idx+1) + '</span>' +
-                        '<div class="name-block">' + nameInner + '</div>' +
+                        ? '<span class="po-sei">' + escapeHtml(parts[0]) + '</span>' +
+                          '<span class="po-mei">' + escapeHtml(parts.slice(1).join('')) + '</span>'
+                        : '<span class="po-sei">' + escapeHtml(s.name || '') + '</span>';
+                    cells += '<div class="po-seat po-occ">' +
+                        '<span class="po-num">' + (idx+1) + '</span>' +
+                        '<div class="po-name">' + nameInner + '</div>' +
                         '</div>';
                 } else {
-                    cells += '<div class="seat empty"></div>';
+                    cells += '<div class="po-seat po-emp"></div>';
                 }
             }
-            rows += '<div class="seat-row">' + cells + '</div>';
+            rows += '<div class="po-row">' + cells + '</div>';
         }
 
         var titleStr = escapeHtml(String(grade)) + '年' + escapeHtml(String(cls)) + '組　座席表';
 
-        var html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
-            '<title>' + titleStr + '</title>' +
-            '<style>' +
-            /* ページ設定 */
-            '@page { size: A4 landscape; margin: 10mm 12mm; }' +
-            '* { box-sizing: border-box; margin: 0; padding: 0; }' +
-            'body { font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;' +
-            '  background: white; color: #1a1a1a;' +
-            '  width: 277mm; height: 190mm; display: flex; flex-direction: column; }' +
-            /* ヘッダー */
-            '.header { display: flex; align-items: center; justify-content: space-between;' +
-            '  padding: 0 2mm 4mm 2mm; border-bottom: 3px solid #2D7D9A; margin-bottom: 4mm; flex-shrink: 0; }' +
-            '.title { font-size: 22pt; font-weight: 900; color: #1a2332; letter-spacing: 0.05em; }' +
-            '.meta { font-size: 9pt; color: #555; text-align: right; line-height: 2; }' +
-            '.meta strong { color: #1a2332; }' +
-            /* 黒板 */
-            '.blackboard { background: linear-gradient(135deg, #1e3d2a 0%, #2E5339 40%, #3D6B4A 100%);' +
-            '  color: white; text-align: center; padding: 5px 0; border-radius: 6px;' +
-            '  font-size: 13pt; font-weight: 700; letter-spacing: 0.5em;' +
-            '  margin-bottom: 4mm; flex-shrink: 0;' +
-            '  box-shadow: 0 2px 6px rgba(0,0,0,0.25); text-shadow: 0 1px 3px rgba(0,0,0,0.4); }' +
-            /* グリッド */
-            '.seat-grid { flex: 1; display: flex; flex-direction: column; gap: 3mm; min-height: 0; }' +
-            '.seat-row { display: flex; gap: 3mm; flex: 1; min-height: 0; }' +
-            /* 座席セル */
-            '.seat { flex: 1; border-radius: 10px; display: flex; flex-direction: column;' +
-            '  align-items: center; justify-content: center; position: relative; min-height: 0; }' +
-            '.seat.occupied { background: #ffffff; border: 2px solid #2D7D9A;' +
-            '  box-shadow: 0 2px 5px rgba(45,125,154,0.18); }' +
-            '.seat.empty { background: #F8FAFC; border: 2px dashed #CBD5E0; }' +
-            '.seat-num { position: absolute; top: 4px; left: 6px;' +
-            '  font-size: 7pt; color: #aaa; font-weight: 600; }' +
-            /* 名前ブロック */
-            '.name-block { display: flex; flex-direction: column; align-items: center;' +
-            '  justify-content: center; gap: 1px; width: 100%; padding: 2px; }' +
-            '.sei { font-size: 14pt; font-weight: 900; color: #1a2332;' +
-            '  line-height: 1.1; text-align: center; }' +
-            '.mei { font-size: 12pt; font-weight: 700; color: #2D7D9A;' +
-            '  line-height: 1.1; text-align: center; }' +
-            /* 下部ラベル */
-            '.footer { display: flex; justify-content: space-between; align-items: center;' +
-            '  padding: 3mm 2mm 0 2mm; flex-shrink: 0; }' +
-            '.side-label { font-size: 8pt; color: #999; font-weight: 600; letter-spacing: 0.05em; }' +
-            '</style></head><body>' +
-            '<div class="header">' +
-            '  <div class="title">' + titleStr + '</div>' +
-            '  <div class="meta"><strong>' + dateStr + '</strong> 現在　担任：<strong>' + escapeHtml(teacher) + '</strong></div>' +
-            '</div>' +
-            '<div class="blackboard">〜　黒　板　〜</div>' +
-            '<div class="seat-grid">' + rows + '</div>' +
-            '<div class="footer">' +
-            '  <span class="side-label">◀ 窓側</span>' +
-            '  <span class="side-label">廊下側 ▶</span>' +
-            '</div>' +
-            '</body></html>';
-
-        // PWA対応：window.open不使用・同一ページ内で印刷して元に戻す
+        // ---- オーバーレイ本体をDOMで構築（innerHTML汚染を避ける） ----
         var overlay = document.createElement('div');
-        overlay.id = 'print-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:white;overflow:auto;';
-        overlay.innerHTML = html
-            .replace(/^[\s\S]*?<body[^>]*>/i, '')  // head〜bodyタグを除去
-            .replace(/<\/body>[\s\S]*$/i, '')        // /body以降を除去
-            .replace(/<script[\s\S]*?<\/script>/gi, ''); // scriptタグを除去
+        overlay.id = 'po-overlay';
+
+        // 専用スタイル（クラス名を po- プレフィックスで衝突回避）
+        var styleEl = document.createElement('style');
+        styleEl.id = 'po-style';
+        styleEl.textContent = [
+            '#po-overlay{position:fixed;inset:0;z-index:99999;background:#fff;',
+            '  display:flex;flex-direction:column;padding:10mm 12mm;',
+            '  font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;',
+            '  box-sizing:border-box;}',
+            '.po-header{display:flex;justify-content:space-between;align-items:flex-end;',
+            '  border-bottom:3px solid #2D7D9A;padding-bottom:6px;margin-bottom:10px;flex-shrink:0;}',
+            '.po-title{font-size:22pt;font-weight:900;color:#1a2332;letter-spacing:0.05em;}',
+            '.po-meta{font-size:9pt;color:#555;text-align:right;line-height:2;}',
+            '.po-bb{background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:#fff;',
+            '  text-align:center;padding:6px 0;border-radius:6px;font-size:13pt;',
+            '  font-weight:700;letter-spacing:0.5em;margin-bottom:10px;flex-shrink:0;}',
+            '.po-grid{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;}',
+            '.po-row{display:flex;gap:6px;flex:1;min-height:0;}',
+            '.po-seat{flex:1;border-radius:10px;display:flex;flex-direction:column;',
+            '  align-items:center;justify-content:center;position:relative;min-height:0;}',
+            '.po-occ{background:#fff;border:2px solid #2D7D9A;box-shadow:0 2px 5px rgba(45,125,154,.18);}',
+            '.po-emp{background:#F8FAFC;border:2px dashed #CBD5E0;}',
+            '.po-num{position:absolute;top:4px;left:6px;font-size:7pt;color:#aaa;font-weight:600;}',
+            '.po-name{display:flex;flex-direction:column;align-items:center;gap:1px;width:100%;padding:2px;}',
+            '.po-sei{font-size:14pt;font-weight:900;color:#1a2332;line-height:1.1;text-align:center;}',
+            '.po-mei{font-size:12pt;font-weight:700;color:#2D7D9A;line-height:1.1;text-align:center;}',
+            '.po-footer{display:flex;justify-content:space-between;padding:6px 2px 0;flex-shrink:0;}',
+            '.po-side{font-size:8pt;color:#999;font-weight:600;}',
+            '.po-back{position:fixed;bottom:24px;right:24px;background:#2D7D9A;color:#fff;',
+            '  border:none;border-radius:50px;padding:14px 24px;font-size:16px;font-weight:700;',
+            '  box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;z-index:100000;}',
+            '@media print{',
+            '  #po-overlay{position:fixed;inset:0;}',
+            '  .po-back{display:none!important;}',
+            '  body>*:not(#po-overlay){display:none!important;}',
+            '}'
+        ].join('');
+        document.head.appendChild(styleEl);
+
+        overlay.innerHTML =
+            '<div class="po-header">' +
+            '  <div class="po-title">' + titleStr + '</div>' +
+            '  <div class="po-meta">' + dateStr + ' 現在&nbsp;&nbsp;担任：' + escapeHtml(teacher) + '</div>' +
+            '</div>' +
+            '<div class="po-bb">〜　黒　板　〜</div>' +
+            '<div class="po-grid">' + rows + '</div>' +
+            '<div class="po-footer">' +
+            '  <span class="po-side">◀ 窓側</span>' +
+            '  <span class="po-side">廊下側 ▶</span>' +
+            '</div>' +
+            '<button class="po-back" id="po-back-btn">✕ 元の画面に戻る</button>';
+
         document.body.appendChild(overlay);
 
-        // 印刷スタイルを動的に追加
-        var printStyle = document.createElement('style');
-        printStyle.id = 'print-style-override';
-        printStyle.textContent =
-            '@media print {' +
-            '  body > *:not(#print-overlay) { display: none !important; }' +
-            '  #print-overlay { position: static !important; }' +
-            '}';
-        document.head.appendChild(printStyle);
+        // 戻るボタン
+        document.getElementById('po-back-btn').addEventListener('click', poCleanup);
 
-        // 共有シート表示（PDF化の案内）後に印刷
-        setTimeout(function() {
-            window.print();
-        }, 300);
-
-        // 印刷/PDF保存完了後にオーバーレイを削除して元の画面に戻る
-        function cleanup() {
-            var el = document.getElementById('print-overlay');
-            if (el) el.remove();
-            var ps = document.getElementById('print-style-override');
-            if (ps) ps.remove();
-            window.removeEventListener('afterprint', cleanup);
+        // 印刷後に自動で戻る
+        function poCleanup() {
+            var ov = document.getElementById('po-overlay');
+            if (ov) ov.remove();
+            var st = document.getElementById('po-style');
+            if (st) st.remove();
+            window.removeEventListener('afterprint', poCleanup);
         }
-        window.addEventListener('afterprint', cleanup);
+        window.addEventListener('afterprint', poCleanup);
 
-        // afterprintが発火しない場合の保険（戻るボタン表示）
-        overlay.insertAdjacentHTML('afterbegin',
-            '<div id="print-back-btn" style="position:fixed;bottom:24px;right:24px;z-index:100000;' +
-            'background:#2D7D9A;color:white;border:none;border-radius:50px;padding:14px 24px;' +
-            'font-size:16px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.3);cursor:pointer;' +
-            '@media print{display:none;}" onclick="(function(){' +
-            'var el=document.getElementById(\'print-overlay\');if(el)el.remove();' +
-            'var ps=document.getElementById(\'print-style-override\');if(ps)ps.remove();' +
-            '})()">✕ 元の画面に戻る</div>'
-        );
+        // 共有シートを開く
+        setTimeout(function() { window.print(); }, 200);
     }
 
     function toggleSeatingEdit() {

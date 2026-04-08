@@ -284,6 +284,8 @@
         .seat-cell.selected { background: #FEF3C7; border-color: var(--accent); }
         .seat-cell.dragging { opacity: 0.4; }
         .seat-cell.drag-over { border-color: var(--accent); background: #FEF3C7; }
+        .seat-cell.gender-male { background: #E8F5E9; border-color: #4CAF50; }
+        .seat-cell.gender-female { background: #FFF3E0; border-color: #FF9800; }
         .seat-cell.vision-D { background: #FDEDEC; border-color: #E74C3C; }
         .seat-cell.vision-C { background: #FEF9E7; border-color: #F39C12; }
         .seat-cell .vision-label {
@@ -3120,6 +3122,10 @@
                     name = student.name;
                     if (name.length > 3) name = name.substring(0, 3) + '…';
                     cls = 'seat-cell occupied';
+                    if (!seatVisionMode) {
+                        if (student.gender === '男') cls += ' gender-male';
+                        else if (student.gender === '女') cls += ' gender-female';
+                    }
                     if (seatVisionMode) {
                         var worst = getWorstVision(student);
                         if (worst === 'D') cls += ' vision-D';
@@ -3149,9 +3155,11 @@
         if (seatEditing && unassigned.length > 0) {
             uArea.style.display = 'block';
             uList.innerHTML = unassigned.map(function(i) {
-                return '<div class="unassigned-btn" data-unassigned="' + i + '" draggable="true" style="touch-action:none;">' +
+                var s = master.students[i];
+                var gStyle = s.gender === '男' ? 'background:#E8F5E9;border-color:#4CAF50;' : s.gender === '女' ? 'background:#FFF3E0;border-color:#FF9800;' : '';
+                return '<div class="unassigned-btn" data-unassigned="' + i + '" draggable="true" style="touch-action:none;' + gStyle + '">' +
                     '<span style="font-size:0.65rem;color:var(--text-light);">' + (i+1) + '</span> ' +
-                    escapeHtml(master.students[i].name) + '</div>';
+                    escapeHtml(s.name) + '</div>';
             }).join('');
             setupUnassignedDragEvents();
         } else {

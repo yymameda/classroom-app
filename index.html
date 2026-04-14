@@ -4238,14 +4238,40 @@
         var dateKey = attDateStr(attCurrentDate);
         var mpData = StorageManager.get(KEYS.morning_prep, {});
         if (!mpData[dateKey]) mpData[dateKey] = {};
-        if (mpData[dateKey][String(idx)]) {
+        var wasOn = mpData[dateKey][String(idx)] === true;
+        if (wasOn) {
             delete mpData[dateKey][String(idx)];
         } else {
             mpData[dateKey][String(idx)] = true;
         }
         StorageManager.setImmediate(KEYS.morning_prep, JSON.stringify(mpData));
+
+        // 生活記録に自動記録（ONにした時のみ）
+        if (!wasOn) {
+            var lifeAll = StorageManager.get(KEYS.karte_life, {});
+            var lifeList = Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : [];
+            var now = new Date().toISOString();
+            lifeList.push({
+                id: Date.now(),
+                date: dateKey,
+                categories: ['concern'],
+                summary: '朝の会までに準備が間に合わなかった',
+                fact: '',
+                response: '',
+                impression: '',
+                auto: true,
+                createdAt: now,
+                updatedAt: now
+            });
+            lifeAll[String(idx)] = lifeList;
+            StorageManager.setImmediate(KEYS.karte_life, JSON.stringify(lifeAll));
+        }
+
         attRenderGrid();
-        showToast(mpData[dateKey][String(idx)] ? '🌅 朝の準備：間に合わず' : '🌅 解除しました', 'info');
+        showToast(
+            !wasOn ? '🌅 朝の準備：間に合わず（生活記録に記録しました）' : '🌅 解除しました',
+            !wasOn ? 'warning' : 'info'
+        );
     }
     window.attToggleMorningPrep = attToggleMorningPrep;
 

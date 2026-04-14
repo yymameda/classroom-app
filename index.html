@@ -394,7 +394,7 @@
             .attendance-grid { grid-template-columns: repeat(7, 1fr) !important; }
         }
         @media (orientation: landscape) and (min-width: 1000px) {
-            .attendance-grid { grid-template-columns: repeat(8, 1fr) !important; }
+            .attendance-grid { grid-template-columns: repeat(6, 1fr) !important; }
         }
         .grid-cell {
             background: white; border-radius: 8px;
@@ -628,7 +628,7 @@
             .rec-list { grid-template-columns: repeat(7, 1fr); }
         }
         @media (orientation: landscape) and (min-width: 1000px) {
-            .rec-list { grid-template-columns: repeat(8, 1fr); }
+            .rec-list { grid-template-columns: repeat(6, 1fr) !important; }
         }
         .rec-row {
             display: flex; flex-direction: column; align-items: center;
@@ -1132,7 +1132,7 @@
                 overflow-x: hidden;
             }
             .sub-diary-grid {
-                grid-template-columns: repeat(8, 1fr) !important;
+                grid-template-columns: repeat(6, 1fr) !important;
             }
             #sub-sub-input {
                 overflow-x: hidden;
@@ -1280,7 +1280,7 @@
         .sub-diary-shortage.ok { color: var(--success); } .sub-diary-shortage.ng { color: var(--danger); }
         @media (orientation: landscape) and (min-width: 1000px) {
             #fgtGrid {
-                grid-template-columns: repeat(8, 1fr) !important;
+                grid-template-columns: repeat(6, 1fr) !important;
             }
         }
         @media (orientation: landscape) and (min-width: 1000px) {
@@ -1393,7 +1393,10 @@
 
             /* グリッドセルの高さ拡大 */
             .grid-cell {
-                height: 84px;
+                height: 80px;
+            }
+            .sub-input-row {
+                min-height: 80px;
             }
             .seat-cell {
                 width: 88px;

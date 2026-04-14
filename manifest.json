@@ -4,7 +4,7 @@
   "description": "出席・成績・提出物・忘れ物を一元管理",
   "start_url": "./index.html",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#1a2332",
   "theme_color": "#1a2332",
   "icons": [

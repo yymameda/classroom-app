@@ -1344,6 +1344,83 @@
                 padding: 0.5rem 1rem;
             }
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+
+            /* ボタン類のタッチターゲット拡大 */
+            .btn {
+                min-height: 52px;
+                padding: 10px 20px;
+            }
+            .att-nav-btn,
+            .att-mode-tab,
+            .rec-subnav-btn,
+            .sub-subnav-btn {
+                min-height: 40px;
+                padding: 8px 16px;
+                font-size: 0.88rem;
+            }
+
+            /* グリッドセルの高さ拡大 */
+            .grid-cell {
+                height: 84px;
+            }
+            .seat-cell {
+                width: 88px;
+                height: 88px;
+                font-size: 0.82rem;
+            }
+
+            /* カードの余白拡大 */
+            .card {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+
+            /* フォーム要素の高さ拡大 */
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 12px 14px;
+                font-size: 1rem;
+            }
+
+            /* モーダルを広く */
+            .modal {
+                max-width: 600px;
+            }
+
+            /* トーストを大きく */
+            .toast {
+                font-size: 1rem;
+                padding: 14px 28px;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+
+            /* ビューヘッダーを大きく */
+            .view-header h2 {
+                font-size: 1.25rem;
+            }
+            .view-header {
+                padding: 18px 24px;
+            }
+
+            /* 統計カードのラベル */
+            .stat-card h4 {
+                font-size: 0.9rem;
+            }
+
+            /* rec-listのセル高さ */
+            .rec-row {
+                padding: 6px;
+                gap: 3px;
+            }
+
+            /* 忘れ物セルの高さ */
+            #fgtGrid > div {
+                min-height: 80px;
+            }
+        }
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>

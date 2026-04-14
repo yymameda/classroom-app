@@ -146,7 +146,8 @@
         }
         @media (orientation: landscape) and (min-width: 1000px) {
             .content {
-                margin: 8px 8px 8px 0;
+                width: calc(100vw - 80px);
+                max-width: calc(100vw - 80px);
                 overflow: hidden;
             }
             .view {
@@ -155,10 +156,11 @@
         }
         @media (orientation: landscape) and (min-width: 1000px) {
             .view-content {
-                max-width: calc(100vw - 80px - 48px);
-                padding: 16px 24px;
+                max-width: 100%;
+                width: 100%;
                 box-sizing: border-box;
                 overflow-x: hidden;
+                padding: 16px 20px;
             }
         }
         .card {
@@ -1122,7 +1124,10 @@
             .sub-input-list {
                 grid-template-columns: repeat(8, 1fr) !important;
                 max-width: 100%;
+                width: 100%;
                 box-sizing: border-box;
+                margin: 0 0.75rem 0.75rem;
+                overflow-x: hidden;
             }
             .sub-diary-grid {
                 grid-template-columns: repeat(8, 1fr) !important;
@@ -1278,15 +1283,19 @@
         }
         @media (orientation: landscape) and (min-width: 1000px) {
             #seating-content {
-                max-width: calc(100vw - 80px - 32px) !important;
+                max-width: 100% !important;
+                width: 100%;
                 box-sizing: border-box;
+                padding: 16px;
             }
-            #seating-content .seating-grid {
-                grid-template-columns: repeat(6, 88px);
+            .seating-grid {
+                grid-template-columns: repeat(6, 80px);
+                gap: 5px;
                 justify-content: center;
             }
-            #seating-content .seat-cell {
-                width: 88px; height: 88px;
+            .seat-cell {
+                width: 80px;
+                height: 80px;
             }
         }
         @media (orientation: landscape) and (min-width: 1000px) {

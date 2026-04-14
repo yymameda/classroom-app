@@ -558,18 +558,21 @@ function renderInputGrid(){
     html+=`<th class="event-head">${e}<br><span style="font-weight:400;color:var(--text3);">${EVENT_UNITS[e]}</span><br><span style="color:var(--acc-border);font-size:10px;">${EVENT_HINTS[e]}</span></th>`;
   });
   html+='<th>合計<br>点</th><th>評価</th></tr></thead><tbody>';
+  let inputIdx=0;
   filtered.forEach(s=>{
     const rec=records[s.id]||{};
     const total=calcTotal(s,rec);
     const ev=calcEval(s,total);
     html+=`<tr><td class="name-cell" style="text-align:center;font-size:11px;color:var(--text3);">${s.id}</td>`;
-    html+=`<td class="name-cell">${s.name}<br><span style="font-size:10px;color:var(--text3);">${s.gender||''}${s.age?'・'+s.age+'歳':''}</span></td>`;
+    html+=`<td class="name-cell">${s.name}<br><span style="font-size:10px;color:var(--text3);">${s.gender||''}</span></td>`;
     EVENTS.forEach(e=>{
       const step=e==='50m走'?'0.1':'1';
       const v=rec[e]!==undefined?rec[e]:'';
       html+=`<td><input type="number" step="${step}" min="0" value="${v}" placeholder="—"
+        data-idx="${inputIdx++}"
         onchange="setRecord(${s.id},'${e}',this.value)"
-        oninput="setRecord(${s.id},'${e}',this.value)"></td>`;
+        oninput="setRecord(${s.id},'${e}',this.value)"
+        onkeydown="pfMoveNext(event,this)"></td>`;
     });
     const scoreHtml=total>0?total:'—';
     const evalHtml=ev?`<span class="eval-${ev}">${ev}</span>`:'—';
@@ -1103,6 +1106,19 @@ function drawRadar(values, natValues){
     const ly=cy+(r+18)*Math.sin(a);
     ctx.fillText(shortLabel[EVENTS[i]]||EVENTS[i],lx,ly+4);
   }
+}
+
+// ============================================================
+// ▼▼▼ キー移動（Enter で同種目の次の児童へ・縦移動）
+// ============================================================
+function pfMoveNext(e, el){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  // data-idx は行×8+列 の通し番号 → 同じ列の次行 = idx + 8
+  const idx=parseInt(el.dataset.idx);
+  const cols=8; // 種目数
+  const next=document.querySelector(`input[data-idx="${idx+cols}"]`);
+  if(next){next.focus();next.select();}
 }
 
 // ============================================================

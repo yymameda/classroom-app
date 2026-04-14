@@ -2669,6 +2669,7 @@
     // ================================================================
     // 初期化
     // ================================================================
+    let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
         loadMaster();
         updateSettingsUI();
@@ -2751,6 +2752,29 @@
                     showToast('❌ ストレージアクセスエラー。再読込してください。', 'error');
                 }
                 updateStorageDisplay();
+                const _today = new Date().toLocaleDateString('sv-SE');
+                if (_today !== _lastCheckedDate) {
+                    _lastCheckedDate = _today;
+                    updateDashboard();
+                    attCurrentDate = new Date();
+                    attUpdateDateBadge();
+                    const activeView = document.querySelector('.view.active');
+                    if (activeView) {
+                        const vid = activeView.id;
+                        if (vid === 'view-attendance') {
+                            attRenderGrid();
+                            attUpdateStats();
+                        }
+                        if (vid === 'view-forgotten') {
+                            fgtDate = new Date();
+                            fgtShowSub('input');
+                        }
+                        if (vid === 'view-submissions') {
+                            subRenderDiary();
+                        }
+                    }
+                    showToast('📅 日付が更新されました', 'info');
+                }
             }
         });
 

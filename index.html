@@ -1526,6 +1526,22 @@
                 border-radius: 6px;
             }
         }
+        .mp-btn {
+            font-size: 0.7rem;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1px 3px;
+            cursor: pointer;
+            opacity: 0.4;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .mp-btn.mp-on {
+            opacity: 1;
+            background: #FFF3E0;
+            border-color: #E67E22;
+        }
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>
@@ -2994,7 +3010,8 @@
         karte_health:   'spa_karte_health',
         karte_learning: 'spa_karte_learning',
         karte_archive:  'spa_karte_archive',
-        karte_recs:     'spa_karte_recs'
+        karte_recs:     'spa_karte_recs',
+        morning_prep:   'spa_morning_prep'
     };
 
     // マスターデータ
@@ -4111,13 +4128,20 @@
             cell.className = 'grid-cell' + (info ? ' ' + info.cls : '');
             const displayName = escapeHtml((s.name||'').length > 4 ? (s.name||'').slice(0,4) : (s.name||'氏名'));
             const hasSt = status !== '';
+            const dateKey = attDateStr(attCurrentDate);
+            const mpData = StorageManager.get(KEYS.morning_prep, {});
+            const mpDay = mpData[dateKey] || {};
+            const mpChecked = mpDay[String(i)] === true;
             cell.innerHTML = `
                 <div class="grid-cell-header">
                     <span class="number">${i+1}</span>
                     <div class="grid-cell-status-badge ${hasSt?'done':'empty'}">${hasSt?'✓':''}</div>
                 </div>
                 <span class="name" title="${escapeHtml(s.name||'')}">${displayName}</span>
-                <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>`;
+                <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>
+                <button class="mp-btn${mpChecked?' mp-on':''}"
+                    onclick="event.stopPropagation();attToggleMorningPrep(${i})"
+                    title="朝の準備">🌅</button>`;
             cell.onclick = () => attOpenModal(i);
             frag.appendChild(cell);
         });
@@ -4209,6 +4233,21 @@
         attUpdateStats();
         showToast('クリアしました', 'success');
     }
+
+    function attToggleMorningPrep(idx) {
+        var dateKey = attDateStr(attCurrentDate);
+        var mpData = StorageManager.get(KEYS.morning_prep, {});
+        if (!mpData[dateKey]) mpData[dateKey] = {};
+        if (mpData[dateKey][String(idx)]) {
+            delete mpData[dateKey][String(idx)];
+        } else {
+            mpData[dateKey][String(idx)] = true;
+        }
+        StorageManager.setImmediate(KEYS.morning_prep, JSON.stringify(mpData));
+        attRenderGrid();
+        showToast(mpData[dateKey][String(idx)] ? '🌅 朝の準備：間に合わず' : '🌅 解除しました', 'info');
+    }
+    window.attToggleMorningPrep = attToggleMorningPrep;
 
     // ---- 月別一覧 ----
     function attInitMonth() {

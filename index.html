@@ -6342,6 +6342,7 @@
                     + '</div>'
                     + '<div class="sub-assign-acts">'
                     + '<button class="btn-rec-small goto sub-go-input-btn" data-aid="' + a.id + '">入力へ</button>'
+                    + '<button class="btn-rec-small edit sub-assign-edit-btn" data-aid="' + a.id + '">編集</button>'
                     + '<button class="btn-rec-small del sub-assign-del-btn" data-aid="' + a.id + '">削除</button>'
                     + '</div>'
                     + '</div>';
@@ -6349,6 +6350,11 @@
             list.innerHTML = html;
             list.querySelectorAll('.sub-assign-del-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subDeleteAssign(parseInt(btn.dataset.aid)); });
+            });
+            list.querySelectorAll('.sub-assign-edit-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    subEditAssign(parseInt(btn.dataset.aid));
+                });
             });
             list.querySelectorAll('.sub-go-input-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -6365,6 +6371,21 @@
             if (!name) { showToast('課題名を入力してください', 'warning'); return; }
             if (!date) { showToast('提出日を選択してください', 'warning'); return; }
             var arr = subGetAssignments();
+            if (subEditingAssignId !== null) {
+                var idx = arr.findIndex(function(a) { return a.id === subEditingAssignId; });
+                if (idx >= 0) {
+                    arr[idx].subject = subj;
+                    arr[idx].name = name;
+                    arr[idx].date = date;
+                    arr[idx].updatedAt = new Date().toISOString();
+                }
+                subSaveAssignments(arr);
+                subCancelEditAssign();
+                subRenderAssignList();
+                subUpdateAssignSelects();
+                showToast('✅ 課題を更新しました', 'success');
+                return;
+            }
             arr.unshift({ id: Date.now(), subject: subj, name: name, date: date, createdAt: new Date().toISOString() });
             subSaveAssignments(arr);
             document.getElementById('subAssignSubject').value = '';
@@ -6374,6 +6395,7 @@
             subUpdateAssignSelects();
             showToast('✅ 課題を登録しました', 'success');
         }
+        var subEditingAssignId = null;
         function subDeleteAssign(id) {
             if (!confirm('この課題を削除しますか？\n提出データも削除されます。')) return;
             subSaveAssignments(subGetAssignments().filter(function(a) { return a.id !== id; }));
@@ -6382,6 +6404,44 @@
             subRenderAssignList();
             subUpdateAssignSelects();
             showToast('削除しました', 'success');
+        }
+        function subEditAssign(id) {
+            var assigns = subGetAssignments();
+            var target = assigns.find(function(a) { return a.id === id; });
+            if (!target) return;
+            subEditingAssignId = id;
+            var subjEl = document.getElementById('subAssignSubject');
+            var nameEl = document.getElementById('subAssignName');
+            var dateEl = document.getElementById('subAssignDate');
+            if (subjEl) subjEl.value = target.subject || '';
+            if (nameEl) nameEl.value = target.name || '';
+            if (dateEl) dateEl.value = target.date || '';
+            var addBtn = document.getElementById('subAssignAddBtn');
+            if (addBtn) addBtn.textContent = '更新する';
+            if (!document.getElementById('subAssignCancelBtn')) {
+                var cancelBtn = document.createElement('button');
+                cancelBtn.id = 'subAssignCancelBtn';
+                cancelBtn.className = 'btn-rec-small';
+                cancelBtn.textContent = 'キャンセル';
+                cancelBtn.style.marginLeft = '6px';
+                cancelBtn.addEventListener('click', subCancelEditAssign);
+                addBtn.parentNode.appendChild(cancelBtn);
+            }
+            var panel = document.querySelector('#sub-sub-assign .sub-panel');
+            if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+            showToast('課題を編集中です', 'info');
+        }
+        function subCancelEditAssign() {
+            subEditingAssignId = null;
+            var addBtn = document.getElementById('subAssignAddBtn');
+            if (addBtn) addBtn.textContent = '課題を追加';
+            var cancelBtn = document.getElementById('subAssignCancelBtn');
+            if (cancelBtn) cancelBtn.remove();
+            var subjEl = document.getElementById('subAssignSubject');
+            var nameEl = document.getElementById('subAssignName');
+            if (subjEl) subjEl.value = '';
+            if (nameEl) nameEl.value = '';
+            subInitAssignDate();
         }
         function subUpdateAssignSelects() {
             var assigns = subSortAssigns(subGetAssignments());

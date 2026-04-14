@@ -1271,6 +1271,79 @@
                 width: 88px; height: 88px;
             }
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+
+            /* 個人カルテ：左=児童一覧 右=カルテ詳細 */
+            .karte-container {
+                flex-direction: row !important;
+            }
+            .karte-student-bar {
+                width: 160px;
+                flex-shrink: 0;
+                border-bottom: none;
+                border-right: 2px solid var(--border);
+                overflow-y: auto;
+                height: 100%;
+            }
+            .karte-student-bar-inner {
+                grid-template-columns: 1fr !important;
+                gap: 4px;
+            }
+            .karte-student-btn {
+                font-size: 0.72rem;
+                padding: 0.35rem 0.4rem;
+            }
+            .karte-tabs {
+                flex-shrink: 0;
+            }
+
+            /* 出席簿：統計バーを横並びに拡張 */
+            .att-stats-bar {
+                gap: 12px;
+                padding: 6px 16px;
+            }
+            .att-stat-item {
+                min-width: 80px;
+            }
+            .att-stat-item .val {
+                font-size: 1.4rem;
+            }
+
+            /* ダッシュボード：統計カードを大きく */
+            .stat-card {
+                padding: 20px;
+            }
+            .stat-value {
+                font-size: 2.2rem;
+            }
+
+            /* 成績処理：テーブルを広く */
+            #grd-sub-grade .view-content,
+            #grd-sub-karte .view-content,
+            #grd-sub-stats .view-content {
+                max-width: 100%;
+            }
+
+            /* 提出物統計：2カラムに */
+            #subStudentStats {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .patrol-grid {
+                grid-template-columns: repeat(8, 1fr);
+                gap: 0.5rem;
+            }
+            .patrol-cell {
+                min-height: 72px;
+            }
+            .patrol-container {
+                max-width: 100%;
+                padding: 0.5rem 1rem;
+            }
+        }
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>

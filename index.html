@@ -1122,11 +1122,13 @@
         }
         @media (orientation: landscape) and (min-width: 1000px) {
             .sub-input-list {
-                grid-template-columns: repeat(8, 1fr) !important;
-                max-width: 100%;
-                width: 100%;
-                box-sizing: border-box;
+                display: grid;
+                grid-template-columns: repeat(6, 1fr) !important;
+                gap: 4px;
+                padding: 6px;
                 margin: 0 0.75rem 0.75rem;
+                max-width: 100%;
+                box-sizing: border-box;
                 overflow-x: hidden;
             }
             .sub-diary-grid {
@@ -1286,16 +1288,18 @@
                 max-width: 100% !important;
                 width: 100%;
                 box-sizing: border-box;
-                padding: 16px;
+                padding: 12px;
+                overflow: hidden;
             }
-            .seating-grid {
-                grid-template-columns: repeat(6, 80px);
+            #seating-content .seating-grid {
+                grid-template-columns: repeat(6, 72px) !important;
                 gap: 5px;
                 justify-content: center;
             }
-            .seat-cell {
-                width: 80px;
-                height: 80px;
+            #seating-content .seat-cell {
+                width: 72px !important;
+                height: 72px !important;
+                font-size: 0.75rem;
             }
         }
         @media (orientation: landscape) and (min-width: 1000px) {

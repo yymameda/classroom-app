@@ -6078,6 +6078,40 @@
                 recentRecsHtml += '</div>';
             }
 
+            // 朝の準備集計
+            var mpAll = StorageManager.get(KEYS.morning_prep, {});
+            var mpMonths = {};
+            Object.keys(mpAll).forEach(function(dateKey) {
+                if (mpAll[dateKey][String(idx)] === true) {
+                    var month = dateKey.slice(0, 7);
+                    mpMonths[month] = (mpMonths[month] || 0) + 1;
+                }
+            });
+            var mpTotal = Object.values(mpMonths).reduce(function(a, b) { return a + b; }, 0);
+            var mpSortedMonths = Object.keys(mpMonths).sort().reverse();
+
+            var mpHtml = '<div class="ks-hub-section"><div class="ks-hub-header">'
+                + '<span class="ks-hub-title">🌅 朝の準備（間に合わなかった回数）</span>'
+                + '</div><div class="ks-hub-body">';
+
+            if (mpTotal === 0) {
+                mpHtml += '<span class="ks-hub-empty">記録なし</span>';
+            } else {
+                mpHtml += '<div class="ks-hub-row">'
+                    + '<span class="ks-hub-label">累計：</span>'
+                    + '<span class="ks-hub-val" style="font-weight:700;color:#E67E22;">' + mpTotal + '回</span>'
+                    + '</div>';
+                mpSortedMonths.slice(0, 3).forEach(function(month) {
+                    var parts = month.split('-');
+                    var label = parseInt(parts[0]) + '年' + parseInt(parts[1]) + '月';
+                    mpHtml += '<div class="ks-hub-row">'
+                        + '<span class="ks-hub-label">' + label + '：</span>'
+                        + '<span class="ks-hub-val">' + mpMonths[month] + '回</span>'
+                        + '</div>';
+                });
+            }
+            mpHtml += '</div></div>';
+
             // ハブセクション: 学習配慮
             var learnData = karteGetStudentLearning(idx);
             var learnHtml = '<div class="ks-hub-section"><div class="ks-hub-header"><span class="ks-hub-title">📚 学習面配慮</span><button class="ks-hub-jump" data-jumptab="learning">→ 詳細</button></div><div class="ks-hub-body">';
@@ -6121,7 +6155,7 @@
                 '<div class="ks-card liferec"><div class="ks-card-label">生活記録</div><div class="ks-card-value">' + lifeRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '<div class="ks-card" style="border-left:4px solid #E67E22;"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:#E67E22;">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '</div>' +
-                recentHtml + recentRecsHtml + learnHtml + parentHtml + healthHtml;
+                recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml;
             container.querySelectorAll('[data-jumptab]').forEach(function(btn) {
                 btn.addEventListener('click', function() { switchKarteTab(btn.dataset.jumptab); });
             });

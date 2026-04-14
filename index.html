@@ -4572,7 +4572,7 @@
                     var curVal = hasSc ? existingSc.score : '';
                     scoreArea = '<div class="rec-row-score-area">' +
                         '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') +
-                        '" min="0" max="' + test.maxScore + '" placeholder="—"' +
+                        '" min="0" max="' + test.maxScore + '" placeholder="—" step="' + (isPE ? '0.01' : '1') + '"' +
                         ' class="' + (curVal !== '' ? 'has-val' : '') + '"' +
                         ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">' +
                         '</div>';
@@ -4950,8 +4950,9 @@
             students.forEach(function(_, idx) {
                 var input = document.getElementById('rec-sc-' + idx);
                 if (!input || input.value === '') return;
-                var v = parseInt(input.value);
+                var v = parseFloat(input.value);
                 if (isNaN(v) || v < 0) return;
+                v = Math.round(v * 100) / 100;
                 var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === test.id; });
                 var rec = { id: Date.now() + idx, studentIndex: idx, testId: test.id, score: v, createdAt: new Date().toISOString() };
                 if (ei >= 0) scores[ei] = rec; else scores.push(rec);

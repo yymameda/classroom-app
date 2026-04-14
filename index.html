@@ -1446,32 +1446,77 @@
                 font-size: 0.9rem;
             }
 
-            /* rec-listのセル高さ */
+            /* rec-listのセルデザイン */
             .rec-row {
-                padding: 6px;
-                gap: 3px;
+                display: flex;
+                flex-direction: column;
+                padding: 4px;
+                gap: 4px;
+                justify-content: center;
                 min-height: 80px;
                 height: 80px;
+            }
+            .rec-row-hd {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                width: 100%;
+            }
+            .rec-row .sub-row-num {
+                font-size: 0.7rem;
+                font-weight: 700;
+                color: var(--white);
+                background: var(--primary);
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .rec-row .sub-row-name {
+                font-size: 0.65rem;
+                font-weight: 500;
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .rec-row .sub-row-done {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.6rem;
+                flex-shrink: 0;
+                background: #E0E0E0;
+                color: #9E9E9E;
+            }
+            .rec-row .sub-row-done.ok {
+                background: var(--success);
+                color: white;
+            }
+
+            /* ABC・○△×ボタンを横向き時に拡大 */
+            .rec-abc-btns {
+                display: flex;
+                gap: 3px;
+                width: 100%;
+            }
+            .rec-abc-btn {
+                flex: 1;
+                height: 36px;
+                font-size: 1rem;
+                border-radius: 6px;
             }
 
             /* 忘れ物セルの高さ */
             #fgtGrid > div {
                 min-height: 80px;
                 height: 80px;
-            }
-
-            /* ABC・○△×ボタンを横向き時に拡大 */
-            .rec-abc-btn {
-                flex: 1;
-                width: 100%;
-                height: 36px;
-                font-size: 1rem;
-                border-radius: 6px;
-            }
-            .rec-abc-btns {
-                display: flex;
-                gap: 3px;
-                width: 100%;
             }
 
             .sub-status-btn {
@@ -4563,19 +4608,37 @@
                     return recBuildNawatobiCard(test, scores, idx, stu);
                 } else if (isABC) {
                     var curAbc = existingSc ? existingSc.score : '';
-                    scoreArea = '<div class="rec-abc-btns">' +
-                        ['A','B','C'].map(function(v) {
+                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
+                        + '<div class="rec-row-hd">'
+                        +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
+                        +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
+                        +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
+                        +   (hasSc ? '✓' : '') + '</div>'
+                        + '</div>'
+                        + '<div class="rec-abc-btns">'
+                        + ['A','B','C'].map(function(v) {
                             var sel = curAbc === v ? ' sel-' + v.toLowerCase() : '';
                             return '<button class="rec-abc-btn' + sel + '" onclick="recSelectABC(' + idx + ',\'' + v + '\')">' + v + '</button>';
-                        }).join('') + '</div>';
+                        }).join('')
+                        + '</div>'
+                        + '</div>';
                 } else {
                     var curVal = hasSc ? existingSc.score : '';
-                    scoreArea = '<div class="rec-row-score-area">' +
-                        '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') +
-                        '" min="0" max="' + test.maxScore + '" placeholder="—" step="' + (isPE ? '0.01' : '1') + '"' +
-                        ' class="' + (curVal !== '' ? 'has-val' : '') + '"' +
-                        ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">' +
-                        '</div>';
+                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
+                        + '<div class="rec-row-hd">'
+                        +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
+                        +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
+                        +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
+                        +   (hasSc ? '✓' : '') + '</div>'
+                        + '</div>'
+                        + '<div class="rec-row-score-area">'
+                        +   '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') + '"'
+                        +   ' min="0" max="' + test.maxScore + '" placeholder="—"'
+                        +   ' step="' + (isPE ? '0.01' : '1') + '"'
+                        +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
+                        +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
+                        + '</div>'
+                        + '</div>';
                 }
 
                 return '<div class="' + rowClass + '" id="rec-row-' + idx + '">' +

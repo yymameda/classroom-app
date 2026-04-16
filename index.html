@@ -8903,16 +8903,16 @@
 
     // ▼▼▼ MODULE:KANJI ▼▼▼
     // ================================================================
-    // 漢字チェック
+    // 漢字チェック（3段階：○完了／△再提出／空白）
     // ================================================================
     (function() { 'use strict';
 
         // ---- データアクセス ----
-        function kjLoad() {
+        function kanjiGetData() {
             return StorageManager.get(KEYS.kanji, { units: [] });
         }
         function kjSave(data) {
-            StorageManager.setImmediate(KEYS.kanji, data);
+            StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
         }
 
         // ---- 状態 ----
@@ -8922,7 +8922,6 @@
         function kjParseChars(str) {
             var seen = {};
             var result = [];
-            // スペース・読点・改行・カンマ・全角スペースで分割
             var parts = str.replace(/[\s\u3001\uff0c,\n\r]+/g, '');
             for (var i = 0; i < parts.length; i++) {
                 var c = parts[i];
@@ -8936,12 +8935,16 @@
 
         // ---- 初期化 ----
         function kanjiInit() {
-            var data = kjLoad();
+            var data = kanjiGetData();
             kjRenderUnitSel(data);
             kjRenderTable(data);
-            // プレビュー更新
-            var ta = document.getElementById('kanjiModalChars');
-            if (ta) ta.addEventListener('input', kjUpdatePreview);
+        }
+
+        // ---- 統合再描画 ----
+        function kanjiRender() {
+            var data = kanjiGetData();
+            kjRenderUnitSel(data);
+            kjRenderTable(data);
         }
 
         // ---- 単元セレクト描画 ----
@@ -8977,32 +8980,31 @@
             }
             if (kjCurrentUnit >= units.length) kjCurrentUnit = 0;
             var unit = units[kjCurrentUnit];
+            var unitIdx = kjCurrentUnit;
             var chars = unit.chars || [];
             var checks = unit.checks || {};
             var students = master.students || [];
 
-            // 列ごとに全員チェック済みか判定
+            // 列ごとの状態判定（全員○／△あり）
             var colAllDone = chars.map(function(_, ci) {
                 if (students.length === 0) return false;
                 return students.every(function(_, si) {
-                    return checks[String(si)] && checks[String(si)][String(ci)];
+                    return (checks[String(si)] || {})[String(ci)] === 'o';
+                });
+            });
+            var colHasRetry = chars.map(function(_, ci) {
+                return students.some(function(_, si) {
+                    return (checks[String(si)] || {})[String(ci)] === 'd';
                 });
             });
 
-            // 行ごとに全漢字完了か判定
+            // 行ごとに全漢字○完了か判定
             var rowAllDone = students.map(function(_, si) {
                 if (chars.length === 0) return false;
                 return chars.every(function(_, ci) {
-                    return checks[String(si)] && checks[String(si)][String(ci)];
+                    return (checks[String(si)] || {})[String(ci)] === 'o';
                 });
             });
-
-            // 完了数（行）
-            function rowDoneCount(si) {
-                return chars.filter(function(_, ci) {
-                    return checks[String(si)] && checks[String(si)][String(ci)];
-                }).length;
-            }
 
             var html = '<table id="kanjiTable" style="border-collapse:collapse;table-layout:fixed;background:#fff;">';
 
@@ -9011,11 +9013,11 @@
             html += '<th style="position:sticky;left:0;z-index:3;background:#e8f5e9;width:28px;min-width:28px;max-width:28px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:2px;">#</th>';
             html += '<th style="position:sticky;left:28px;z-index:3;background:#e8f5e9;width:72px;min-width:72px;max-width:72px;border:1px solid #ccc;font-size:0.78rem;text-align:center;padding:2px;">氏名</th>';
             chars.forEach(function(c, ci) {
-                var bg = colAllDone[ci] ? '#2E7D32' : '#e8f5e9';
-                var col = colAllDone[ci] ? '#fff' : '#333';
-                html += '<th onclick="kanjiColCheck(' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + bg + ';color:' + col + ';border:1px solid #ccc;font-size:1rem;text-align:center;padding:2px;user-select:none;">' + escapeHtml(c) + '</th>';
+                var bg = colAllDone[ci] ? '#388E3C' : colHasRetry[ci] ? '#F9A825' : '#e8f5e9';
+                var col = (colAllDone[ci] || colHasRetry[ci]) ? '#fff' : '#2E7D32';
+                html += '<th onclick="kanjiColCheck(' + unitIdx + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + bg + ';color:' + col + ';border:1px solid #ccc;font-size:1rem;text-align:center;padding:2px;user-select:none;">' + escapeHtml(c) + '</th>';
             });
-            html += '<th style="background:#e8f5e9;width:44px;min-width:44px;max-width:44px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:2px;">完了</th>';
+            html += '<th style="background:#e8f5e9;width:52px;min-width:52px;max-width:52px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:2px;">完了</th>';
             html += '</tr></thead>';
 
             // データ行
@@ -9023,15 +9025,24 @@
             students.forEach(function(st, si) {
                 var rowDone = rowAllDone[si];
                 var rowBg = rowDone ? '#E8F5E9' : '#fff';
+                var doneCount = chars.filter(function(_, ci) {
+                    return (checks[String(si)] || {})[String(ci)] === 'o';
+                }).length;
+                var retryCount = chars.filter(function(_, ci) {
+                    return (checks[String(si)] || {})[String(ci)] === 'd';
+                }).length;
+                var countText = doneCount + '/' + chars.length + (retryCount > 0 ? '（△' + retryCount + '）' : '');
                 html += '<tr style="background:' + rowBg + ';">';
                 html += '<td style="position:sticky;left:0;z-index:2;background:' + rowBg + ';width:28px;min-width:28px;max-width:28px;border:1px solid #ddd;font-size:0.72rem;text-align:center;padding:2px;color:#555;">' + (si + 1) + '</td>';
                 html += '<td style="position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:2px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
                 chars.forEach(function(_, ci) {
-                    var checked = checks[String(si)] && checks[String(si)][String(ci)];
-                    var cellBg = checked ? '#A5D6A7' : '#fff';
-                    html += '<td onclick="kanjiToggle(' + si + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + cellBg + ';border:1px solid #ddd;text-align:center;font-size:0.9rem;padding:2px;user-select:none;">' + (checked ? '✓' : '') + '</td>';
+                    var val = (checks[String(si)] || {})[String(ci)];
+                    var cellBg = val === 'o' ? '#A5D6A7' : val === 'd' ? '#FFF9C4' : '#fff';
+                    var cellColor = val === 'o' ? '#2E7D32' : val === 'd' ? '#F57F17' : '';
+                    var cellText = val === 'o' ? '○' : val === 'd' ? '△' : '';
+                    html += '<td onclick="kanjiToggle(' + unitIdx + ',' + si + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + cellBg + ';color:' + cellColor + ';font-weight:700;border:1px solid #ddd;text-align:center;font-size:0.9rem;padding:2px;user-select:none;">' + cellText + '</td>';
                 });
-                html += '<td style="background:' + rowBg + ';width:44px;min-width:44px;max-width:44px;border:1px solid #ddd;text-align:center;font-size:0.78rem;padding:2px;color:#555;">' + rowDoneCount(si) + '/' + chars.length + '</td>';
+                html += '<td style="background:' + rowBg + ';width:52px;min-width:52px;max-width:52px;border:1px solid #ddd;text-align:center;font-size:0.72rem;padding:2px;color:#555;">' + countText + '</td>';
                 html += '</tr>';
             });
             html += '</tbody></table>';
@@ -9039,53 +9050,83 @@
             wrap.innerHTML = html;
         }
 
-        // ---- セルトグル ----
-        function kanjiToggle(si, ci) {
-            var data = kjLoad();
-            var units = data.units || [];
-            if (kjCurrentUnit >= units.length) return;
-            var unit = units[kjCurrentUnit];
-            if (!unit.checks) unit.checks = {};
-            var siKey = String(si);
-            var ciKey = String(ci);
-            if (!unit.checks[siKey]) unit.checks[siKey] = {};
-            unit.checks[siKey][ciKey] = !unit.checks[siKey][ciKey];
-            if (!unit.checks[siKey][ciKey]) delete unit.checks[siKey][ciKey];
-            kjSave(data);
-            kjRenderTable(data);
+        // ---- セルトグル（3段階：未→○→△→未） ----
+        function kanjiToggle(unitIdx, stuIdx, charIdx) {
+            var data = kanjiGetData();
+            var unit = data.units[unitIdx];
+            if (!unit) return;
+            if (!unit.checks[String(stuIdx)]) unit.checks[String(stuIdx)] = {};
+            var cur = unit.checks[String(stuIdx)][String(charIdx)];
+            if (!cur) {
+                unit.checks[String(stuIdx)][String(charIdx)] = 'o';
+            } else if (cur === 'o') {
+                unit.checks[String(stuIdx)][String(charIdx)] = 'd';
+            } else {
+                delete unit.checks[String(stuIdx)][String(charIdx)];
+            }
+            StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
+
+            // △（再提出）になった場合は個人カルテの生活記録に自動記録
+            var val = unit.checks[String(stuIdx)][String(charIdx)];
+            if (val === 'd') {
+                var lifeAll = StorageManager.get(KEYS.karte_life, {});
+                var lifeList = Array.isArray(lifeAll[String(stuIdx)]) ? lifeAll[String(stuIdx)] : [];
+                var today = new Date().toLocaleDateString('sv-SE');
+                var already = lifeList.find(function(r) {
+                    return r.auto === 'kanji' &&
+                           r.kanjiUnit === unitIdx &&
+                           r.kanjiChar === charIdx &&
+                           r.date === today;
+                });
+                if (!already) {
+                    var now = new Date().toISOString();
+                    lifeList.push({
+                        id: Date.now(),
+                        date: today,
+                        categories: ['concern'],
+                        summary: '漢字「' + unit.chars[charIdx] + '」（' + unit.name + '）再提出',
+                        fact: '',
+                        response: '',
+                        impression: '',
+                        auto: 'kanji',
+                        kanjiUnit: unitIdx,
+                        kanjiChar: charIdx,
+                        createdAt: now,
+                        updatedAt: now
+                    });
+                    lifeAll[String(stuIdx)] = lifeList;
+                    StorageManager.setImmediate(KEYS.karte_life, JSON.stringify(lifeAll));
+                }
+            }
+            kanjiRender();
         }
 
-        // ---- 列ヘッダータップ（全員トグル） ----
-        function kanjiColCheck(ci) {
-            var data = kjLoad();
-            var units = data.units || [];
-            if (kjCurrentUnit >= units.length) return;
-            var unit = units[kjCurrentUnit];
+        // ---- 列ヘッダータップ（全員○↔全員解除） ----
+        function kanjiColCheck(unitIdx, charIdx) {
+            var data = kanjiGetData();
+            var unit = data.units[unitIdx];
+            if (!unit) return;
             var students = master.students || [];
-            if (!unit.checks) unit.checks = {};
-            var ciKey = String(ci);
-            // 全員チェック済みかどうか
-            var allChecked = students.every(function(_, si) {
-                return unit.checks[String(si)] && unit.checks[String(si)][ciKey];
+            var allDone = students.every(function(_, si) {
+                return (unit.checks[String(si)] || {})[String(charIdx)] === 'o';
             });
             students.forEach(function(_, si) {
-                var siKey = String(si);
-                if (!unit.checks[siKey]) unit.checks[siKey] = {};
-                if (allChecked) {
-                    delete unit.checks[siKey][ciKey];
+                if (!unit.checks[String(si)]) unit.checks[String(si)] = {};
+                if (allDone) {
+                    delete unit.checks[String(si)][String(charIdx)];
                 } else {
-                    unit.checks[siKey][ciKey] = true;
+                    unit.checks[String(si)][String(charIdx)] = 'o';
                 }
             });
-            kjSave(data);
-            kjRenderTable(data);
+            StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
+            kanjiRender();
         }
 
         // ---- 単元セレクト変更 ----
         function kanjiSelectUnit(val) {
             if (val === '' || val === null || val === undefined) return;
             kjCurrentUnit = parseInt(val, 10) || 0;
-            var data = kjLoad();
+            var data = kanjiGetData();
             kjRenderTable(data);
         }
 
@@ -9102,7 +9143,7 @@
 
         // ---- 単元編集モーダルを開く ----
         function kanjiEditUnit() {
-            var data = kjLoad();
+            var data = kanjiGetData();
             var units = data.units || [];
             if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
             var unit = units[kjCurrentUnit];
@@ -9129,7 +9170,7 @@
             prev.textContent = chars.length > 0 ? '認識した漢字（' + chars.length + '文字）: ' + chars.join(' ') : '';
         }
 
-        // ---- 単元保存 ----
+        // ---- 単元保存（編集時は'o'/'d'値を引き継ぐ） ----
         function kanjiSaveUnit() {
             var name = (document.getElementById('kanjiModalName').value || '').trim();
             var charsStr = document.getElementById('kanjiModalChars').value || '';
@@ -9137,25 +9178,23 @@
             if (!name) { showToast('単元名を入力してください', 'warning'); return; }
             if (chars.length === 0) { showToast('漢字を1文字以上入力してください', 'warning'); return; }
 
-            var data = kjLoad();
+            var data = kanjiGetData();
             if (!data.units) data.units = [];
             var editIdx = document.getElementById('kanjiModal')._editIndex;
 
             if (editIdx !== null && editIdx !== undefined) {
-                // 編集: チェック済みデータを引き継ぐ
                 var oldUnit = data.units[editIdx];
                 var oldChars = oldUnit.chars || [];
                 var oldChecks = oldUnit.checks || {};
                 var newChecks = {};
-                // 旧インデックス→新インデックスの対応を作成
                 chars.forEach(function(c, newCi) {
                     var oldCi = oldChars.indexOf(c);
                     if (oldCi >= 0) {
-                        // 旧データから引き継ぐ
                         Object.keys(oldChecks).forEach(function(siKey) {
-                            if (oldChecks[siKey][String(oldCi)]) {
+                            var oldVal = oldChecks[siKey][String(oldCi)];
+                            if (oldVal) {
                                 if (!newChecks[siKey]) newChecks[siKey] = {};
-                                newChecks[siKey][String(newCi)] = true;
+                                newChecks[siKey][String(newCi)] = oldVal;
                             }
                         });
                     }
@@ -9163,21 +9202,19 @@
                 data.units[editIdx] = { name: name, chars: chars, checks: newChecks };
                 kjCurrentUnit = editIdx;
             } else {
-                // 新規追加
                 data.units.push({ name: name, chars: chars, checks: {} });
                 kjCurrentUnit = data.units.length - 1;
             }
 
             kjSave(data);
             kanjiCloseUnitModal();
-            kjRenderUnitSel(data);
-            kjRenderTable(data);
+            kanjiRender();
             showToast('保存しました', 'success');
         }
 
         // ---- 単元削除 ----
         function kanjiDeleteUnit() {
-            var data = kjLoad();
+            var data = kanjiGetData();
             var units = data.units || [];
             if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
             var unitName = units[kjCurrentUnit].name;
@@ -9186,28 +9223,26 @@
             data.units = units;
             if (kjCurrentUnit >= units.length) kjCurrentUnit = Math.max(0, units.length - 1);
             kjSave(data);
-            kjRenderUnitSel(data);
-            kjRenderTable(data);
+            kanjiRender();
             showToast('削除しました', 'success');
         }
 
         // ---- グローバル公開 ----
-        window.kanjiInit         = kanjiInit;
-        window.kanjiToggle       = kanjiToggle;
-        window.kanjiColCheck     = kanjiColCheck;
-        window.kanjiSelectUnit   = kanjiSelectUnit;
+        window.kanjiInit           = kanjiInit;
+        window.kanjiRender         = kanjiRender;
+        window.kanjiToggle         = kanjiToggle;
+        window.kanjiColCheck       = kanjiColCheck;
+        window.kanjiSelectUnit     = kanjiSelectUnit;
         window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
-        window.kanjiEditUnit     = kanjiEditUnit;
+        window.kanjiEditUnit       = kanjiEditUnit;
         window.kanjiCloseUnitModal = kanjiCloseUnitModal;
-        window.kanjiSaveUnit     = kanjiSaveUnit;
-        window.kanjiDeleteUnit   = kanjiDeleteUnit;
+        window.kanjiSaveUnit       = kanjiSaveUnit;
+        window.kanjiDeleteUnit     = kanjiDeleteUnit;
 
         // ---- DOMContentLoaded フック ----
         document.addEventListener('DOMContentLoaded', function() {
-            // テキストエリアのinputイベント登録
             var ta = document.getElementById('kanjiModalChars');
             if (ta) ta.addEventListener('input', kjUpdatePreview);
-            // モーダル背景クリックで閉じる
             var modal = document.getElementById('kanjiModal');
             if (modal) {
                 modal.addEventListener('click', function(e) {

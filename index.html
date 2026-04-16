@@ -1570,6 +1570,12 @@
             left: 0;
             z-index: 2;
         }
+        #view-kanji td.kanji-selected {
+            outline: 3px solid #1565C0 !important;
+            outline-offset: -3px;
+            background: #E3F2FD !important;
+            z-index: 1;
+        }
         #view-kanji .kanji-name-col {
             position: sticky;
             left: 28px;
@@ -8950,6 +8956,9 @@
 
         // ---- 状態 ----
         var kjCurrentUnit = 0; // 現在選択中の単元インデックス
+        var kanjiCurRow = 0;
+        var kanjiCurCol = 0;
+        var kanjiKeyboardActive = false;
 
         // ---- 文字列から漢字配列を生成（重複除去） ----
         function kjParseChars(str) {
@@ -8971,6 +8980,68 @@
             var data = kanjiGetData();
             kjRenderUnitSel(data);
             kjRenderTable(data);
+
+            // キーボードイベント登録（重複登録防止）
+            if (!window._kanjiKeyHandler) {
+                window._kanjiKeyHandler = function(e) {
+                    // 漢字チェック画面がアクティブな時のみ動作
+                    var view = document.getElementById('view-kanji');
+                    if (!view || !view.classList.contains('active')) return;
+
+                    // 入力中は無視
+                    if (e.target.tagName === 'INPUT' ||
+                        e.target.tagName === 'TEXTAREA' ||
+                        e.target.tagName === 'SELECT') return;
+
+                    var data = kanjiGetData();
+                    var unitIdx = kjCurrentUnit;
+                    var unit = data.units[unitIdx];
+                    if (!unit) return;
+                    var students = master.students || [];
+
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurRow = Math.max(0, kanjiCurRow - 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurRow = Math.min(students.length - 1, kanjiCurRow + 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurCol = Math.max(0, kanjiCurCol - 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurCol = Math.min(unit.chars.length - 1, kanjiCurCol + 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            if (!kanjiKeyboardActive) {
+                                kanjiKeyboardActive = true;
+                                kanjiHighlightCell();
+                                return;
+                            }
+                            kanjiToggle(unitIdx, kanjiCurRow, kanjiCurCol);
+                            break;
+                        case 'Escape':
+                            kanjiKeyboardActive = false;
+                            document.querySelectorAll('#view-kanji td.kanji-selected')
+                                .forEach(function(td) { td.classList.remove('kanji-selected'); });
+                            break;
+                    }
+                };
+                document.addEventListener('keydown', window._kanjiKeyHandler);
+            }
         }
 
         // ---- 統合再描画 ----
@@ -8978,6 +9049,7 @@
             var data = kanjiGetData();
             kjRenderUnitSel(data);
             kjRenderTable(data);
+            kanjiHighlightCell();
         }
 
         // ---- 単元セレクト描画 ----
@@ -9086,8 +9158,43 @@
             wrap.innerHTML = html;
         }
 
+        // ---- キーボード選択セルのハイライト ----
+        function kanjiHighlightCell() {
+            var data = kanjiGetData();
+            var unitIdx = kjCurrentUnit;
+            var unit = data.units[unitIdx];
+            if (!unit) return;
+            var students = master.students || [];
+
+            // 全セルのハイライトを解除
+            document.querySelectorAll('#view-kanji td.kanji-selected')
+                .forEach(function(td) { td.classList.remove('kanji-selected'); });
+
+            if (!kanjiKeyboardActive) return;
+
+            // 範囲チェック
+            kanjiCurRow = Math.max(0, Math.min(kanjiCurRow, students.length - 1));
+            kanjiCurCol = Math.max(0, Math.min(kanjiCurCol, unit.chars.length - 1));
+
+            // 対象セルを選択
+            var tableWrap = document.querySelector('.kanji-table-wrap');
+            if (!tableWrap) return;
+            var rows = tableWrap.querySelectorAll('tbody tr');
+            if (!rows[kanjiCurRow]) return;
+            // 番号列・氏名列・完了数列を除いた漢字列（index+2）
+            var cells = rows[kanjiCurRow].querySelectorAll('td');
+            var targetCell = cells[kanjiCurCol + 2];
+            if (targetCell) {
+                targetCell.classList.add('kanji-selected');
+                targetCell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
+        }
+
         // ---- セルトグル（3段階：未→△→○→未） ----
         function kanjiToggle(unitIdx, stuIdx, charIdx) {
+            kanjiCurRow = stuIdx;
+            kanjiCurCol = charIdx;
+            kanjiKeyboardActive = true;
             var data = kanjiGetData();
             var unit = data.units[unitIdx];
             if (!unit) return;

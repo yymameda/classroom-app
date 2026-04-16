@@ -1556,6 +1556,7 @@
         <button class="nav-btn" data-view="records" data-tooltip="児童の記録" id="nav-records">📝</button>
         <button class="nav-btn" data-view="submissions" data-tooltip="提出物チェック" id="nav-submissions">📚</button>
         <button class="nav-btn" data-view="forgotten" data-tooltip="忘れ物チェック" id="nav-forgotten">🎒</button>
+        <button class="nav-btn" data-view="kanji" data-tooltip="漢字チェック" id="nav-kanji">✍️</button>
         <div class="divider"></div>
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
         <div class="divider"></div>
@@ -2448,6 +2449,35 @@
             </div>
         </div>
 
+        <!-- ===== 漢字チェック ===== -->
+        <div id="view-kanji" class="view">
+            <div class="view-header" style="background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;display:flex;align-items:center;gap:8px;height:50px;flex-shrink:0;">
+                <h2 style="font-size:1rem;color:#fff;margin:0;">✍️ 漢字チェック</h2>
+                <select id="kanjiUnitSel" onchange="kanjiSelectUnit(this.value)" style="padding:4px 8px;border-radius:6px;border:none;font-size:0.85rem;background:#fff;color:#333;max-width:180px;"></select>
+                <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
+                <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
+                <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
+            </div>
+            <div style="flex:1;overflow:auto;background:#f5f5f5;">
+                <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
+            </div>
+            <!-- 単元追加・編集モーダル -->
+            <div id="kanjiModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
+                <div style="background:#fff;border-radius:12px;padding:20px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                    <h3 id="kanjiModalTitle" style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">単元追加</h3>
+                    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">単元名</label>
+                    <input id="kanjiModalName" type="text" placeholder="例: 5年1学期①" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:0.9rem;margin-bottom:12px;">
+                    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">漢字（1行1文字 またはスペース・読点区切り）</label>
+                    <textarea id="kanjiModalChars" rows="5" placeholder="例:&#10;美&#10;術&#10;競&#10;争&#10;または：美 術 競 争" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:1.1rem;font-family:inherit;resize:vertical;margin-bottom:14px;"></textarea>
+                    <div id="kanjiModalPreview" style="font-size:0.8rem;color:#555;margin-bottom:14px;min-height:20px;"></div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button onclick="kanjiCloseUnitModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">キャンセル</button>
+                        <button onclick="kanjiSaveUnit()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== データ出力 (Phase 8) ===== -->
         <div id="view-export" class="view">
             <div class="view-header" style="background: linear-gradient(135deg, #1565C0, #1976D2);"><h2>📤 データ出力センター</h2></div>
@@ -3011,7 +3041,8 @@
         karte_learning: 'spa_karte_learning',
         karte_archive:  'spa_karte_archive',
         karte_recs:     'spa_karte_recs',
-        morning_prep:   'spa_morning_prep'
+        morning_prep:   'spa_morning_prep',
+        kanji:          'spa_kanji'
     };
 
     // マスターデータ
@@ -3237,6 +3268,7 @@
         if (viewName === 'seating') { renderSeating(); }
         if (viewName === 'settings') { updateSettingsUI(); }
         if (viewName === 'records' && typeof recOnShowView === 'function') { recOnShowView(); }
+        if (viewName === 'kanji' && typeof kanjiInit === 'function') { kanjiInit(); }
     }
 
     // ================================================================
@@ -8869,6 +8901,324 @@
     })();
     // ▲▲▲ MODULE:FORGOTTEN ▲▲▲
 
+    // ▼▼▼ MODULE:KANJI ▼▼▼
+    // ================================================================
+    // 漢字チェック
+    // ================================================================
+    (function() { 'use strict';
+
+        // ---- データアクセス ----
+        function kjLoad() {
+            return StorageManager.get(KEYS.kanji, { units: [] });
+        }
+        function kjSave(data) {
+            StorageManager.setImmediate(KEYS.kanji, data);
+        }
+
+        // ---- 状態 ----
+        var kjCurrentUnit = 0; // 現在選択中の単元インデックス
+
+        // ---- 文字列から漢字配列を生成（重複除去） ----
+        function kjParseChars(str) {
+            var seen = {};
+            var result = [];
+            // スペース・読点・改行・カンマ・全角スペースで分割
+            var parts = str.replace(/[\s\u3001\uff0c,\n\r]+/g, '');
+            for (var i = 0; i < parts.length; i++) {
+                var c = parts[i];
+                if (c && !seen[c]) {
+                    seen[c] = true;
+                    result.push(c);
+                }
+            }
+            return result;
+        }
+
+        // ---- 初期化 ----
+        function kanjiInit() {
+            var data = kjLoad();
+            kjRenderUnitSel(data);
+            kjRenderTable(data);
+            // プレビュー更新
+            var ta = document.getElementById('kanjiModalChars');
+            if (ta) ta.addEventListener('input', kjUpdatePreview);
+        }
+
+        // ---- 単元セレクト描画 ----
+        function kjRenderUnitSel(data) {
+            var sel = document.getElementById('kanjiUnitSel');
+            if (!sel) return;
+            var units = data.units || [];
+            sel.innerHTML = '';
+            if (units.length === 0) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '（単元なし）';
+                sel.appendChild(opt);
+                return;
+            }
+            units.forEach(function(u, i) {
+                var opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = u.name;
+                if (i === kjCurrentUnit) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        // ---- テーブル描画 ----
+        function kjRenderTable(data) {
+            var wrap = document.getElementById('kanjiTableWrap');
+            if (!wrap) return;
+            var units = data.units || [];
+            if (units.length === 0) {
+                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">単元がありません。「＋単元追加」から追加してください。</div>';
+                return;
+            }
+            if (kjCurrentUnit >= units.length) kjCurrentUnit = 0;
+            var unit = units[kjCurrentUnit];
+            var chars = unit.chars || [];
+            var checks = unit.checks || {};
+            var students = master.students || [];
+
+            // 列ごとに全員チェック済みか判定
+            var colAllDone = chars.map(function(_, ci) {
+                if (students.length === 0) return false;
+                return students.every(function(_, si) {
+                    return checks[String(si)] && checks[String(si)][String(ci)];
+                });
+            });
+
+            // 行ごとに全漢字完了か判定
+            var rowAllDone = students.map(function(_, si) {
+                if (chars.length === 0) return false;
+                return chars.every(function(_, ci) {
+                    return checks[String(si)] && checks[String(si)][String(ci)];
+                });
+            });
+
+            // 完了数（行）
+            function rowDoneCount(si) {
+                return chars.filter(function(_, ci) {
+                    return checks[String(si)] && checks[String(si)][String(ci)];
+                }).length;
+            }
+
+            var html = '<table id="kanjiTable" style="border-collapse:collapse;table-layout:fixed;background:#fff;">';
+
+            // ヘッダー行
+            html += '<thead><tr>';
+            html += '<th style="position:sticky;left:0;z-index:3;background:#e8f5e9;width:28px;min-width:28px;max-width:28px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:2px;">#</th>';
+            html += '<th style="position:sticky;left:28px;z-index:3;background:#e8f5e9;width:72px;min-width:72px;max-width:72px;border:1px solid #ccc;font-size:0.78rem;text-align:center;padding:2px;">氏名</th>';
+            chars.forEach(function(c, ci) {
+                var bg = colAllDone[ci] ? '#2E7D32' : '#e8f5e9';
+                var col = colAllDone[ci] ? '#fff' : '#333';
+                html += '<th onclick="kanjiColCheck(' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + bg + ';color:' + col + ';border:1px solid #ccc;font-size:1rem;text-align:center;padding:2px;user-select:none;">' + escapeHtml(c) + '</th>';
+            });
+            html += '<th style="background:#e8f5e9;width:44px;min-width:44px;max-width:44px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:2px;">完了</th>';
+            html += '</tr></thead>';
+
+            // データ行
+            html += '<tbody>';
+            students.forEach(function(st, si) {
+                var rowDone = rowAllDone[si];
+                var rowBg = rowDone ? '#E8F5E9' : '#fff';
+                html += '<tr style="background:' + rowBg + ';">';
+                html += '<td style="position:sticky;left:0;z-index:2;background:' + rowBg + ';width:28px;min-width:28px;max-width:28px;border:1px solid #ddd;font-size:0.72rem;text-align:center;padding:2px;color:#555;">' + (si + 1) + '</td>';
+                html += '<td style="position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:2px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
+                chars.forEach(function(_, ci) {
+                    var checked = checks[String(si)] && checks[String(si)][String(ci)];
+                    var cellBg = checked ? '#A5D6A7' : '#fff';
+                    html += '<td onclick="kanjiToggle(' + si + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + cellBg + ';border:1px solid #ddd;text-align:center;font-size:0.9rem;padding:2px;user-select:none;">' + (checked ? '✓' : '') + '</td>';
+                });
+                html += '<td style="background:' + rowBg + ';width:44px;min-width:44px;max-width:44px;border:1px solid #ddd;text-align:center;font-size:0.78rem;padding:2px;color:#555;">' + rowDoneCount(si) + '/' + chars.length + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+
+            wrap.innerHTML = html;
+        }
+
+        // ---- セルトグル ----
+        function kanjiToggle(si, ci) {
+            var data = kjLoad();
+            var units = data.units || [];
+            if (kjCurrentUnit >= units.length) return;
+            var unit = units[kjCurrentUnit];
+            if (!unit.checks) unit.checks = {};
+            var siKey = String(si);
+            var ciKey = String(ci);
+            if (!unit.checks[siKey]) unit.checks[siKey] = {};
+            unit.checks[siKey][ciKey] = !unit.checks[siKey][ciKey];
+            if (!unit.checks[siKey][ciKey]) delete unit.checks[siKey][ciKey];
+            kjSave(data);
+            kjRenderTable(data);
+        }
+
+        // ---- 列ヘッダータップ（全員トグル） ----
+        function kanjiColCheck(ci) {
+            var data = kjLoad();
+            var units = data.units || [];
+            if (kjCurrentUnit >= units.length) return;
+            var unit = units[kjCurrentUnit];
+            var students = master.students || [];
+            if (!unit.checks) unit.checks = {};
+            var ciKey = String(ci);
+            // 全員チェック済みかどうか
+            var allChecked = students.every(function(_, si) {
+                return unit.checks[String(si)] && unit.checks[String(si)][ciKey];
+            });
+            students.forEach(function(_, si) {
+                var siKey = String(si);
+                if (!unit.checks[siKey]) unit.checks[siKey] = {};
+                if (allChecked) {
+                    delete unit.checks[siKey][ciKey];
+                } else {
+                    unit.checks[siKey][ciKey] = true;
+                }
+            });
+            kjSave(data);
+            kjRenderTable(data);
+        }
+
+        // ---- 単元セレクト変更 ----
+        function kanjiSelectUnit(val) {
+            if (val === '' || val === null || val === undefined) return;
+            kjCurrentUnit = parseInt(val, 10) || 0;
+            var data = kjLoad();
+            kjRenderTable(data);
+        }
+
+        // ---- 単元追加モーダルを開く ----
+        function kanjiOpenUnitModal() {
+            document.getElementById('kanjiModalTitle').textContent = '単元追加';
+            document.getElementById('kanjiModalName').value = '';
+            document.getElementById('kanjiModalChars').value = '';
+            document.getElementById('kanjiModalPreview').textContent = '';
+            document.getElementById('kanjiModal')._editIndex = null;
+            document.getElementById('kanjiModal').style.display = 'flex';
+            document.getElementById('kanjiModalName').focus();
+        }
+
+        // ---- 単元編集モーダルを開く ----
+        function kanjiEditUnit() {
+            var data = kjLoad();
+            var units = data.units || [];
+            if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
+            var unit = units[kjCurrentUnit];
+            document.getElementById('kanjiModalTitle').textContent = '単元編集';
+            document.getElementById('kanjiModalName').value = unit.name || '';
+            document.getElementById('kanjiModalChars').value = (unit.chars || []).join('\n');
+            kjUpdatePreview();
+            document.getElementById('kanjiModal')._editIndex = kjCurrentUnit;
+            document.getElementById('kanjiModal').style.display = 'flex';
+            document.getElementById('kanjiModalName').focus();
+        }
+
+        // ---- モーダルを閉じる ----
+        function kanjiCloseUnitModal() {
+            document.getElementById('kanjiModal').style.display = 'none';
+        }
+
+        // ---- プレビュー更新 ----
+        function kjUpdatePreview() {
+            var ta = document.getElementById('kanjiModalChars');
+            var prev = document.getElementById('kanjiModalPreview');
+            if (!ta || !prev) return;
+            var chars = kjParseChars(ta.value);
+            prev.textContent = chars.length > 0 ? '認識した漢字（' + chars.length + '文字）: ' + chars.join(' ') : '';
+        }
+
+        // ---- 単元保存 ----
+        function kanjiSaveUnit() {
+            var name = (document.getElementById('kanjiModalName').value || '').trim();
+            var charsStr = document.getElementById('kanjiModalChars').value || '';
+            var chars = kjParseChars(charsStr);
+            if (!name) { showToast('単元名を入力してください', 'warning'); return; }
+            if (chars.length === 0) { showToast('漢字を1文字以上入力してください', 'warning'); return; }
+
+            var data = kjLoad();
+            if (!data.units) data.units = [];
+            var editIdx = document.getElementById('kanjiModal')._editIndex;
+
+            if (editIdx !== null && editIdx !== undefined) {
+                // 編集: チェック済みデータを引き継ぐ
+                var oldUnit = data.units[editIdx];
+                var oldChars = oldUnit.chars || [];
+                var oldChecks = oldUnit.checks || {};
+                var newChecks = {};
+                // 旧インデックス→新インデックスの対応を作成
+                chars.forEach(function(c, newCi) {
+                    var oldCi = oldChars.indexOf(c);
+                    if (oldCi >= 0) {
+                        // 旧データから引き継ぐ
+                        Object.keys(oldChecks).forEach(function(siKey) {
+                            if (oldChecks[siKey][String(oldCi)]) {
+                                if (!newChecks[siKey]) newChecks[siKey] = {};
+                                newChecks[siKey][String(newCi)] = true;
+                            }
+                        });
+                    }
+                });
+                data.units[editIdx] = { name: name, chars: chars, checks: newChecks };
+                kjCurrentUnit = editIdx;
+            } else {
+                // 新規追加
+                data.units.push({ name: name, chars: chars, checks: {} });
+                kjCurrentUnit = data.units.length - 1;
+            }
+
+            kjSave(data);
+            kanjiCloseUnitModal();
+            kjRenderUnitSel(data);
+            kjRenderTable(data);
+            showToast('保存しました', 'success');
+        }
+
+        // ---- 単元削除 ----
+        function kanjiDeleteUnit() {
+            var data = kjLoad();
+            var units = data.units || [];
+            if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
+            var unitName = units[kjCurrentUnit].name;
+            if (!confirm('「' + unitName + '」を削除しますか？')) return;
+            units.splice(kjCurrentUnit, 1);
+            data.units = units;
+            if (kjCurrentUnit >= units.length) kjCurrentUnit = Math.max(0, units.length - 1);
+            kjSave(data);
+            kjRenderUnitSel(data);
+            kjRenderTable(data);
+            showToast('削除しました', 'success');
+        }
+
+        // ---- グローバル公開 ----
+        window.kanjiInit         = kanjiInit;
+        window.kanjiToggle       = kanjiToggle;
+        window.kanjiColCheck     = kanjiColCheck;
+        window.kanjiSelectUnit   = kanjiSelectUnit;
+        window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
+        window.kanjiEditUnit     = kanjiEditUnit;
+        window.kanjiCloseUnitModal = kanjiCloseUnitModal;
+        window.kanjiSaveUnit     = kanjiSaveUnit;
+        window.kanjiDeleteUnit   = kanjiDeleteUnit;
+
+        // ---- DOMContentLoaded フック ----
+        document.addEventListener('DOMContentLoaded', function() {
+            // テキストエリアのinputイベント登録
+            var ta = document.getElementById('kanjiModalChars');
+            if (ta) ta.addEventListener('input', kjUpdatePreview);
+            // モーダル背景クリックで閉じる
+            var modal = document.getElementById('kanjiModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) kanjiCloseUnitModal();
+                });
+            }
+        });
+
+    })();
+    // ▲▲▲ MODULE:KANJI ▲▲▲
+
     // ▼▼▼ MODULE:CSV_EXPORT ▼▼▼
     // ================================================================
     // データ出力センター (Phase 8)
@@ -9203,6 +9553,15 @@
     window.karteRecCancelEdit = karteRecCancelEdit;
     window.karteUndoLast = karteUndoLast;
     window.renderPatrolHistory = renderPatrolHistory;
+    window.kanjiInit           = kanjiInit;
+    window.kanjiToggle         = kanjiToggle;
+    window.kanjiColCheck       = kanjiColCheck;
+    window.kanjiSelectUnit     = kanjiSelectUnit;
+    window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
+    window.kanjiEditUnit       = kanjiEditUnit;
+    window.kanjiCloseUnitModal = kanjiCloseUnitModal;
+    window.kanjiSaveUnit       = kanjiSaveUnit;
+    window.kanjiDeleteUnit     = kanjiDeleteUnit;
 
     // --- 暗号化バックアップ: prompt()の代わりにモーダルUI ---
     document.getElementById('btn-enc-export').addEventListener('click', function() {

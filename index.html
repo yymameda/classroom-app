@@ -1549,13 +1549,13 @@
         }
         #view-kanji td,
         #view-kanji th {
-            height: 26px;
-            min-height: 26px;
-            max-height: 26px;
+            height: 24px;
+            min-height: 24px;
+            max-height: 24px;
             overflow: hidden;
             white-space: nowrap;
             vertical-align: middle;
-            line-height: 26px;
+            line-height: 24px;
             padding: 0;
             box-sizing: border-box;
         }
@@ -9046,14 +9046,14 @@
 
             // ヘッダー行
             html += '<thead><tr>';
-            html += '<th class="kanji-num-col" style="position:sticky;left:0;z-index:3;background:#e8f5e9;width:28px;min-width:28px;max-width:28px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;">#</th>';
-            html += '<th class="kanji-name-col" style="position:sticky;left:28px;z-index:3;background:#e8f5e9;width:72px;min-width:72px;max-width:72px;border:1px solid #ccc;font-size:0.78rem;text-align:center;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;">氏名</th>';
+            html += '<th class="kanji-num-col" style="position:sticky;left:0;z-index:3;background:#e8f5e9;width:28px;min-width:28px;max-width:28px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;">#</th>';
+            html += '<th class="kanji-name-col" style="position:sticky;left:28px;z-index:3;background:#e8f5e9;width:72px;min-width:72px;max-width:72px;border:1px solid #ccc;font-size:0.78rem;text-align:center;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;">氏名</th>';
             chars.forEach(function(c, ci) {
                 var bg = colAllDone[ci] ? '#388E3C' : colHasRetry[ci] ? '#F9A825' : '#e8f5e9';
                 var col = (colAllDone[ci] || colHasRetry[ci]) ? '#fff' : '#2E7D32';
-                html += '<th onclick="kanjiColCheck(' + unitIdx + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + bg + ';color:' + col + ';border:1px solid #ccc;font-size:1rem;text-align:center;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;user-select:none;">' + escapeHtml(c) + '</th>';
+                html += '<th onclick="kanjiColCheck(' + unitIdx + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + bg + ';color:' + col + ';border:1px solid #ccc;font-size:1rem;text-align:center;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;user-select:none;">' + escapeHtml(c) + '</th>';
             });
-            html += '<th style="background:#e8f5e9;width:52px;min-width:52px;max-width:52px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;">完了</th>';
+            html += '<th style="background:#e8f5e9;width:52px;min-width:52px;max-width:52px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;">完了</th>';
             html += '</tr></thead>';
 
             // データ行
@@ -9069,16 +9069,16 @@
                 }).length;
                 var countText = doneCount + '/' + chars.length + (retryCount > 0 ? '（△' + retryCount + '）' : '');
                 html += '<tr style="background:' + rowBg + ';">';
-                html += '<td class="kanji-num-col" style="position:sticky;left:0;z-index:2;background:' + rowBg + ';width:28px;min-width:28px;max-width:28px;border:1px solid #ddd;font-size:0.72rem;text-align:center;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;color:#555;">' + (si + 1) + '</td>';
-                html += '<td class="kanji-name-col" style="position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:0 4px;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
+                html += '<td class="kanji-num-col" style="position:sticky;left:0;z-index:2;background:' + rowBg + ';width:28px;min-width:28px;max-width:28px;border:1px solid #ddd;font-size:0.72rem;text-align:center;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;color:#555;">' + (si + 1) + '</td>';
+                html += '<td class="kanji-name-col" style="position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:0 4px;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
                 chars.forEach(function(_, ci) {
                     var val = (checks[String(si)] || {})[String(ci)];
                     var cellBg = val === 'o' ? '#A5D6A7' : val === 'd' ? '#FFF9C4' : '#fff';
                     var cellColor = val === 'o' ? '#2E7D32' : val === 'd' ? '#F57F17' : '';
                     var cellText = val === 'o' ? '○' : val === 'd' ? '△' : '';
-                    html += '<td onclick="kanjiToggle(' + unitIdx + ',' + si + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + cellBg + ';color:' + cellColor + ';font-weight:700;border:1px solid #ddd;text-align:center;font-size:0.9rem;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;user-select:none;">' + cellText + '</td>';
+                    html += '<td onclick="kanjiToggle(' + unitIdx + ',' + si + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + cellBg + ';color:' + cellColor + ';font-weight:700;border:1px solid #ddd;text-align:center;font-size:0.9rem;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;user-select:none;">' + cellText + '</td>';
                 });
-                html += '<td style="background:' + rowBg + ';width:52px;min-width:52px;max-width:52px;border:1px solid #ddd;text-align:center;font-size:0.72rem;padding:0;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:26px;box-sizing:border-box;color:#555;">' + countText + '</td>';
+                html += '<td style="background:' + rowBg + ';width:52px;min-width:52px;max-width:52px;border:1px solid #ddd;text-align:center;font-size:0.72rem;padding:0;height:24px;max-height:24px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:24px;box-sizing:border-box;color:#555;">' + countText + '</td>';
                 html += '</tr>';
             });
             html += '</tbody></table>';

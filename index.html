@@ -46,8 +46,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 8px 0;
-            gap: 4px;
+            padding: 6px 0;
+            gap: 2px;
             overflow-y: auto;
             scrollbar-width: none;
             z-index: 10;
@@ -55,15 +55,15 @@
         .sidebar::-webkit-scrollbar { display: none; }
         @media (orientation: landscape) and (min-width: 1000px) {
             .sidebar {
-                padding: 12px 0;
+                padding: 6px 0;
                 gap: 2px;
             }
         }
         .nav-btn {
-            width: 58px; height: 58px;
-            border-radius: 12px; border: none;
+            width: 52px; height: 48px;
+            border-radius: 10px; border: none;
             background: rgba(255,255,255,0.15);
-            color: white; font-size: 24px;
+            color: white; font-size: 20px;
             cursor: pointer; transition: all 0.15s;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0; position: relative;
@@ -85,13 +85,13 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
         @media (orientation: landscape) and (min-width: 1000px) {
-            :root { --sidebar-w: 80px; }
+            :root { --sidebar-w: 76px; }
             .nav-btn {
-                width: 72px;
-                height: 64px;
+                width: 68px;
+                height: 52px;
                 flex-direction: column;
-                gap: 2px;
-                font-size: 20px;
+                gap: 1px;
+                font-size: 18px;
             }
             .nav-btn::before {
                 content: attr(data-tooltip);
@@ -120,14 +120,14 @@
         }
         .nav-group-label {
             width: 100%;
-            padding: 5px 2px 2px;
+            padding: 3px 2px 1px;
             text-align: center;
             font-size: 9px;
             color: rgba(255,255,255,0.55);
             font-weight: 700;
             letter-spacing: 0.02em;
             border-top: 1px solid rgba(255,255,255,0.2);
-            margin-top: 4px;
+            margin-top: 2px;
             flex-shrink: 0;
             line-height: 1;
         }

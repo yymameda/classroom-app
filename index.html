@@ -3991,7 +3991,9 @@
         } else {
             var blob = new Blob([jsonStr], { type: 'application/json' });
             var ci = master.classInfo;
-            var fileName = 'classroom_backup.json';
+            var now = new Date();
+            var dateStr = String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+            var fileName = 'classroom_backup_' + dateStr + '.json';
             await universalShare(blob, fileName);
         }
     }

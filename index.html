@@ -3991,7 +3991,7 @@
         } else {
             var blob = new Blob([jsonStr], { type: 'application/json' });
             var ci = master.classInfo;
-            var fileName = ci.year + '年度' + ci.grade + '年' + ci.class + '組_SPA_backup.json';
+            var fileName = 'classroom_backup.json';
             await universalShare(blob, fileName);
         }
     }

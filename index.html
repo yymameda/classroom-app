@@ -48,9 +48,11 @@
             align-items: center;
             padding: 8px 0;
             gap: 4px;
-            overflow: hidden;
+            overflow-y: auto;
+            scrollbar-width: none;
             z-index: 10;
         }
+        .sidebar::-webkit-scrollbar { display: none; }
         @media (orientation: landscape) and (min-width: 1000px) {
             .sidebar {
                 padding: 12px 0;
@@ -115,6 +117,19 @@
             width: 36px; height: 1px;
             background: rgba(255,255,255,0.25);
             margin: 2px 0; flex-shrink: 0;
+        }
+        .nav-group-label {
+            width: 100%;
+            padding: 5px 2px 2px;
+            text-align: center;
+            font-size: 9px;
+            color: rgba(255,255,255,0.55);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            margin-top: 4px;
+            flex-shrink: 0;
+            line-height: 1;
         }
 
         /* ========== メインコンテンツ ========== */
@@ -1588,17 +1603,19 @@
     <!-- サイドバー -->
     <nav class="sidebar">
         <button class="nav-btn active" data-view="dashboard" data-tooltip="ダッシュボード" id="nav-dashboard">📊</button>
+        <div class="nav-group-label">【設定】</div>
         <button class="nav-btn" data-view="settings" data-tooltip="名簿・設定" id="nav-settings">⚙️</button>
-        <div class="divider"></div>
+        <div class="nav-group-label">【日常】</div>
         <button class="nav-btn" data-view="attendance" data-tooltip="出席簿" id="nav-attendance">📋</button>
-        <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
-        <button class="nav-btn" data-view="records" data-tooltip="児童の記録" id="nav-records">📝</button>
         <button class="nav-btn" data-view="submissions" data-tooltip="提出物チェック" id="nav-submissions">📚</button>
         <button class="nav-btn" data-view="forgotten" data-tooltip="忘れ物チェック" id="nav-forgotten">🎒</button>
+        <div class="nav-group-label">【記録】</div>
         <button class="nav-btn" data-view="kanji" data-tooltip="漢字チェック" id="nav-kanji">✍️</button>
-        <div class="divider"></div>
+        <button class="nav-btn" data-view="records" data-tooltip="児童の記録" id="nav-records">📝</button>
+        <div class="nav-group-label">【評価】</div>
+        <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
-        <div class="divider"></div>
+        <div class="nav-group-label">【データ】</div>
         <button class="nav-btn" data-view="export" data-tooltip="データ出力" id="nav-export">📤</button>
         <button class="nav-btn" data-action="backup" data-tooltip="バックアップ" id="nav-backup">💾</button>
     </nav>

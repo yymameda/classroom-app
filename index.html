@@ -417,7 +417,7 @@
         }
         .grid-cell {
             background: white; border-radius: 8px;
-            display: grid; grid-template-columns: 20px 1fr;
+            display: grid; grid-template-columns: 28px 1fr;
             cursor: pointer; transition: all 0.15s;
             border: 1px solid #E2E8F0; position: relative;
             height: 72px; overflow: hidden;
@@ -429,12 +429,12 @@
         /* 🌅左縦バー */
         .grid-cell-mp-strip {
             display: flex; align-items: center; justify-content: center;
-            background: #F0F4F8; border-right: 1px solid #E2E8F0;
+            width: 28px; background: #F0F4F8; border-right: 2px solid #D0D8E4;
             border-radius: 8px 0 0 8px; cursor: pointer;
             font-size: 13px; transition: background 0.15s;
             height: 100%;
         }
-        .grid-cell-mp-strip.mp-on { background: #FFF3E0; border-color: #E67E22; }
+        .grid-cell-mp-strip.mp-on { background: #FFF3E0; border-right: 2px solid #E67E22; }
         .grid-cell-mp-strip:active { background: #FFE0B2; }
         /* 右側コンテンツ */
         .grid-cell-body {
@@ -1171,6 +1171,15 @@
             .sub-diary-grid {
                 grid-template-columns: repeat(6, 1fr) !important;
             }
+            .sub-diary-card {
+                padding: 4px 3px;
+            }
+            .sub-diary-quick {
+                flex-direction: column;
+            }
+            .sub-diary-pm {
+                width: 28px; height: 28px;
+            }
             #sub-sub-input {
                 overflow-x: hidden;
             }
@@ -1179,6 +1188,7 @@
             display: flex; flex-direction: column; align-items: stretch;
             padding: 4px; border: 1px solid var(--border); border-radius: 8px;
             background: var(--white); gap: 3px; transition: all 0.15s;
+            min-height: 100px;
         }
         .sub-input-row.has-status.status-submitted { background: #E8F8EF; border-color: var(--success); }
         .sub-input-row.has-status.status-resubmit  { background: #FEF9E7; border-color: #B7950B; }

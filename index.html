@@ -1859,6 +1859,7 @@
                     <div class="att-status-opt" data-s="休"  onclick="attSelectStatus('休')"><span class="sym">休</span><span class="lbl">学閉</span></div>
                     <div class="att-status-opt" data-s=""   onclick="attSelectStatus('')"><span class="sym">－</span><span class="lbl">クリア</span></div>
                 </div>
+                <button onclick="openKarteFromAtt()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;margin-bottom:8px;font-family:inherit;">👤 カルテを開く</button>
                 <button class="att-modal-close" onclick="attCloseModal()">閉じる</button>
             </div>
         </div>
@@ -2139,6 +2140,9 @@
                 <!-- ===== 個人カルテ サブビュー ===== -->
                 <div id="rec-sub-karte" class="rec-sub">
                     <div class="karte-container">
+                        <div style="padding:6px 8px 0;display:flex;justify-content:flex-end;">
+                            <button onclick="printAllKarte()" style="min-height:44px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;padding:0 14px;font-family:inherit;">🖨️ 全員分PDF出力</button>
+                        </div>
                         <div class="karte-student-bar">
                             <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>
                         </div>
@@ -2263,6 +2267,7 @@
                         <span class="sub-stat-ng" id="subCntNg">×0</span>
                     </div>
                     <button class="btn-rec-small goto" id="subAllOkBtn" style="font-size:0.75rem;margin-left:8px;">全員○</button>
+                    <button class="btn-rec-small" id="subMissingBtn" onclick="subShowMissingModal()" style="font-size:0.75rem;margin-left:4px;border-color:#E67E22;color:#E67E22;">📋 未提出者</button>
                 </div>
                 <!-- リスト表示（グリッド4列） -->
                 <div id="subListWrap" class="sub-input-list"></div>
@@ -2432,7 +2437,28 @@
                 </div>
                 <div id="fgtModalItems" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
                 <button id="fgtModalSave" class="btn-primary" style="width:100%;padding:12px;font-size:1rem;">保存</button>
+                <button onclick="openKarteFromFgt()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;margin-top:8px;font-family:inherit;">👤 カルテを開く</button>
             </div>
+        </div>
+
+        <!-- 未提出者一覧モーダル -->
+        <div id="subMissingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-end;justify-content:center;">
+            <div style="background:var(--white);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:600px;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div style="font-weight:700;font-size:1rem;color:var(--primary);">📋 未提出者一覧</div>
+                    <button onclick="subCloseMissingModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-light);">✕</button>
+                </div>
+                <div id="subMissingList"></div>
+            </div>
+        </div>
+
+        <!-- 漢字カルテポップアップ -->
+        <div id="kanjiKartePopup" style="display:none;position:fixed;z-index:2000;background:white;border:1.5px solid var(--primary);border-radius:10px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,0.2);min-width:160px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span id="kanjiKartePopupName" style="font-size:0.85rem;font-weight:700;color:var(--primary);"></span>
+                <button onclick="kanjiCloseKartePopup()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-light);padding:0;line-height:1;">×</button>
+            </div>
+            <button onclick="kanjiGoKarte()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;font-family:inherit;">👤 カルテを開く</button>
         </div>
 
         <!-- ===== 成績処理統合 (Phase 7) ===== -->
@@ -4307,6 +4333,14 @@
         const modal = document.getElementById('attStatusModal');
         if (modal) modal.classList.remove('active');
         attCurrentStudentIdx = null;
+    }
+    function openKarteFromAtt() {
+        var idx = attCurrentStudentIdx;
+        attCloseModal();
+        if (idx === null) return;
+        showView('records');
+        recShowSub('karte');
+        selectKarteStudent(idx);
     }
     function attSelectStatus(status) {
         if (attCurrentStudentIdx === null) return;
@@ -7569,6 +7603,42 @@
                 }
             };
         });
+        window.subShowMissingModal = function() {
+            if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
+            var students = subGetStudents();
+            var subs = subGetSubmissions();
+            var missingList = [];
+            students.forEach(function(stu, i) {
+                var rec = subs.find(function(r) { return r.studentIndex === i && r.assignmentId === subCurrentAssign; });
+                var st = rec ? rec.status : '';
+                if (!st || st === 'missing') missingList.push({ idx: i, name: stu.name, status: st });
+            });
+            var html = '';
+            if (missingList.length === 0) {
+                html = '<div style="text-align:center;padding:24px;color:var(--text-light);">全員提出済みです ✓</div>';
+            } else {
+                html = '<div style="margin-bottom:8px;font-size:0.85rem;color:var(--text-light);">' + missingList.length + '名が未提出 / ×</div><div style="display:flex;flex-direction:column;gap:6px;">';
+                missingList.forEach(function(item) {
+                    html += '<button style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;text-align:left;padding:0 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;" onclick="subOpenKarteFromMissing(' + item.idx + ')">'
+                        + '<span style="font-size:0.75rem;background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">' + (item.idx + 1) + '</span>'
+                        + '<span>' + escapeHtml(item.name) + '</span>'
+                        + (item.status === 'missing' ? '<span style="margin-left:auto;color:var(--danger);">×</span>' : '<span style="margin-left:auto;color:var(--text-light);font-size:0.8rem;">未入力</span>')
+                        + '</button>';
+                });
+                html += '</div>';
+            }
+            document.getElementById('subMissingList').innerHTML = html;
+            document.getElementById('subMissingModal').style.display = 'flex';
+        };
+        window.subCloseMissingModal = function() {
+            document.getElementById('subMissingModal').style.display = 'none';
+        };
+        window.subOpenKarteFromMissing = function(idx) {
+            window.subCloseMissingModal();
+            showView('records');
+            recShowSub('karte');
+            selectKarteStudent(idx);
+        };
     })();
     // ▲▲▲ MODULE:SUBMISSIONS ▲▲▲
 
@@ -8681,6 +8751,14 @@
             fgtRenderGrid();
             showToast(fgtModalSelected.length === 0 ? '取り消しました' : '忘れ物を記録しました');
         }
+        function openKarteFromFgt() {
+            var idx = fgtModalIdx;
+            fgtModalSaveItems();
+            if (idx === null) return;
+            showView('records');
+            recShowSub('karte');
+            selectKarteStudent(idx);
+        }
 
         // ================================================================
         // 児童別タブ
@@ -8983,6 +9061,7 @@
             };
         });
 
+        window.openKarteFromFgt = openKarteFromFgt;
     })();
     // ▲▲▲ MODULE:FORGOTTEN ▲▲▲
 
@@ -9188,7 +9267,7 @@
                 var countText = doneCount + '/' + chars.length + (retryCount > 0 ? '（△' + retryCount + '）' : '');
                 html += '<tr style="background:' + rowBg + ';">';
                 html += '<td class="kanji-num-col" style="position:sticky;left:0;z-index:2;background:' + rowBg + ';width:28px;min-width:28px;max-width:28px;border:1px solid #ddd;font-size:0.72rem;text-align:center;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;color:#555;">' + (si + 1) + '</td>';
-                html += '<td class="kanji-name-col" style="position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:0 4px;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
+                html += '<td class="kanji-name-col" onclick="kanjiShowKartePopup(event,' + si + ')" style="cursor:pointer;position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:0 4px;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
                 chars.forEach(function(_, ci) {
                     var val = (checks[String(si)] || {})[String(ci)];
                     var cellBg = val === 'o' ? '#A5D6A7' : val === 'd' ? '#FFF9C4' : '#fff';
@@ -9786,6 +9865,171 @@
     window.kanjiCloseUnitModal = kanjiCloseUnitModal;
     window.kanjiSaveUnit       = kanjiSaveUnit;
     window.kanjiDeleteUnit     = kanjiDeleteUnit;
+
+    // ===== カルテ遷移ヘルパー =====
+    window.openKarteFromAtt = openKarteFromAtt;
+
+    // ===== 漢字チェック: カルテポップアップ =====
+    var kanjiKartePopupIdx = -1;
+    window.kanjiShowKartePopup = function(event, si) {
+        kanjiKartePopupIdx = si;
+        var students = master.students || [];
+        var s = students[si] || {};
+        document.getElementById('kanjiKartePopupName').textContent = (si + 1) + '. ' + (s.name || '');
+        var popup = document.getElementById('kanjiKartePopup');
+        popup.style.display = 'block';
+        var x = event.clientX, y = event.clientY;
+        popup.style.left = Math.min(x + 8, window.innerWidth - 180) + 'px';
+        popup.style.top = Math.min(y + 8, window.innerHeight - 100) + 'px';
+        event.stopPropagation();
+    };
+    window.kanjiCloseKartePopup = function() {
+        document.getElementById('kanjiKartePopup').style.display = 'none';
+        kanjiKartePopupIdx = -1;
+    };
+    window.kanjiGoKarte = function() {
+        var idx = kanjiKartePopupIdx;
+        window.kanjiCloseKartePopup();
+        if (idx < 0) return;
+        showView('records');
+        recShowSub('karte');
+        selectKarteStudent(idx);
+    };
+    document.addEventListener('click', function(e) {
+        var popup = document.getElementById('kanjiKartePopup');
+        if (popup && popup.style.display !== 'none' && !popup.contains(e.target)) {
+            window.kanjiCloseKartePopup();
+        }
+    });
+
+    // ===== 個人カルテ一括PDF出力 =====
+    window.printAllKarte = function() {
+        var masterData = StorageManager.get(KEYS.master, {});
+        var students = masterData.students || [];
+        if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
+        var ci = masterData.classInfo || {};
+        var attAll = StorageManager.get(KEYS.attendance, {});
+        var assigns = StorageManager.get(KEYS.submissions_assignments, []);
+        var subs = StorageManager.get(KEYS.submissions_data, []);
+        var fgtDaily = StorageManager.get(KEYS.forgotten_daily, {});
+        var lifeAll = StorageManager.get(KEYS.karte_life, {});
+        var parentAll = StorageManager.get(KEYS.karte_parent, {});
+        var methodLabels = { phone: '📞 電話', meeting: '🤝 面談', note: '📝 連絡帳', other: '💬 その他' };
+        var pages = '';
+        students.forEach(function(s, idx) {
+            if (!s || !s.name) return;
+            // 出席集計
+            var present = 0, absent = 0, late = 0;
+            Object.keys(attAll).forEach(function(dk) {
+                var st = (attAll[dk] || {})[String(idx)];
+                if (!st) return;
+                if (st === '○') present++;
+                else if (st === '×' || st === '／') absent++;
+                if (st === 'チ' || st === 'チソ') late++;
+            });
+            // 提出物集計
+            var subDone = 0;
+            assigns.forEach(function(a) {
+                if (subs.find(function(r) { return r.studentIndex === idx && r.assignmentId === a.id && r.status === 'submitted'; })) subDone++;
+            });
+            var subRate = assigns.length > 0 ? Math.round(subDone / assigns.length * 100) + '%' : '-';
+            // 忘れ物集計
+            var fgtCount = 0;
+            Object.keys(fgtDaily).forEach(function(dk) {
+                var items = (fgtDaily[dk] || {})[String(idx)];
+                if (Array.isArray(items)) fgtCount += items.length;
+            });
+            // 生活記録（直近5件）
+            var lifeRecs = Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : [];
+            var lifeSorted = lifeRecs.slice().sort(function(a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+            var lifeRows = '';
+            lifeSorted.slice(0, 5).forEach(function(r) {
+                lifeRows += '<tr><td style="padding:3px 6px;font-size:8pt;color:#555;white-space:nowrap;border-bottom:1px solid #eee;">' + escapeHtml(r.date || '') + '</td>'
+                    + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml((r.summary || r.memo || '').slice(0, 100)) + '</td></tr>';
+            });
+            if (!lifeRows) lifeRows = '<tr><td colspan="2" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
+            // 保護者対応記録（直近3件）
+            var parentRecs = Array.isArray(parentAll[String(idx)]) ? parentAll[String(idx)] : [];
+            var parentSorted = parentRecs.slice().sort(function(a, b) { return (b.datetime || b.date || '').localeCompare(a.datetime || a.date || ''); });
+            var parentRows = '';
+            parentSorted.slice(0, 3).forEach(function(r) {
+                var method = methodLabels[r.method] || r.method || '';
+                var dateStr = r.datetime ? new Date(r.datetime).toLocaleDateString('ja-JP') : (r.date || '');
+                parentRows += '<tr><td style="padding:3px 6px;font-size:8pt;color:#555;white-space:nowrap;border-bottom:1px solid #eee;">' + escapeHtml(dateStr) + '</td>'
+                    + '<td style="padding:3px 6px;font-size:8pt;color:#555;border-bottom:1px solid #eee;">' + method + '</td>'
+                    + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml((r.content || '').slice(0, 80)) + '</td></tr>';
+            });
+            if (!parentRows) parentRows = '<tr><td colspan="3" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
+            var isLast = (idx === students.length - 1);
+            pages += '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:12mm 14mm;box-sizing:border-box;">'
+                + '<div style="border-bottom:3px solid #1a1a2e;padding-bottom:6pt;margin-bottom:10pt;display:flex;justify-content:space-between;align-items:flex-end;">'
+                + '<div style="font-size:18pt;font-weight:900;color:#1a1a2e;">個人カルテ</div>'
+                + '<div style="font-size:8pt;color:#555;">' + escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '') + '</div>'
+                + '</div>'
+                + '<div style="background:#f4f6f9;border-radius:8pt;padding:8pt 12pt;margin-bottom:10pt;display:flex;align-items:center;gap:16pt;">'
+                + '<span style="font-size:9pt;color:#555;font-weight:700;">番号</span>'
+                + '<span style="font-size:14pt;font-weight:900;color:#1a1a2e;">' + (idx + 1) + '</span>'
+                + '<span style="font-size:9pt;color:#555;font-weight:700;">氏名</span>'
+                + '<span style="font-size:16pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
+                + '</div>'
+                + '<div style="display:flex;gap:8pt;margin-bottom:10pt;">'
+                + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📅 出席状況</div>'
+                + '<table style="width:100%;border-collapse:collapse;">'
+                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">出席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + present + '日</td></tr>'
+                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">欠席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E74C3C;">' + absent + '日</td></tr>'
+                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">遅刻</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E67E22;">' + late + '回</td></tr>'
+                + '</table></div>'
+                + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📚 提出物</div>'
+                + '<table style="width:100%;border-collapse:collapse;">'
+                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">課題数</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + assigns.length + '件</td></tr>'
+                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出済</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#27AE60;">' + subDone + '件</td></tr>'
+                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出率</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + subRate + '</td></tr>'
+                + '</table></div>'
+                + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">🎒 忘れ物</div>'
+                + '<div style="font-size:20pt;font-weight:900;color:' + (fgtCount > 0 ? '#E74C3C' : '#27AE60') + ';text-align:center;padding:6pt 0;">' + fgtCount + '件</div>'
+                + '</div></div>'
+                + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;margin-bottom:10pt;">'
+                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📝 生活記録（直近5件）</div>'
+                + '<table style="width:100%;border-collapse:collapse;">' + lifeRows + '</table>'
+                + '</div>'
+                + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">👨‍👩‍👧 保護者対応記録（直近3件）</div>'
+                + '<table style="width:100%;border-collapse:collapse;">' + parentRows + '</table>'
+                + '</div>'
+                + '</div>';
+        });
+        var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
+            + '@page{size:A4 portrait;margin:0;}'
+            + '*{box-sizing:border-box;margin:0;padding:0;}'
+            + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
+            + '</style></head><body>' + pages + '</body></html>';
+        var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
+        var blobUrl = URL.createObjectURL(blob);
+        var overlay = document.createElement('div');
+        overlay.id = 'po-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
+        var iframe = document.createElement('iframe');
+        iframe.src = blobUrl;
+        iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
+        var printBtn = document.createElement('button');
+        printBtn.textContent = '🖨️ 印刷 / PDF保存';
+        printBtn.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+        var backBtn = document.createElement('button');
+        backBtn.textContent = '✕ 元の画面に戻る';
+        backBtn.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+        btnRow.appendChild(printBtn); btnRow.appendChild(backBtn);
+        overlay.appendChild(iframe); overlay.appendChild(btnRow);
+        document.body.appendChild(overlay);
+        function poCleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('po-overlay'); if (ov) ov.remove(); }
+        printBtn.addEventListener('click', function() { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.open(blobUrl, '_blank'); } });
+        backBtn.addEventListener('click', poCleanup);
+        iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', poCleanup); } catch(e) {} });
+    };
 
     // --- 暗号化バックアップ: prompt()の代わりにモーダルUI ---
     document.getElementById('btn-enc-export').addEventListener('click', function() {

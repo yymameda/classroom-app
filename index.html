@@ -46,16 +46,24 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 8px 0;
-            gap: 4px;
-            overflow: hidden;
+            padding: 6px 0;
+            gap: 2px;
+            overflow-y: auto;
+            scrollbar-width: none;
             z-index: 10;
         }
+        .sidebar::-webkit-scrollbar { display: none; }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .sidebar {
+                padding: 6px 0;
+                gap: 2px;
+            }
+        }
         .nav-btn {
-            width: 58px; height: 58px;
-            border-radius: 12px; border: none;
+            width: 52px; height: 48px;
+            border-radius: 10px; border: none;
             background: rgba(255,255,255,0.15);
-            color: white; font-size: 24px;
+            color: white; font-size: 20px;
             cursor: pointer; transition: all 0.15s;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0; position: relative;
@@ -76,10 +84,52 @@
             background: white; color: var(--primary);
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            :root { --sidebar-w: 76px; }
+            .nav-btn {
+                width: 68px;
+                height: 52px;
+                flex-direction: column;
+                gap: 1px;
+                font-size: 18px;
+            }
+            .nav-btn::before {
+                content: attr(data-tooltip);
+                font-size: 0.52rem;
+                font-weight: 600;
+                color: rgba(255,255,255,0.85);
+                line-height: 1;
+                text-align: center;
+                max-width: 68px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                order: 2;
+            }
+            .nav-btn.active::before {
+                color: var(--primary);
+            }
+            .nav-btn[data-tooltip]::after {
+                display: none;
+            }
+        }
         .divider {
             width: 36px; height: 1px;
             background: rgba(255,255,255,0.25);
             margin: 2px 0; flex-shrink: 0;
+        }
+        .nav-group-label {
+            width: 100%;
+            padding: 3px 2px 1px;
+            text-align: center;
+            font-size: 9px;
+            color: rgba(255,255,255,0.55);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            margin-top: 12px;
+            flex-shrink: 0;
+            line-height: 1;
         }
 
         /* ========== メインコンテンツ ========== */
@@ -108,6 +158,25 @@
         .view-header h2 { font-size: 1.1rem; font-weight: 700; }
         .view-content {
             padding: 16px; max-width: 800px; margin: 0 auto;
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .content {
+                width: calc(100vw - 80px);
+                max-width: calc(100vw - 80px);
+                overflow: hidden;
+            }
+            .view {
+                overflow-x: hidden;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .view-content {
+                max-width: 100%;
+                width: 100%;
+                box-sizing: border-box;
+                overflow-x: hidden;
+                padding: 16px 20px;
+            }
         }
         .card {
             background: white; border-radius: 12px;
@@ -154,11 +223,21 @@
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 12px;
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .form-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
 
         /* ダッシュボード */
         .dashboard-grid {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 12px;
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
         }
         .stat-card {
             background: white; border-radius: 12px;
@@ -198,6 +277,11 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
             gap: 6px;
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .student-grid {
+                grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+            }
         }
         .student-btn {
             padding: 6px 4px; border-radius: 8px;
@@ -246,6 +330,8 @@
         .modal-close {
             background: none; border: none; color: white;
             font-size: 1.5rem; cursor: pointer; padding: 4px;
+            min-width: 44px; min-height: 44px;
+            display: flex; align-items: center; justify-content: center;
         }
         .modal-body { padding: 20px; }
 
@@ -273,12 +359,14 @@
         }
         .seat-cell {
             width: 72px; height: 72px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.75rem; font-weight: 600;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             cursor: pointer; border: 2px solid transparent;
             transition: all 0.15s; text-align: center;
-            padding: 4px; word-break: keep-all;
+            padding: 3px 2px; word-break: break-all; gap: 1px;
         }
+        .seat-cell .seat-sei { font-size: 0.78rem; font-weight: 700; line-height: 1.2; color: inherit; }
+        .seat-cell .seat-mei { font-size: 0.72rem; font-weight: 600; line-height: 1.2; color: inherit; opacity: 0.85; }
         .seat-cell.occupied { background: var(--secondary); border-color: var(--primary); color: var(--text); }
         .seat-cell.empty { background: #F8F9FA; border-color: var(--border); color: var(--text-light); }
         .seat-cell.selected { background: #FEF3C7; border-color: var(--accent); }
@@ -324,18 +412,36 @@
         @media (orientation: landscape) and (min-width: 900px) {
             .attendance-grid { grid-template-columns: repeat(7, 1fr) !important; }
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .attendance-grid { grid-template-columns: repeat(6, 1fr) !important; }
+        }
         .grid-cell {
             background: white; border-radius: 8px;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
+            display: grid; grid-template-columns: 20px 1fr;
             cursor: pointer; transition: all 0.15s;
             border: 1px solid #E2E8F0; position: relative;
-            padding: 4px 2px; gap: 2px; height: 72px; overflow: hidden;
+            height: 72px; overflow: hidden;
         }
         .grid-cell:hover { background: var(--secondary); border-color: var(--primary); box-shadow: 0 2px 8px rgba(26,26,46,0.15); }
         .grid-cell:active { transform: scale(0.98); }
-        .grid-cell.empty { background: #F8FAFC; cursor: default; border-style: dashed; }
+        .grid-cell.empty { background: #F8FAFC; cursor: default; border-style: dashed; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 2px; gap: 2px; }
         .grid-cell.empty:hover { background: #F8FAFC; border-color: #E2E8F0; box-shadow: none; }
+        /* 🌅左縦バー */
+        .grid-cell-mp-strip {
+            display: flex; align-items: center; justify-content: center;
+            background: #F0F4F8; border-right: 1px solid #E2E8F0;
+            border-radius: 8px 0 0 8px; cursor: pointer;
+            font-size: 13px; transition: background 0.15s;
+            height: 100%;
+        }
+        .grid-cell-mp-strip.mp-on { background: #FFF3E0; border-color: #E67E22; }
+        .grid-cell-mp-strip:active { background: #FFE0B2; }
+        /* 右側コンテンツ */
+        .grid-cell-body {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 3px 2px; gap: 1px; overflow: hidden;
+        }
         .grid-cell-header { display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; flex-shrink: 0; }
         .grid-cell .number {
             font-size: 0.65rem; font-weight: 700; color: var(--white);
@@ -385,10 +491,12 @@
         .att-nav-btn {
             padding: 5px 10px; border-radius: 7px; border: 1.5px solid var(--border);
             background: white; font-size: 0.82rem; cursor: pointer; font-weight: 600;
+            min-height: 44px;
         }
         .att-mode-tab {
             padding: 5px 10px; border-radius: 7px; border: 1.5px solid var(--border);
             background: white; font-size: 0.8rem; cursor: pointer; font-weight: 600;
+            min-height: 44px;
         }
         .att-mode-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
         /* 統計バー */
@@ -412,7 +520,7 @@
         }
         .att-quick-btn {
             flex: 1; padding: 8px 4px; border-radius: 8px; border: none;
-            font-size: 0.78rem; font-weight: 700; cursor: pointer;
+            font-size: 0.78rem; font-weight: 700; cursor: pointer; min-height: 44px;
         }
         /* 月別テーブル */
         .att-month-wrap { overflow: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; }
@@ -484,6 +592,7 @@
         .att-modal-close {
             width: 100%; padding: 10px; border: none; border-radius: 8px;
             background: #E2E8F0; font-family: inherit; font-size: 0.9rem; cursor: pointer;
+            min-height: 44px;
         }
 
         /* ========== 児童の記録 (Phase 3) ========== */
@@ -503,7 +612,7 @@
             border-radius: 16px; background: var(--white);
             color: var(--text-light); font-size: 0.75rem; font-weight: 500;
             font-family: inherit; cursor: pointer; white-space: nowrap;
-            min-height: 32px; transition: all 0.15s;
+            min-height: 44px; transition: all 0.15s;
         }
         .rec-subnav-btn:hover { border-color: var(--primary); color: var(--primary); }
         .rec-subnav-btn.active {
@@ -555,6 +664,9 @@
         @media (orientation: landscape) and (min-width: 900px) {
             .rec-list { grid-template-columns: repeat(7, 1fr); }
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .rec-list { grid-template-columns: repeat(6, 1fr) !important; }
+        }
         .rec-row {
             display: flex; flex-direction: column; align-items: center;
             padding: 3px; border: 1px solid var(--border); border-radius: 8px;
@@ -595,8 +707,8 @@
         .rec-row-score-area input.has-val { border-color: var(--primary); background: #E8F5E9; }
         .rec-abc-btns { display: flex; gap: 2px; justify-content: center; }
         .rec-abc-btn {
-            width: 28px; height: 26px; border: 2px solid var(--border);
-            border-radius: 6px; background: var(--white); font-size: 0.85rem;
+            width: 44px; height: 44px; border: 2px solid var(--border);
+            border-radius: 6px; background: var(--white); font-size: 0.95rem;
             font-weight: 700; cursor: pointer; font-family: inherit; padding: 0; flex-shrink: 0;
         }
         .rec-abc-btn.sel-a { background: var(--success); border-color: var(--success); color: #fff; }
@@ -616,7 +728,7 @@
         }
         .rec-test-form input, .rec-test-form select {
             padding: 8px; border: 2px solid var(--border); border-radius: 8px;
-            font-family: inherit; font-size: 0.88rem; min-height: 38px;
+            font-family: inherit; font-size: 0.88rem; min-height: 44px;
         }
         .rec-test-form input:focus, .rec-test-form select:focus { outline: none; border-color: var(--primary); }
         .rec-test-list { margin-top: 8px; }
@@ -648,9 +760,9 @@
         .rec-mq-label { font-size: 0.6rem; color: var(--text-light); }
         .rec-mq-pt { width: 32px; padding: 2px; border: 1.5px solid #90CAF9; border-radius: 4px; text-align: center; font-size: 0.8rem; }
         .rec-mq-type-btn {
-            font-size: 0.68rem; font-weight: 700; padding: 1px 4px;
+            font-size: 0.68rem; font-weight: 700; padding: 4px 8px;
             border: 1.5px solid #1565C0; border-radius: 4px; cursor: pointer;
-            background: #E3F2FD; color: #1565C0; font-family: inherit; min-height: 20px;
+            background: #E3F2FD; color: #1565C0; font-family: inherit; min-height: 44px;
         }
         .rec-sort-bar { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 6px; }
 
@@ -717,7 +829,7 @@
         .rec-matome-nav-btn {
             padding: 6px 14px; border: 1.5px solid var(--primary); border-radius: 8px;
             background: var(--white); color: var(--primary); font-size: 0.8rem;
-            font-family: inherit; cursor: pointer; min-height: 36px;
+            font-family: inherit; cursor: pointer; min-height: 44px;
         }
         .rec-matome-nav-btn:hover { background: var(--secondary); }
 
@@ -725,13 +837,13 @@
         .btn-rec-primary {
             width: 100%; padding: 10px; background: var(--primary); color: var(--white);
             border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
-            font-family: inherit; cursor: pointer; min-height: 40px;
+            font-family: inherit; cursor: pointer; min-height: 44px;
         }
         .btn-rec-primary:active { transform: scale(0.98); }
         .btn-rec-small {
             padding: 4px 10px; border: 1.5px solid var(--border); border-radius: 6px;
             background: var(--white); color: var(--text-light); font-size: 0.75rem;
-            font-family: inherit; cursor: pointer; min-height: 30px;
+            font-family: inherit; cursor: pointer; min-height: 44px;
         }
         .btn-rec-small.edit:hover { border-color: var(--primary); color: var(--primary); }
         .btn-rec-small.del:hover { border-color: var(--danger); color: var(--danger); }
@@ -838,7 +950,7 @@
         .patrol-item-btn {
             padding: 0.4rem 0.7rem; border: 2px solid var(--border); background: var(--white);
             border-radius: 20px; cursor: pointer; font-family: inherit; font-size: 0.82rem;
-            font-weight: 500; transition: all 0.2s; min-height: 36px; }
+            font-weight: 500; transition: all 0.2s; min-height: 44px; display: inline-flex; align-items: center; }
         .patrol-item-btn.active { border-color: var(--primary); background: var(--primary); color: var(--white); }
         .patrol-legend { display: flex; justify-content: center; gap: 1.2rem; margin-bottom: 0.4rem; font-size: 0.82rem; }
         .legend-item { display: flex; align-items: center; gap: 0.3rem; }
@@ -886,7 +998,7 @@
         .patrol-eval-label { flex: 1; font-weight: 500; font-size: 0.9rem; }
         .patrol-eval-buttons { display: flex; gap: 0.3rem; }
         .patrol-eval-btn {
-            width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border);
+            width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border);
             background: var(--white); cursor: pointer; font-size: 1.1rem; font-weight: 700;
             display: flex; align-items: center; justify-content: center; }
         .patrol-eval-btn.good { color: #27AE60; }
@@ -914,12 +1026,12 @@
         .karte-container { background: var(--white); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%; }
         .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, #fff 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; flex-shrink: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .karte-student-bar-inner { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
-        .karte-student-btn { padding: 0.2rem 0.15rem; border: 1.5px solid var(--border); background: var(--white); color: var(--text); font-size: 0.65rem; font-family: inherit; cursor: pointer; border-radius: 6px; white-space: nowrap; min-height: 30px; transition: all 0.15s; text-align: center; line-height: 1.2; }
+        .karte-student-btn { padding: 0.35rem 0.15rem; border: 1.5px solid var(--border); background: var(--white); color: var(--text); font-size: 0.65rem; font-family: inherit; cursor: pointer; border-radius: 6px; white-space: nowrap; min-height: 44px; transition: all 0.15s; text-align: center; line-height: 1.2; }
         .karte-student-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 600; }
         .karte-student-btn.has-records { border-color: #9B59B6; background: #F3E5F5; }
         .karte-student-btn.has-records.active { background: var(--primary); border-color: var(--primary); }
         .karte-tabs { display: flex; border-bottom: 2px solid var(--border); background: #FAFCFD; flex-shrink: 0; }
-        .karte-tab-btn { flex: 1; padding: 0.5rem 0.15rem; border: none; background: transparent; color: var(--text-light); font-size: 0.68rem; font-family: inherit; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; min-height: 38px; }
+        .karte-tab-btn { flex: 1; padding: 0.5rem 0.15rem; border: none; background: transparent; color: var(--text-light); font-size: 0.68rem; font-family: inherit; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; min-height: 44px; }
         .karte-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; background: var(--white); }
         .karte-tab-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.75rem; }
         .ktab-pane { display: none; }
@@ -938,7 +1050,7 @@
         .ks-hub-section { border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 0.6rem; background: var(--white); overflow: hidden; }
         .ks-hub-header { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.75rem; background: #F8FAFC; border-bottom: 1px solid var(--border); }
         .ks-hub-title { font-size: 0.75rem; font-weight: 700; color: var(--text); }
-        .ks-hub-jump { font-size: 0.65rem; color: var(--primary); background: var(--secondary); border: 1px solid var(--primary); border-radius: 6px; padding: 0.2rem 0.5rem; cursor: pointer; font-family: inherit; }
+        .ks-hub-jump { font-size: 0.65rem; color: var(--primary); background: var(--secondary); border: 1px solid var(--primary); border-radius: 6px; padding: 0.2rem 0.5rem; cursor: pointer; font-family: inherit; min-height: 44px; display: inline-flex; align-items: center; }
         .ks-hub-body { padding: 0.5rem 0.75rem; font-size: 0.78rem; color: var(--text); }
         .ks-hub-empty { color: var(--text-light); font-size: 0.73rem; font-style: italic; }
         .ks-hub-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.35rem; }
@@ -952,7 +1064,7 @@
         /* 生活記録 */
         .klife-form { background: #F8FAFC; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
         .klife-cats { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
-        .klife-cat-btn { padding: 0.3rem 0.6rem; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); font-size: 0.72rem; font-family: inherit; cursor: pointer; transition: all 0.15s; }
+        .klife-cat-btn { padding: 0.3rem 0.6rem; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); font-size: 0.72rem; font-family: inherit; cursor: pointer; transition: all 0.15s; min-height: 44px; display: inline-flex; align-items: center; }
         .klife-cat-btn.selected { background: var(--primary); color: var(--white); border-color: var(--primary); }
         .klife-cat-btn.cat-trouble.selected { background: #E74C3C; border-color: #E74C3C; }
         .klife-cat-btn.cat-parent.selected  { background: #3498DB; border-color: #3498DB; }
@@ -984,7 +1096,7 @@
         .klife-item-text { font-size: 0.8rem; color: var(--text); margin-bottom: 0.2rem; }
         .klife-item-detail { font-size: 0.72rem; color: var(--text-light); }
         .klife-item-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
-        .klife-item-actions button { padding: 0.2rem 0.4rem; border: 1px solid var(--border); border-radius: 4px; background: var(--white); font-size: 0.65rem; font-family: inherit; cursor: pointer; }
+        .klife-item-actions button { padding: 0.2rem 0.8rem; border: 1px solid var(--border); border-radius: 4px; background: var(--white); font-size: 0.65rem; font-family: inherit; cursor: pointer; min-height: 44px; }
         /* 保護者対応 */
         .kparent-form { background: #F8FAFC; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
         .kparent-methods { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
@@ -1045,6 +1157,24 @@
             border-radius: 8px; margin: 0 0.75rem 0.75rem;
             max-height: calc(100vh - 200px); overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .sub-input-list {
+                display: grid;
+                grid-template-columns: repeat(6, 1fr) !important;
+                gap: 4px;
+                padding: 6px;
+                margin: 0 0.75rem 0.75rem;
+                max-width: 100%;
+                box-sizing: border-box;
+                overflow-x: hidden;
+            }
+            .sub-diary-grid {
+                grid-template-columns: repeat(6, 1fr) !important;
+            }
+            #sub-sub-input {
+                overflow-x: hidden;
+            }
+        }
         .sub-input-row {
             display: flex; flex-direction: column; align-items: stretch;
             padding: 4px; border: 1px solid var(--border); border-radius: 8px;
@@ -1065,11 +1195,11 @@
         .sub-correction-check { width: 20px; height: 20px; accent-color: var(--success); cursor: pointer; flex-shrink: 0; margin: 0; }
         .sub-correction-check:not(:checked) { opacity: 0.5; }
         .sub-correction-check:disabled { cursor: default; }
-        .sub-clear-btn { flex: none; width: 18px; height: 18px; font-size: 0.65rem; border: 1px solid #9E9E9E; color: #9E9E9E; border-radius: 4px; background: var(--white); cursor: pointer; padding: 0; font-family: inherit; }
+        .sub-clear-btn { flex: none; width: 44px; height: 44px; font-size: 0.8rem; border: 1px solid #9E9E9E; color: #9E9E9E; border-radius: 6px; background: var(--white); cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
         .sub-clear-btn:hover { background: #E0E0E0; }
         .sub-status-btns { display: flex; gap: 3px; width: 100%; }
         .sub-status-btn {
-            flex: 1; height: 30px; border: 2px solid var(--border); border-radius: 6px;
+            flex: 1; height: 44px; border: 2px solid var(--border); border-radius: 6px;
             background: var(--white); font-size: 0.95rem; font-weight: 700;
             cursor: pointer; transition: all 0.15s; padding: 0;
             display: flex; align-items: center; justify-content: center; font-family: inherit;
@@ -1160,15 +1290,15 @@
         .sub-diary-top input[type=date] { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.88rem; min-height: 40px; }
         .sub-diary-stats { display: flex; gap: 1rem; font-size: 0.85rem; padding: 0.4rem 0.75rem; background: var(--secondary); border-radius: 8px; margin: 0 0.75rem 0.5rem; }
         .sub-diary-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr) !important;
+            display: grid; grid-template-columns: repeat(2, 1fr) !important;
             gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 8px;
             margin: 0 0.75rem 0.75rem;
             max-height: calc(100vh - 200px); overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
         .sub-diary-card {
             display: grid; grid-template-columns: 16px 1fr auto; grid-template-rows: auto auto;
-            align-items: center; padding: 4px 3px; border: 1px solid var(--border);
-            border-radius: 6px; background: var(--white); gap: 2px; transition: all 0.15s;
+            align-items: center; padding: 6px 5px; border: 1px solid var(--border);
+            border-radius: 6px; background: var(--white); gap: 3px; transition: all 0.15s;
         }
         .sub-diary-card.today-has { background: #E8F8EF; border-color: var(--success); }
         .sub-diary-num { font-size: 0.55rem; font-weight: 700; color: white; background: var(--primary); width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; grid-row: 1; grid-column: 1; }
@@ -1178,13 +1308,301 @@
         .sub-diary-disp:hover { transform: scale(1.1); }
         .sub-diary-disp-zero { font-size: 0.75rem; color: #ccc; font-weight: 700; }
         .sub-diary-disp-val { font-size: 0.7rem; color: var(--success); font-weight: 700; }
-        .sub-diary-quick { display: flex; flex-direction: column; gap: 1px; }
-        .sub-diary-pm { width: 20px; height: 16px; border-radius: 3px; border: 1px solid var(--border); background: white; font-size: 0.55rem; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; }
+        .sub-diary-quick { display: flex; flex-direction: row; gap: 4px; }
+        .sub-diary-pm { width: 44px; height: 44px; border-radius: 6px; border: 1.5px solid var(--border); background: white; font-size: 1.1rem; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
         .sub-diary-pm.plus:hover { background: #E8F8EF; border-color: var(--success); color: var(--success); }
         .sub-diary-pm.minus:hover { background: #FFEBEE; border-color: var(--danger); color: var(--danger); }
         .sub-diary-total-row { font-size: 0.55rem; color: var(--text-light); line-height: 1.1; grid-row: 2; grid-column: 1/3; }
         .sub-diary-shortage { font-size: 0.55rem; line-height: 1.1; grid-row: 2; grid-column: 3; text-align: right; }
         .sub-diary-shortage.ok { color: var(--success); } .sub-diary-shortage.ng { color: var(--danger); }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            #fgtGrid {
+                grid-template-columns: repeat(6, 1fr) !important;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            #seating-content {
+                max-width: 100% !important;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 12px;
+                overflow: hidden;
+            }
+            #seating-content .seating-grid {
+                grid-template-columns: repeat(6, 72px) !important;
+                gap: 5px;
+                justify-content: center;
+            }
+            #seating-content .seat-cell {
+                width: 72px !important;
+                height: 72px !important;
+                font-size: 0.75rem;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+
+            /* 個人カルテ：左=児童一覧 右=カルテ詳細 */
+            .karte-container {
+                flex-direction: row !important;
+            }
+            .karte-student-bar {
+                width: 160px;
+                flex-shrink: 0;
+                border-bottom: none;
+                border-right: 2px solid var(--border);
+                overflow-y: auto;
+                height: 100%;
+            }
+            .karte-student-bar-inner {
+                grid-template-columns: 1fr !important;
+                gap: 4px;
+            }
+            .karte-student-btn {
+                font-size: 0.72rem;
+                padding: 0.35rem 0.4rem;
+            }
+            .karte-tabs {
+                flex-shrink: 0;
+            }
+
+            /* 出席簿：統計バーを横並びに拡張 */
+            .att-stats-bar {
+                gap: 12px;
+                padding: 6px 16px;
+            }
+            .att-stat-item {
+                min-width: 80px;
+            }
+            .att-stat-item .val {
+                font-size: 1.4rem;
+            }
+
+            /* ダッシュボード：統計カードを大きく */
+            .stat-card {
+                padding: 20px;
+            }
+            .stat-value {
+                font-size: 2.2rem;
+            }
+
+            /* 成績処理：テーブルを広く */
+            #grd-sub-grade .view-content,
+            #grd-sub-karte .view-content,
+            #grd-sub-stats .view-content {
+                max-width: 100%;
+            }
+
+            /* 提出物統計：2カラムに */
+            #subStudentStats {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .patrol-grid {
+                grid-template-columns: repeat(8, 1fr);
+                gap: 0.5rem;
+            }
+            .patrol-cell {
+                min-height: 72px;
+            }
+            .patrol-container {
+                max-width: 100%;
+                padding: 0.5rem 1rem;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+
+            /* ボタン類のタッチターゲット拡大 */
+            .btn {
+                min-height: 52px;
+                padding: 10px 20px;
+            }
+            .att-nav-btn,
+            .att-mode-tab,
+            .rec-subnav-btn,
+            .sub-subnav-btn {
+                min-height: 40px;
+                padding: 8px 16px;
+                font-size: 0.88rem;
+            }
+
+            /* グリッドセルの高さ拡大 */
+            .grid-cell {
+                height: 80px;
+                min-height: 80px;
+            }
+            .sub-input-row {
+                min-height: 80px;
+                height: 80px;
+            }
+            .seat-cell {
+                width: 88px;
+                height: 88px;
+                font-size: 0.82rem;
+            }
+
+            /* カードの余白拡大 */
+            .card {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+
+            /* フォーム要素の高さ拡大 */
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 12px 14px;
+                font-size: 1rem;
+            }
+
+            /* モーダルを広く */
+            .modal {
+                max-width: 600px;
+            }
+
+            /* トーストを大きく */
+            .toast {
+                font-size: 1rem;
+                padding: 14px 28px;
+            }
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+
+            /* ビューヘッダーを大きく */
+            .view-header h2 {
+                font-size: 1.25rem;
+            }
+            .view-header {
+                padding: 18px 24px;
+            }
+
+            /* 統計カードのラベル */
+            .stat-card h4 {
+                font-size: 0.9rem;
+            }
+
+            /* rec-listのセルデザイン */
+            .rec-row {
+                display: flex;
+                flex-direction: column;
+                padding: 4px;
+                gap: 4px;
+                justify-content: center;
+                min-height: 80px;
+                height: 80px;
+            }
+            .rec-row-hd {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                width: 100%;
+            }
+            .rec-row .sub-row-num {
+                font-size: 0.7rem;
+                font-weight: 700;
+                color: var(--white);
+                background: var(--primary);
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .rec-row .sub-row-name {
+                font-size: 0.65rem;
+                font-weight: 500;
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .rec-row .sub-row-done {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.6rem;
+                flex-shrink: 0;
+                background: #E0E0E0;
+                color: #9E9E9E;
+            }
+            .rec-row .sub-row-done.ok {
+                background: var(--success);
+                color: white;
+            }
+
+            /* ABC・○△×ボタンを横向き時に拡大 */
+            .rec-abc-btns {
+                display: flex;
+                gap: 3px;
+                width: 100%;
+            }
+            .rec-abc-btn {
+                flex: 1;
+                height: 36px;
+                font-size: 1rem;
+                border-radius: 6px;
+            }
+
+            /* 忘れ物セルの高さ */
+            #fgtGrid > div {
+                min-height: 80px;
+                height: 80px;
+            }
+
+            .sub-status-btn {
+                flex: 1;
+                height: 36px;
+                font-size: 1rem;
+                border-radius: 6px;
+            }
+        }
+        .mp-btn { display: none; } /* 左縦バー(.grid-cell-mp-strip)に移行 */
+
+        /* ========== 漢字チェックテーブル：セル高さ固定 ========== */
+        #view-kanji table {
+            table-layout: fixed;
+        }
+        #view-kanji td,
+        #view-kanji th {
+            height: 44px;
+            min-height: 44px;
+            max-height: 44px;
+            overflow: hidden;
+            white-space: nowrap;
+            vertical-align: middle;
+            line-height: 44px;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        #view-kanji .kanji-table-wrap {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: calc(100vh - 100px);
+            -webkit-overflow-scrolling: touch;
+        }
+        #view-kanji .kanji-num-col {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        #view-kanji td.kanji-selected {
+            outline: 3px solid #1565C0 !important;
+            outline-offset: -3px;
+            background: #E3F2FD !important;
+            z-index: 1;
+        }
+        #view-kanji .kanji-name-col {
+            position: sticky;
+            left: 28px;
+            z-index: 2;
+        }
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>
@@ -1192,16 +1610,19 @@
     <!-- サイドバー -->
     <nav class="sidebar">
         <button class="nav-btn active" data-view="dashboard" data-tooltip="ダッシュボード" id="nav-dashboard">📊</button>
+        <div class="nav-group-label">【設定】</div>
         <button class="nav-btn" data-view="settings" data-tooltip="名簿・設定" id="nav-settings">⚙️</button>
-        <div class="divider"></div>
+        <div class="nav-group-label">【日常】</div>
         <button class="nav-btn" data-view="attendance" data-tooltip="出席簿" id="nav-attendance">📋</button>
-        <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
-        <button class="nav-btn" data-view="records" data-tooltip="児童の記録" id="nav-records">📝</button>
-        <button class="nav-btn" data-view="submissions" data-tooltip="提出物チェック" id="nav-submissions">📚</button>
         <button class="nav-btn" data-view="forgotten" data-tooltip="忘れ物チェック" id="nav-forgotten">🎒</button>
-        <div class="divider"></div>
+        <div class="nav-group-label">【記録】</div>
+        <button class="nav-btn" data-view="submissions" data-tooltip="提出物チェック" id="nav-submissions">📚</button>
+        <button class="nav-btn" data-view="kanji" data-tooltip="漢字チェック" id="nav-kanji">✍️</button>
+        <button class="nav-btn" data-view="records" data-tooltip="児童の記録" id="nav-records">📝</button>
+        <div class="nav-group-label">【評価】</div>
+        <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
-        <div class="divider"></div>
+        <div class="nav-group-label">【データ】</div>
         <button class="nav-btn" data-view="export" data-tooltip="データ出力" id="nav-export">📤</button>
         <button class="nav-btn" data-action="backup" data-tooltip="バックアップ" id="nav-backup">💾</button>
     </nav>
@@ -1449,7 +1870,7 @@
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
             <div class="view-header"><h2>🪑 座席表</h2></div>
-            <div class="view-content" style="max-width: 600px;">
+            <div class="view-content" id="seating-content" style="max-width: 600px;">
                 <div class="card">
                     <div class="btn-group" style="margin-bottom: 12px;">
                         <button class="btn btn-outline" id="seatEditBtn" onclick="toggleSeatingEdit()">✏️ 座席を編集</button>
@@ -2091,6 +2512,35 @@
             </div>
         </div>
 
+        <!-- ===== 漢字チェック ===== -->
+        <div id="view-kanji" class="view">
+            <div class="view-header" style="background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;display:flex;align-items:center;gap:8px;height:50px;flex-shrink:0;">
+                <h2 style="font-size:1rem;color:#fff;margin:0;">✍️ 漢字チェック</h2>
+                <select id="kanjiUnitSel" onchange="kanjiSelectUnit(this.value)" style="padding:4px 8px;border-radius:6px;border:none;font-size:0.85rem;background:#fff;color:#333;max-width:180px;"></select>
+                <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
+                <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
+                <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
+            </div>
+            <div style="flex:1;overflow:auto;background:#f5f5f5;">
+                <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
+            </div>
+            <!-- 単元追加・編集モーダル -->
+            <div id="kanjiModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
+                <div style="background:#fff;border-radius:12px;padding:20px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                    <h3 id="kanjiModalTitle" style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">単元追加</h3>
+                    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">単元名</label>
+                    <input id="kanjiModalName" type="text" placeholder="例: 5年1学期①" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:0.9rem;margin-bottom:12px;">
+                    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">漢字（1行1文字 またはスペース・読点区切り）</label>
+                    <textarea id="kanjiModalChars" rows="5" placeholder="例:&#10;美&#10;術&#10;競&#10;争&#10;または：美 術 競 争" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:1.1rem;font-family:inherit;resize:vertical;margin-bottom:14px;"></textarea>
+                    <div id="kanjiModalPreview" style="font-size:0.8rem;color:#555;margin-bottom:14px;min-height:20px;"></div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button onclick="kanjiCloseUnitModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">キャンセル</button>
+                        <button onclick="kanjiSaveUnit()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== データ出力 (Phase 8) ===== -->
         <div id="view-export" class="view">
             <div class="view-header" style="background: linear-gradient(135deg, #1565C0, #1976D2);"><h2>📤 データ出力センター</h2></div>
@@ -2653,7 +3103,9 @@
         karte_health:   'spa_karte_health',
         karte_learning: 'spa_karte_learning',
         karte_archive:  'spa_karte_archive',
-        karte_recs:     'spa_karte_recs'
+        karte_recs:     'spa_karte_recs',
+        morning_prep:   'spa_morning_prep',
+        kanji:          'spa_kanji'
     };
 
     // マスターデータ
@@ -2669,6 +3121,7 @@
     // ================================================================
     // 初期化
     // ================================================================
+    let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
         loadMaster();
         updateSettingsUI();
@@ -2751,6 +3204,29 @@
                     showToast('❌ ストレージアクセスエラー。再読込してください。', 'error');
                 }
                 updateStorageDisplay();
+                const _today = new Date().toLocaleDateString('sv-SE');
+                if (_today !== _lastCheckedDate) {
+                    _lastCheckedDate = _today;
+                    updateDashboard();
+                    attCurrentDate = new Date();
+                    attUpdateDateBadge();
+                    const activeView = document.querySelector('.view.active');
+                    if (activeView) {
+                        const vid = activeView.id;
+                        if (vid === 'view-attendance') {
+                            attRenderGrid();
+                            attUpdateStats();
+                        }
+                        if (vid === 'view-forgotten') {
+                            fgtDate = new Date();
+                            fgtShowSub('input');
+                        }
+                        if (vid === 'view-submissions') {
+                            subRenderDiary();
+                        }
+                    }
+                    showToast('📅 日付が更新されました', 'info');
+                }
             }
         });
 
@@ -2855,6 +3331,7 @@
         if (viewName === 'seating') { renderSeating(); }
         if (viewName === 'settings') { updateSettingsUI(); }
         if (viewName === 'records' && typeof recOnShowView === 'function') { recOnShowView(); }
+        if (viewName === 'kanji' && typeof kanjiInit === 'function') { kanjiInit(); }
     }
 
     // ================================================================
@@ -2939,7 +3416,7 @@
         } else {
             var html = '';
             master.students.forEach(function(s, i) {
-                var displayName = s.name.length > 4 ? s.name.substring(0, 4) + '…' : s.name;
+                var displayName = s.name.length > 5 ? s.name.substring(0, 5) + '…' : s.name;
                 html += '<button class="student-btn" data-idx="' + i + '"><span class="num">' + (i + 1) + '</span>' + escapeHtml(displayName) + '</button>';
             });
             grid.innerHTML = html;
@@ -3119,8 +3596,11 @@
                 var cls = 'seat-cell empty';
                 var visionHtml = '';
                 if (student) {
-                    name = student.name;
-                    if (name.length > 3) name = name.substring(0, 3) + '…';
+                    var fullName = student.name || '';
+                    var parts = fullName.split(/[\s\u3000]+/);
+                    var sei = parts[0] || fullName;
+                    var mei = parts.slice(1).join('');
+                    name = fullName; // ドラッグゴースト用
                     cls = 'seat-cell occupied';
                     if (!seatVisionMode) {
                         if (student.gender === '男') cls += ' gender-male';
@@ -3138,7 +3618,12 @@
                 var draggable = seatEditing && student ? ' draggable="true"' : '';
                 var touchAction = seatEditing ? ' style="touch-action:none;"' : '';
                 html += '<div class="' + cls + '" data-seat="' + key + '"' + draggable + touchAction + '>' +
-                    escapeHtml(name) + visionHtml + '</div>';
+                    (student
+                        ? '<span class="seat-sei">' + escapeHtml(sei) + '</span>' +
+                          (mei ? '<span class="seat-mei">' + escapeHtml(mei) + '</span>' : '') +
+                          visionHtml
+                        : '') +
+                    '</div>';
             }
         }
         grid.innerHTML = html;
@@ -3538,7 +4023,9 @@
         } else {
             var blob = new Blob([jsonStr], { type: 'application/json' });
             var ci = master.classInfo;
-            var fileName = ci.year + '年度' + ci.grade + '年' + ci.class + '組_SPA_backup.json';
+            var now = new Date();
+            var dateStr = String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+            var fileName = 'classroom_backup_' + dateStr + '.json';
             await universalShare(blob, fileName);
         }
     }
@@ -3744,15 +4231,24 @@
             const info   = ATT_STATUS_MAP[status];
             const cell   = document.createElement('div');
             cell.className = 'grid-cell' + (info ? ' ' + info.cls : '');
-            const displayName = escapeHtml((s.name||'').length > 4 ? (s.name||'').slice(0,4) : (s.name||'氏名'));
+            const displayName = escapeHtml((s.name||'').length > 5 ? (s.name||'').slice(0,5) : (s.name||'氏名'));
             const hasSt = status !== '';
+            const dateKey = attDateStr(attCurrentDate);
+            const mpData = StorageManager.get(KEYS.morning_prep, {});
+            const mpDay = mpData[dateKey] || {};
+            const mpChecked = mpDay[String(i)] === true;
             cell.innerHTML = `
-                <div class="grid-cell-header">
-                    <span class="number">${i+1}</span>
-                    <div class="grid-cell-status-badge ${hasSt?'done':'empty'}">${hasSt?'✓':''}</div>
-                </div>
-                <span class="name" title="${escapeHtml(s.name||'')}">${displayName}</span>
-                <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>`;
+                <div class="grid-cell-mp-strip${mpChecked?' mp-on':''}"
+                    onclick="event.stopPropagation();attToggleMorningPrep(${i})"
+                    title="朝の準備（間に合わず）">🌅</div>
+                <div class="grid-cell-body">
+                    <div class="grid-cell-header">
+                        <span class="number">${i+1}</span>
+                        <div class="grid-cell-status-badge ${hasSt?'done':'empty'}">${hasSt?'✓':''}</div>
+                    </div>
+                    <span class="name" title="${escapeHtml(s.name||'')}">${displayName}</span>
+                    <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>
+                </div>`;
             cell.onclick = () => attOpenModal(i);
             frag.appendChild(cell);
         });
@@ -3844,6 +4340,47 @@
         attUpdateStats();
         showToast('クリアしました', 'success');
     }
+
+    function attToggleMorningPrep(idx) {
+        var dateKey = attDateStr(attCurrentDate);
+        var mpData = StorageManager.get(KEYS.morning_prep, {});
+        if (!mpData[dateKey]) mpData[dateKey] = {};
+        var wasOn = mpData[dateKey][String(idx)] === true;
+        if (wasOn) {
+            delete mpData[dateKey][String(idx)];
+        } else {
+            mpData[dateKey][String(idx)] = true;
+        }
+        StorageManager.setImmediate(KEYS.morning_prep, JSON.stringify(mpData));
+
+        // 生活記録に自動記録（ONにした時のみ）
+        if (!wasOn) {
+            var lifeAll = StorageManager.get(KEYS.karte_life, {});
+            var lifeList = Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : [];
+            var now = new Date().toISOString();
+            lifeList.push({
+                id: Date.now(),
+                date: dateKey,
+                categories: ['concern'],
+                summary: '朝の会までに準備が間に合わなかった',
+                fact: '',
+                response: '',
+                impression: '',
+                auto: true,
+                createdAt: now,
+                updatedAt: now
+            });
+            lifeAll[String(idx)] = lifeList;
+            StorageManager.setImmediate(KEYS.karte_life, JSON.stringify(lifeAll));
+        }
+
+        attRenderGrid();
+        showToast(
+            !wasOn ? '🌅 朝の準備：間に合わず（生活記録に記録しました）' : '🌅 解除しました',
+            !wasOn ? 'warning' : 'info'
+        );
+    }
+    window.attToggleMorningPrep = attToggleMorningPrep;
 
     // ---- 月別一覧 ----
     function attInitMonth() {
@@ -4243,19 +4780,37 @@
                     return recBuildNawatobiCard(test, scores, idx, stu);
                 } else if (isABC) {
                     var curAbc = existingSc ? existingSc.score : '';
-                    scoreArea = '<div class="rec-abc-btns">' +
-                        ['A','B','C'].map(function(v) {
+                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
+                        + '<div class="rec-row-hd">'
+                        +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
+                        +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
+                        +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
+                        +   (hasSc ? '✓' : '') + '</div>'
+                        + '</div>'
+                        + '<div class="rec-abc-btns">'
+                        + ['A','B','C'].map(function(v) {
                             var sel = curAbc === v ? ' sel-' + v.toLowerCase() : '';
                             return '<button class="rec-abc-btn' + sel + '" onclick="recSelectABC(' + idx + ',\'' + v + '\')">' + v + '</button>';
-                        }).join('') + '</div>';
+                        }).join('')
+                        + '</div>'
+                        + '</div>';
                 } else {
                     var curVal = hasSc ? existingSc.score : '';
-                    scoreArea = '<div class="rec-row-score-area">' +
-                        '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') +
-                        '" min="0" max="' + test.maxScore + '" placeholder="—"' +
-                        ' class="' + (curVal !== '' ? 'has-val' : '') + '"' +
-                        ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">' +
-                        '</div>';
+                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
+                        + '<div class="rec-row-hd">'
+                        +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
+                        +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
+                        +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
+                        +   (hasSc ? '✓' : '') + '</div>'
+                        + '</div>'
+                        + '<div class="rec-row-score-area">'
+                        +   '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') + '"'
+                        +   ' min="0" max="' + test.maxScore + '" placeholder="—"'
+                        +   ' step="' + (isPE ? '0.01' : '1') + '"'
+                        +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
+                        +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
+                        + '</div>'
+                        + '</div>';
                 }
 
                 return '<div class="' + rowClass + '" id="rec-row-' + idx + '">' +
@@ -4630,8 +5185,9 @@
             students.forEach(function(_, idx) {
                 var input = document.getElementById('rec-sc-' + idx);
                 if (!input || input.value === '') return;
-                var v = parseInt(input.value);
+                var v = parseFloat(input.value);
                 if (isNaN(v) || v < 0) return;
+                v = Math.round(v * 100) / 100;
                 var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === test.id; });
                 var rec = { id: Date.now() + idx, studentIndex: idx, testId: test.id, score: v, createdAt: new Date().toISOString() };
                 if (ei >= 0) scores[ei] = rec; else scores.push(rec);
@@ -5523,7 +6079,7 @@
             for (var i = 0; i < students.length; i++) {
                 var s = students[i];
                 if (!s || !s.name) continue;
-                var short = s.name.length > 3 ? s.name.substring(0, 3) : s.name;
+                var short = s.name.length > 5 ? s.name.substring(0, 5) : s.name;
                 var cls = (i === karteSelectedStudent) ? ' active' : '';
                 var recCount = recs.filter(function(r) { return r.studentIndex === i; }).length;
                 var recCls = recCount > 0 ? ' has-records' : '';
@@ -5629,6 +6185,40 @@
                 recentRecsHtml += '</div>';
             }
 
+            // 朝の準備集計
+            var mpAll = StorageManager.get(KEYS.morning_prep, {});
+            var mpMonths = {};
+            Object.keys(mpAll).forEach(function(dateKey) {
+                if (mpAll[dateKey][String(idx)] === true) {
+                    var month = dateKey.slice(0, 7);
+                    mpMonths[month] = (mpMonths[month] || 0) + 1;
+                }
+            });
+            var mpTotal = Object.values(mpMonths).reduce(function(a, b) { return a + b; }, 0);
+            var mpSortedMonths = Object.keys(mpMonths).sort().reverse();
+
+            var mpHtml = '<div class="ks-hub-section"><div class="ks-hub-header">'
+                + '<span class="ks-hub-title">🌅 朝の準備（間に合わなかった回数）</span>'
+                + '</div><div class="ks-hub-body">';
+
+            if (mpTotal === 0) {
+                mpHtml += '<span class="ks-hub-empty">記録なし</span>';
+            } else {
+                mpHtml += '<div class="ks-hub-row">'
+                    + '<span class="ks-hub-label">累計：</span>'
+                    + '<span class="ks-hub-val" style="font-weight:700;color:#E67E22;">' + mpTotal + '回</span>'
+                    + '</div>';
+                mpSortedMonths.slice(0, 3).forEach(function(month) {
+                    var parts = month.split('-');
+                    var label = parseInt(parts[0]) + '年' + parseInt(parts[1]) + '月';
+                    mpHtml += '<div class="ks-hub-row">'
+                        + '<span class="ks-hub-label">' + label + '：</span>'
+                        + '<span class="ks-hub-val">' + mpMonths[month] + '回</span>'
+                        + '</div>';
+                });
+            }
+            mpHtml += '</div></div>';
+
             // ハブセクション: 学習配慮
             var learnData = karteGetStudentLearning(idx);
             var learnHtml = '<div class="ks-hub-section"><div class="ks-hub-header"><span class="ks-hub-title">📚 学習面配慮</span><button class="ks-hub-jump" data-jumptab="learning">→ 詳細</button></div><div class="ks-hub-body">';
@@ -5672,7 +6262,7 @@
                 '<div class="ks-card liferec"><div class="ks-card-label">生活記録</div><div class="ks-card-value">' + lifeRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '<div class="ks-card" style="border-left:4px solid #E67E22;"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:#E67E22;">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '</div>' +
-                recentHtml + recentRecsHtml + learnHtml + parentHtml + healthHtml;
+                recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml;
             container.querySelectorAll('[data-jumptab]').forEach(function(btn) {
                 btn.addEventListener('click', function() { switchKarteTab(btn.dataset.jumptab); });
             });
@@ -6318,6 +6908,7 @@
                     + '</div>'
                     + '<div class="sub-assign-acts">'
                     + '<button class="btn-rec-small goto sub-go-input-btn" data-aid="' + a.id + '">入力へ</button>'
+                    + '<button class="btn-rec-small edit sub-assign-edit-btn" data-aid="' + a.id + '">編集</button>'
                     + '<button class="btn-rec-small del sub-assign-del-btn" data-aid="' + a.id + '">削除</button>'
                     + '</div>'
                     + '</div>';
@@ -6325,6 +6916,11 @@
             list.innerHTML = html;
             list.querySelectorAll('.sub-assign-del-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subDeleteAssign(parseInt(btn.dataset.aid)); });
+            });
+            list.querySelectorAll('.sub-assign-edit-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    subEditAssign(parseInt(btn.dataset.aid));
+                });
             });
             list.querySelectorAll('.sub-go-input-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -6341,6 +6937,21 @@
             if (!name) { showToast('課題名を入力してください', 'warning'); return; }
             if (!date) { showToast('提出日を選択してください', 'warning'); return; }
             var arr = subGetAssignments();
+            if (subEditingAssignId !== null) {
+                var idx = arr.findIndex(function(a) { return a.id === subEditingAssignId; });
+                if (idx >= 0) {
+                    arr[idx].subject = subj;
+                    arr[idx].name = name;
+                    arr[idx].date = date;
+                    arr[idx].updatedAt = new Date().toISOString();
+                }
+                subSaveAssignments(arr);
+                subCancelEditAssign();
+                subRenderAssignList();
+                subUpdateAssignSelects();
+                showToast('✅ 課題を更新しました', 'success');
+                return;
+            }
             arr.unshift({ id: Date.now(), subject: subj, name: name, date: date, createdAt: new Date().toISOString() });
             subSaveAssignments(arr);
             document.getElementById('subAssignSubject').value = '';
@@ -6350,6 +6961,7 @@
             subUpdateAssignSelects();
             showToast('✅ 課題を登録しました', 'success');
         }
+        var subEditingAssignId = null;
         function subDeleteAssign(id) {
             if (!confirm('この課題を削除しますか？\n提出データも削除されます。')) return;
             subSaveAssignments(subGetAssignments().filter(function(a) { return a.id !== id; }));
@@ -6358,6 +6970,44 @@
             subRenderAssignList();
             subUpdateAssignSelects();
             showToast('削除しました', 'success');
+        }
+        function subEditAssign(id) {
+            var assigns = subGetAssignments();
+            var target = assigns.find(function(a) { return a.id === id; });
+            if (!target) return;
+            subEditingAssignId = id;
+            var subjEl = document.getElementById('subAssignSubject');
+            var nameEl = document.getElementById('subAssignName');
+            var dateEl = document.getElementById('subAssignDate');
+            if (subjEl) subjEl.value = target.subject || '';
+            if (nameEl) nameEl.value = target.name || '';
+            if (dateEl) dateEl.value = target.date || '';
+            var addBtn = document.getElementById('subAssignAddBtn');
+            if (addBtn) addBtn.textContent = '更新する';
+            if (!document.getElementById('subAssignCancelBtn')) {
+                var cancelBtn = document.createElement('button');
+                cancelBtn.id = 'subAssignCancelBtn';
+                cancelBtn.className = 'btn-rec-small';
+                cancelBtn.textContent = 'キャンセル';
+                cancelBtn.style.marginLeft = '6px';
+                cancelBtn.addEventListener('click', subCancelEditAssign);
+                addBtn.parentNode.appendChild(cancelBtn);
+            }
+            var panel = document.querySelector('#sub-sub-assign .sub-panel');
+            if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+            showToast('課題を編集中です', 'info');
+        }
+        function subCancelEditAssign() {
+            subEditingAssignId = null;
+            var addBtn = document.getElementById('subAssignAddBtn');
+            if (addBtn) addBtn.textContent = '課題を追加';
+            var cancelBtn = document.getElementById('subAssignCancelBtn');
+            if (cancelBtn) cancelBtn.remove();
+            var subjEl = document.getElementById('subAssignSubject');
+            var nameEl = document.getElementById('subAssignName');
+            if (subjEl) subjEl.value = '';
+            if (nameEl) nameEl.value = '';
+            subInitAssignDate();
         }
         function subUpdateAssignSelects() {
             var assigns = subSortAssigns(subGetAssignments());
@@ -6410,7 +7060,7 @@
                 var st = rec ? rec.status : '';
                 var corrDone = rec ? rec.correctionDone : false;
                 var hasSt = st ? 'has-status status-' + st : '';
-                var dispName = stu.name.length > 4 ? stu.name.substring(0, 4) : stu.name;
+                var dispName = stu.name.length > 5 ? stu.name.substring(0, 5) : stu.name;
                 var corrDisabled = st === 'submitted' ? 'disabled' : '';
                 var corrChecked = (st === 'submitted' || corrDone) ? 'checked' : '';
                 html += '<div class="sub-input-row ' + hasSt + '" data-idx="' + i + '">'
@@ -8326,6 +8976,463 @@
     })();
     // ▲▲▲ MODULE:FORGOTTEN ▲▲▲
 
+    // ▼▼▼ MODULE:KANJI ▼▼▼
+    // ================================================================
+    // 漢字チェック（3段階：○完了／△再提出／空白）
+    // ================================================================
+    (function() { 'use strict';
+
+        // ---- データアクセス ----
+        function kanjiGetData() {
+            return StorageManager.get(KEYS.kanji, { units: [] });
+        }
+        function kjSave(data) {
+            StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
+        }
+
+        // ---- 状態 ----
+        var kjCurrentUnit = 0; // 現在選択中の単元インデックス
+        var kanjiCurRow = 0;
+        var kanjiCurCol = 0;
+        var kanjiKeyboardActive = false;
+
+        // ---- 文字列から漢字配列を生成（重複除去） ----
+        function kjParseChars(str) {
+            var seen = {};
+            var result = [];
+            var parts = str.replace(/[\s\u3001\uff0c,\n\r]+/g, '');
+            for (var i = 0; i < parts.length; i++) {
+                var c = parts[i];
+                if (c && !seen[c]) {
+                    seen[c] = true;
+                    result.push(c);
+                }
+            }
+            return result;
+        }
+
+        // ---- 初期化 ----
+        function kanjiInit() {
+            var data = kanjiGetData();
+            kjRenderUnitSel(data);
+            kjRenderTable(data);
+
+            // キーボードイベント登録（重複登録防止）
+            if (!window._kanjiKeyHandler) {
+                window._kanjiKeyHandler = function(e) {
+                    // 漢字チェック画面がアクティブな時のみ動作
+                    var view = document.getElementById('view-kanji');
+                    if (!view || !view.classList.contains('active')) return;
+
+                    // 入力中は無視
+                    if (e.target.tagName === 'INPUT' ||
+                        e.target.tagName === 'TEXTAREA' ||
+                        e.target.tagName === 'SELECT') return;
+
+                    var data = kanjiGetData();
+                    var unitIdx = kjCurrentUnit;
+                    var unit = data.units[unitIdx];
+                    if (!unit) return;
+                    var students = master.students || [];
+
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurRow = Math.max(0, kanjiCurRow - 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurRow = Math.min(students.length - 1, kanjiCurRow + 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurCol = Math.max(0, kanjiCurCol - 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            kanjiKeyboardActive = true;
+                            kanjiCurCol = Math.min(unit.chars.length - 1, kanjiCurCol + 1);
+                            kanjiHighlightCell();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            if (!kanjiKeyboardActive) {
+                                kanjiKeyboardActive = true;
+                                kanjiHighlightCell();
+                                return;
+                            }
+                            kanjiToggle(unitIdx, kanjiCurRow, kanjiCurCol);
+                            break;
+                        case 'Escape':
+                            kanjiKeyboardActive = false;
+                            document.querySelectorAll('#view-kanji td.kanji-selected')
+                                .forEach(function(td) { td.classList.remove('kanji-selected'); });
+                            break;
+                    }
+                };
+                document.addEventListener('keydown', window._kanjiKeyHandler);
+            }
+        }
+
+        // ---- 統合再描画 ----
+        function kanjiRender() {
+            var data = kanjiGetData();
+            kjRenderUnitSel(data);
+            kjRenderTable(data);
+            kanjiHighlightCell();
+        }
+
+        // ---- 単元セレクト描画 ----
+        function kjRenderUnitSel(data) {
+            var sel = document.getElementById('kanjiUnitSel');
+            if (!sel) return;
+            var units = data.units || [];
+            sel.innerHTML = '';
+            if (units.length === 0) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '（単元なし）';
+                sel.appendChild(opt);
+                return;
+            }
+            units.forEach(function(u, i) {
+                var opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = u.name;
+                if (i === kjCurrentUnit) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        // ---- テーブル描画 ----
+        function kjRenderTable(data) {
+            var wrap = document.getElementById('kanjiTableWrap');
+            if (!wrap) return;
+            var units = data.units || [];
+            if (units.length === 0) {
+                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">単元がありません。「＋単元追加」から追加してください。</div>';
+                return;
+            }
+            if (kjCurrentUnit >= units.length) kjCurrentUnit = 0;
+            var unit = units[kjCurrentUnit];
+            var unitIdx = kjCurrentUnit;
+            var chars = unit.chars || [];
+            var checks = unit.checks || {};
+            var students = master.students || [];
+
+            // 列ごとの状態判定（全員○／△あり）
+            var colAllDone = chars.map(function(_, ci) {
+                if (students.length === 0) return false;
+                return students.every(function(_, si) {
+                    return (checks[String(si)] || {})[String(ci)] === 'o';
+                });
+            });
+            var colHasRetry = chars.map(function(_, ci) {
+                return students.some(function(_, si) {
+                    return (checks[String(si)] || {})[String(ci)] === 'd';
+                });
+            });
+
+            // 行ごとに全漢字○完了か判定
+            var rowAllDone = students.map(function(_, si) {
+                if (chars.length === 0) return false;
+                return chars.every(function(_, ci) {
+                    return (checks[String(si)] || {})[String(ci)] === 'o';
+                });
+            });
+
+            // ラッパーにスクロール用クラスを付与
+            wrap.className = 'kanji-table-wrap';
+
+            var html = '<table id="kanjiTable" style="border-collapse:collapse;table-layout:fixed;background:#fff;">';
+
+            // ヘッダー行
+            html += '<thead><tr>';
+            html += '<th class="kanji-num-col" style="position:sticky;left:0;z-index:3;background:#e8f5e9;width:28px;min-width:28px;max-width:28px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;">#</th>';
+            html += '<th class="kanji-name-col" style="position:sticky;left:28px;z-index:3;background:#e8f5e9;width:72px;min-width:72px;max-width:72px;border:1px solid #ccc;font-size:0.78rem;text-align:center;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;">氏名</th>';
+            chars.forEach(function(c, ci) {
+                var bg = colAllDone[ci] ? '#388E3C' : colHasRetry[ci] ? '#F9A825' : '#e8f5e9';
+                var col = (colAllDone[ci] || colHasRetry[ci]) ? '#fff' : '#2E7D32';
+                html += '<th onclick="kanjiColCheck(' + unitIdx + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + bg + ';color:' + col + ';border:1px solid #ccc;font-size:1rem;text-align:center;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;user-select:none;">' + escapeHtml(c) + '</th>';
+            });
+            html += '<th style="background:#e8f5e9;width:52px;min-width:52px;max-width:52px;border:1px solid #ccc;font-size:0.72rem;text-align:center;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;">完了</th>';
+            html += '</tr></thead>';
+
+            // データ行
+            html += '<tbody>';
+            students.forEach(function(st, si) {
+                var rowDone = rowAllDone[si];
+                var rowBg = rowDone ? '#E8F5E9' : '#fff';
+                var doneCount = chars.filter(function(_, ci) {
+                    return (checks[String(si)] || {})[String(ci)] === 'o';
+                }).length;
+                var retryCount = chars.filter(function(_, ci) {
+                    return (checks[String(si)] || {})[String(ci)] === 'd';
+                }).length;
+                var countText = doneCount + '/' + chars.length + (retryCount > 0 ? '（△' + retryCount + '）' : '');
+                html += '<tr style="background:' + rowBg + ';">';
+                html += '<td class="kanji-num-col" style="position:sticky;left:0;z-index:2;background:' + rowBg + ';width:28px;min-width:28px;max-width:28px;border:1px solid #ddd;font-size:0.72rem;text-align:center;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;color:#555;">' + (si + 1) + '</td>';
+                html += '<td class="kanji-name-col" style="position:sticky;left:28px;z-index:2;background:' + rowBg + ';width:72px;min-width:72px;max-width:72px;border:1px solid #ddd;font-size:0.78rem;text-align:center;padding:0 4px;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;text-overflow:ellipsis;">' + escapeHtml(st.name || '') + '</td>';
+                chars.forEach(function(_, ci) {
+                    var val = (checks[String(si)] || {})[String(ci)];
+                    var cellBg = val === 'o' ? '#A5D6A7' : val === 'd' ? '#FFF9C4' : '#fff';
+                    var cellColor = val === 'o' ? '#2E7D32' : val === 'd' ? '#F57F17' : '';
+                    var cellText = val === 'o' ? '○' : val === 'd' ? '△' : '';
+                    html += '<td onclick="kanjiToggle(' + unitIdx + ',' + si + ',' + ci + ')" style="cursor:pointer;width:36px;min-width:36px;max-width:36px;background:' + cellBg + ';color:' + cellColor + ';font-weight:700;border:1px solid #ddd;text-align:center;font-size:0.9rem;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;user-select:none;">' + cellText + '</td>';
+                });
+                html += '<td style="background:' + rowBg + ';width:52px;min-width:52px;max-width:52px;border:1px solid #ddd;text-align:center;font-size:0.72rem;padding:0;height:23px;max-height:23px;overflow:hidden;white-space:nowrap;vertical-align:middle;line-height:23px;box-sizing:border-box;color:#555;">' + countText + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+
+            wrap.innerHTML = html;
+        }
+
+        // ---- キーボード選択セルのハイライト ----
+        function kanjiHighlightCell() {
+            var data = kanjiGetData();
+            var unitIdx = kjCurrentUnit;
+            var unit = data.units[unitIdx];
+            if (!unit) return;
+            var students = master.students || [];
+
+            // 全セルのハイライトを解除
+            document.querySelectorAll('#view-kanji td.kanji-selected')
+                .forEach(function(td) { td.classList.remove('kanji-selected'); });
+
+            if (!kanjiKeyboardActive) return;
+
+            // 範囲チェック
+            kanjiCurRow = Math.max(0, Math.min(kanjiCurRow, students.length - 1));
+            kanjiCurCol = Math.max(0, Math.min(kanjiCurCol, unit.chars.length - 1));
+
+            // 対象セルを選択
+            var tableWrap = document.querySelector('.kanji-table-wrap');
+            if (!tableWrap) return;
+            var rows = tableWrap.querySelectorAll('tbody tr');
+            if (!rows[kanjiCurRow]) return;
+            // 番号列・氏名列・完了数列を除いた漢字列（index+2）
+            var cells = rows[kanjiCurRow].querySelectorAll('td');
+            var targetCell = cells[kanjiCurCol + 2];
+            if (targetCell) {
+                targetCell.classList.add('kanji-selected');
+                targetCell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
+        }
+
+        // ---- セルトグル（3段階：未→△→○→未） ----
+        function kanjiToggle(unitIdx, stuIdx, charIdx) {
+            kanjiCurRow = stuIdx;
+            kanjiCurCol = charIdx;
+            kanjiKeyboardActive = true;
+            var data = kanjiGetData();
+            var unit = data.units[unitIdx];
+            if (!unit) return;
+            if (!unit.checks[String(stuIdx)]) unit.checks[String(stuIdx)] = {};
+            var cur = unit.checks[String(stuIdx)][String(charIdx)];
+            if (!cur) {
+                unit.checks[String(stuIdx)][String(charIdx)] = 'd';
+            } else if (cur === 'd') {
+                unit.checks[String(stuIdx)][String(charIdx)] = 'o';
+            } else {
+                delete unit.checks[String(stuIdx)][String(charIdx)];
+            }
+            StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
+
+            // △（再提出）になった場合は個人カルテの生活記録に自動記録
+            var val = unit.checks[String(stuIdx)][String(charIdx)];
+            if (val === 'd') {
+                var lifeAll = StorageManager.get(KEYS.karte_life, {});
+                var lifeList = Array.isArray(lifeAll[String(stuIdx)]) ? lifeAll[String(stuIdx)] : [];
+                var today = new Date().toLocaleDateString('sv-SE');
+                var already = lifeList.find(function(r) {
+                    return r.auto === 'kanji' &&
+                           r.kanjiUnit === unitIdx &&
+                           r.kanjiChar === charIdx &&
+                           r.date === today;
+                });
+                if (!already) {
+                    var now = new Date().toISOString();
+                    lifeList.push({
+                        id: Date.now(),
+                        date: today,
+                        categories: ['concern'],
+                        summary: '漢字「' + unit.chars[charIdx] + '」（' + unit.name + '）再提出',
+                        fact: '',
+                        response: '',
+                        impression: '',
+                        auto: 'kanji',
+                        kanjiUnit: unitIdx,
+                        kanjiChar: charIdx,
+                        createdAt: now,
+                        updatedAt: now
+                    });
+                    lifeAll[String(stuIdx)] = lifeList;
+                    StorageManager.setImmediate(KEYS.karte_life, JSON.stringify(lifeAll));
+                }
+            }
+            kanjiRender();
+        }
+
+        // ---- 列ヘッダータップ（全員○↔全員解除） ----
+        function kanjiColCheck(unitIdx, charIdx) {
+            var data = kanjiGetData();
+            var unit = data.units[unitIdx];
+            if (!unit) return;
+            var students = master.students || [];
+            var allDone = students.every(function(_, si) {
+                return (unit.checks[String(si)] || {})[String(charIdx)] === 'o';
+            });
+            students.forEach(function(_, si) {
+                if (!unit.checks[String(si)]) unit.checks[String(si)] = {};
+                if (allDone) {
+                    delete unit.checks[String(si)][String(charIdx)];
+                } else {
+                    unit.checks[String(si)][String(charIdx)] = 'o';
+                }
+            });
+            StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
+            kanjiRender();
+        }
+
+        // ---- 単元セレクト変更 ----
+        function kanjiSelectUnit(val) {
+            if (val === '' || val === null || val === undefined) return;
+            kjCurrentUnit = parseInt(val, 10) || 0;
+            var data = kanjiGetData();
+            kjRenderTable(data);
+        }
+
+        // ---- 単元追加モーダルを開く ----
+        function kanjiOpenUnitModal() {
+            document.getElementById('kanjiModalTitle').textContent = '単元追加';
+            document.getElementById('kanjiModalName').value = '';
+            document.getElementById('kanjiModalChars').value = '';
+            document.getElementById('kanjiModalPreview').textContent = '';
+            document.getElementById('kanjiModal')._editIndex = null;
+            document.getElementById('kanjiModal').style.display = 'flex';
+            document.getElementById('kanjiModalName').focus();
+        }
+
+        // ---- 単元編集モーダルを開く ----
+        function kanjiEditUnit() {
+            var data = kanjiGetData();
+            var units = data.units || [];
+            if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
+            var unit = units[kjCurrentUnit];
+            document.getElementById('kanjiModalTitle').textContent = '単元編集';
+            document.getElementById('kanjiModalName').value = unit.name || '';
+            document.getElementById('kanjiModalChars').value = (unit.chars || []).join('\n');
+            kjUpdatePreview();
+            document.getElementById('kanjiModal')._editIndex = kjCurrentUnit;
+            document.getElementById('kanjiModal').style.display = 'flex';
+            document.getElementById('kanjiModalName').focus();
+        }
+
+        // ---- モーダルを閉じる ----
+        function kanjiCloseUnitModal() {
+            document.getElementById('kanjiModal').style.display = 'none';
+        }
+
+        // ---- プレビュー更新 ----
+        function kjUpdatePreview() {
+            var ta = document.getElementById('kanjiModalChars');
+            var prev = document.getElementById('kanjiModalPreview');
+            if (!ta || !prev) return;
+            var chars = kjParseChars(ta.value);
+            prev.textContent = chars.length > 0 ? '認識した漢字（' + chars.length + '文字）: ' + chars.join(' ') : '';
+        }
+
+        // ---- 単元保存（編集時は'o'/'d'値を引き継ぐ） ----
+        function kanjiSaveUnit() {
+            var name = (document.getElementById('kanjiModalName').value || '').trim();
+            var charsStr = document.getElementById('kanjiModalChars').value || '';
+            var chars = kjParseChars(charsStr);
+            if (!name) { showToast('単元名を入力してください', 'warning'); return; }
+            if (chars.length === 0) { showToast('漢字を1文字以上入力してください', 'warning'); return; }
+
+            var data = kanjiGetData();
+            if (!data.units) data.units = [];
+            var editIdx = document.getElementById('kanjiModal')._editIndex;
+
+            if (editIdx !== null && editIdx !== undefined) {
+                var oldUnit = data.units[editIdx];
+                var oldChars = oldUnit.chars || [];
+                var oldChecks = oldUnit.checks || {};
+                var newChecks = {};
+                chars.forEach(function(c, newCi) {
+                    var oldCi = oldChars.indexOf(c);
+                    if (oldCi >= 0) {
+                        Object.keys(oldChecks).forEach(function(siKey) {
+                            var oldVal = oldChecks[siKey][String(oldCi)];
+                            if (oldVal) {
+                                if (!newChecks[siKey]) newChecks[siKey] = {};
+                                newChecks[siKey][String(newCi)] = oldVal;
+                            }
+                        });
+                    }
+                });
+                data.units[editIdx] = { name: name, chars: chars, checks: newChecks };
+                kjCurrentUnit = editIdx;
+            } else {
+                data.units.push({ name: name, chars: chars, checks: {} });
+                kjCurrentUnit = data.units.length - 1;
+            }
+
+            kjSave(data);
+            kanjiCloseUnitModal();
+            kanjiRender();
+            showToast('保存しました', 'success');
+        }
+
+        // ---- 単元削除 ----
+        function kanjiDeleteUnit() {
+            var data = kanjiGetData();
+            var units = data.units || [];
+            if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
+            var unitName = units[kjCurrentUnit].name;
+            if (!confirm('「' + unitName + '」を削除しますか？')) return;
+            units.splice(kjCurrentUnit, 1);
+            data.units = units;
+            if (kjCurrentUnit >= units.length) kjCurrentUnit = Math.max(0, units.length - 1);
+            kjSave(data);
+            kanjiRender();
+            showToast('削除しました', 'success');
+        }
+
+        // ---- グローバル公開 ----
+        window.kanjiInit           = kanjiInit;
+        window.kanjiRender         = kanjiRender;
+        window.kanjiToggle         = kanjiToggle;
+        window.kanjiColCheck       = kanjiColCheck;
+        window.kanjiSelectUnit     = kanjiSelectUnit;
+        window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
+        window.kanjiEditUnit       = kanjiEditUnit;
+        window.kanjiCloseUnitModal = kanjiCloseUnitModal;
+        window.kanjiSaveUnit       = kanjiSaveUnit;
+        window.kanjiDeleteUnit     = kanjiDeleteUnit;
+
+        // ---- DOMContentLoaded フック ----
+        document.addEventListener('DOMContentLoaded', function() {
+            var ta = document.getElementById('kanjiModalChars');
+            if (ta) ta.addEventListener('input', kjUpdatePreview);
+            var modal = document.getElementById('kanjiModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) kanjiCloseUnitModal();
+                });
+            }
+        });
+
+    })();
+    // ▲▲▲ MODULE:KANJI ▲▲▲
+
     // ▼▼▼ MODULE:CSV_EXPORT ▼▼▼
     // ================================================================
     // データ出力センター (Phase 8)
@@ -8660,6 +9767,15 @@
     window.karteRecCancelEdit = karteRecCancelEdit;
     window.karteUndoLast = karteUndoLast;
     window.renderPatrolHistory = renderPatrolHistory;
+    window.kanjiInit           = kanjiInit;
+    window.kanjiToggle         = kanjiToggle;
+    window.kanjiColCheck       = kanjiColCheck;
+    window.kanjiSelectUnit     = kanjiSelectUnit;
+    window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
+    window.kanjiEditUnit       = kanjiEditUnit;
+    window.kanjiCloseUnitModal = kanjiCloseUnitModal;
+    window.kanjiSaveUnit       = kanjiSaveUnit;
+    window.kanjiDeleteUnit     = kanjiDeleteUnit;
 
     // --- 暗号化バックアップ: prompt()の代わりにモーダルUI ---
     document.getElementById('btn-enc-export').addEventListener('click', function() {

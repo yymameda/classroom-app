@@ -1155,6 +1155,7 @@
         /* 入力 — グリッド（元アプリ準拠） */
         .sub-input-top { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .sub-input-top select { flex: 1; min-width: 160px; padding: 0.6rem 0.75rem; border: 2px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 0.9rem; min-height: 44px; }
+        .sub-input-top input[type=date] { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.88rem; min-height: 40px; }
         .sub-input-progress { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0.75rem; background: var(--secondary); border-radius: 8px; margin: 0 0.75rem 0.3rem; font-weight: 500; font-size: 0.85rem; color: var(--primary); }
         .sub-progress-stats { display: flex; gap: 0.75rem; font-size: 0.8rem; }
         .sub-stat-ok { color: var(--success); } .sub-stat-re { color: #B7950B; } .sub-stat-ng { color: var(--danger); }
@@ -1303,9 +1304,6 @@
         .sub-assign-acts { display: flex; gap: 6px; flex-shrink: 0; }
 
         /* 修養日誌 — グリッド（元アプリ準拠） */
-        .sub-diary-top { padding: 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-        .sub-diary-top input[type=date] { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.88rem; min-height: 40px; }
-        .sub-diary-stats { display: flex; gap: 1rem; font-size: 0.85rem; padding: 0.4rem 0.75rem; background: var(--secondary); border-radius: 8px; margin: 0 0.75rem 0.5rem; }
         .sub-diary-grid {
             display: grid; grid-template-columns: repeat(2, 1fr) !important;
             gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 8px;
@@ -2311,7 +2309,7 @@
 
             <!-- ── 修養日誌タブ ── -->
             <div id="sub-sub-diary" class="sub-sub">
-                <div class="sub-diary-top">
+                <div class="sub-input-top">
                     <button class="btn-rec-small" id="subDiaryPrevBtn">◀</button>
                     <input type="date" id="subDiaryDate">
                     <button class="btn-rec-small" id="subDiaryNextBtn">▶</button>
@@ -2322,7 +2320,7 @@
                     <button class="btn-rec-small goto" id="subDiaryAllBtn" style="margin-left:auto;">全員+1</button>
                     <button class="btn-rec-small del" id="subDiaryClearBtn">この日クリア</button>
                 </div>
-                <div class="sub-diary-stats">
+                <div class="sub-input-progress">
                     <span>今日提出: <strong id="subDiaryTodayCnt">0</strong>人</span>
                     <span>未達成: <strong id="subDiaryShortage">0</strong>人</span>
                 </div>

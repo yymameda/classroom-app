@@ -1791,7 +1791,7 @@
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
                         <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showKarte(null,'attendance')">👤 カルテ</button>
-                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte()">🖨️ 一括印刷</button>
+                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte('attendance')">🖨️ 一括印刷</button>
                     </div>
                 </div>
             </div>
@@ -2247,7 +2247,7 @@
 
         <!-- ===== 提出物チェック (Phase 5) ===== -->
         <div id="view-submissions" class="view">
-            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'submissions')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'submissions')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte('submissions')">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -9985,7 +9985,8 @@
     });
 
     // ===== 個人カルテ一括PDF出力 =====
-    window.printAllKarte = function() {
+    window.printAllKarte = function(mode) {
+        mode = mode || 'all';
         var masterData = StorageManager.get(KEYS.master, {});
         var students = masterData.students || [];
         if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
@@ -9997,24 +9998,31 @@
         var lifeAll = StorageManager.get(KEYS.karte_life, {});
         var parentAll = StorageManager.get(KEYS.karte_parent, {});
         var methodLabels = { phone: '📞 電話', meeting: '🤝 面談', note: '📝 連絡帳', other: '💬 その他' };
+        var titleSuffix = mode === 'attendance' ? '（出欠席）' : mode === 'submissions' ? '（提出物）' : '';
         var pages = '';
         students.forEach(function(s, idx) {
             if (!s || !s.name) return;
             // 出席集計
-            var present = 0, absent = 0, late = 0;
+            var present = 0, absent = 0, late = 0, early = 0;
+            var attMonths = {};
             Object.keys(attAll).forEach(function(dk) {
                 var st = (attAll[dk] || {})[String(idx)];
                 if (!st) return;
-                if (st === '○') present++;
-                else if (st === '×' || st === '／') absent++;
-                if (st === 'チ' || st === 'チソ') late++;
+                var mon = dk.slice(0, 7);
+                if (!attMonths[mon]) attMonths[mon] = { present: 0, absent: 0, late: 0 };
+                if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') { present++; attMonths[mon].present++; }
+                if (st === '×' || st === '／') { absent++; attMonths[mon].absent++; }
+                if (st === 'チ' || st === 'チソ') { late++; attMonths[mon].late++; }
+                if (st === 'ソ' || st === 'チソ') early++;
             });
             // 提出物集計
-            var subDone = 0;
+            var subDone = 0, subRe = 0;
             assigns.forEach(function(a) {
-                if (subs.find(function(r) { return r.studentIndex === idx && r.assignmentId === a.id && r.status === 'submitted'; })) subDone++;
+                var r = subs.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
+                if (r && r.status === 'submitted') subDone++;
+                else if (r && r.status === 'resubmit') subRe++;
             });
-            var subRate = assigns.length > 0 ? Math.round(subDone / assigns.length * 100) + '%' : '-';
+            var subRate = assigns.length > 0 ? Math.round((subDone + subRe) / assigns.length * 100) + '%' : '-';
             // 忘れ物集計
             var fgtCount = 0;
             Object.keys(fgtDaily).forEach(function(dk) {
@@ -10043,9 +10051,10 @@
             });
             if (!parentRows) parentRows = '<tr><td colspan="3" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
             var isLast = (idx === students.length - 1);
-            pages += '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:12mm 14mm;box-sizing:border-box;">'
+            // --- ページヘッダー共通部 ---
+            var pageHtml = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:12mm 14mm;box-sizing:border-box;">'
                 + '<div style="border-bottom:3px solid #1a1a2e;padding-bottom:6pt;margin-bottom:10pt;display:flex;justify-content:space-between;align-items:flex-end;">'
-                + '<div style="font-size:18pt;font-weight:900;color:#1a1a2e;">個人カルテ</div>'
+                + '<div style="font-size:18pt;font-weight:900;color:#1a1a2e;">個人カルテ' + titleSuffix + '</div>'
                 + '<div style="font-size:8pt;color:#555;">' + escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '') + '</div>'
                 + '</div>'
                 + '<div style="background:#f4f6f9;border-radius:8pt;padding:8pt 12pt;margin-bottom:10pt;display:flex;align-items:center;gap:16pt;">'
@@ -10053,35 +10062,97 @@
                 + '<span style="font-size:14pt;font-weight:900;color:#1a1a2e;">' + (idx + 1) + '</span>'
                 + '<span style="font-size:9pt;color:#555;font-weight:700;">氏名</span>'
                 + '<span style="font-size:16pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
-                + '</div>'
-                + '<div style="display:flex;gap:8pt;margin-bottom:10pt;">'
-                + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
-                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📅 出席状況</div>'
-                + '<table style="width:100%;border-collapse:collapse;">'
-                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">出席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + present + '日</td></tr>'
-                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">欠席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E74C3C;">' + absent + '日</td></tr>'
-                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">遅刻</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E67E22;">' + late + '回</td></tr>'
-                + '</table></div>'
-                + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
-                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📚 提出物</div>'
-                + '<table style="width:100%;border-collapse:collapse;">'
-                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">課題数</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + assigns.length + '件</td></tr>'
-                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出済</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#27AE60;">' + subDone + '件</td></tr>'
-                + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出率</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + subRate + '</td></tr>'
-                + '</table></div>'
-                + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
-                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">🎒 忘れ物</div>'
-                + '<div style="font-size:20pt;font-weight:900;color:' + (fgtCount > 0 ? '#E74C3C' : '#27AE60') + ';text-align:center;padding:6pt 0;">' + fgtCount + '件</div>'
-                + '</div></div>'
-                + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;margin-bottom:10pt;">'
-                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📝 生活記録（直近5件）</div>'
-                + '<table style="width:100%;border-collapse:collapse;">' + lifeRows + '</table>'
-                + '</div>'
-                + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
-                + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">👨‍👩‍👧 保護者対応記録（直近3件）</div>'
-                + '<table style="width:100%;border-collapse:collapse;">' + parentRows + '</table>'
-                + '</div>'
                 + '</div>';
+
+            if (mode === 'attendance') {
+                // 出欠席セクションのみ（月別内訳付き）
+                var monKeys = Object.keys(attMonths).sort().reverse();
+                var monRows = '';
+                monKeys.forEach(function(mon) {
+                    var parts = mon.split('-');
+                    var label = parseInt(parts[0]) + '年' + parseInt(parts[1]) + '月';
+                    var m = attMonths[mon];
+                    monRows += '<tr>'
+                        + '<td style="padding:3px 6px;font-size:8pt;color:#555;border-bottom:1px solid #eee;">' + label + '</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;border-bottom:1px solid #eee;">' + m.present + '日</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;color:#E74C3C;border-bottom:1px solid #eee;">' + m.absent + '日</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;color:#E67E22;border-bottom:1px solid #eee;">' + m.late + '回</td>'
+                        + '</tr>';
+                });
+                if (!monRows) monRows = '<tr><td colspan="4" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
+                pageHtml += '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;">'
+                    + '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📅 出欠席状況</div>'
+                    + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">出席</div><div style="font-size:18pt;font-weight:900;color:#27AE60;">' + present + '<span style="font-size:9pt;">日</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">欠席</div><div style="font-size:18pt;font-weight:900;color:#E74C3C;">' + absent + '<span style="font-size:9pt;">日</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">遅刻</div><div style="font-size:18pt;font-weight:900;color:#E67E22;">' + late + '<span style="font-size:9pt;">回</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">早退</div><div style="font-size:18pt;font-weight:900;color:#E67E22;">' + early + '<span style="font-size:9pt;">回</span></div></div>'
+                    + '</div>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">月別内訳</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">'
+                    + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">月</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">出席</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">欠席</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">遅刻</th></tr>'
+                    + monRows
+                    + '</table>'
+                    + '</div>';
+            } else if (mode === 'submissions') {
+                // 提出物セクションのみ（課題一覧付き）
+                var assignRows = '';
+                assigns.forEach(function(a) {
+                    var r = subs.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
+                    var st = r ? r.status : 'missing';
+                    var stLabel = st === 'submitted' ? '提出済' : st === 'resubmit' ? '再提出' : '未提出';
+                    var stColor = st === 'submitted' ? '#27AE60' : st === 'resubmit' ? '#B7950B' : '#E74C3C';
+                    assignRows += '<tr>'
+                        + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml(a.name || '') + '</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;font-weight:700;text-align:right;color:' + stColor + ';border-bottom:1px solid #eee;">' + stLabel + '</td>'
+                        + '</tr>';
+                });
+                if (!assignRows) assignRows = '<tr><td colspan="2" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">課題なし</td></tr>';
+                pageHtml += '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;">'
+                    + '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📚 提出状況</div>'
+                    + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">課題数</div><div style="font-size:18pt;font-weight:900;color:#1a1a2e;">' + assigns.length + '<span style="font-size:9pt;">件</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出済</div><div style="font-size:18pt;font-weight:900;color:#27AE60;">' + subDone + '<span style="font-size:9pt;">件</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">再提出</div><div style="font-size:18pt;font-weight:900;color:#B7950B;">' + subRe + '<span style="font-size:9pt;">件</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出率</div><div style="font-size:18pt;font-weight:900;color:#3498DB;">' + subRate + '</div></div>'
+                    + '</div>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">課題一覧</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">'
+                    + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">課題名</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">状況</th></tr>'
+                    + assignRows
+                    + '</table>'
+                    + '</div>';
+            } else {
+                // 全セクション表示（従来通り）
+                pageHtml += '<div style="display:flex;gap:8pt;margin-bottom:10pt;">'
+                    + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📅 出席状況</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">出席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + present + '日</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">欠席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E74C3C;">' + absent + '日</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">遅刻</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E67E22;">' + late + '回</td></tr>'
+                    + '</table></div>'
+                    + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📚 提出物</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">課題数</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + assigns.length + '件</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出済</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#27AE60;">' + subDone + '件</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出率</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + subRate + '</td></tr>'
+                    + '</table></div>'
+                    + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">🎒 忘れ物</div>'
+                    + '<div style="font-size:20pt;font-weight:900;color:' + (fgtCount > 0 ? '#E74C3C' : '#27AE60') + ';text-align:center;padding:6pt 0;">' + fgtCount + '件</div>'
+                    + '</div></div>'
+                    + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;margin-bottom:10pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📝 生活記録（直近5件）</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">' + lifeRows + '</table>'
+                    + '</div>'
+                    + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">👨‍👩‍👧 保護者対応記録（直近3件）</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">' + parentRows + '</table>'
+                    + '</div>';
+            }
+            pages += pageHtml + '</div>';
         });
         var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
             + '@page{size:A4 portrait;margin:0;}'

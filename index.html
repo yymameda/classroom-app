@@ -157,8 +157,12 @@
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white; padding: 16px 20px;
             position: sticky; top: 0; z-index: 5;
+            display: flex; justify-content: space-between; align-items: center;
         }
         .view-header h2 { font-size: 1.1rem; font-weight: 700; }
+        .hdr-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .hdr-btn { min-height: 44px; padding: 6px 12px; background: rgba(255,255,255,0.2); color: white; border: 1.5px solid rgba(255,255,255,0.5); border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
+        .hdr-btn:active { background: rgba(255,255,255,0.35); }
         .view-content {
             padding: 16px; max-width: 800px; margin: 0 auto;
         }
@@ -1784,10 +1788,12 @@
                     <span class="att-date-badge" id="attDateBadge" onclick="attOpenDateModal()">--/--</span>
                     <button class="att-nav-btn" onclick="attShiftDate(-1)">◀</button>
                     <button class="att-nav-btn" onclick="attShiftDate(1)">▶</button>
-                    <div style="margin-left:auto; display:flex; gap:4px;">
+                    <div style="margin-left:auto; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
                         <button class="att-mode-tab active" id="attTabGrid"    onclick="attSetTab('grid')">📝 入力</button>
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
+                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showView('records');recShowSub('karte');">👤 カルテ</button>
+                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte()">🖨️ 一括印刷</button>
                     </div>
                 </div>
             </div>
@@ -1883,7 +1889,7 @@
 
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
-            <div class="view-header"><h2>🪑 座席表</h2></div>
+            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <div class="view-content" id="seating-content" style="max-width: 600px;">
                 <div class="card">
                     <div class="btn-group" style="margin-bottom: 12px;">
@@ -1920,6 +1926,7 @@
                     <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('karte')">👤 個人カルテ</button>
+                    <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;margin-left:auto;flex-shrink:0;" onclick="printAllKarte()">🖨️ 一括印刷</button>
                 </div>
             </div>
             <div class="view-content" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
@@ -2242,7 +2249,7 @@
 
         <!-- ===== 提出物チェック (Phase 5) ===== -->
         <div id="view-submissions" class="view">
-            <div class="view-header"><h2>📚 提出物チェック</h2></div>
+            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2363,7 +2370,7 @@
 
         <!-- ===== 忘れ物チェック (Phase 6) ===== -->
         <div id="view-forgotten" class="view">
-            <div class="view-header"><h2>🎒 忘れ物チェック</h2></div>
+            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2559,6 +2566,7 @@
                 <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
                 <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
                 <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>

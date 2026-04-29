@@ -1790,7 +1790,7 @@
                         <button class="att-mode-tab active" id="attTabGrid"    onclick="attSetTab('grid')">📝 入力</button>
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
-                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showView('records');recShowSub('karte');">👤 カルテ</button>
+                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showKarte(null,'attendance')">👤 カルテ</button>
                         <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte()">🖨️ 一括印刷</button>
                     </div>
                 </div>
@@ -1887,7 +1887,7 @@
 
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
-            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'all')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <div class="view-content" id="seating-content" style="max-width: 600px;">
                 <div class="card">
                     <div class="btn-group" style="margin-bottom: 12px;">
@@ -1923,7 +1923,7 @@
                     <button class="rec-subnav-btn" onclick="recShowSub('tests')">📋 課題管理</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
-                    <button class="rec-subnav-btn" onclick="recShowSub('karte')">👤 個人カルテ</button>
+                    <button class="rec-subnav-btn" onclick="showKarte(null,'all')">👤 個人カルテ</button>
                     <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;margin-left:auto;flex-shrink:0;" onclick="printAllKarte()">🖨️ 一括印刷</button>
                 </div>
             </div>
@@ -2247,7 +2247,7 @@
 
         <!-- ===== 提出物チェック (Phase 5) ===== -->
         <div id="view-submissions" class="view">
-            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'submissions')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2368,7 +2368,7 @@
 
         <!-- ===== 忘れ物チェック (Phase 6) ===== -->
         <div id="view-forgotten" class="view">
-            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'all')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2564,7 +2564,7 @@
                 <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
                 <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
                 <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('records');recShowSub('karte');">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showKarte(null,'all')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
@@ -4347,9 +4347,7 @@
         var idx = attCurrentStudentIdx;
         attCloseModal();
         if (idx === null) return;
-        showView('records');
-        recShowSub('karte');
-        selectKarteStudent(idx);
+        window.showKarte(idx, 'attendance');
     }
     function attSelectStatus(status) {
         if (attCurrentStudentIdx === null) return;
@@ -6063,6 +6061,7 @@
 
         var karteSelectedStudent = -1;
         var karteCurrentTab = 'summary';
+        var karteMode = 'all'; // 'all' | 'attendance' | 'submissions'
         var karteDeletedBuffer = [];
         var karteLifeEditingId = null;
         var karteParentEditingId = null;
@@ -6119,8 +6118,25 @@
         // --- 初期化 ---
         function initKarteView() {
             renderKarteStudentBar();
+            applyKarteMode();
             if (karteSelectedStudent >= 0) refreshKarteTab();
         }
+
+        function applyKarteMode() {
+            document.querySelectorAll('.karte-tab-btn').forEach(function(btn) {
+                var ktab = btn.getAttribute('data-ktab');
+                btn.style.display = (karteMode === 'all' || ktab === 'summary') ? '' : 'none';
+            });
+            if (karteMode !== 'all') switchKarteTab('summary');
+        }
+
+        function showKarte(idx, mode) {
+            karteMode = mode || 'all';
+            showView('records');
+            recShowSub('karte');
+            if (idx !== null && idx !== undefined && idx >= 0) selectKarteStudent(idx);
+        }
+        window.showKarte = showKarte;
 
         // --- 児童切替バー ---
         function renderKarteStudentBar() {
@@ -6184,17 +6200,41 @@
             var container = document.getElementById('karteSummaryContent');
             if (!container) return;
 
-            // 出席率
+            // 出席率・出欠詳細
             var attRate = '-';
+            var attTotal = 0, attPresent = 0, attAbsent = 0, attLate = 0, attEarly = 0;
             try {
                 var att = karteSafeGet('spa_attendance', {});
                 var attData = att;
-                var total = 0, present = 0;
                 Object.keys(attData).forEach(function(dk) {
                     var st = (attData[dk] || {})[String(idx)];
-                    if (st) { total++; if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') present++; }
+                    if (!st) return;
+                    attTotal++;
+                    if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') attPresent++;
+                    if (st === '×' || st === '／') attAbsent++;
+                    if (st === 'チ' || st === 'チソ') attLate++;
+                    if (st === 'ソ' || st === 'チソ') attEarly++;
                 });
-                attRate = total > 0 ? Math.round(present / total * 100) + '%' : '-';
+                attRate = attTotal > 0 ? Math.round(attPresent / attTotal * 100) + '%' : '-';
+            } catch(e) {}
+
+            // 提出率・提出詳細
+            var subRate = '-';
+            var subOk = 0, subRe = 0, subMiss = 0, subTotal = 0;
+            var subMissList = [];
+            try {
+                var assigns = karteSafeGet(KEYS.submissions_assignments, []);
+                var subs = karteSafeGet(KEYS.submissions_data, []);
+                subTotal = assigns.length;
+                assigns.forEach(function(a) {
+                    var sub = subs.find(function(s2) {
+                        return String(s2.assignmentId) === String(a.id) && String(s2.studentIndex) === String(idx);
+                    });
+                    if (sub && sub.status === 'submitted') { subOk++; }
+                    else if (sub && sub.status === 'resubmit') { subRe++; subMissList.push({ name: a.name, status: '再提出' }); }
+                    else { subMiss++; subMissList.push({ name: a.name, status: '未提出' }); }
+                });
+                subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) + '%' : '-';
             } catch(e) {}
 
             // 生活記録件数
@@ -6309,16 +6349,55 @@
             if (!hasHealth) healthHtml += '<span class="ks-hub-empty">未入力</span>';
             healthHtml += '</div></div>';
 
+            // 出欠席詳細セクション（attendance モード用）
+            var attDetailHtml = '<div class="ks-hub-section" data-ks="attendance"><div class="ks-hub-header"><span class="ks-hub-title">📋 出欠席詳細</span></div><div class="ks-hub-body">';
+            if (attTotal === 0) {
+                attDetailHtml += '<span class="ks-hub-empty">記録なし</span>';
+            } else {
+                attDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label">出席：</span><span class="ks-hub-val">' + attPresent + '日 / ' + attTotal + '日</span></div>'
+                    + (attAbsent > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">欠席：</span><span class="ks-hub-val" style="color:var(--danger);">' + attAbsent + '日</span></div>' : '')
+                    + (attLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">遅刻：</span><span class="ks-hub-val" style="color:#E67E22;">' + attLate + '回</span></div>' : '')
+                    + (attEarly > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">早退：</span><span class="ks-hub-val" style="color:#E67E22;">' + attEarly + '回</span></div>' : '');
+            }
+            attDetailHtml += '</div></div>';
+
+            // 提出状況セクション（submissions モード用）
+            var subDetailHtml = '<div class="ks-hub-section" data-ks="submissions"><div class="ks-hub-header"><span class="ks-hub-title">📚 提出状況</span></div><div class="ks-hub-body">';
+            if (subTotal === 0) {
+                subDetailHtml += '<span class="ks-hub-empty">課題なし</span>';
+            } else {
+                subDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label">提出済み：</span><span class="ks-hub-val" style="color:var(--success);">' + subOk + '件</span></div>'
+                    + (subRe > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">再提出：</span><span class="ks-hub-val" style="color:#B7950B;">' + subRe + '件</span></div>' : '')
+                    + (subMiss > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">未提出：</span><span class="ks-hub-val" style="color:var(--danger);">' + subMiss + '件</span></div>' : '');
+                if (subMissList.length > 0) {
+                    subDetailHtml += '<div style="margin-top:4px;">';
+                    subMissList.slice(0, 5).forEach(function(item) {
+                        var col = item.status === '未提出' ? 'var(--danger)' : '#B7950B';
+                        subDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label" style="flex:1;">' + escapeHtml(item.name) + '</span><span style="font-size:0.65rem;color:' + col + ';font-weight:700;">' + item.status + '</span></div>';
+                    });
+                    if (subMissList.length > 5) subDetailHtml += '<div class="ks-hub-label" style="margin-top:2px;">ほか ' + (subMissList.length - 5) + ' 件</div>';
+                    subDetailHtml += '</div>';
+                }
+            }
+            subDetailHtml += '</div></div>';
+
             container.innerHTML = undoHtml +
                 '<div class="karte-summary-cards">' +
-                '<div class="ks-card attendance"><div class="ks-card-label">出席率</div><div class="ks-card-value">' + attRate + '</div></div>' +
-                '<div class="ks-card liferec"><div class="ks-card-label">生活記録</div><div class="ks-card-value">' + lifeRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
-                '<div class="ks-card" style="border-left:4px solid #E67E22;"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:#E67E22;">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
+                '<div class="ks-card attendance" data-ks="attendance"><div class="ks-card-label">出席率</div><div class="ks-card-value">' + attRate + '</div></div>' +
+                '<div class="ks-card submission" data-ks="submissions"><div class="ks-card-label">提出率</div><div class="ks-card-value">' + subRate + '</div></div>' +
+                '<div class="ks-card liferec" data-ks="all"><div class="ks-card-label">生活記録</div><div class="ks-card-value">' + lifeRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
+                '<div class="ks-card" style="border-left:4px solid #E67E22;" data-ks="all"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:#E67E22;">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '</div>' +
-                recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml;
+                attDetailHtml + subDetailHtml +
+                '<div data-ks="all">' + recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml + '</div>';
             container.querySelectorAll('[data-jumptab]').forEach(function(btn) {
                 btn.addEventListener('click', function() { switchKarteTab(btn.dataset.jumptab); });
             });
+            if (karteMode !== 'all') {
+                container.querySelectorAll('[data-ks]').forEach(function(el) {
+                    el.style.display = (el.getAttribute('data-ks') === karteMode) ? '' : 'none';
+                });
+            }
         }
 
         // ===== タブ: 児童記録 =====
@@ -7644,9 +7723,7 @@
         };
         window.subOpenKarteFromMissing = function(idx) {
             window.subCloseMissingModal();
-            showView('records');
-            recShowSub('karte');
-            selectKarteStudent(idx);
+            window.showKarte(idx, 'submissions');
         };
     })();
     // ▲▲▲ MODULE:SUBMISSIONS ▲▲▲
@@ -8764,9 +8841,7 @@
             var idx = fgtModalIdx;
             fgtModalSaveItems();
             if (idx === null) return;
-            showView('records');
-            recShowSub('karte');
-            selectKarteStudent(idx);
+            window.showKarte(idx, 'all');
         }
 
         // ================================================================
@@ -9900,9 +9975,7 @@
         var idx = kanjiKartePopupIdx;
         window.kanjiCloseKartePopup();
         if (idx < 0) return;
-        showView('records');
-        recShowSub('karte');
-        selectKarteStudent(idx);
+        window.showKarte(idx, 'all');
     };
     document.addEventListener('click', function(e) {
         var popup = document.getElementById('kanjiKartePopup');

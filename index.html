@@ -1307,32 +1307,34 @@
         .sub-assign-acts { display: flex; gap: 6px; flex-shrink: 0; }
 
         /* 修養日誌 — 1列リスト */
+        /* 修養日誌 — 6列グリッド */
         .sub-diary-grid {
-            display: flex; flex-direction: column;
-            gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: 8px;
+            display: grid; grid-template-columns: repeat(6, 1fr);
+            gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 8px;
             margin: 0 0.75rem 0.75rem;
             max-height: calc(100vh - 200px); overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
         .sub-diary-card {
-            display: flex; align-items: center; gap: 6px;
-            padding: 6px 10px; border: 1px solid var(--border);
-            border-radius: 8px; background: var(--white); transition: all 0.15s; min-height: 56px;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 5px 3px; border: 1.5px solid var(--border);
+            border-radius: 8px; background: var(--white); gap: 3px; transition: all 0.15s;
+            min-height: 118px; overflow: hidden; cursor: default;
         }
-        .sub-diary-card.today-has { background: #E8F8EF; border-color: var(--success); }
-        .sub-diary-num { font-size: 0.6rem; font-weight: 700; color: white; background: var(--primary); width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .sub-diary-name { font-size: 0.78rem; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sub-diary-info { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 1px; min-width: 48px; }
-        .sub-diary-ctrl { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-        .sub-diary-disp { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg,#E3F2FD,#BBDEFB); border: 2px solid var(--primary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+        .sub-diary-card.today-has { background: #E8F8EF; border-color: var(--success); border-width: 2px; }
+        .sub-diary-header { display: flex; align-items: center; gap: 2px; width: 100%; padding: 0 1px; }
+        .sub-diary-num { font-size: 0.55rem; font-weight: 700; color: white; background: var(--primary); width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .sub-diary-name { font-size: 0.6rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .sub-diary-info { display: flex; flex-direction: column; align-items: center; gap: 0; width: 100%; }
+        .sub-diary-disp { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg,#E3F2FD,#BBDEFB); border: 2px solid var(--primary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
         .sub-diary-disp:hover { transform: scale(1.1); }
         .sub-diary-disp-zero { font-size: 0.8rem; color: #ccc; font-weight: 700; }
         .sub-diary-disp-val { font-size: 0.75rem; color: var(--success); font-weight: 700; }
-        .sub-diary-quick { display: flex; gap: 4px; }
-        .sub-diary-pm { width: 44px; height: 44px; border-radius: 6px; border: 1.5px solid var(--border); background: white; font-size: 1.1rem; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+        .sub-diary-quick { display: flex; gap: 2px; width: 100%; padding: 0 2px; }
+        .sub-diary-pm { flex: 1; height: 30px; border-radius: 5px; border: 1.5px solid var(--border); background: white; font-size: 0.9rem; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
         .sub-diary-pm.plus:hover { background: #E8F8EF; border-color: var(--success); color: var(--success); }
         .sub-diary-pm.minus:hover { background: #FFEBEE; border-color: var(--danger); color: var(--danger); }
-        .sub-diary-total-row { font-size: 0.62rem; color: var(--text-light); white-space: nowrap; }
-        .sub-diary-shortage { font-size: 0.62rem; font-weight: 700; white-space: nowrap; }
+        .sub-diary-total-row { font-size: 0.52rem; color: var(--text-light); white-space: nowrap; }
+        .sub-diary-shortage { font-size: 0.52rem; font-weight: 700; white-space: nowrap; }
         .sub-diary-shortage.ok { color: var(--success); } .sub-diary-shortage.ng { color: var(--danger); }
         @media (orientation: landscape) and (min-width: 1000px) {
             #fgtGrid {
@@ -7631,21 +7633,22 @@
                 var dispHtml = cnt === 0
                     ? '<span class="sub-diary-disp-zero">−</span>'
                     : '<span class="sub-diary-disp-val">' + cnt + '</span>';
+                var dispName = stu.name.length > 4 ? stu.name.slice(0, 4) : stu.name;
                 var card = document.createElement('div');
                 card.className = 'sub-diary-card' + (cnt > 0 ? ' today-has' : '');
                 card.innerHTML = ''
-                    + '<div class="sub-diary-num">' + (i + 1) + '</div>'
-                    + '<div class="sub-diary-name">' + escapeHtml(stu.name) + '</div>'
+                    + '<div class="sub-diary-header">'
+                    +   '<span class="sub-diary-num">' + (i + 1) + '</span>'
+                    +   '<span class="sub-diary-name" title="' + escapeHtml(stu.name) + '">' + escapeHtml(dispName) + '</span>'
+                    + '</div>'
+                    + '<div class="sub-diary-disp sub-diary-disp-tap" data-idx="' + i + '" title="+2日">' + dispHtml + '</div>'
                     + '<div class="sub-diary-info">'
                     +   '<div class="sub-diary-total-row">累計' + total + '日</div>'
                     +   '<div class="sub-diary-shortage ' + (isComplete ? 'ok' : 'ng') + '">' + (isComplete ? '✓達成' : '残' + shortage) + '</div>'
                     + '</div>'
-                    + '<div class="sub-diary-ctrl">'
-                    +   '<div class="sub-diary-disp sub-diary-disp-tap" data-idx="' + i + '" title="+2日">' + dispHtml + '</div>'
-                    +   '<div class="sub-diary-quick">'
-                    +     '<button class="sub-diary-pm minus" data-idx="' + i + '" data-d="-1">−</button>'
-                    +     '<button class="sub-diary-pm plus" data-idx="' + i + '" data-d="1">+1</button>'
-                    +   '</div>'
+                    + '<div class="sub-diary-quick">'
+                    +   '<button class="sub-diary-pm minus" data-idx="' + i + '" data-d="-1">−</button>'
+                    +   '<button class="sub-diary-pm plus" data-idx="' + i + '" data-d="1">+1</button>'
                     + '</div>';
                 frag.appendChild(card);
             });

@@ -1336,6 +1336,15 @@
         .sub-diary-total-row { font-size: 0.52rem; color: var(--text-light); white-space: nowrap; }
         .sub-diary-shortage { font-size: 0.52rem; font-weight: 700; white-space: nowrap; }
         .sub-diary-shortage.ok { color: var(--success); } .sub-diary-shortage.ng { color: var(--danger); }
+        /* 提出物チェック：上部余白削減（修養日誌 1画面表示のため） */
+        #view-submissions .view-header { padding: 6px 16px; }
+        #view-submissions .sub-subnav { padding: 3px 8px; }
+        #sub-sub-diary .sub-input-top { padding: 3px 8px; gap: 4px; }
+        #sub-sub-diary .sub-input-top input[type=date] { min-height: 34px; padding: 2px 6px; }
+        #sub-sub-diary .sub-input-top input[type=number] { min-height: 34px; padding: 2px 4px; }
+        #sub-sub-diary .sub-input-top .btn-rec-small { min-height: 34px; padding: 2px 8px; }
+        #sub-sub-diary .sub-input-progress { padding: 2px 8px; margin: 0 8px 2px; font-size: 0.8rem; }
+        #sub-sub-diary .sub-diary-grid { margin: 0 8px 4px; max-height: none; }
         @media (orientation: landscape) and (min-width: 1000px) {
             #fgtGrid {
                 grid-template-columns: repeat(6, 1fr) !important;

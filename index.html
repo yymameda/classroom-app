@@ -1429,17 +1429,39 @@
                 gap: 0;
             }
         }
-        @media (orientation: landscape) and (min-width: 1000px) {
-            .patrol-grid {
-                grid-template-columns: repeat(8, 1fr);
+        @media (orientation: landscape) and (min-width: 900px) {
+            /* 机間巡視：横向き2カラムレイアウト（左:コントロール / 右:グリッド） */
+            #rec-sub-patrol {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            #rec-sub-patrol .patrol-container {
+                display: grid;
+                grid-template-columns: 210px 1fr;
+                grid-template-rows: auto 1fr auto auto;
+                grid-template-areas:
+                    "header legend"
+                    "header grid"
+                    "summary summary"
+                    "actions actions";
                 gap: 0.5rem;
-            }
-            .patrol-cell {
-                min-height: 72px;
-            }
-            .patrol-container {
                 max-width: 100%;
-                padding: 0.5rem 1rem;
+                padding: 0.5rem;
+                box-sizing: border-box;
+                align-items: start;
+            }
+            #rec-sub-patrol .patrol-header { grid-area: header; margin-bottom: 0; }
+            #rec-sub-patrol .patrol-legend { grid-area: legend; margin-bottom: 0; }
+            #rec-sub-patrol .patrol-grid-wrapper { grid-area: grid; margin-bottom: 0; }
+            #rec-sub-patrol .patrol-summary { grid-area: summary; margin-bottom: 0; }
+            #rec-sub-patrol .patrol-actions { grid-area: actions; margin-bottom: 0; }
+            #rec-sub-patrol .patrol-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 0.3rem;
+            }
+            #rec-sub-patrol .patrol-cell {
+                aspect-ratio: auto;
+                min-height: 56px;
             }
         }
         @media (orientation: landscape) and (min-width: 1000px) {

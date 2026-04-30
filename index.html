@@ -1236,6 +1236,11 @@
         .sub-status-btn.sel-submitted { background: #27AE60; border-color: #27AE60; color: white; }
         .sub-status-btn.sel-resubmit  { background: #3498DB; border-color: #3498DB; color: white; }
         .sub-status-btn.sel-missing   { background: #E67E22; border-color: #E67E22; color: white; }
+        /* 欠席フラグ */
+        .sub-input-row.absent { background: #F0F0F0 !important; border-color: #9E9E9E !important; }
+        .sub-absent-tag { font-size: 0.5rem; font-weight: 700; background: #757575; color: white; border-radius: 3px; padding: 1px 4px; line-height: 1.4; flex-shrink: 0; }
+        .sub-absent-btn { font-size: 0.6rem; font-weight: 700; border: 1.5px solid #9E9E9E; border-radius: 4px; background: white; color: #757575; cursor: pointer; padding: 0 5px; font-family: inherit; height: 44px; flex: none; white-space: nowrap; transition: all 0.15s; }
+        .sub-absent-btn.absent-on { background: #757575; color: white; border-color: #616161; }
 
         /* 座席表 */
         .sub-seat-grid { display: grid; gap: 5px; padding: 10px; }
@@ -2283,6 +2288,7 @@
                         <span class="sub-stat-ok" id="subCntOk">○0</span>
                         <span class="sub-stat-re" id="subCntRe">△0</span>
                         <span class="sub-stat-ng" id="subCntNg">×0</span>
+                        <span style="color:#757575;" id="subCntAbsent"></span>
                     </div>
                     <button class="btn-rec-small goto" id="subAllOkBtn" style="font-size:0.75rem;margin-left:8px;">全員○</button>
                     <button class="btn-rec-small" id="subMissingBtn" onclick="subShowMissingModal()" style="font-size:0.75rem;margin-left:4px;border-color:#E67E22;color:#E67E22;">📋 未提出者</button>
@@ -6111,6 +6117,7 @@
         var karteRecRating = null;
         var karteRecCategory = null;
         var karteRecEditingId = null;
+        var karteRecAbsent = false;
         var karteRecFilter = '';
 
         // --- キー定義 ---
@@ -6507,6 +6514,9 @@
             });
             html += '</div></div>';
             html += '<div class="klife-field"><label>メモ</label><textarea id="karteRecMemo" rows="2" placeholder="詳細を入力..."></textarea></div>';
+            html += '<div class="klife-field"><label>欠席</label>'
+                + '<button type="button" id="karteRecAbsentBtn" onclick="karteRecToggleAbsent()" style="padding:4px 10px;border:1.5px solid ' + (karteRecAbsent ? '#757575' : 'var(--border)') + ';border-radius:6px;background:' + (karteRecAbsent ? '#757575' : 'var(--white)') + ';color:' + (karteRecAbsent ? 'white' : 'var(--text-light)') + ';font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;min-height:32px;">'
+                + (karteRecAbsent ? '🏠 欠席中' : '欠席') + '</button></div>';
             html += '<div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;">';
             html += '<button class="klife-save-btn" onclick="karteRecSave()">保存</button>';
             html += '<span id="karteRecEditLabel" style="font-size:0.7rem;color:var(--accent);display:' + (karteRecEditingId ? 'inline' : 'none') + '">編集中 <button onclick="karteRecCancelEdit()" style="font-size:0.65rem;border:1px solid var(--border);background:var(--white);border-radius:4px;cursor:pointer;padding:0.15rem 0.3rem">キャンセル</button></span>';
@@ -6528,7 +6538,8 @@
                 html += '<div style="margin-top:0.5rem;">';
                 recs.forEach(function(r) {
                     var emoji = KARTE_RATINGS[r.rating] || '?';
-                    html += '<div class="klife-item"><div class="klife-item-header"><div style="display:flex;align-items:center;gap:0.4rem;"><span style="font-size:1.1rem;">' + emoji + '</span><span class="klife-item-cat" style="background:var(--secondary);color:var(--primary);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.65rem;">' + escapeHtml(r.category || '') + '</span></div><span class="klife-item-date">' + (r.date || '') + '</span></div>';
+                    var absentBadge = r.absent ? '<span style="font-size:0.6rem;font-weight:700;background:#757575;color:white;border-radius:3px;padding:1px 4px;line-height:1.4;">🏠欠席</span>' : '';
+                    html += '<div class="klife-item' + (r.absent ? '" style="background:#F5F5F5;' : '"') + '><div class="klife-item-header"><div style="display:flex;align-items:center;gap:0.4rem;"><span style="font-size:1.1rem;">' + emoji + '</span><span class="klife-item-cat" style="background:var(--secondary);color:var(--primary);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.65rem;">' + escapeHtml(r.category || '') + '</span>' + absentBadge + '</div><span class="klife-item-date">' + (r.date || '') + '</span></div>';
                     if (r.memo) html += '<div class="klife-item-text">' + escapeHtml(r.memo) + '</div>';
                     html += '<div class="klife-item-actions"><button onclick="karteRecEdit(' + r.id + ')">✏️編集</button><button onclick="karteRecDelete(' + r.id + ')" style="color:#E74C3C;">🗑削除</button></div></div>';
                 });
@@ -6558,6 +6569,16 @@
             }
         }
 
+        function karteRecToggleAbsent() {
+            karteRecAbsent = !karteRecAbsent;
+            var btn = document.getElementById('karteRecAbsentBtn');
+            if (btn) {
+                btn.style.background = karteRecAbsent ? '#757575' : 'var(--white)';
+                btn.style.color = karteRecAbsent ? 'white' : 'var(--text-light)';
+                btn.style.borderColor = karteRecAbsent ? '#757575' : 'var(--border)';
+                btn.textContent = karteRecAbsent ? '🏠 欠席中' : '欠席';
+            }
+        }
         function karteRecSave() {
             var idx = karteSelectedStudent;
             if (idx < 0) return;
@@ -6568,20 +6589,31 @@
             var recs = karteGetKarteRecs();
             if (karteRecEditingId) {
                 var i = recs.findIndex(function(r) { return r.id === karteRecEditingId; });
-                if (i !== -1) { recs[i] = Object.assign({}, recs[i], { date: date, rating: karteRecRating, category: karteRecCategory, memo: memo, updatedAt: new Date().toISOString() }); }
+                if (i !== -1) {
+                    var upd = { date: date, rating: karteRecRating, category: karteRecCategory, memo: memo, updatedAt: new Date().toISOString() };
+                    if (karteRecAbsent) upd.absent = true; else delete recs[i].absent;
+                    recs[i] = Object.assign({}, recs[i], upd);
+                }
                 karteRecEditingId = null;
             } else {
-                recs.unshift({ id: Date.now(), studentIndex: idx, date: date, rating: karteRecRating, category: karteRecCategory, memo: memo, createdAt: new Date().toISOString() });
+                var newRec = { id: Date.now(), studentIndex: idx, date: date, rating: karteRecRating, category: karteRecCategory, memo: memo, createdAt: new Date().toISOString() };
+                if (karteRecAbsent) newRec.absent = true;
+                recs.unshift(newRec);
             }
             karteSaveKarteRecs(recs);
-            karteRecRating = null; karteRecCategory = null; karteRecEditingId = null;
+            karteRecRating = null; karteRecCategory = null; karteRecEditingId = null; karteRecAbsent = false;
             showToast('保存しました', 'success');
             renderKarteStudentBar();
             renderKarteRecords();
         }
 
-        function karteRecEdit(id) { karteRecEditingId = id; var r = karteGetKarteRecs().find(function(x) { return x.id === id; }); if (r) { karteRecRating = r.rating; karteRecCategory = r.category; } renderKarteRecords(); }
-        function karteRecCancelEdit() { karteRecEditingId = null; karteRecRating = null; karteRecCategory = null; renderKarteRecords(); }
+        function karteRecEdit(id) {
+            karteRecEditingId = id;
+            var r = karteGetKarteRecs().find(function(x) { return x.id === id; });
+            if (r) { karteRecRating = r.rating; karteRecCategory = r.category; karteRecAbsent = !!r.absent; }
+            renderKarteRecords();
+        }
+        function karteRecCancelEdit() { karteRecEditingId = null; karteRecRating = null; karteRecCategory = null; karteRecAbsent = false; renderKarteRecords(); }
         function karteRecDelete(id) {
             if (!confirm('この記録を削除しますか？')) return;
             karteSaveKarteRecs(karteGetKarteRecs().filter(function(r) { return r.id !== id; }));
@@ -7262,15 +7294,18 @@
             students.forEach(function(stu, i) {
                 var rec = subs.find(function(s) { return s.studentIndex === i && s.assignmentId === subCurrentAssign; });
                 var st = rec ? rec.status : '';
+                var isAbsent = rec ? !!rec.absent : false;
                 var corrDone = rec ? rec.correctionDone : false;
                 var hasSt = st ? 'has-status status-' + st : '';
+                var absentCls = isAbsent ? ' absent' : '';
                 var dispName = stu.name.length > 5 ? stu.name.substring(0, 5) : stu.name;
                 var corrDisabled = st === 'submitted' ? 'disabled' : '';
                 var corrChecked = (st === 'submitted' || corrDone) ? 'checked' : '';
-                html += '<div class="sub-input-row ' + hasSt + '" data-idx="' + i + '">'
+                html += '<div class="sub-input-row ' + hasSt + absentCls + '" data-idx="' + i + '">'
                     + '<div class="sub-row-hd">'
                     +   '<div class="sub-row-num">' + (i + 1) + '</div>'
                     +   '<div class="sub-row-name" title="' + escapeHtml(stu.name) + '">' + escapeHtml(dispName) + '</div>'
+                    +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
                     +   '<div class="sub-row-done' + (st ? ' ok' : '') + '">' + (st ? '✓' : '') + '</div>'
                     +   '<input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '>'
                     +   '<button class="sub-clear-btn" data-idx="' + i + '" title="クリア">−</button>'
@@ -7279,6 +7314,7 @@
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'
                     +   '<button class="sub-status-btn' + (st === 'resubmit' ? ' sel-resubmit' : '') + '" data-idx="' + i + '" data-status="resubmit">△</button>'
                     +   '<button class="sub-status-btn' + (st === 'missing' ? ' sel-missing' : '') + '" data-idx="' + i + '" data-status="missing">×</button>'
+                    +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
                     + '</div>'
                     + '</div>';
             });
@@ -7293,12 +7329,16 @@
             wrap.querySelectorAll('.sub-correction-check').forEach(function(chk) {
                 chk.addEventListener('change', function() { subScheduleAutoSave(); });
             });
+            wrap.querySelectorAll('.sub-absent-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() { subToggleAbsent(parseInt(btn.dataset.idx)); });
+            });
         }
         function subSelectStatus(idx, status) {
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
             if (!row) return;
-            row.className = 'sub-input-row has-status status-' + status;
+            var isAbsent = row.classList.contains('absent');
+            row.className = 'sub-input-row has-status status-' + status + (isAbsent ? ' absent' : '');
             row.querySelectorAll('.sub-status-btn').forEach(function(b) {
                 b.className = 'sub-status-btn' + (b.dataset.status === status ? ' sel-' + status : '');
             });
@@ -7321,6 +7361,41 @@
             if (done2) { done2.className = 'sub-row-done'; done2.textContent = ''; }
             var chk = row.querySelector('.sub-correction-check');
             if (chk) { chk.checked = false; chk.disabled = false; }
+            // 欠席バッジ・ボタンもリセット
+            var absentTag = row.querySelector('.sub-absent-tag');
+            if (absentTag) absentTag.remove();
+            var absentBtn = row.querySelector('.sub-absent-btn');
+            if (absentBtn) { absentBtn.classList.remove('absent-on'); absentBtn.textContent = '欠席'; }
+            subScheduleAutoSave();
+            subUpdateProgress();
+        }
+        function subToggleAbsent(idx) {
+            var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
+            if (!row) return;
+            var willBeAbsent = !row.classList.contains('absent');
+            if (willBeAbsent && !row.classList.contains('has-status')) {
+                subSelectStatus(idx, 'missing');
+                row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
+                if (!row) return;
+            }
+            row.classList.toggle('absent', willBeAbsent);
+            // 欠席バッジ表示切替
+            var hd = row.querySelector('.sub-row-hd');
+            var existTag = row.querySelector('.sub-absent-tag');
+            if (willBeAbsent && !existTag && hd) {
+                var tag = document.createElement('span');
+                tag.className = 'sub-absent-tag';
+                tag.textContent = '欠席';
+                hd.insertBefore(tag, hd.querySelector('.sub-row-done'));
+            } else if (!willBeAbsent && existTag) {
+                existTag.remove();
+            }
+            // 欠席ボタン更新
+            var absentBtn = row.querySelector('.sub-absent-btn');
+            if (absentBtn) {
+                absentBtn.classList.toggle('absent-on', willBeAbsent);
+                absentBtn.textContent = willBeAbsent ? '🏠欠席中' : '欠席';
+            }
             subScheduleAutoSave();
             subUpdateProgress();
         }
@@ -7340,10 +7415,14 @@
                 if (cls.indexOf('status-submitted') >= 0) st = 'submitted';
                 else if (cls.indexOf('status-resubmit') >= 0) st = 'resubmit';
                 else if (cls.indexOf('status-missing') >= 0) st = 'missing';
-                if (!st) return;
+                var isAbsent = row.classList.contains('absent');
+                if (!st && !isAbsent) return;
+                if (!st) st = 'missing'; // 欠席のみの場合は未提出扱い
                 var chk = row.querySelector('.sub-correction-check');
                 var corrDone = st === 'submitted' ? true : (chk ? chk.checked : false);
-                subs.push({ id: Date.now() + i, studentIndex: i, assignmentId: subCurrentAssign, status: st, correctionDone: corrDone, createdAt: new Date().toISOString() });
+                var rec = { id: Date.now() + i, studentIndex: i, assignmentId: subCurrentAssign, status: st, correctionDone: corrDone, createdAt: new Date().toISOString() };
+                if (isAbsent) rec.absent = true;
+                subs.push(rec);
             });
             subSaveSubmissions(subs);
             showToast('💾 自動保存しました', 'info');
@@ -7351,20 +7430,29 @@
         function subUpdateProgress() {
             var students = subGetStudents();
             var n = students.length;
-            var fill = document.getElementById('subProgressFill');
             var label = document.getElementById('subProgressLabel');
-            if (!fill || !label) return;
-            if (!subCurrentAssign || !n) { fill.style.width = '0%'; label.textContent = '未選択'; return; }
-            var ok = 0, re = 0;
+            if (!label) return;
+            if (!subCurrentAssign || !n) { label.textContent = '未選択'; return; }
+            var ok = 0, re = 0, absMissing = 0;
             document.querySelectorAll('#subListWrap .sub-input-row').forEach(function(row) {
                 var cls = row.className;
+                var isAbsent = row.classList.contains('absent');
                 if (cls.indexOf('status-submitted') >= 0) ok++;
                 else if (cls.indexOf('status-resubmit') >= 0) re++;
+                else if (isAbsent) absMissing++;
             });
+            var ng = n - ok - re - absMissing;
             var done = ok + re;
             var pct = Math.round(done / n * 100);
-            fill.style.width = pct + '%';
-            label.textContent = '○' + ok + ' △' + re + ' ×' + (n - done) + '  ' + pct + '%';
+            label.textContent = pct + '%';
+            var okEl = document.getElementById('subCntOk');
+            var reEl = document.getElementById('subCntRe');
+            var ngEl = document.getElementById('subCntNg');
+            var absEl = document.getElementById('subCntAbsent');
+            if (okEl) okEl.textContent = '○' + ok;
+            if (reEl) reEl.textContent = '△' + re;
+            if (ngEl) ngEl.textContent = '×' + ng;
+            if (absEl) absEl.textContent = absMissing > 0 ? '🏠' + absMissing : '';
         }
         function subSetAllOk() {
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
@@ -7767,24 +7855,43 @@
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
             var students = subGetStudents();
             var subs = subGetSubmissions();
-            var missingList = [];
+            var missingList = [], absMissingList = [];
             students.forEach(function(stu, i) {
                 var rec = subs.find(function(r) { return r.studentIndex === i && r.assignmentId === subCurrentAssign; });
                 var st = rec ? rec.status : '';
-                if (!st || st === 'missing') missingList.push({ idx: i, name: stu.name, status: st });
+                var isAbsent = rec ? !!rec.absent : false;
+                if (!st || st === 'missing') {
+                    if (isAbsent) absMissingList.push({ idx: i, name: stu.name, status: st });
+                    else missingList.push({ idx: i, name: stu.name, status: st });
+                }
             });
             var html = '';
-            if (missingList.length === 0) {
+            if (missingList.length === 0 && absMissingList.length === 0) {
                 html = '<div style="text-align:center;padding:24px;color:var(--text-light);">全員提出済みです ✓</div>';
             } else {
-                html = '<div style="margin-bottom:8px;font-size:0.85rem;color:var(--text-light);">' + missingList.length + '名が未提出 / ×</div><div style="display:flex;flex-direction:column;gap:6px;">';
-                missingList.forEach(function(item) {
-                    html += '<button style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;text-align:left;padding:0 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;" onclick="subOpenKarteFromMissing(' + item.idx + ')">'
-                        + '<span style="font-size:0.75rem;background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">' + (item.idx + 1) + '</span>'
-                        + '<span>' + escapeHtml(item.name) + '</span>'
-                        + (item.status === 'missing' ? '<span style="margin-left:auto;color:var(--danger);">×</span>' : '<span style="margin-left:auto;color:var(--text-light);font-size:0.8rem;">未入力</span>')
-                        + '</button>';
-                });
+                var btnStyle = 'min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;text-align:left;padding:0 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;';
+                var numStyle = 'font-size:0.75rem;background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
+                html = '<div style="display:flex;flex-direction:column;gap:6px;">';
+                if (absMissingList.length > 0) {
+                    html += '<div style="font-size:0.8rem;font-weight:700;color:#757575;margin-top:4px;">🏠 欠席未提出 (' + absMissingList.length + '名)</div>';
+                    absMissingList.forEach(function(item) {
+                        html += '<button style="' + btnStyle + 'border-color:#9E9E9E;background:#F5F5F5;color:#555;" onclick="subOpenKarteFromMissing(' + item.idx + ')">'
+                            + '<span style="' + numStyle + '">' + (item.idx + 1) + '</span>'
+                            + '<span>' + escapeHtml(item.name) + '</span>'
+                            + '<span style="margin-left:auto;color:#757575;font-size:0.8rem;">🏠欠席</span>'
+                            + '</button>';
+                    });
+                }
+                if (missingList.length > 0) {
+                    html += '<div style="font-size:0.8rem;font-weight:700;color:var(--danger);margin-top:4px;">× 未提出 (' + missingList.length + '名)</div>';
+                    missingList.forEach(function(item) {
+                        html += '<button style="' + btnStyle + '" onclick="subOpenKarteFromMissing(' + item.idx + ')">'
+                            + '<span style="' + numStyle + '">' + (item.idx + 1) + '</span>'
+                            + '<span>' + escapeHtml(item.name) + '</span>'
+                            + (item.status === 'missing' ? '<span style="margin-left:auto;color:var(--danger);">×</span>' : '<span style="margin-left:auto;color:var(--text-light);font-size:0.8rem;">未入力</span>')
+                            + '</button>';
+                    });
+                }
                 html += '</div>';
             }
             document.getElementById('subMissingList').innerHTML = html;
@@ -10011,6 +10118,7 @@
     window.karteRecEdit = karteRecEdit;
     window.karteRecDelete = karteRecDelete;
     window.karteRecCancelEdit = karteRecCancelEdit;
+    window.karteRecToggleAbsent = karteRecToggleAbsent;
     window.karteUndoLast = karteUndoLast;
     window.renderPatrolHistory = renderPatrolHistory;
     window.kanjiInit           = kanjiInit;
@@ -10204,8 +10312,12 @@
                 assigns.forEach(function(a) {
                     var r = subs.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
                     var st = r ? r.status : 'missing';
-                    var stLabel = st === 'submitted' ? '提出済' : st === 'resubmit' ? '再提出' : '未提出';
-                    var stColor = st === 'submitted' ? '#27AE60' : st === 'resubmit' ? '#B7950B' : '#E74C3C';
+                    var isAbsentRec = r ? !!r.absent : false;
+                    var stLabel, stColor;
+                    if (st === 'submitted') { stLabel = '提出済'; stColor = '#27AE60'; }
+                    else if (st === 'resubmit') { stLabel = '再提出'; stColor = '#B7950B'; }
+                    else if (isAbsentRec) { stLabel = '🏠欠席未提出'; stColor = '#757575'; }
+                    else { stLabel = '★未提出'; stColor = '#E74C3C'; }
                     assignRows += '<tr>'
                         + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml(a.name || '') + '</td>'
                         + '<td style="padding:3px 6px;font-size:8pt;font-weight:700;text-align:right;color:' + stColor + ';border-bottom:1px solid #eee;">' + stLabel + '</td>'

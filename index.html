@@ -486,6 +486,16 @@
         .grid-cell.suspended .status { color: #1a5276; font-weight: 800; }
         .grid-cell.closure     { background: #f3e8ff; border-color: #7B1FA2; border-width: 2px; opacity: 0.8; }
         .grid-cell.closure .status { color: #6a1b9a; font-weight: 800; }
+        /* 届出チェックストリップ */
+        .grid-cell-notice-strip {
+            position: absolute; bottom: 0; left: 28px; right: 0;
+            height: 13px; font-size: 0.47rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border-radius: 0 0 6px 0; user-select: none;
+            transition: background 0.15s; z-index: 1; letter-spacing: 0.02em;
+        }
+        .grid-cell-notice-strip.notice-off { background: rgba(231,76,60,0.88); color: white; }
+        .grid-cell-notice-strip.notice-on  { background: rgba(39,174,96,0.82); color: white; }
         /* 出席簿ツールバー */
         .att-top-bar {
             display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -3128,6 +3138,7 @@
     const KEYS = {
         master:      'spa_master',
         attendance:  'spa_attendance',
+        attendance_notice: 'spa_attendance_notice',
         tests:       'spa_tests',
         scores:      'spa_scores',
         submissions_assignments: 'spa_submissions_assignments',
@@ -4172,6 +4183,26 @@
         '停':  { cls: 'suspended',    label: '停止' },
         '休':  { cls: 'closure',      label: '学閉' }
     };
+    // 届出チェック対象ステータス（欠席・遅刻・早退・出席停止）
+    const ATT_NOTICE_TARGETS = new Set(['×', '／', 'チ', 'ソ', 'チソ', '停']);
+    function attNeedsNotice(st) { return ATT_NOTICE_TARGETS.has(st); }
+    function attGetAllNotice()   { return StorageManager.get(KEYS.attendance_notice, {}); }
+    function attSaveNotice(data) { StorageManager.setImmediate(KEYS.attendance_notice, JSON.stringify(data)); }
+    function attToggleNotice(idx) {
+        var dateKey = attDateStr(attCurrentDate);
+        var nd = attGetAllNotice();
+        if (!nd[dateKey]) nd[dateKey] = {};
+        var wasOn = nd[dateKey][String(idx)] === true;
+        if (wasOn) {
+            delete nd[dateKey][String(idx)];
+            if (!Object.keys(nd[dateKey]).length) delete nd[dateKey];
+        } else {
+            nd[dateKey][String(idx)] = true;
+        }
+        attSaveNotice(nd);
+        attRenderGrid();
+        showToast(wasOn ? '届出をOFFにしました' : '届出ありに設定しました', 'info');
+    }
     let attCurrentDate = new Date();
     let attCurrentStudentIdx = null;
     function attDateStr(d) { return d.toLocaleDateString('sv-SE'); }
@@ -4266,6 +4297,9 @@
         const students = attGetStudents();
         const dateKey  = attDateStr(attCurrentDate);
         const dayData  = (attGetAll()[dateKey]) || {};
+        const noticeDay = (attGetAllNotice()[dateKey]) || {};
+        const mpData = StorageManager.get(KEYS.morning_prep, {});
+        const mpDay = mpData[dateKey] || {};
         const frag = document.createDocumentFragment();
         if (students.length === 0) {
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:30px 0;">名簿に児童が登録されていません</div>';
@@ -4274,14 +4308,19 @@
         students.forEach((s, i) => {
             const status = dayData[String(i)] || '';
             const info   = ATT_STATUS_MAP[status];
+            const needsNotice = attNeedsNotice(status);
+            const hasNotice   = needsNotice && noticeDay[String(i)] === true;
             const cell   = document.createElement('div');
             cell.className = 'grid-cell' + (info ? ' ' + info.cls : '');
             const displayName = escapeHtml((s.name||'').length > 5 ? (s.name||'').slice(0,5) : (s.name||'氏名'));
             const hasSt = status !== '';
-            const dateKey = attDateStr(attCurrentDate);
-            const mpData = StorageManager.get(KEYS.morning_prep, {});
-            const mpDay = mpData[dateKey] || {};
             const mpChecked = mpDay[String(i)] === true;
+            const noticeHtml = needsNotice
+                ? `<div class="grid-cell-notice-strip ${hasNotice ? 'notice-on' : 'notice-off'}"
+                        onclick="event.stopPropagation();attToggleNotice(${i})"
+                        title="${hasNotice ? '届出あり（タップでOFF）' : '届出なし（タップでON）'}"
+                    >${hasNotice ? '✓届出' : '⚠未届'}</div>`
+                : '';
             cell.innerHTML = `
                 <div class="grid-cell-mp-strip${mpChecked?' mp-on':''}"
                     onclick="event.stopPropagation();attToggleMorningPrep(${i})"
@@ -4293,7 +4332,8 @@
                     </div>
                     <span class="name" title="${escapeHtml(s.name||'')}">${displayName}</span>
                     <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>
-                </div>`;
+                </div>
+                ${noticeHtml}`;
             cell.onclick = () => attOpenModal(i);
             frag.appendChild(cell);
         });
@@ -6350,6 +6390,18 @@
             healthHtml += '</div></div>';
 
             // 出欠席詳細セクション（attendance モード用）
+            var karteNoticeAll = karteSafeGet('spa_attendance_notice', {});
+            var karteAttNeedSet = ['×', '／', 'チ', 'ソ', 'チソ', '停'];
+            var karteAttLabels  = { '×':'病欠', '／':'事故欠', 'チ':'遅刻', 'ソ':'早退', 'チソ':'遅刻早退', '停':'出席停止' };
+            var karteNoticeMissing = 0;
+            var karteNoticeRecs = [];
+            Object.keys(att).sort().reverse().forEach(function(dk) {
+                var st = (att[dk] || {})[String(idx)];
+                if (!st || karteAttNeedSet.indexOf(st) === -1) return;
+                var hn = (karteNoticeAll[dk] || {})[String(idx)] === true;
+                if (!hn) karteNoticeMissing++;
+                karteNoticeRecs.push({ date: dk, status: st, hasNotice: hn });
+            });
             var attDetailHtml = '<div class="ks-hub-section" data-ks="attendance"><div class="ks-hub-header"><span class="ks-hub-title">📋 出欠席詳細</span></div><div class="ks-hub-body">';
             if (attTotal === 0) {
                 attDetailHtml += '<span class="ks-hub-empty">記録なし</span>';
@@ -6358,6 +6410,26 @@
                     + (attAbsent > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">欠席：</span><span class="ks-hub-val" style="color:var(--danger);">' + attAbsent + '日</span></div>' : '')
                     + (attLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">遅刻：</span><span class="ks-hub-val" style="color:#E67E22;">' + attLate + '回</span></div>' : '')
                     + (attEarly > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">早退：</span><span class="ks-hub-val" style="color:#E67E22;">' + attEarly + '回</span></div>' : '');
+                if (karteNoticeRecs.length > 0) {
+                    attDetailHtml += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;">'
+                        + '<div class="ks-hub-row"><span class="ks-hub-label">届出なし：</span>'
+                        + '<span class="ks-hub-val" style="font-weight:700;color:' + (karteNoticeMissing > 0 ? 'var(--danger)' : '#27AE60') + ';">' + karteNoticeMissing + '件</span></div>'
+                        + '<table style="width:100%;border-collapse:collapse;margin-top:3px;font-size:0.68rem;">'
+                        + '<tr style="background:#f4f6f9;"><th style="padding:2px 4px;text-align:left;font-weight:600;">日付</th><th style="padding:2px 4px;text-align:left;font-weight:600;">状況</th><th style="padding:2px 4px;text-align:center;font-weight:600;">届出</th></tr>';
+                    karteNoticeRecs.slice(0, 10).forEach(function(r) {
+                        var lbl = karteAttLabels[r.status] || r.status;
+                        var nc  = r.hasNotice
+                            ? '<span style="color:#27AE60;font-weight:700;">✓届出</span>'
+                            : '<span style="color:#E74C3C;font-weight:700;">未提出</span>';
+                        attDetailHtml += '<tr><td style="padding:1px 4px;color:#555;">' + escapeHtml(r.date) + '</td>'
+                            + '<td style="padding:1px 4px;">' + escapeHtml(lbl) + '</td>'
+                            + '<td style="padding:1px 4px;text-align:center;">' + nc + '</td></tr>';
+                    });
+                    if (karteNoticeRecs.length > 10) {
+                        attDetailHtml += '<tr><td colspan="3" style="padding:2px 4px;color:#888;font-size:0.65rem;">ほか ' + (karteNoticeRecs.length - 10) + ' 件</td></tr>';
+                    }
+                    attDetailHtml += '</table></div>';
+                }
             }
             attDetailHtml += '</div></div>';
 
@@ -9913,6 +9985,7 @@
     window.attClearDay = attClearDay;
     window.attCloseModal = attCloseModal;
     window.attMonthShift = attMonthShift;
+    window.attToggleNotice = attToggleNotice;
     window.closePatrolModal = closePatrolModal;
     window.closePatrolHistoryModal = closePatrolHistoryModal;
     window.clearPatrolSession = clearPatrolSession;
@@ -9992,6 +10065,7 @@
         if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
         var ci = masterData.classInfo || {};
         var attAll = StorageManager.get(KEYS.attendance, {});
+        var noticeAll = StorageManager.get(KEYS.attendance_notice, {});
         var assigns = StorageManager.get(KEYS.submissions_assignments, []);
         var subs = StorageManager.get(KEYS.submissions_data, []);
         var fgtDaily = StorageManager.get(KEYS.forgotten_daily, {});
@@ -10080,6 +10154,30 @@
                         + '</tr>';
                 });
                 if (!monRows) monRows = '<tr><td colspan="4" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
+                // 届出一覧（attendance PDF用）
+                var pdfNoticeNeedSet = ['×', '／', 'チ', 'ソ', 'チソ', '停'];
+                var pdfNoticeLabels  = { '×':'病欠', '／':'事故欠', 'チ':'遅刻', 'ソ':'早退', 'チソ':'遅刻早退', '停':'出席停止' };
+                var pdfNoticeRecs = [];
+                Object.keys(attAll).sort().reverse().forEach(function(dk) {
+                    var st = (attAll[dk] || {})[String(idx)];
+                    if (!st || pdfNoticeNeedSet.indexOf(st) === -1) return;
+                    var hn = (noticeAll[dk] || {})[String(idx)] === true;
+                    pdfNoticeRecs.push({ date: dk, status: st, hasNotice: hn });
+                });
+                var pdfNoticeMissing = pdfNoticeRecs.filter(function(r) { return !r.hasNotice; }).length;
+                var pdfNoticeRows = '';
+                pdfNoticeRecs.forEach(function(r) {
+                    var lbl = pdfNoticeLabels[r.status] || r.status;
+                    var nc  = r.hasNotice
+                        ? '<span style="color:#27AE60;font-weight:700;">届出済</span>'
+                        : '<span style="color:#E74C3C;font-weight:700;">★未提出</span>';
+                    pdfNoticeRows += '<tr>'
+                        + '<td style="padding:3px 6px;font-size:8pt;color:#555;border-bottom:1px solid #eee;">' + r.date + '</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + lbl + '</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;text-align:center;border-bottom:1px solid #eee;">' + nc + '</td>'
+                        + '</tr>';
+                });
+                if (!pdfNoticeRows) pdfNoticeRows = '<tr><td colspan="3" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
                 pageHtml += '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;">'
                     + '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📅 出欠席状況</div>'
                     + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
@@ -10089,9 +10187,15 @@
                     + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">早退</div><div style="font-size:18pt;font-weight:900;color:#E67E22;">' + early + '<span style="font-size:9pt;">回</span></div></div>'
                     + '</div>'
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">月別内訳</div>'
-                    + '<table style="width:100%;border-collapse:collapse;">'
+                    + '<table style="width:100%;border-collapse:collapse;margin-bottom:10pt;">'
                     + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">月</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">出席</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">欠席</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">遅刻</th></tr>'
                     + monRows
+                    + '</table>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📋 届出一覧'
+                    + (pdfNoticeMissing > 0 ? '　<span style="color:#E74C3C;">（★未提出 ' + pdfNoticeMissing + '件）</span>' : '') + '</div>'
+                    + '<table style="width:100%;border-collapse:collapse;">'
+                    + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">日付</th><th style="padding:3px 6px;font-size:7pt;text-align:left;">状況</th><th style="padding:3px 6px;font-size:7pt;text-align:center;">届出</th></tr>'
+                    + pdfNoticeRows
                     + '</table>'
                     + '</div>';
             } else if (mode === 'submissions') {

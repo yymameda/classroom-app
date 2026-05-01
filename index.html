@@ -5337,7 +5337,7 @@
             var students = recGetStudents();
             var stu = students[studentIndex] || {};
             document.getElementById('recMatomeModalTitle').textContent =
-                (studentIndex + 1) + '番 ' + (stu.name || '') + ' のまとめテスト';
+                (studentIndex + 1) + '番 ' + (stu.name || '') + ' の' + (test.testType || 'テスト');
             recRenderMatomeModalGrid(test, studentIndex);
             document.getElementById('recMatomeModal').classList.add('active');
         };
@@ -5443,7 +5443,7 @@
             var rf = document.getElementById('recRubricFields');
             matomeF.style.display = 'none'; peF.style.display = 'none';
             maxEl.disabled = false; maxEl.placeholder = '満点（例：100）';
-            if (type === 'まとめテスト') {
+            if (type === 'まとめテスト' || type === '単元テスト') {
                 matomeF.style.display = 'grid';
                 maxEl.disabled = true; maxEl.placeholder = '配点合計で自動計算'; maxEl.value = '';
                 recRenderMatomePreview();
@@ -5472,7 +5472,7 @@
             var maxEl = document.getElementById('recTestMaxScore');
             var isRubric = type === 'ルーブリック';
             if (cat === '主体性' || isRubric) { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
-            else if (type !== 'まとめテスト' && type !== '実技記録' && type !== '授業態度') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
+            else if (type !== 'まとめテスト' && type !== '単元テスト' && type !== '実技記録' && type !== '授業態度') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
             // ルーブリックフィールド表示
             var rf = document.getElementById('recRubricFields');
             if (rf) { rf.classList.toggle('show', !!(cat || isRubric)); }
@@ -5610,7 +5610,7 @@
             var date     = document.getElementById('recTestDate').value;
 
             var isABC     = category === '主体性' || testType === 'ルーブリック';
-            var isMatome  = testType === 'まとめテスト';
+            var isMatome  = testType === 'まとめテスト' || testType === '単元テスト';
             var isPE      = testType === '実技記録';
             var isAttitude= testType === '授業態度';
             var isRubric  = testType === 'ルーブリック';
@@ -5666,7 +5666,7 @@
             recRenderTestList();
             recUpdateTestSelect();
             var msg = recEditingTestId !== null ? '課題を更新しました' :
-                (isMatome ? 'まとめテストを追加しました（' + matomePoints.length + '問・' + matomeMaxScore + '点満点）' : '課題を追加しました');
+                (isMatome ? testType + 'を追加しました（' + matomePoints.length + '問・' + matomeMaxScore + '点満点）' : '課題を追加しました');
             showToast(msg, 'success');
             recEditingTestId = null;
         };
@@ -5710,10 +5710,10 @@
             var ms = document.getElementById('recTestMaxScore');
             if (test.category === '主体性') { ms.value = ''; ms.disabled = true; ms.placeholder = 'ABC評価'; }
             else if (test.testType === '実技記録') { ms.value = ''; ms.disabled = true; ms.placeholder = '自動'; }
-            else if (test.testType === 'まとめテスト') { ms.value = ''; ms.disabled = true; ms.placeholder = '配点合計で自動計算'; }
+            else if (test.testType === 'まとめテスト' || test.testType === '単元テスト') { ms.value = ''; ms.disabled = true; ms.placeholder = '配点合計で自動計算'; }
             else { ms.value = test.maxScore || ''; ms.disabled = false; }
             recOnTestTypeChange();
-            if (test.testType === 'まとめテスト' && test.matomePoints) {
+            if ((test.testType === 'まとめテスト' || test.testType === '単元テスト') && test.matomePoints) {
                 document.getElementById('recMatomeQCount').value = test.matomePoints.length;
                 recRenderMatomePreview();
                 test.matomePoints.forEach(function(pt, i) {

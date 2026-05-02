@@ -3327,6 +3327,7 @@
 
         // visibilitychange: flushSaveQueue + JS生存確認
         var _lastHeartbeat = Date.now();
+        window.addEventListener('pagehide', function() { flushSaveQueue(); });
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'hidden') {
                 flushSaveQueue();
@@ -3401,7 +3402,7 @@
     }
     function saveMaster() {
         master.lastSync = new Date().toISOString();
-        StorageManager.set(KEYS.master, JSON.stringify(master));
+        StorageManager.setImmediate(KEYS.master, JSON.stringify(master));
     }
 
     function updateSettingsUI() {
@@ -8513,7 +8514,7 @@
             var container = document.getElementById('grdGradeContainer');
             if (!container) return;
             if (!subject) { container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;"><div style="font-size:2rem;">📊</div><p>教科を選択してください</p></div>'; return; }
-            var results = grdCalculate(subject);
+            var results; try { results = grdCalculate(subject); } catch(e) { container.innerHTML = '<div style="color:var(--danger);padding:20px;">⚠️ 成績計算でエラーが発生しました。データを確認してください。</div>'; console.error('grdRenderGradeTable error:', e); return; }
             if (!results.length) { container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;">データがありません</div>'; return; }
             var TH = 'padding:6px 8px;border:1px solid var(--border);background:var(--secondary);font-size:0.78rem;text-align:center;white-space:nowrap;';
             var TD = 'padding:5px 6px;border:1px solid var(--border);text-align:center;font-size:0.82rem;';
@@ -8563,7 +8564,7 @@
             html += '<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;">'+(stu&&stu.name?stu.name[0]:'?')+'</div>';
             html += '<div><div style="font-weight:700;font-size:1rem;">'+(idx+1)+'番 '+escapeHtml(stu?stu.name||'':'')+'</div><div style="font-size:0.78rem;color:var(--text-light);">'+subjects.join('・')+' の成績詳細</div></div></div>';
             subjects.forEach(function(subject) {
-                var results = grdCalculate(subject);
+                var results; try { results = grdCalculate(subject); } catch(e) { console.error('grdRenderKarte error:', subject, e); return; }
                 var sr = results.find(function(r) { return r.index === idx; });
                 if (!sr) return;
                 html += '<h3 style="margin:10px 0 6px;font-size:0.95rem;border-bottom:2px solid var(--text);padding-bottom:4px;">'+escapeHtml(subject)+'</h3>';
@@ -8614,7 +8615,7 @@
             var container = document.getElementById('grdStatsContent');
             if (!container) return;
             if (!subject) { container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;"><div style="font-size:2rem;">📈</div><p>教科を選択してください</p></div>'; return; }
-            var results = grdCalculate(subject);
+            var results; try { results = grdCalculate(subject); } catch(e) { container.innerHTML = '<div style="color:var(--danger);padding:20px;">⚠️ 成績計算でエラーが発生しました。</div>'; console.error('grdRenderStats error:', e); return; }
             if (!results.length) { container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;">データがありません</div>'; return; }
             var html = '';
             [['知識・技能','knowledge','#1565C0'],['思考・判断・表現','thinking','#E65100'],['主体性','attitude','#2E7D32']].forEach(function(cat) {

@@ -5583,6 +5583,18 @@
             e.preventDefault();
             document.getElementById('recTestDate').focus();
         });
+        document.getElementById('recMatomeGrid').addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            var input = e.target;
+            if (!input || !input.id || !/^rec-mq-\d+$/.test(input.id)) return;
+            e.preventDefault();
+            var num = parseInt(input.id.replace('rec-mq-', ''));
+            var total = document.getElementById('recMatomeGrid').querySelectorAll('input[id^="rec-mq-"]').length;
+            var next = (num + 1 < total)
+                ? document.getElementById('rec-mq-' + (num + 1))
+                : document.querySelector('#recMatomeModal .btn-rec-primary');
+            if (next) next.focus();
+        });
 
         window.recToggleMqType = function(num) {
             var btn = document.getElementById('rec-mq-type-' + num);

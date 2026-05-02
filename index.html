@@ -5442,9 +5442,11 @@
             var peF = document.getElementById('recPeFields');
             var rf = document.getElementById('recRubricFields');
             matomeF.style.display = 'none'; peF.style.display = 'none';
+            var catEl = document.getElementById('recTestCategory'); if (catEl) { catEl.disabled = false; catEl.title = ''; }
             maxEl.disabled = false; maxEl.placeholder = '満点（例：100）';
             if (type === 'まとめテスト' || type === '単元テスト') {
                 matomeF.style.display = 'grid';
+                if (catEl) { catEl.disabled = true; catEl.title = '設問ごとに観点を設定します（選択不要）'; }
                 maxEl.disabled = true; maxEl.placeholder = '配点合計で自動計算'; maxEl.value = '';
                 recRenderMatomePreview();
             } else if (type === '実技記録') {
@@ -5615,6 +5617,7 @@
             var isAttitude= testType === '授業態度';
             var isRubric  = testType === 'ルーブリック';
 
+            if (isMatome && !category) category = '複合';
             if (!subject || !testType || !name || !category || !date) { alert('全項目を入力してください'); return; }
 
             var maxScore = isAttitude ? 10 : (isABC ? 0 : (isPE ? 9999 : (isMatome ? 0 : parseInt(maxScoreVal))));
@@ -5699,7 +5702,7 @@
             document.getElementById('recTestSubject').value = test.subject || '';
             document.getElementById('recTestType').value = test.testType || '';
             document.getElementById('recTestName').value = test.name || '';
-            document.getElementById('recTestCategory').value = test.category || '';
+            document.getElementById('recTestCategory').value = (test.category === '複合') ? '' : (test.category || '');
             document.getElementById('recTestDate').value = test.date || '';
             // ルーブリック復元
             document.getElementById('recRubricA').value = test.rubricA || '';

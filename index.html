@@ -5344,7 +5344,6 @@
         };
 
         window.recOnScoreBlur = function(idx) {
-            // フォーカスが外れたとき行の has-score クラスを更新
             var input = document.getElementById('rec-sc-' + idx);
             if (!input) return;
             var row = document.getElementById('rec-row-' + idx);
@@ -5353,6 +5352,18 @@
             if (row) row.classList.toggle('has-score', hasSc);
             if (dot) dot.classList.toggle('done', hasSc);
             recUpdateProgressByCount();
+            // フォーカスが外れた時点で即時保存
+            if (!recCurrentTestId) return;
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!test || test.type === 'matome') return;
+            var v = parseFloat(input.value);
+            if (isNaN(v) || v < 0) return;
+            v = Math.round(v * 100) / 100;
+            var scores = recGetScores();
+            var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
+            var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: v, createdAt: new Date().toISOString() };
+            if (ei >= 0) scores[ei] = rec; else scores.push(rec);
+            recSaveScores(scores);
         };
 
         window.recSelectABC = function(idx, value) {

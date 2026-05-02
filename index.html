@@ -5539,6 +5539,15 @@
 
 
         // まとめテストプレビュー
+        window.recMatomePtKeydown = function(e, i) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
+            var next = (i < qCount) ? document.getElementById('rec-mq-pt-' + (i + 1))
+                                     : document.getElementById('recTestDate');
+            if (next) next.focus();
+        };
+
         window.recRenderMatomePreview = function() {
             var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
             var preview = document.getElementById('recMatomePreview');
@@ -5551,21 +5560,18 @@
                 var col = colors[curType] || colors['知'];
                 return '<div class="rec-mq-item">' +
                     '<span class="rec-mq-label">Q' + (i+1) + '</span>' +
-                    '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1" onkeydown="recMatomePtKeydown(event,' + (i+1) + ')">' +
+                    '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1">' +
                     '<button class="rec-mq-type-btn" id="rec-mq-type-' + (i+1) + '" data-type="' + curType + '"' +
                     ' style="border-color:' + col.c + ';background:' + col.bg + ';color:' + col.c + ';"' +
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
                     '</div>';
             }).join('');
-        };
-
-        window.recMatomePtKeydown = function(e, i) {
-            if (e.key !== 'Enter') return;
-            e.preventDefault();
-            var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
-            var next = (i < qCount) ? document.getElementById('rec-mq-pt-' + (i + 1))
-                                     : document.getElementById('recTestDate');
-            if (next) next.focus();
+            for (var k = 1; k <= qCount; k++) {
+                (function(num) {
+                    var inp = document.getElementById('rec-mq-pt-' + num);
+                    if (inp) inp.addEventListener('keydown', function(e) { recMatomePtKeydown(e, num); });
+                })(k);
+            }
         };
 
         window.recToggleMqType = function(num) {

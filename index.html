@@ -2048,7 +2048,7 @@
                                 <option>思考・判断・表現</option>
                                 <option value="主体性">主体的に学習に取り組む態度</option>
                             </select>
-                            <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('recTestDate').focus();}">
+                            <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1">
                             <input type="date" id="recTestDate">
                             <!-- まとめテスト設定 -->
                             <div class="rec-matome-fields" id="recMatomeFields">
@@ -5539,15 +5539,6 @@
 
 
         // まとめテストプレビュー
-        window.recMatomePtKeydown = function(e, i) {
-            if (e.key !== 'Enter') return;
-            e.preventDefault();
-            var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
-            var next = (i < qCount) ? document.getElementById('rec-mq-pt-' + (i + 1))
-                                     : document.getElementById('recTestDate');
-            if (next) next.focus();
-        };
-
         window.recRenderMatomePreview = function() {
             var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
             var preview = document.getElementById('recMatomePreview');
@@ -5568,22 +5559,30 @@
             }).join('');
         };
 
-        // イベント委譲：recMatomePreviewコンテナに1回だけ登録
-        var _mPreview = document.getElementById('recMatomePreview');
-        if (_mPreview) {
-            _mPreview.addEventListener('keydown', function(e) {
-                if (e.key !== 'Enter') return;
-                var input = e.target;
-                if (!input || !input.id || !input.id.startsWith('rec-mq-pt-')) return;
-                e.preventDefault();
-                var num = parseInt(input.id.replace('rec-mq-pt-', ''));
-                var total = parseInt(document.getElementById('recMatomeQCount').value) || 10;
-                var next = (num < total)
-                    ? document.getElementById('rec-mq-pt-' + (num + 1))
-                    : document.getElementById('recTestDate');
-                if (next) next.focus();
-            });
-        }
+        // Enterキー移動リスナー（DOMContentLoaded内で1回だけ登録）
+        document.getElementById('recMatomePreview').addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            var input = e.target;
+            if (!input || !input.id || !input.id.startsWith('rec-mq-pt-')) return;
+            e.preventDefault();
+            var num = parseInt(input.id.replace('rec-mq-pt-', ''));
+            var total = parseInt(document.getElementById('recMatomeQCount').value) || 10;
+            var next = (num < total)
+                ? document.getElementById('rec-mq-pt-' + (num + 1))
+                : document.getElementById('recTestDate');
+            if (next) next.focus();
+        });
+        document.getElementById('recMatomeQCount').addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            var first = document.getElementById('rec-mq-pt-1');
+            if (first) first.focus();
+        });
+        document.getElementById('recTestMaxScore').addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            document.getElementById('recTestDate').focus();
+        });
 
         window.recToggleMqType = function(num) {
             var btn = document.getElementById('rec-mq-type-' + num);

@@ -8207,18 +8207,20 @@
         function _matomeExtract(test, sr, targetType) {
             var pts = test.matomePoints || [], qTypes = test.matomeQuestionTypes || [];
             var hasQT = qTypes.length > 0 && qTypes.some(function(q) { return q; });
-            var sum = 0, max = 0, hasData = !!(sr && sr.matomeAnswers);
+            var answers = sr ? (sr.answers || sr.matomeAnswers || []) : [];
+            var hasData = !!(sr && answers.length > 0);
+            var sum = 0, max = 0;
             if (hasQT) {
                 pts.forEach(function(pt, qi) {
                     if ((qTypes[qi] || '知') !== targetType) return;
                     max += pt;
-                    if (hasData) { var v = sr.matomeAnswers[qi]; sum += (v === true ? pt : v === false ? 0 : parseFloat(v) || 0); }
+                    if (hasData) { var v = answers[qi]; sum += (typeof v === 'number' ? v : v === true ? pt : v === false ? 0 : parseFloat(v) || 0); }
                 });
             } else {
                 if (targetType === '知' && (test.category === '思考・判断・表現' || test.category === '主体性')) return { sum: 0, max: 0, hasData: hasData };
                 if (targetType === '思' && test.category !== '思考・判断・表現') return { sum: 0, max: 0, hasData: hasData };
                 if (targetType === '主' && test.category !== '主体性') return { sum: 0, max: 0, hasData: hasData };
-                pts.forEach(function(pt, qi) { max += pt; if (hasData) { var v = sr.matomeAnswers[qi]; sum += (v === true ? pt : v === false ? 0 : parseFloat(v) || 0); } });
+                pts.forEach(function(pt, qi) { max += pt; if (hasData) { var v = answers[qi]; sum += (typeof v === 'number' ? v : v === true ? pt : v === false ? 0 : parseFloat(v) || 0); } });
             }
             return { sum: sum, max: max, hasData: hasData };
         }

@@ -472,8 +472,8 @@
         .grid-cell.present .status { color: #1a8a42; font-weight: 800; }
         .grid-cell.absent-sick { background: #f8d7da; border-color: var(--danger);  border-width: 2px; }
         .grid-cell.absent-sick .status { color: #c0392b; font-weight: 800; }
-        .grid-cell.absent-other{ background: #fff3cd; border-color: #e67e22; border-width: 2px; }
-        .grid-cell.absent-other .status { color: #d35400; font-weight: 800; }
+        .grid-cell.absent-other{ background: #fce4ec; border-color: #c0392b; border-width: 2px; }
+        .grid-cell.absent-other .status { color: #922b21; font-weight: 800; }
         .grid-cell.late        { background: #fef3cd; border-color: #d4a017; border-width: 2px; }
         .grid-cell.late .status { color: #9a7611; font-weight: 800; }
         .grid-cell.early       { background: #e8d5f5; border-color: #7d3c98; border-width: 2px; }
@@ -590,8 +590,8 @@
         .att-status-opt[data-s="○"]  .sym { color: var(--success); }
         .att-status-opt[data-s="×"]  { border-color: var(--danger);  background: #FDEDEC; }
         .att-status-opt[data-s="×"]  .sym { color: var(--danger); }
-        .att-status-opt[data-s="／"] { border-color: var(--accent);  background: #FEF5E7; }
-        .att-status-opt[data-s="／"] .sym { color: var(--accent); }
+        .att-status-opt[data-s="／"] { border-color: #c0392b; background: #fce4ec; }
+        .att-status-opt[data-s="／"] .sym { color: #922b21; }
         .att-status-opt[data-s="チ"]  { border-color: #B7950B; background: #FEF9E7; }
         .att-status-opt[data-s="チ"]  .sym { color: #B7950B; }
         .att-status-opt[data-s="ソ"]  { border-color: #7D3C98; background: #F5EEF8; }
@@ -4557,7 +4557,7 @@
         table.innerHTML = html;
     }
     function attStatusColor(st) {
-        const map = { '○':'#1a8a42','×':'#c0392b','／':'#d35400','チ':'#9a7611','ソ':'#6c2d8a','チソ':'#b5600f','忌':'#2c3e50','停':'#1a5276','休':'#6a1b9a' };
+        const map = { '○':'#1a8a42','×':'#c0392b','／':'#922b21','チ':'#9a7611','ソ':'#6c2d8a','チソ':'#b5600f','忌':'#2c3e50','停':'#1a5276','休':'#6a1b9a' };
         return map[st] || 'inherit';
     }
 

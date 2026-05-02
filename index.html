@@ -3208,8 +3208,69 @@
     // ================================================================
     // 初期化
     // ================================================================
+
+    // --- スコアデータマイグレーション（バイナリ0/1→実点数、起動時1回のみ） ---
+    function migrateScoreData() {
+        var MIGRATE_KEY = 'scoreDataMigrated_v1';
+        if (localStorage.getItem(MIGRATE_KEY)) return;
+
+        var scoresRaw = localStorage.getItem('spa_scores');
+        if (!scoresRaw) { localStorage.setItem(MIGRATE_KEY, '1'); return; }
+
+        var scores, tests, matomeQ;
+        try {
+            scores  = JSON.parse(scoresRaw);
+            tests   = JSON.parse(localStorage.getItem('spa_tests')            || '[]');
+            matomeQ = JSON.parse(localStorage.getItem('spa_matome_questions') || '{}');
+        } catch(e) { console.warn('migrateScoreData: parse error', e); return; }
+        if (!Array.isArray(scores)) { localStorage.setItem(MIGRATE_KEY, '1'); return; }
+
+        // バックアップ（容量超過時はスキップ）
+        try {
+            localStorage.setItem('scoreDataBackup_' + Date.now(), JSON.stringify({ scores: scoresRaw }));
+        } catch(e) { console.warn('migrateScoreData: backup skipped', e.name); }
+
+        var changed = false;
+        scores.forEach(function(rec) {
+            if (!Array.isArray(rec.answers) || rec.answers.length === 0) return;
+            var defined = rec.answers.filter(function(v) { return v !== null && v !== undefined; });
+            if (defined.length === 0) return;
+            var isBinary = defined.every(function(v) { return v === 0 || v === 1; });
+            if (!isBinary) return;
+
+            var test = tests.find(function(t) { return t.id === rec.testId; });
+            if (!test) return;
+
+            var pts;
+            var mq = matomeQ[rec.testId];
+            if (mq && Array.isArray(mq)) {
+                pts = mq.map(function(q) { return q.points || 1; });
+            } else if (Array.isArray(test.matomePoints)) {
+                pts = test.matomePoints;
+            } else { return; }
+
+            rec.answers = rec.answers.map(function(ans, idx) {
+                if (ans === null || ans === undefined) return ans;
+                return ans === 1 ? (pts[idx] || 1) : 0;
+            });
+            rec.score = rec.answers.reduce(function(sum, v) {
+                return sum + (typeof v === 'number' ? v : 0);
+            }, 0);
+            changed = true;
+        });
+
+        if (changed) {
+            try {
+                localStorage.setItem('spa_scores', JSON.stringify(scores));
+                console.log('[migrate] Score data migration complete');
+            } catch(e) { console.error('migrateScoreData: save error', e); return; }
+        }
+        localStorage.setItem(MIGRATE_KEY, '1');
+    }
+
     let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
+        migrateScoreData();
         loadMaster();
         updateSettingsUI();
         updateDashboard();
@@ -5458,7 +5519,6 @@
         };
 
         window.recMatomeModalNext = function() {
-            flushSaveQueue();
             recMatomeModalSave();
             var students = recGetStudents();
             if (recMatomeStudentIndex < students.length - 1) {
@@ -5466,7 +5526,6 @@
             }
         };
         window.recMatomeModalPrev = function() {
-            flushSaveQueue();
             recMatomeModalSave();
             if (recMatomeStudentIndex > 0) recOpenMatomeModal(recMatomeStudentIndex - 1);
         };

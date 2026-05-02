@@ -2271,7 +2271,10 @@
                     <button class="rec-matome-modal-close" onclick="recCloseMatomeModal()">×</button>
                 </div>
                 <div class="rec-matome-modal-body">
-                    <div class="rec-matome-total-bar" id="recMatomeTotalBar">合計: 0 点</div>
+                    <div class="rec-matome-total-bar" id="recMatomeTotalBar">
+                        <div>合計: <span id="recMqTotal">0</span> / <span id="recMqMax">0</span> 点</div>
+                        <div style="font-size:0.75rem;margin-top:2px;">知: <span id="recMqKan">0</span>/<span id="recMqKanMax">0</span>　思: <span id="recMqShi">0</span>/<span id="recMqShiMax">0</span>　主: <span id="recMqShu">0</span>/<span id="recMqShuMax">0</span></div>
+                    </div>
                     <div class="rec-matome-grid" id="recMatomeGrid"></div>
                 </div>
                 <div class="rec-matome-modal-footer">
@@ -4890,11 +4893,22 @@
                 if (isMatome) {
                     var matomeTotal = recCalcMatomeTotal(test, scores, idx);
                     var dispVal = matomeTotal !== null ? matomeTotal + '点' : '—';
+                    var catHtml = '';
+                    if (matomeTotal !== null) {
+                        var _sc = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+                        var cats = recCalcMatomeCatTotals(test, _sc);
+                        if (cats) {
+                            catHtml = '<div style="font-size:0.62rem;color:#cce;margin-top:1px;line-height:1.3;">' +
+                                '知' + cats.kan + '/' + cats.kanMax +
+                                ' 思' + cats.shi + '/' + cats.shiMax +
+                                ' 主' + cats.shu + '/' + cats.shuMax + '</div>';
+                        }
+                    }
                     scoreArea = '<div class="rec-row-score-area">' +
                         '<button onclick="recOpenMatomeModal(' + idx + ')" style="padding:2px 6px;background:' +
                         (hasSc ? '#1565C0' : 'var(--border)') +
                         ';color:#fff;border:none;border-radius:6px;font-size:0.68rem;cursor:pointer;min-height:22px;">' +
-                        dispVal + '</button></div>';
+                        dispVal + '</button>' + catHtml + '</div>';
                 } else if (isNawatobi) {
                     return recBuildNawatobiCard(test, scores, idx, stu);
                 } else if (isABC) {
@@ -4952,6 +4966,21 @@
                 if (ans === 1 && points[i]) total += points[i];
             });
             return total;
+        }
+
+        function recCalcMatomeCatTotals(test, sc) {
+            if (!sc || !sc.answers) return null;
+            var questions = recGetMatomeQ(test.id);
+            var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
+            var types  = questions ? questions.map(function(q) { return q.type; })   : (test.matomeQuestionTypes || []);
+            var kan = 0, shi = 0, shu = 0, kanMax = 0, shiMax = 0, shuMax = 0;
+            sc.answers.forEach(function(ans, i) {
+                var t = types[i]; var pt = points[i] || 0;
+                if (t === '知') { kanMax += pt; if (ans === 1) kan += pt; }
+                else if (t === '思') { shiMax += pt; if (ans === 1) shi += pt; }
+                else if (t === '主') { shuMax += pt; if (ans === 1) shu += pt; }
+            });
+            return { kan: kan, shi: shi, shu: shu, kanMax: kanMax, shiMax: shiMax, shuMax: shuMax };
         }
 
         // ============================================================
@@ -5372,14 +5401,25 @@
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
             if (!test) return;
             var questions = recGetMatomeQ(test.id);
-            var points = questions ? questions.map(function(q) { return q.points; }) :  (test.matomePoints || []);
-            var total = 0;
+            var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
+            var types  = questions ? questions.map(function(q) { return q.type; })   : (test.matomeQuestionTypes || []);
+            var total = 0, kan = 0, shi = 0, shu = 0;
+            var kanMax = 0, shiMax = 0, shuMax = 0;
             points.forEach(function(pt, i) {
+                var t = types[i];
+                if (t === '知') kanMax += pt; else if (t === '思') shiMax += pt; else if (t === '主') shuMax += pt;
                 var input = document.getElementById('rec-mq-' + i);
-                if (input && input.value !== '') total += parseInt(input.value) || 0;
+                if (input && input.value !== '') {
+                    var v = parseInt(input.value) || 0;
+                    total += v;
+                    if (t === '知') kan += v; else if (t === '思') shi += v; else if (t === '主') shu += v;
+                }
             });
-            var bar = document.getElementById('recMatomeTotalBar');
-            if (bar) bar.textContent = '合計: ' + total + ' / ' + test.maxScore + ' 点';
+            var s = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+            s('recMqTotal', total); s('recMqMax', test.maxScore);
+            s('recMqKan', kan);  s('recMqKanMax', kanMax);
+            s('recMqShi', shi);  s('recMqShiMax', shiMax);
+            s('recMqShu', shu);  s('recMqShuMax', shuMax);
         };
 
         window.recMatomeModalSave = function() {

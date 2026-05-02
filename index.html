@@ -3237,9 +3237,6 @@
             if (defined.length === 0) return;
             var isBinary = defined.every(function(v) { return v === 0 || v === 1; });
             if (!isBinary) return;
-            // 配点が全て1点のテストは誤変換しない（0/1が実得点の可能性がある）
-            var allPointsAreOne = pts && pts.every(function(p) { return p === 1; });
-            if (allPointsAreOne) return;
 
             var test = tests.find(function(t) { return t.id === rec.testId; });
             if (!test) return;
@@ -3251,6 +3248,10 @@
             } else if (Array.isArray(test.matomePoints)) {
                 pts = test.matomePoints;
             } else { return; }
+
+            // 配点が全て1点のテストは誤変換しない（0/1が実得点の可能性がある）
+            var allPointsAreOne = pts.every(function(p) { return p === 1; });
+            if (allPointsAreOne) return;
 
             rec.answers = rec.answers.map(function(ans, idx) {
                 if (ans === null || ans === undefined) return ans;
@@ -5144,14 +5145,10 @@
                 var maxV = Math.max.apply(null,vals);
                 var minV = Math.min.apply(null,vals);
                 var perfectCount = scores.filter(function(s){return s.score===test.maxScore;}).length;
-                var needCorr = scores.filter(function(s){return s.score!==test.maxScore;});
-                var corrDone = needCorr.filter(function(s){return s.correctionDone;}).length;
-                var corrRate = needCorr.length>0 ? Math.round(corrDone/needCorr.length*100) : 100;
 
                 grid.innerHTML = statCard(avg,'平均点') + statCard(maxV,'最高点','#27AE60') +
                     statCard(minV,'最低点','#E74C3C') + statCard(count+'/'+students.length,'入力済み') +
-                    statCard(perfectCount+'人','満点','#27AE60') +
-                    statCard(corrRate+'%','お直し完了',corrRate===100?'#27AE60':'#E67E22');
+                    statCard(perfectCount+'人','満点','#27AE60');
 
                 // 点数分布
                 var ranges = [
@@ -5173,6 +5170,7 @@
             var students = recGetStudents();
             if (event.key === 'Enter' || event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
                 event.preventDefault();
+                recOnScoreBlur(idx);
                 for (var next = idx + 1; next < students.length; next++) {
                     var ni = document.getElementById('rec-sc-' + next);
                     if (ni && ni.offsetParent !== null) { ni.focus(); ni.select(); return; }
@@ -5181,6 +5179,7 @@
                 if (cur) cur.blur();
             } else if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
                 event.preventDefault();
+                recOnScoreBlur(idx);
                 for (var prev = idx - 1; prev >= 0; prev--) {
                     var pi = document.getElementById('rec-sc-' + prev);
                     if (pi && pi.offsetParent !== null) { pi.focus(); pi.select(); return; }
@@ -5902,6 +5901,8 @@
             if (!confirm('この課題と関連する全ての点数データを削除しますか？')) return;
             recSaveTests(recGetTests().filter(function(t) { return t.id !== testId; }));
             recSaveScores(recGetScores().filter(function(s) { return s.testId !== testId; }));
+            var allMQ = StorageManager.get(REC_KEYS.matomeQ, {});
+            if (allMQ[testId]) { delete allMQ[testId]; StorageManager.setImmediate(REC_KEYS.matomeQ, JSON.stringify(allMQ)); }
             if (recCurrentTestId === testId) recCurrentTestId = null;
             recRenderTestList(); recUpdateTestSelect();
         };

@@ -4925,7 +4925,7 @@
             var students = recGetStudents();
             var scores = recGetScores();
             var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
-            var isMatome = test.type === 'matome' || test.testType === 'まとめテスト';
+            var isMatome = test.type === 'matome';
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && test.peUnit === 'なわとびカード';
             // nw-modeクラスで列数レイアウト制御
@@ -5397,7 +5397,7 @@
             var students = recGetStudents();
             var scores = recGetScores();
             var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
-            var isMatome = test.type === 'matome' || test.testType === 'まとめテスト';
+            var isMatome = test.type === 'matome';
             if (isABC || isMatome) { showToast('保存済みです', 'success'); return; }
             var saved = 0;
             students.forEach(function(_, idx) {
@@ -5948,7 +5948,7 @@
             var students = recGetStudents();
             container.innerHTML = sorted.map(function(test) {
                 var cnt = scores.filter(function(s) { return s.testId === test.id; }).length;
-                var isMatome = test.type === 'matome' || test.testType === 'まとめテスト';
+                var isMatome = test.type === 'matome';
                 var isPE = test.testType === '実技記録';
                 var scoreInfo = (test.category === '主体性' || test.testType === 'ルーブリック') ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
                 return '<div class="rec-test-item' + (test.id === recCurrentTestId ? ' selected' : '') +
@@ -8294,10 +8294,10 @@
             var th = grdGetThresholds();
             var cfg = th[subject] || th.default;
 
-            var knowledgeTests = tests.filter(function(t) { return t.testType !== 'まとめテスト' && t.category === '知識・技能'; });
-            var thinkingTests  = tests.filter(function(t) { return t.testType !== 'まとめテスト' && t.category === '思考・判断・表現'; });
-            var attitudeTests  = tests.filter(function(t) { return t.testType !== 'まとめテスト' && t.category === '主体性'; });
-            var allMatomeTests = tests.filter(function(t) { return t.testType === 'まとめテスト' && t.matomePoints; });
+            var knowledgeTests = tests.filter(function(t) { return t.type !== 'matome' && t.category === '知識・技能'; });
+            var thinkingTests  = tests.filter(function(t) { return t.type !== 'matome' && t.category === '思考・判断・表現'; });
+            var attitudeTests  = tests.filter(function(t) { return t.type !== 'matome' && t.category === '主体性'; });
+            var allMatomeTests = tests.filter(function(t) { return t.type === 'matome' && t.matomePoints; });
             var peReflections  = subject === '体育' ? thinkingTests.filter(function(t) { return t.name && t.name.indexOf('振り返り') === 0; }) : [];
 
             var results = [];

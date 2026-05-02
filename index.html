@@ -2048,7 +2048,7 @@
                                 <option>思考・判断・表現</option>
                                 <option value="主体性">主体的に学習に取り組む態度</option>
                             </select>
-                            <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1">
+                            <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('recTestDate').focus();}">
                             <input type="date" id="recTestDate">
                             <!-- まとめテスト設定 -->
                             <div class="rec-matome-fields" id="recMatomeFields">
@@ -5551,12 +5551,21 @@
                 var col = colors[curType] || colors['知'];
                 return '<div class="rec-mq-item">' +
                     '<span class="rec-mq-label">Q' + (i+1) + '</span>' +
-                    '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1">' +
+                    '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1" onkeydown="recMatomePtKeydown(event,' + (i+1) + ')">' +
                     '<button class="rec-mq-type-btn" id="rec-mq-type-' + (i+1) + '" data-type="' + curType + '"' +
                     ' style="border-color:' + col.c + ';background:' + col.bg + ';color:' + col.c + ';"' +
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
                     '</div>';
             }).join('');
+        };
+
+        window.recMatomePtKeydown = function(e, i) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
+            var next = (i < qCount) ? document.getElementById('rec-mq-pt-' + (i + 1))
+                                     : document.getElementById('recTestDate');
+            if (next) next.focus();
         };
 
         window.recToggleMqType = function(num) {

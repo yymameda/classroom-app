@@ -3237,6 +3237,9 @@
             if (defined.length === 0) return;
             var isBinary = defined.every(function(v) { return v === 0 || v === 1; });
             if (!isBinary) return;
+            // 配点が全て1点のテストは誤変換しない（0/1が実得点の可能性がある）
+            var allPointsAreOne = pts && pts.every(function(p) { return p === 1; });
+            if (allPointsAreOne) return;
 
             var test = tests.find(function(t) { return t.id === rec.testId; });
             if (!test) return;
@@ -8205,7 +8208,9 @@
             return sS / wS;
         }
         function _matomeExtract(test, sr, targetType) {
-            var pts = test.matomePoints || [], qTypes = test.matomeQuestionTypes || [];
+            var _mq = StorageManager.get ? (function(){ var all = StorageManager.get(KEYS.matome_questions, {}); return all[test.id] || null; })() : null;
+            var pts = (_mq ? _mq.map(function(q){return q.points;}) : null) || test.matomePoints || [];
+            var qTypes = (_mq ? _mq.map(function(q){return q.type;}) : null) || test.matomeQuestionTypes || [];
             var hasQT = qTypes.length > 0 && qTypes.some(function(q) { return q; });
             var answers = sr ? (sr.answers || sr.matomeAnswers || []) : [];
             var hasData = !!(sr && answers.length > 0);

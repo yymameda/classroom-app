@@ -8271,19 +8271,15 @@
             });
             if (!filtered.length) return { score10: null, detail: '記録なし', good: 0, concern: 0 };
             var good = 0, concern = 0;
-            if (type === 'attitude') {
-                filtered.forEach(function(p) {
-                    ['発言','集中','協働','態度'].forEach(function(item) {
-                        if (p.evals && p.evals[item] === '○') good++;
-                        if (p.evals && p.evals[item] === '△') concern++;
-                    });
+            var attitudeItems = ['発言','集中','協働','態度','思考'];
+            var thinkingItems = ['思考','発言','集中','協働'];
+            var targetItems = type === 'attitude' ? attitudeItems : thinkingItems;
+            filtered.forEach(function(p) {
+                targetItems.forEach(function(item) {
+                    if (p.evals && p.evals[item] === '○') good++;
+                    if (p.evals && p.evals[item] === '△') concern++;
                 });
-            } else {
-                filtered.forEach(function(p) {
-                    if (p.evals && p.evals['思考'] === '○') good++;
-                    if (p.evals && p.evals['思考'] === '△') concern++;
-                });
-            }
+            });
             var total = good + concern;
             if (!total) return { score10: null, detail: '記録なし', good: 0, concern: 0 };
             var rate = good / total;

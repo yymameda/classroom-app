@@ -5566,13 +5566,24 @@
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
                     '</div>';
             }).join('');
-            for (var k = 1; k <= qCount; k++) {
-                (function(num) {
-                    var inp = document.getElementById('rec-mq-pt-' + num);
-                    if (inp) inp.addEventListener('keydown', function(e) { recMatomePtKeydown(e, num); });
-                })(k);
-            }
         };
+
+        // イベント委譲：recMatomePreviewコンテナに1回だけ登録
+        var _mPreview = document.getElementById('recMatomePreview');
+        if (_mPreview) {
+            _mPreview.addEventListener('keydown', function(e) {
+                if (e.key !== 'Enter') return;
+                var input = e.target;
+                if (!input || !input.id || !input.id.startsWith('rec-mq-pt-')) return;
+                e.preventDefault();
+                var num = parseInt(input.id.replace('rec-mq-pt-', ''));
+                var total = parseInt(document.getElementById('recMatomeQCount').value) || 10;
+                var next = (num < total)
+                    ? document.getElementById('rec-mq-pt-' + (num + 1))
+                    : document.getElementById('recTestDate');
+                if (next) next.focus();
+            });
+        }
 
         window.recToggleMqType = function(num) {
             var btn = document.getElementById('rec-mq-type-' + num);

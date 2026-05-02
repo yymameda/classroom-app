@@ -4951,7 +4951,7 @@
             list.style.gridTemplateColumns = '';
 
             list.innerHTML = students.map(function(stu, idx) {
-                var existingSc = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+                var existingSc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
                 var hasSc = existingSc !== undefined;
                 var rowClass = 'rec-row' + (hasSc ? ' has-score' : '');
 

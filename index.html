@@ -4959,11 +4959,9 @@
         function recCalcMatomeTotal(test, scores, studentIndex) {
             var sc = scores.find(function(s) { return s.studentIndex === studentIndex && s.testId === test.id; });
             if (!sc || !sc.answers) return null;
-            var questions = recGetMatomeQ(test.id);
-            var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
             var total = 0;
-            sc.answers.forEach(function(ans, i) {
-                if (ans === 1 && points[i]) total += points[i];
+            sc.answers.forEach(function(ans) {
+                if (typeof ans === 'number') total += ans;
             });
             return total;
         }
@@ -4976,9 +4974,9 @@
             var kan = 0, shi = 0, shu = 0, kanMax = 0, shiMax = 0, shuMax = 0;
             sc.answers.forEach(function(ans, i) {
                 var t = types[i]; var pt = points[i] || 0;
-                if (t === '知') { kanMax += pt; if (ans === 1) kan += pt; }
-                else if (t === '思') { shiMax += pt; if (ans === 1) shi += pt; }
-                else if (t === '主') { shuMax += pt; if (ans === 1) shu += pt; }
+                if (t === '知') { kanMax += pt; if (typeof ans === 'number') kan += ans; }
+                else if (t === '思') { shiMax += pt; if (typeof ans === 'number') shi += ans; }
+                else if (t === '主') { shuMax += pt; if (typeof ans === 'number') shu += ans; }
             });
             return { kan: kan, shi: shi, shu: shu, kanMax: kanMax, shiMax: shiMax, shuMax: shuMax };
         }
@@ -5383,12 +5381,12 @@
             var grid = document.getElementById('recMatomeGrid');
             grid.innerHTML = points.map(function(pt, i) {
                 var typeClass = typeMap[types[i]] || 'chi';
-                var ans = answers[i]; // 1=正解, 0=不正解, undefined=未入力
-                var hasAns = ans === 1 || ans === 0;
+                var ans = answers[i]; // 0〜pt=実得点, undefined=未入力
+                var hasAns = typeof ans === 'number';
                 return '<div class="rec-mq-cell">' +
                     '<span class="rec-mq-cell-label">Q' + (i+1) + '</span>' +
                     '<span class="rec-mq-cell-type ' + typeClass + '">' + (types[i]||'知') + '</span>' +
-                    '<input type="number" min="0" max="' + pt + '" value="' + (hasAns ? (ans === 1 ? pt : 0) : '') + '"' +
+                    '<input type="number" min="0" max="' + pt + '" value="' + (hasAns ? ans : '') + '"' +
                     ' placeholder="/' + pt + '" class="' + (hasAns ? 'has-val' : '') + '"' +
                     ' id="rec-mq-' + i + '"' +
                     ' oninput="recUpdateMatomeTotal()" style="width:52px;">' +
@@ -5431,11 +5429,12 @@
                 var input = document.getElementById('rec-mq-' + i);
                 if (!input || input.value === '') return undefined;
                 var v = parseInt(input.value);
-                return (v >= pt) ? 1 : 0;
+                if (isNaN(v)) return undefined;
+                return Math.min(Math.max(0, v), pt);
             });
             var total = 0;
-            answers.forEach(function(ans, i) {
-                if (ans === 1 && points[i]) total += points[i];
+            answers.forEach(function(ans) {
+                if (typeof ans === 'number') total += ans;
             });
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) {
@@ -5447,16 +5446,19 @@
             };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
+            flushSaveQueue();
             showToast('保存しました', 'success');
             recRenderList(test); recUpdateProgress(test);
         };
 
         window.recCloseMatomeModal = function() {
+            flushSaveQueue();
             document.getElementById('recMatomeModal').classList.remove('active');
             recMatomeStudentIndex = null;
         };
 
         window.recMatomeModalNext = function() {
+            flushSaveQueue();
             recMatomeModalSave();
             var students = recGetStudents();
             if (recMatomeStudentIndex < students.length - 1) {
@@ -5464,6 +5466,7 @@
             }
         };
         window.recMatomeModalPrev = function() {
+            flushSaveQueue();
             recMatomeModalSave();
             if (recMatomeStudentIndex > 0) recOpenMatomeModal(recMatomeStudentIndex - 1);
         };

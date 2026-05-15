@@ -1236,6 +1236,13 @@
         .sub-absent-tag { font-size: 0.5rem; font-weight: 700; background: #757575; color: white; border-radius: 3px; padding: 1px 4px; line-height: 1.4; flex-shrink: 0; }
         .sub-absent-btn { font-size: 0.6rem; font-weight: 700; border: 1.5px solid #9E9E9E; border-radius: 4px; background: white; color: #757575; cursor: pointer; padding: 0 5px; font-family: inherit; height: 44px; flex: none; white-space: nowrap; transition: all 0.15s; }
         .sub-absent-btn.absent-on { background: #757575; color: white; border-color: #616161; }
+        .sub-late-label {
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 11px; color: #b85c00; white-space: nowrap;
+          cursor: pointer; user-select: none;
+        }
+        .sub-late-label input { accent-color: #b85c00; width: 14px; height: 14px; }
+        .sub-late-label:has(input:disabled) { opacity: 0.35; cursor: default; }
 
         /* 座席表 */
         .sub-seat-grid { display: grid; gap: 5px; padding: 10px; }
@@ -7633,6 +7640,7 @@
                 var st = rec ? rec.status : '';
                 var isAbsent = rec ? !!rec.absent : false;
                 var corrDone = rec ? rec.correctionDone : false;
+                var isLate = rec ? rec.lateOnDue === true : false;
                 var hasSt = st ? 'has-status status-' + st : '';
                 var absentCls = isAbsent ? ' absent' : '';
                 var dispName = stu.name.length > 5 ? stu.name.substring(0, 5) : stu.name;
@@ -7652,6 +7660,7 @@
                     +   '<button class="sub-status-btn' + (st === 'resubmit' ? ' sel-resubmit' : '') + '" data-idx="' + i + '" data-status="resubmit">△</button>'
                     +   '<button class="sub-status-btn' + (st === 'missing' ? ' sel-missing' : '') + '" data-idx="' + i + '" data-status="missing">×</button>'
                     +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
+                    +   '<label class="sub-late-label"><input type="checkbox" class="sub-late-check" data-idx="' + i + '"' + (isLate ? ' checked' : '') + (st === 'submitted' ? ' disabled' : '') + '>当日未提出</label>'
                     + '</div>'
                     + '</div>';
             });
@@ -7668,6 +7677,9 @@
             });
             wrap.querySelectorAll('.sub-absent-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subToggleAbsent(parseInt(btn.dataset.idx)); });
+            });
+            wrap.querySelectorAll('.sub-late-check').forEach(function(chk) {
+                chk.addEventListener('change', function() { subScheduleAutoSave(); });
             });
         }
         function subSelectStatus(idx, status) {
@@ -7686,6 +7698,11 @@
                 if (status === 'submitted') { chk.checked = true; chk.disabled = true; }
                 else { chk.disabled = false; }
             }
+            var lateChk = row.querySelector('.sub-late-check');
+            if (lateChk) {
+                if (status === 'submitted') { lateChk.checked = false; lateChk.disabled = true; }
+                else { lateChk.disabled = false; }
+            }
             subScheduleAutoSave();
             subUpdateProgress();
         }
@@ -7698,6 +7715,8 @@
             if (done2) { done2.className = 'sub-row-done'; done2.textContent = ''; }
             var chk = row.querySelector('.sub-correction-check');
             if (chk) { chk.checked = false; chk.disabled = false; }
+            var lateChk = row.querySelector('.sub-late-check');
+            if (lateChk) { lateChk.checked = false; lateChk.disabled = false; }
             // 欠席バッジ・ボタンもリセット
             var absentTag = row.querySelector('.sub-absent-tag');
             if (absentTag) absentTag.remove();
@@ -7757,7 +7776,9 @@
                 if (!st) st = 'missing'; // 欠席のみの場合は未提出扱い
                 var chk = row.querySelector('.sub-correction-check');
                 var corrDone = st === 'submitted' ? true : (chk ? chk.checked : false);
+                var lateChk = row.querySelector('.sub-late-check');
                 var rec = { id: Date.now() + i, studentIndex: i, assignmentId: subCurrentAssign, status: st, correctionDone: corrDone, createdAt: new Date().toISOString() };
+                rec.lateOnDue = lateChk ? lateChk.checked : false;
                 if (isAbsent) rec.absent = true;
                 subs.push(rec);
             });

@@ -1208,10 +1208,14 @@
         .sub-input-row.has-status.status-missing   { background: #FDEDEC; border-color: var(--danger); }
         .sub-row-hd { display: flex; align-items: center; gap: 3px; width: 100%; }
         .sub-row-num {
-            font-size: 0.7rem; font-weight: 700; color: var(--white); background: var(--primary);
-            width: 18px; height: 18px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 28px; height: 28px; border-radius: 6px;
+            font-size: 0.7rem; font-weight: 700; color: white;
+            background: var(--primary); border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; padding: 0; font-family: inherit;
+            transition: background 0.15s;
         }
+        .sub-row-num.late-on { background: #3498DB; }
         .sub-row-name { font-size: 0.65rem; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .sub-row-done { width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; flex-shrink: 0; background: #E0E0E0; color: #9E9E9E; }
         .sub-row-done.ok { background: var(--success); color: white; }
@@ -2349,7 +2353,6 @@
                         <span style="color:#757575;" id="subCntAbsent"></span>
                     </div>
                     <button class="btn-rec-small goto" id="subAllOkBtn" style="font-size:0.75rem;margin-left:8px;">全員○</button>
-                    <button class="btn-rec-small" id="subMissingBtn" onclick="subShowMissingModal()" style="font-size:0.75rem;margin-left:4px;border-color:#E67E22;color:#E67E22;">📋 未提出者</button>
                 </div>
                 <!-- リスト表示（グリッド4列） -->
                 <div id="subListWrap" class="sub-input-list"></div>
@@ -2520,17 +2523,6 @@
                 <div id="fgtModalItems" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
                 <button id="fgtModalSave" class="btn-primary" style="width:100%;padding:12px;font-size:1rem;">保存</button>
                 <button onclick="openKarteFromFgt()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;margin-top:8px;font-family:inherit;">👤 カルテを開く</button>
-            </div>
-        </div>
-
-        <!-- 未提出者一覧モーダル -->
-        <div id="subMissingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-end;justify-content:center;">
-            <div style="background:var(--white);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:600px;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                    <div style="font-weight:700;font-size:1rem;color:var(--primary);">📋 未提出者一覧</div>
-                    <button onclick="subCloseMissingModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-light);">✕</button>
-                </div>
-                <div id="subMissingList"></div>
             </div>
         </div>
 
@@ -7648,19 +7640,17 @@
                 var corrChecked = (st === 'submitted' || corrDone) ? 'checked' : '';
                 html += '<div class="sub-input-row ' + hasSt + absentCls + '" data-idx="' + i + '">'
                     + '<div class="sub-row-hd">'
-                    +   '<div class="sub-row-num">' + (i + 1) + '</div>'
+                    +   '<button class="sub-row-num' + (isLate ? ' late-on' : '') + '" data-idx="' + i + '">' + (isLate ? '遅' : (i + 1)) + '</button>'
                     +   '<div class="sub-row-name" title="' + escapeHtml(stu.name) + '">' + escapeHtml(dispName) + '</div>'
                     +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
                     +   '<div class="sub-row-done' + (st ? ' ok' : '') + '">' + (st ? '✓' : '') + '</div>'
                     +   '<input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '>'
-                    +   '<button class="sub-clear-btn" data-idx="' + i + '" title="クリア">−</button>'
                     + '</div>'
                     + '<div class="sub-status-btns">'
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'
                     +   '<button class="sub-status-btn' + (st === 'resubmit' ? ' sel-resubmit' : '') + '" data-idx="' + i + '" data-status="resubmit">△</button>'
                     +   '<button class="sub-status-btn' + (st === 'missing' ? ' sel-missing' : '') + '" data-idx="' + i + '" data-status="missing">×</button>'
                     +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
-                    +   '<label class="sub-late-label"><input type="checkbox" class="sub-late-check" data-idx="' + i + '"' + (isLate ? ' checked' : '') + (st === 'submitted' ? ' disabled' : '') + '>当日未提出</label>'
                     + '</div>'
                     + '</div>';
             });
@@ -7669,17 +7659,32 @@
             wrap.querySelectorAll('.sub-status-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subSelectStatus(parseInt(btn.dataset.idx), btn.dataset.status); });
             });
-            wrap.querySelectorAll('.sub-clear-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() { subClearStatus(parseInt(btn.dataset.idx)); });
-            });
             wrap.querySelectorAll('.sub-correction-check').forEach(function(chk) {
                 chk.addEventListener('change', function() { subScheduleAutoSave(); });
             });
             wrap.querySelectorAll('.sub-absent-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subToggleAbsent(parseInt(btn.dataset.idx)); });
             });
-            wrap.querySelectorAll('.sub-late-check').forEach(function(chk) {
-                chk.addEventListener('change', function() { subScheduleAutoSave(); });
+            wrap.querySelectorAll('.sub-row-num').forEach(function(numBtn) {
+                var idx = parseInt(numBtn.dataset.idx);
+                var longPressTimer = null;
+                var longPressFired = false;
+                numBtn.addEventListener('pointerdown', function() {
+                    longPressFired = false;
+                    longPressTimer = setTimeout(function() {
+                        longPressFired = true;
+                        subClearStatus(idx);
+                    }, 600);
+                });
+                numBtn.addEventListener('pointerup', function() {
+                    if (longPressTimer) clearTimeout(longPressTimer);
+                });
+                numBtn.addEventListener('pointerleave', function() {
+                    if (longPressTimer) clearTimeout(longPressTimer);
+                });
+                numBtn.addEventListener('click', function() {
+                    if (!longPressFired) subToggleLate(idx);
+                });
             });
         }
         function subSelectStatus(idx, status) {
@@ -7698,10 +7703,10 @@
                 if (status === 'submitted') { chk.checked = true; chk.disabled = true; }
                 else { chk.disabled = false; }
             }
-            var lateChk = row.querySelector('.sub-late-check');
-            if (lateChk) {
-                if (status === 'submitted') { lateChk.checked = false; lateChk.disabled = true; }
-                else { lateChk.disabled = false; }
+            var numBtn = row.querySelector('.sub-row-num');
+            if (numBtn && status === 'submitted') {
+                numBtn.classList.remove('late-on');
+                numBtn.textContent = idx + 1;
             }
             subScheduleAutoSave();
             subUpdateProgress();
@@ -7715,8 +7720,8 @@
             if (done2) { done2.className = 'sub-row-done'; done2.textContent = ''; }
             var chk = row.querySelector('.sub-correction-check');
             if (chk) { chk.checked = false; chk.disabled = false; }
-            var lateChk = row.querySelector('.sub-late-check');
-            if (lateChk) { lateChk.checked = false; lateChk.disabled = false; }
+            var numBtn = row.querySelector('.sub-row-num');
+            if (numBtn) { numBtn.classList.remove('late-on'); numBtn.textContent = idx + 1; }
             // 欠席バッジ・ボタンもリセット
             var absentTag = row.querySelector('.sub-absent-tag');
             if (absentTag) absentTag.remove();
@@ -7724,6 +7729,15 @@
             if (absentBtn) { absentBtn.classList.remove('absent-on'); absentBtn.textContent = '欠席'; }
             subScheduleAutoSave();
             subUpdateProgress();
+        }
+        function subToggleLate(idx) {
+            var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
+            if (!row) return;
+            var numBtn = row.querySelector('.sub-row-num');
+            if (!numBtn) return;
+            var nowLate = numBtn.classList.toggle('late-on');
+            numBtn.textContent = nowLate ? '遅' : (idx + 1);
+            subScheduleAutoSave();
         }
         function subToggleAbsent(idx) {
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
@@ -7776,9 +7790,9 @@
                 if (!st) st = 'missing'; // 欠席のみの場合は未提出扱い
                 var chk = row.querySelector('.sub-correction-check');
                 var corrDone = st === 'submitted' ? true : (chk ? chk.checked : false);
-                var lateChk = row.querySelector('.sub-late-check');
+                var numBtn = row.querySelector('.sub-row-num');
                 var rec = { id: Date.now() + i, studentIndex: i, assignmentId: subCurrentAssign, status: st, correctionDone: corrDone, createdAt: new Date().toISOString() };
-                rec.lateOnDue = lateChk ? lateChk.checked : false;
+                rec.lateOnDue = numBtn ? numBtn.classList.contains('late-on') : false;
                 if (isAbsent) rec.absent = true;
                 subs.push(rec);
             });
@@ -8211,59 +8225,6 @@
                 }
             };
         });
-        window.subShowMissingModal = function() {
-            if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
-            var students = subGetStudents();
-            var subs = subGetSubmissions();
-            var missingList = [], absMissingList = [];
-            students.forEach(function(stu, i) {
-                var rec = subs.find(function(r) { return r.studentIndex === i && r.assignmentId === subCurrentAssign; });
-                var st = rec ? rec.status : '';
-                var isAbsent = rec ? !!rec.absent : false;
-                if (!st || st === 'missing') {
-                    if (isAbsent) absMissingList.push({ idx: i, name: stu.name, status: st });
-                    else missingList.push({ idx: i, name: stu.name, status: st });
-                }
-            });
-            var html = '';
-            if (missingList.length === 0 && absMissingList.length === 0) {
-                html = '<div style="text-align:center;padding:24px;color:var(--text-light);">全員提出済みです ✓</div>';
-            } else {
-                var btnStyle = 'min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;text-align:left;padding:0 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;';
-                var numStyle = 'font-size:0.75rem;background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
-                html = '<div style="display:flex;flex-direction:column;gap:6px;">';
-                if (absMissingList.length > 0) {
-                    html += '<div style="font-size:0.8rem;font-weight:700;color:#757575;margin-top:4px;">🏠 欠席未提出 (' + absMissingList.length + '名)</div>';
-                    absMissingList.forEach(function(item) {
-                        html += '<button style="' + btnStyle + 'border-color:#9E9E9E;background:#F5F5F5;color:#555;" onclick="subOpenKarteFromMissing(' + item.idx + ')">'
-                            + '<span style="' + numStyle + '">' + (item.idx + 1) + '</span>'
-                            + '<span>' + escapeHtml(item.name) + '</span>'
-                            + '<span style="margin-left:auto;color:#757575;font-size:0.8rem;">🏠欠席</span>'
-                            + '</button>';
-                    });
-                }
-                if (missingList.length > 0) {
-                    html += '<div style="font-size:0.8rem;font-weight:700;color:var(--danger);margin-top:4px;">× 未提出 (' + missingList.length + '名)</div>';
-                    missingList.forEach(function(item) {
-                        html += '<button style="' + btnStyle + '" onclick="subOpenKarteFromMissing(' + item.idx + ')">'
-                            + '<span style="' + numStyle + '">' + (item.idx + 1) + '</span>'
-                            + '<span>' + escapeHtml(item.name) + '</span>'
-                            + (item.status === 'missing' ? '<span style="margin-left:auto;color:var(--danger);">×</span>' : '<span style="margin-left:auto;color:var(--text-light);font-size:0.8rem;">未入力</span>')
-                            + '</button>';
-                    });
-                }
-                html += '</div>';
-            }
-            document.getElementById('subMissingList').innerHTML = html;
-            document.getElementById('subMissingModal').style.display = 'flex';
-        };
-        window.subCloseMissingModal = function() {
-            document.getElementById('subMissingModal').style.display = 'none';
-        };
-        window.subOpenKarteFromMissing = function(idx) {
-            window.subCloseMissingModal();
-            window.showKarte(idx, 'submissions');
-        };
     })();
     // ▲▲▲ MODULE:SUBMISSIONS ▲▲▲
 

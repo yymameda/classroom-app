@@ -220,7 +220,7 @@ canvas.radar{display:block;}
     <div class="card-body">
       <div class="info-box green" style="margin-bottom:12px;">
         <strong>入力のポイント：</strong>
-        握力＝左右最高値の平均（四捨五入）／50m走＝1/10秒未満<strong>切り上げ</strong>／その他2回試技はよい方を入力。
+        握力＝左右それぞれ入力→自動で平均（小数第1位）を計算／50m走＝1/10秒未満<strong>切り上げ</strong>／その他2回試技はよい方を入力。
         入力後は「💾 保存」を押してください。
       </div>
       <div id="inputGridWrap">
@@ -404,7 +404,7 @@ const EVAL_TABLE = {
 
 const EVENTS = ['握力','上体起こし','長座体前屈','反復横とび','シャトルラン','50m走','立ち幅とび','ソフトボール投'];
 const EVENT_UNITS = {握力:'kg',上体起こし:'回',長座体前屈:'cm',反復横とび:'点',シャトルラン:'回','50m走':'秒',立ち幅とび:'cm',ソフトボール投:'m'};
-const EVENT_HINTS = {握力:'左右平均',上体起こし:'30秒',長座体前屈:'2回良',反復横とび:'2回良',シャトルラン:'折返し','50m走':'切上',立ち幅とび:'2回良',ソフトボール投:'2回良'};
+const EVENT_HINTS = {握力:'左右入力',上体起こし:'30秒',長座体前屈:'2回良',反復横とび:'2回良',シャトルラン:'折返し','50m走':'切上',立ち幅とび:'2回良',ソフトボール投:'2回良'};
 
 // ============================================================
 // ▼▼▼ 状態管理
@@ -555,7 +555,12 @@ function renderInputGrid(){
   let html='<div class="student-grid"><table class="sg-table"><thead><tr>';
   html+='<th style="min-width:28px;">#</th><th style="min-width:80px;">氏名</th>';
   EVENTS.forEach(e=>{
-    html+=`<th class="event-head">${e}<br><span style="font-weight:400;color:var(--text3);">${EVENT_UNITS[e]}</span><br><span style="color:var(--acc-border);font-size:10px;">${EVENT_HINTS[e]}</span></th>`;
+    if(e==='握力'){
+      html+=`<th class="event-head">握力(左)<br><span style="font-weight:400;color:var(--text3);">kg</span></th>`;
+      html+=`<th class="event-head">握力(右)<br><span style="font-weight:400;color:var(--text3);">kg</span></th>`;
+    } else {
+      html+=`<th class="event-head">${e}<br><span style="font-weight:400;color:var(--text3);">${EVENT_UNITS[e]}</span><br><span style="color:var(--acc-border);font-size:10px;">${EVENT_HINTS[e]}</span></th>`;
+    }
   });
   html+='<th>合計<br>点</th><th>評価</th></tr></thead><tbody>';
   let inputIdx=0;
@@ -566,13 +571,35 @@ function renderInputGrid(){
     html+=`<tr><td class="name-cell" style="text-align:center;font-size:11px;color:var(--text3);">${s.id}</td>`;
     html+=`<td class="name-cell">${s.name}<br><span style="font-size:10px;color:var(--text3);">${s.gender||''}</span></td>`;
     EVENTS.forEach(e=>{
-      const step=e==='50m走'?'0.1':'1';
-      const v=rec[e]!==undefined?rec[e]:'';
-      html+=`<td><input type="number" step="${step}" min="0" value="${v}" placeholder="—"
-        data-idx="${inputIdx++}"
-        onchange="setRecord(${s.id},'${e}',this.value)"
-        oninput="setRecord(${s.id},'${e}',this.value)"
-        onkeydown="pfMoveNext(event,this)"></td>`;
+      if(e==='握力'){
+        const vL=rec['握力_左']!==undefined?rec['握力_左']:'';
+        const vR=rec['握力_右']!==undefined?rec['握力_右']:'';
+        html+=`<td>
+          <input type="number" step="0.1" min="0" value="${vL}" placeholder="左"
+            data-idx="${inputIdx++}"
+            style="width:52px;"
+            onchange="setGripRecord(${s.id},'左',this.value)"
+            oninput="setGripRecord(${s.id},'左',this.value)"
+            onkeydown="pfMoveNext(event,this)">
+        </td>`;
+        html+=`<td>
+          <input type="number" step="0.1" min="0" value="${vR}" placeholder="右"
+            data-idx="${inputIdx++}"
+            style="width:52px;"
+            onchange="setGripRecord(${s.id},'右',this.value)"
+            oninput="setGripRecord(${s.id},'右',this.value)"
+            onkeydown="pfMoveNext(event,this)">
+          <div id="avg-grip-${s.id}" style="font-size:10px;color:var(--acc);margin-top:1px;">${rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':''}</div>
+        </td>`;
+      } else {
+        const step=e==='50m走'?'0.1':'1';
+        const v=rec[e]!==undefined?rec[e]:'';
+        html+=`<td><input type="number" step="${step}" min="0" value="${v}" placeholder="—"
+          data-idx="${inputIdx++}"
+          onchange="setRecord(${s.id},'${e}',this.value)"
+          oninput="setRecord(${s.id},'${e}',this.value)"
+          onkeydown="pfMoveNext(event,this)"></td>`;
+      }
     });
     const scoreHtml=total>0?total:'—';
     const evalHtml=ev?`<span class="eval-${ev}">${ev}</span>`:'—';
@@ -600,6 +627,45 @@ function setRecord(id, event, val){
     const eEl=document.getElementById('eval-'+id);
     if(tEl)tEl.textContent=total>0?total:'—';
     if(eEl)eEl.innerHTML=ev?`<span class="eval-${ev}">${ev}</span>`:'—';
+  }
+}
+
+// ============================================================
+// ▼▼▼ 握力左右入力 → 平均計算
+// ============================================================
+function setGripRecord(id, side, val){
+  if(!records[id]){records[id]={};}
+  const n=parseFloat(val);
+  const key = side==='左'?'握力_左':'握力_右';
+  if(val===''||isNaN(n)){
+    delete records[id][key];
+  } else {
+    records[id][key]=n;
+  }
+  const L=records[id]['握力_左'];
+  const R=records[id]['握力_右'];
+  if(L!==undefined&&R!==undefined){
+    records[id]['握力']=parseFloat(((L+R)/2).toFixed(1));
+  } else if(L!==undefined&&R===undefined){
+    records[id]['握力']=L;
+  } else if(R!==undefined&&L===undefined){
+    records[id]['握力']=R;
+  } else {
+    delete records[id]['握力'];
+  }
+  const s=roster.find(r=>r.id===id);
+  if(s){
+    const total=calcTotal(s,records[id]);
+    const ev=calcEval(s,total);
+    const tEl=document.getElementById('total-'+id);
+    const eEl=document.getElementById('eval-'+id);
+    if(tEl)tEl.textContent=total>0?total:'—';
+    if(eEl)eEl.innerHTML=ev?`<span class="eval-${ev}">${ev}</span>`:'—';
+    const avgDiv=document.querySelector(`#avg-grip-${id}`);
+    if(avgDiv){
+      const avg=records[id]['握力'];
+      avgDiv.textContent=avg!==undefined?'平均:'+avg+'kg':'';
+    }
   }
 }
 
@@ -833,7 +899,13 @@ function renderStats(){
 function exportCSV(){
   if(roster.length===0){showToast('⚠️ 名簿がありません');return;}
   let csv='\uFEFF出席番号,氏名,性別,年齢,';
-  EVENTS.forEach(e=>{csv+=e+'('+EVENT_UNITS[e]+'),'+e+'(点),'});
+  EVENTS.forEach(e=>{
+    if(e==='握力'){
+      csv+='握力左(kg),握力右(kg),握力平均(kg),握力(点),';
+    } else {
+      csv+=e+'('+EVENT_UNITS[e]+'),'+e+'(点),';
+    }
+  });
   csv+='合計点,総合評価\n';
   roster.forEach(s=>{
     const rec=records[s.id]||{};
@@ -842,9 +914,17 @@ function exportCSV(){
     const ev=calcEval(s,total);
     csv+=`${s.id},${s.name},${s.gender||''},${s.age||''},`;
     EVENTS.forEach(e=>{
-      const v=rec[e]!==undefined&&rec[e]!==''?rec[e]:'';
-      const pts=(v!=='')?getTableScore(g,e,v):'';
-      csv+=`${v},${pts},`;
+      if(e==='握力'){
+        const vL=rec['握力_左']!==undefined?rec['握力_左']:'';
+        const vR=rec['握力_右']!==undefined?rec['握力_右']:'';
+        const vAvg=rec['握力']!==undefined&&rec['握力']!==''?rec['握力']:'';
+        const pts=(vAvg!=='')?getTableScore(g,'握力',vAvg):'';
+        csv+=`${vL},${vR},${vAvg},${pts},`;
+      } else {
+        const v=rec[e]!==undefined&&rec[e]!==''?rec[e]:'';
+        const pts=(v!=='')?getTableScore(g,e,v):'';
+        csv+=`${v},${pts},`;
+      }
     });
     csv+=`${total||''},${ev||''}\n`;
   });
@@ -1114,9 +1194,9 @@ function drawRadar(values, natValues){
 function pfMoveNext(e, el){
   if(e.key!=='Enter')return;
   e.preventDefault();
-  // data-idx は行×8+列 の通し番号 → 同じ列の次行 = idx + 8
+  // 握力が左右2列になったので合計9列（8種目+左右で+1）
   const idx=parseInt(el.dataset.idx);
-  const cols=8; // 種目数
+  const cols=9; // 握力左右で+1
   const next=document.querySelector(`input[data-idx="${idx+cols}"]`);
   if(next){next.focus();next.select();}
 }

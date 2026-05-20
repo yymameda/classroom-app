@@ -2623,6 +2623,11 @@
                 <!-- カルテ出力センタータブ -->
                 <div id="grd-sub-kartecenter" class="sub-sub">
                     <div style="padding:6px 0 12px;">
+                        <div class="card" style="margin-bottom:12px;border:1.5px solid #E67E22;">
+                            <div style="font-weight:700;font-size:0.95rem;margin-bottom:6px;">🗑️ 漢字再提出の生活記録を一括削除</div>
+                            <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">過去に自動記録された「漢字〇〇再提出」の生活記録を全児童分まとめて削除します</div>
+                            <button onclick="kcDeleteKanjiLifeRecords()" style="width:100%;min-height:44px;font-size:0.9rem;background:#E67E22;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;">🗑️ 一括削除を実行</button>
+                        </div>
                         <div class="card" style="margin-bottom:12px;">
                             <h3 style="font-size:0.92rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--secondary);">👥 出力対象の児童</h3>
                             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
@@ -9484,6 +9489,21 @@
             backBtn2.addEventListener('click', kcCleanup);
             iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', kcCleanup); } catch(e) {} });
         }
+
+        function kcDeleteKanjiLifeRecords() {
+            if (!confirm('全児童の生活記録から「漢字再提出」の自動記録を削除します。\nこの操作は取り消せません。よろしいですか？')) return;
+            var lifeAll = StorageManager.get(KEYS.karte_life, {});
+            var totalDeleted = 0;
+            Object.keys(lifeAll).forEach(function(stuIdx) {
+                var recs = Array.isArray(lifeAll[stuIdx]) ? lifeAll[stuIdx] : [];
+                var before = recs.length;
+                lifeAll[stuIdx] = recs.filter(function(r) { return r.auto !== 'kanji'; });
+                totalDeleted += before - lifeAll[stuIdx].length;
+            });
+            StorageManager.setImmediate(KEYS.karte_life, JSON.stringify(lifeAll));
+            showToast('漢字再提出の記録を ' + totalDeleted + ' 件削除しました', 'success');
+        }
+        window.kcDeleteKanjiLifeRecords = kcDeleteKanjiLifeRecords;
 
         function grdBindEvents() {
             var root = grdGetRoot(); if (!root) return;

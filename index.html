@@ -2546,6 +2546,7 @@
                 <button class="sub-subnav-btn" data-sub="stats"    style="color:#ccc;border-color:#444;white-space:nowrap;">📈 統計</button>
                 <button class="sub-subnav-btn" data-sub="settings" style="color:#ccc;border-color:#444;white-space:nowrap;">⚙️ 閾値</button>
                 <button class="sub-subnav-btn" data-sub="weights"  style="color:#ccc;border-color:#444;white-space:nowrap;">⚖️ 配点</button>
+                <button class="sub-subnav-btn" data-sub="kartecenter" style="color:#ccc;border-color:#444;white-space:nowrap;">📋 カルテ出力センター</button>
             </div>
             <div class="view-content">
 
@@ -2617,6 +2618,40 @@
                         <button id="grdResetWeightsBtn" class="btn-outline" style="padding:7px 14px;">↺ 均等</button>
                     </div>
                     <div id="grdWeightsContent"></div>
+                </div>
+
+                <!-- カルテ出力センタータブ -->
+                <div id="grd-sub-kartecenter" class="sub-sub">
+                    <div style="padding:6px 0 12px;">
+                        <div class="card" style="margin-bottom:12px;">
+                            <h3 style="font-size:0.92rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--secondary);">👥 出力対象の児童</h3>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+                                <button id="kcSelectAll" class="btn-outline" style="padding:5px 12px;font-size:0.82rem;">全員選択</button>
+                                <button id="kcDeselectAll" class="btn-outline" style="padding:5px 12px;font-size:0.82rem;">全て解除</button>
+                                <span id="kcStatusText" style="font-size:0.8rem;color:var(--text-light);margin-left:4px;"></span>
+                            </div>
+                            <div id="kcStudentList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                        </div>
+                        <div class="card" style="margin-bottom:12px;">
+                            <h3 style="font-size:0.92rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--secondary);">📋 出力するセクション</h3>
+                            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_grades" checked> 📈 成績（観点別・評定）</label>
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_attendance" checked> 📅 出欠席</label>
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_life" checked> 📔 生活記録</label>
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_parent"> 👨‍👩‍👧 保護者対応</label>
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_health"> 🏥 身体・配慮</label>
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_learning"> 📖 学習面配慮</label>
+                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_kanji"> ✍️ 漢字チェック</label>
+                            </div>
+                            <div style="padding-top:8px;border-top:1px solid var(--border);">
+                                <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text);">📚 提出物（教科を選択）</div>
+                                <div id="kcSubjectChecks" style="display:flex;flex-wrap:wrap;gap:6px;min-height:24px;"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            <button id="kcPrintBtn" class="btn-primary" style="padding:10px 24px;font-size:0.95rem;background:#1a1a2e;border:none;">🖨️ カルテ出力（PDF）</button>
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -8562,15 +8597,16 @@
         function grdShowSub(name) {
             var root = grdGetRoot(); if (!root) return;
             root.querySelectorAll('.sub-subnav-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.sub === name); });
-            ['overview','grade','karte','stats','settings','weights'].forEach(function(n) {
+            ['overview','grade','karte','stats','settings','weights','kartecenter'].forEach(function(n) {
                 var el = document.getElementById('grd-sub-'+n); if (el) el.classList.toggle('active', n === name);
             });
-            if (name === 'overview')  { grdUpdateSubjectSelects(); grdRenderOverview(); grdRenderDataStatus(); }
-            if (name === 'grade')     { grdUpdateSubjectSelects(); }
-            if (name === 'karte')     { grdUpdateSubjectSelects(); }
-            if (name === 'stats')     { grdUpdateSubjectSelects(); }
-            if (name === 'settings')  { grdRenderSettings(); }
-            if (name === 'weights')   { grdUpdateSubjectSelects(); }
+            if (name === 'overview')    { grdUpdateSubjectSelects(); grdRenderOverview(); grdRenderDataStatus(); }
+            if (name === 'grade')       { grdUpdateSubjectSelects(); }
+            if (name === 'karte')       { grdUpdateSubjectSelects(); }
+            if (name === 'stats')       { grdUpdateSubjectSelects(); }
+            if (name === 'settings')    { grdRenderSettings(); }
+            if (name === 'weights')     { grdUpdateSubjectSelects(); }
+            if (name === 'kartecenter') { grdRenderKarteCenter(); }
         }
 
         // ================================================================
@@ -9080,6 +9116,375 @@
             await universalShare(blob, fileName);
         }
 
+        // ================================================================
+        // 📋 カルテ出力センター
+        // ================================================================
+        function grdRenderKarteCenter() {
+            var students = grdGetStudents();
+            var container = document.getElementById('kcStudentList');
+            if (!container) return;
+            container.innerHTML = students.map(function(s, i) {
+                return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
+                    + '<input type="checkbox" class="kc-student-chk" value="' + i + '" checked>'
+                    + escapeHtml((i + 1) + '. ' + (s.name || ''))
+                    + '</label>';
+            }).join('');
+            var status = document.getElementById('kcStatusText');
+            if (status) status.textContent = students.length + '名が選択されています';
+            container.addEventListener('change', function() {
+                var checked = container.querySelectorAll('.kc-student-chk:checked').length;
+                if (status) status.textContent = checked + '名が選択されています';
+            });
+
+            // 提出物の教科チェックボックスを動的生成
+            var assigns = StorageManager.get(KEYS.submissions_assignments, []);
+            var subjSet = {};
+            assigns.forEach(function(a) { if (a.subject) subjSet[a.subject] = 1; });
+            var subjList = Object.keys(subjSet);
+            var subsContainer = document.getElementById('kcSubjectChecks');
+            if (subsContainer) {
+                if (subjList.length === 0) {
+                    subsContainer.innerHTML = '<span style="font-size:0.8rem;color:var(--text-light);">（課題データなし）</span>';
+                } else {
+                    subsContainer.innerHTML = subjList.map(function(subj) {
+                        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:0.82rem;cursor:pointer;padding:3px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
+                            + '<input type="checkbox" class="kc-subj-chk" value="' + escapeHtml(subj) + '" checked>'
+                            + escapeHtml(subj)
+                            + '</label>';
+                    }).join('');
+                }
+            }
+        }
+
+        function grdKarteCenterSelectAll(checked) {
+            var container = document.getElementById('kcStudentList');
+            if (!container) return;
+            container.querySelectorAll('.kc-student-chk').forEach(function(chk) { chk.checked = checked; });
+            var status = document.getElementById('kcStatusText');
+            if (status) {
+                var cnt = checked ? container.querySelectorAll('.kc-student-chk').length : 0;
+                status.textContent = cnt + '名が選択されています';
+            }
+        }
+
+        function grdPrintKarteCenter() {
+            var selectedIdxs = [];
+            document.querySelectorAll('.kc-student-chk:checked').forEach(function(chk) { selectedIdxs.push(parseInt(chk.value)); });
+            if (!selectedIdxs.length) { showToast('出力する児童を選択してください', 'warning'); return; }
+
+            var secGrades     = !!(document.getElementById('kcSec_grades')     && document.getElementById('kcSec_grades').checked);
+            var secAttendance = !!(document.getElementById('kcSec_attendance') && document.getElementById('kcSec_attendance').checked);
+            var secLife       = !!(document.getElementById('kcSec_life')       && document.getElementById('kcSec_life').checked);
+            var secParent     = !!(document.getElementById('kcSec_parent')     && document.getElementById('kcSec_parent').checked);
+            var secHealth     = !!(document.getElementById('kcSec_health')     && document.getElementById('kcSec_health').checked);
+            var secLearning   = !!(document.getElementById('kcSec_learning')   && document.getElementById('kcSec_learning').checked);
+            var secKanji      = !!(document.getElementById('kcSec_kanji')      && document.getElementById('kcSec_kanji').checked);
+            var selectedSubjects = [];
+            document.querySelectorAll('.kc-subj-chk:checked').forEach(function(chk) { selectedSubjects.push(chk.value); });
+            var secSubmissions = selectedSubjects.length > 0;
+            if (!secGrades && !secAttendance && !secSubmissions && !secLife && !secParent && !secHealth && !secLearning && !secKanji) {
+                showToast('出力するセクションを1つ以上選択してください', 'warning'); return;
+            }
+
+            var masterData  = StorageManager.get(KEYS.master, {});
+            var students    = masterData.students || [];
+            var ci          = masterData.classInfo || {};
+            var attAll      = secAttendance  ? StorageManager.get(KEYS.attendance, {})              : {};
+            var noticeAll   = secAttendance  ? StorageManager.get(KEYS.attendance_notice, {})       : {};
+            var allAssigns  = secSubmissions ? StorageManager.get(KEYS.submissions_assignments, []) : [];
+            var assigns     = secSubmissions ? allAssigns.filter(function(a) { return selectedSubjects.indexOf(a.subject) >= 0; }) : [];
+            var subsData    = secSubmissions ? StorageManager.get(KEYS.submissions_data, [])        : [];
+            var lifeAll     = secLife        ? StorageManager.get(KEYS.karte_life, {})              : {};
+            var parentAll   = secParent      ? StorageManager.get(KEYS.karte_parent, {})            : {};
+            var healthAll   = secHealth      ? StorageManager.get(KEYS.karte_health, {})            : {};
+            var learningAll = secLearning    ? StorageManager.get(KEYS.karte_learning, {})          : {};
+            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { units: [] })        : { units: [] };
+            var subjects    = secGrades      ? grdGetAvailableSubjects()                            : [];
+
+            var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
+            var CARD = 'border:1.5pt solid #ddd;border-radius:8pt;padding:8pt 10pt;margin-bottom:8pt;';
+            var TITLE = 'font-size:8pt;font-weight:700;color:#555;margin-bottom:6pt;';
+            var methodLabels = { phone:'📞 電話', meeting:'🤝 面談', note:'📝 連絡帳', other:'💬 その他' };
+
+            var pages = '';
+            selectedIdxs.forEach(function(idx, pageIdx) {
+                var s = students[idx];
+                if (!s || !s.name) return;
+                var isLast = (pageIdx === selectedIdxs.length - 1);
+                var body = '';
+
+                // 成績セクション
+                if (secGrades && subjects.length) {
+                    var gradeSec = '<div style="' + CARD + '">';
+                    gradeSec += '<div style="' + TITLE + '">📈 成績（観点別評価・評定）</div>';
+                    gradeSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
+                    gradeSec += '<thead><tr style="background:#1a1a2e;color:#fff;">'
+                        + '<th style="padding:3pt 5pt;text-align:left;font-weight:700;">教科</th>'
+                        + '<th style="padding:3pt 5pt;text-align:center;">知識・技能</th>'
+                        + '<th style="padding:3pt 5pt;text-align:center;">思考・判断・表現</th>'
+                        + '<th style="padding:3pt 5pt;text-align:center;">主体的態度</th>'
+                        + '<th style="padding:3pt 5pt;text-align:center;font-weight:900;">評定</th>'
+                        + '</tr></thead><tbody>';
+                    subjects.forEach(function(subj) {
+                        var res; try { res = grdCalculate(subj); } catch(e) { return; }
+                        var sr = res && res.find(function(r) { return r.index === idx; });
+                        if (!sr) return;
+                        var abc = function(v, col) { var c = v==='A'?'#27AE60':v==='B'?'#3498DB':v==='C'?'#E67E22':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+(v||'—')+'</span>'; };
+                        var hy = sr.hyoutei ? '<span style="font-size:10pt;font-weight:900;">' + sr.hyoutei + '</span>' : '—';
+                        gradeSec += '<tr style="border-bottom:1pt solid #eee;">'
+                            + '<td style="padding:3pt 5pt;font-weight:600;">' + escapeHtml(subj) + '</td>'
+                            + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.knowledge.abc) + '<span style="font-size:6.5pt;color:#888;display:block;">' + (sr.knowledge.avg !== null ? sr.knowledge.avg.toFixed(1) + '/10' : '') + '</span></td>'
+                            + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.thinking.abc)  + '<span style="font-size:6.5pt;color:#888;display:block;">' + (sr.thinking.avg  !== null ? sr.thinking.avg.toFixed(1)  + '/10' : '') + '</span></td>'
+                            + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.attitude.abc)  + '<span style="font-size:6.5pt;color:#888;display:block;">' + (sr.attitude.avg  !== null ? sr.attitude.avg.toFixed(1)  + '/10' : '') + '</span></td>'
+                            + '<td style="padding:3pt 5pt;text-align:center;background:#f9f9f9;">' + hy + '</td>'
+                            + '</tr>';
+                    });
+                    gradeSec += '</tbody></table></div>';
+                    body += gradeSec;
+                }
+
+                // 出欠席セクション
+                if (secAttendance) {
+                    var present = 0, absent = 0, late = 0, early = 0;
+                    var attMonths = {};
+                    Object.keys(attAll).forEach(function(dk) {
+                        var st = (attAll[dk] || {})[String(idx)];
+                        if (!st) return;
+                        var mon = dk.slice(0, 7);
+                        if (!attMonths[mon]) attMonths[mon] = { present:0, absent:0, late:0 };
+                        if (st==='○'||st==='チ'||st==='ソ'||st==='チソ') { present++; attMonths[mon].present++; }
+                        if (st==='×'||st==='／') { absent++; attMonths[mon].absent++; }
+                        if (st==='チ'||st==='チソ') { late++; attMonths[mon].late++; }
+                        if (st==='ソ'||st==='チソ') early++;
+                    });
+                    var attSec = '<div style="' + CARD + '">';
+                    attSec += '<div style="' + TITLE + '">📅 出欠席状況</div>';
+                    attSec += '<div style="display:flex;gap:10pt;margin-bottom:6pt;">';
+                    [['出席', present, '#27AE60'],['欠席', absent, '#E74C3C'],['遅刻', late, '#E67E22'],['早退', early, '#E67E22']].forEach(function(col) {
+                        attSec += '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
+                            + '<div style="font-size:6.5pt;color:#777;">' + col[0] + '</div>'
+                            + '<div style="font-size:14pt;font-weight:900;color:' + col[2] + ';">' + col[1] + '</div>'
+                            + '</div>';
+                    });
+                    attSec += '</div>';
+                    var monKeys = Object.keys(attMonths).sort().reverse().slice(0, 6);
+                    if (monKeys.length) {
+                        attSec += '<table style="width:100%;border-collapse:collapse;font-size:7pt;">'
+                            + '<tr style="background:#f4f6f9;"><th style="padding:2pt 4pt;text-align:left;">月</th><th style="padding:2pt 4pt;text-align:right;">出席</th><th style="padding:2pt 4pt;text-align:right;color:#E74C3C;">欠席</th><th style="padding:2pt 4pt;text-align:right;color:#E67E22;">遅刻</th></tr>';
+                        monKeys.forEach(function(mon) {
+                            var p = mon.split('-');
+                            attSec += '<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 4pt;">' + parseInt(p[0]) + '年' + parseInt(p[1]) + '月</td>'
+                                + '<td style="padding:2pt 4pt;text-align:right;">' + attMonths[mon].present + '</td>'
+                                + '<td style="padding:2pt 4pt;text-align:right;color:#E74C3C;">' + attMonths[mon].absent + '</td>'
+                                + '<td style="padding:2pt 4pt;text-align:right;color:#E67E22;">' + attMonths[mon].late + '</td></tr>';
+                        });
+                        attSec += '</table>';
+                    }
+                    attSec += '</div>';
+                    body += attSec;
+                }
+
+                // 提出物セクション（教科絞り込み済み assigns を使用）
+                if (secSubmissions) {
+                    var subOk=0, subRe=0, subMiss=0;
+                    var missList = [];
+                    assigns.forEach(function(a) {
+                        var r = subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
+                        if (r && r.status === 'submitted') { subOk++; }
+                        else if (r && r.status === 'resubmit') { subRe++; missList.push(escapeHtml(a.name) + '（再）'); }
+                        else { subMiss++; missList.push(escapeHtml(a.name)); }
+                    });
+                    var total = assigns.length;
+                    var rate = total > 0 ? Math.round((subOk + subRe) / total * 100) : 0;
+                    var subjectLabel = selectedSubjects.join('・');
+                    var subSec = '<div style="' + CARD + '">';
+                    subSec += '<div style="' + TITLE + '">📚 提出物 — ' + escapeHtml(subjectLabel) + '（' + total + '件）</div>';
+                    subSec += '<div style="display:flex;gap:8pt;margin-bottom:' + (missList.length ? '5pt' : '0') + ';">';
+                    [['提出済', subOk, '#27AE60'],['再提出', subRe, '#B7950B'],['未提出', subMiss, '#E74C3C'],['提出率', rate+'%', '#1565C0']].forEach(function(col) {
+                        subSec += '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
+                            + '<div style="font-size:6.5pt;color:#777;">' + col[0] + '</div>'
+                            + '<div style="font-size:12pt;font-weight:900;color:' + col[2] + ';">' + col[1] + '</div>'
+                            + '</div>';
+                    });
+                    subSec += '</div>';
+                    if (missList.length) {
+                        subSec += '<div style="font-size:7pt;color:#E74C3C;margin-top:3pt;">未・再提出: ' + missList.slice(0, 8).join('、') + (missList.length > 8 ? '…ほか' + (missList.length - 8) + '件' : '') + '</div>';
+                    }
+                    subSec += '</div>';
+                    body += subSec;
+                }
+
+                // 生活記録セクション
+                if (secLife) {
+                    var lifeRecs = Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : [];
+                    var lifeSorted = lifeRecs.slice().sort(function(a, b) { return (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''); });
+                    var lifeSec = '<div style="' + CARD + '">';
+                    lifeSec += '<div style="' + TITLE + '">📔 生活記録（直近5件 / 計' + lifeRecs.length + '件）</div>';
+                    if (lifeSorted.length) {
+                        lifeSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
+                        lifeSorted.slice(0, 5).forEach(function(r) {
+                            lifeSec += '<tr style="border-bottom:1pt solid #eee;">'
+                                + '<td style="padding:2pt 5pt;color:#555;white-space:nowrap;width:70pt;">' + escapeHtml(r.date || '') + '</td>'
+                                + '<td style="padding:2pt 5pt;">' + escapeHtml((r.summary || r.memo || '').slice(0, 100)) + '</td></tr>';
+                        });
+                        lifeSec += '</table>';
+                    } else {
+                        lifeSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
+                    }
+                    lifeSec += '</div>';
+                    body += lifeSec;
+                }
+
+                // 保護者対応セクション
+                if (secParent) {
+                    var parentRecs = Array.isArray(parentAll[String(idx)]) ? parentAll[String(idx)] : [];
+                    var parentSorted = parentRecs.slice().sort(function(a, b) { return (b.datetime || b.date || '').localeCompare(a.datetime || a.date || ''); });
+                    var parentSec = '<div style="' + CARD + '">';
+                    parentSec += '<div style="' + TITLE + '">👨‍👩‍👧 保護者対応（計' + parentRecs.length + '件）</div>';
+                    if (parentSorted.length) {
+                        parentSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
+                        parentSorted.slice(0, 5).forEach(function(r) {
+                            var method = methodLabels[r.method] || r.method || '';
+                            var dateStr = r.datetime ? new Date(r.datetime).toLocaleDateString('ja-JP') : (r.date || '');
+                            parentSec += '<tr style="border-bottom:1pt solid #eee;">'
+                                + '<td style="padding:2pt 5pt;color:#555;white-space:nowrap;width:60pt;">' + escapeHtml(dateStr) + '</td>'
+                                + '<td style="padding:2pt 5pt;white-space:nowrap;">' + method + '</td>'
+                                + '<td style="padding:2pt 5pt;">' + escapeHtml((r.content || '').slice(0, 80)) + '</td></tr>';
+                        });
+                        parentSec += '</table>';
+                    } else {
+                        parentSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
+                    }
+                    parentSec += '</div>';
+                    body += parentSec;
+                }
+
+                // 身体・配慮セクション
+                if (secHealth) {
+                    var hd = (healthAll[String(idx)]) || { allergies:[], medication:'', exerciseLimit:'', familyMemo:'' };
+                    var healthSec = '<div style="' + CARD + '">';
+                    healthSec += '<div style="' + TITLE + '">🏥 身体・配慮</div>';
+                    var hasH = false;
+                    if ((hd.allergies||[]).length) {
+                        healthSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>アレルギー：</b>' + hd.allergies.map(function(a) { return escapeHtml(a); }).join('、') + '</div>';
+                        hasH = true;
+                    }
+                    if (hd.medication) { healthSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>服薬：</b>' + escapeHtml(hd.medication) + '</div>'; hasH = true; }
+                    if (hd.exerciseLimit) { healthSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>運動制限：</b>' + escapeHtml(hd.exerciseLimit) + '</div>'; hasH = true; }
+                    if (hd.familyMemo) { healthSec += '<div style="font-size:7.5pt;"><b>家庭メモ：</b>' + escapeHtml(hd.familyMemo) + '</div>'; hasH = true; }
+                    if (!hasH) healthSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
+                    healthSec += '</div>';
+                    body += healthSec;
+                }
+
+                // 学習面配慮セクション
+                if (secLearning) {
+                    var ld = (learningAll[String(idx)]) || { characteristics:'', readingWriting:'', classroomSupport:'', communication:'', assessment:'', supportKeywords:[] };
+                    var learnSec = '<div style="' + CARD + '">';
+                    learnSec += '<div style="' + TITLE + '">📖 学習面配慮</div>';
+                    var hasL = false;
+                    if ((ld.supportKeywords||[]).length) {
+                        learnSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>支援キーワード：</b>' + ld.supportKeywords.map(function(k) { return escapeHtml(k); }).join(' / ') + '</div>';
+                        hasL = true;
+                    }
+                    if (ld.characteristics) { learnSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>特性：</b>' + escapeHtml(ld.characteristics.slice(0, 120)) + '</div>'; hasL = true; }
+                    if (ld.classroomSupport) { learnSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>授業での配慮：</b>' + escapeHtml(ld.classroomSupport.slice(0, 100)) + '</div>'; hasL = true; }
+                    if (ld.communication) { learnSec += '<div style="font-size:7.5pt;"><b>コミュニケーション：</b>' + escapeHtml(ld.communication.slice(0, 100)) + '</div>'; hasL = true; }
+                    if (!hasL) learnSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
+                    learnSec += '</div>';
+                    body += learnSec;
+                }
+
+                // 漢字チェックセクション
+                if (secKanji) {
+                    var kjUnits = kanjiData.units || [];
+                    var kanjiSec = '<div style="' + CARD + '">';
+                    kanjiSec += '<div style="' + TITLE + '">✍️ 漢字チェック</div>';
+                    if (kjUnits.length) {
+                        kanjiSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">'
+                            + '<thead><tr style="background:#e8f5e9;">'
+                            + '<th style="padding:2pt 5pt;text-align:left;font-weight:700;color:#2E7D32;">単元</th>'
+                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#2E7D32;">文字数</th>'
+                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#27AE60;">○完了</th>'
+                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#F57F17;">△再提出</th>'
+                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#1565C0;">達成率</th>'
+                            + '</tr></thead><tbody>';
+                        kjUnits.forEach(function(unit) {
+                            var chars = unit.chars || [];
+                            var stuChecks = (unit.checks || {})[String(idx)] || {};
+                            var done = 0, retry = 0;
+                            chars.forEach(function(_, ci) {
+                                var v = stuChecks[String(ci)];
+                                if (v === 'o') done++;
+                                else if (v === 'd') retry++;
+                            });
+                            var total = chars.length;
+                            var rate = total > 0 ? Math.round(done / total * 100) : 0;
+                            var rateColor = rate >= 100 ? '#27AE60' : rate >= 80 ? '#1565C0' : '#E67E22';
+                            kanjiSec += '<tr style="border-bottom:1pt solid #eee;">'
+                                + '<td style="padding:2pt 5pt;font-weight:600;">' + escapeHtml(unit.name || '') + '</td>'
+                                + '<td style="padding:2pt 5pt;text-align:right;">' + total + '字</td>'
+                                + '<td style="padding:2pt 5pt;text-align:right;color:#27AE60;font-weight:700;">' + done + '</td>'
+                                + '<td style="padding:2pt 5pt;text-align:right;color:#F57F17;">' + retry + '</td>'
+                                + '<td style="padding:2pt 5pt;text-align:right;font-weight:700;color:' + rateColor + ';">' + rate + '%</td>'
+                                + '</tr>';
+                        });
+                        kanjiSec += '</tbody></table>';
+                    } else {
+                        kanjiSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">データなし</div>';
+                    }
+                    kanjiSec += '</div>';
+                    body += kanjiSec;
+                }
+
+                var pageHtml = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:10mm 12mm;box-sizing:border-box;">'
+                    + '<div style="border-bottom:3pt solid #1a1a2e;padding-bottom:5pt;margin-bottom:8pt;display:flex;justify-content:space-between;align-items:flex-end;">'
+                    + '<div style="font-size:16pt;font-weight:900;color:#1a1a2e;">個人カルテ</div>'
+                    + '<div style="font-size:7.5pt;color:#555;">' + classLabel + '</div>'
+                    + '</div>'
+                    + '<div style="background:#f4f6f9;border-radius:8pt;padding:6pt 10pt;margin-bottom:8pt;display:flex;align-items:center;gap:14pt;">'
+                    + '<span style="font-size:8pt;color:#555;font-weight:700;">番号</span>'
+                    + '<span style="font-size:13pt;font-weight:900;color:#1a1a2e;">' + (idx + 1) + '</span>'
+                    + '<span style="font-size:8pt;color:#555;font-weight:700;">氏名</span>'
+                    + '<span style="font-size:15pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
+                    + '</div>'
+                    + body
+                    + '</div>';
+                pages += pageHtml;
+            });
+
+            if (!pages) { showToast('出力できるデータがありません', 'warning'); return; }
+
+            var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
+                + '@page{size:A4 portrait;margin:0;}'
+                + '*{box-sizing:border-box;margin:0;padding:0;}'
+                + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
+                + '</style></head><body>' + pages + '</body></html>';
+            var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
+            var blobUrl = URL.createObjectURL(blob);
+            var overlay = document.createElement('div');
+            overlay.id = 'po-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
+            var iframe = document.createElement('iframe');
+            iframe.src = blobUrl;
+            iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
+            var printBtn2 = document.createElement('button');
+            printBtn2.textContent = '🖨️ 印刷 / PDF保存';
+            printBtn2.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+            var backBtn2 = document.createElement('button');
+            backBtn2.textContent = '✕ 元の画面に戻る';
+            backBtn2.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+            btnRow.appendChild(printBtn2); btnRow.appendChild(backBtn2);
+            overlay.appendChild(iframe); overlay.appendChild(btnRow);
+            document.body.appendChild(overlay);
+            function kcCleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('po-overlay'); if (ov) ov.remove(); }
+            printBtn2.addEventListener('click', function() { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.open(blobUrl, '_blank'); } });
+            backBtn2.addEventListener('click', kcCleanup);
+            iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', kcCleanup); } catch(e) {} });
+        }
+
         function grdBindEvents() {
             var root = grdGetRoot(); if (!root) return;
             root.querySelectorAll('.sub-subnav-btn').forEach(function(btn) { btn.addEventListener('click', function() { grdShowSub(btn.dataset.sub); }); });
@@ -9096,6 +9501,9 @@
             btn('grdResetWeightsBtn', grdResetWeights);
             btn('grdCSVBtn', grdExportCSV);
             btn('grdExcelBtn', grdExportExcel);
+            btn('kcSelectAll',   function() { grdKarteCenterSelectAll(true); });
+            btn('kcDeselectAll', function() { grdKarteCenterSelectAll(false); });
+            btn('kcPrintBtn',    grdPrintKarteCenter);
         }
 
         // ================================================================

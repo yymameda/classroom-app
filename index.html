@@ -10340,38 +10340,6 @@
             }
             StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
 
-            // △（再提出）になった場合は個人カルテの生活記録に自動記録
-            var val = unit.checks[String(stuIdx)][String(charIdx)];
-            if (val === 'd') {
-                var lifeAll = StorageManager.get(KEYS.karte_life, {});
-                var lifeList = Array.isArray(lifeAll[String(stuIdx)]) ? lifeAll[String(stuIdx)] : [];
-                var today = new Date().toLocaleDateString('sv-SE');
-                var already = lifeList.find(function(r) {
-                    return r.auto === 'kanji' &&
-                           r.kanjiUnit === unitIdx &&
-                           r.kanjiChar === charIdx &&
-                           r.date === today;
-                });
-                if (!already) {
-                    var now = new Date().toISOString();
-                    lifeList.push({
-                        id: Date.now(),
-                        date: today,
-                        categories: ['concern'],
-                        summary: '漢字「' + unit.chars[charIdx] + '」（' + unit.name + '）再提出',
-                        fact: '',
-                        response: '',
-                        impression: '',
-                        auto: 'kanji',
-                        kanjiUnit: unitIdx,
-                        kanjiChar: charIdx,
-                        createdAt: now,
-                        updatedAt: now
-                    });
-                    lifeAll[String(stuIdx)] = lifeList;
-                    StorageManager.setImmediate(KEYS.karte_life, JSON.stringify(lifeAll));
-                }
-            }
             kanjiRender();
         }
 

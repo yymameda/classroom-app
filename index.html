@@ -1335,20 +1335,20 @@
         }
         .sub-diary-card {
             display: flex; flex-direction: column; align-items: center;
-            padding: 5px 3px; border: 1.5px solid var(--border);
-            border-radius: 8px; background: var(--white); gap: 3px; transition: all 0.15s;
-            min-height: 118px; overflow: hidden; cursor: default;
+            padding: 4px 3px; border: 1.5px solid var(--border);
+            border-radius: 8px; background: var(--white); gap: 2px; transition: all 0.15s;
+            overflow: hidden; cursor: default;
         }
         .sub-diary-card.today-has { background: #E8F8EF; border-color: var(--success); border-width: 2px; }
         .sub-diary-header { display: flex; align-items: center; gap: 2px; width: 100%; padding: 0 1px; }
         .sub-diary-num { font-size: 0.55rem; font-weight: 700; color: white; background: var(--primary); width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .sub-diary-name { font-size: 0.6rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-        .sub-diary-info { display: flex; flex-direction: column; align-items: center; gap: 0; width: 100%; }
+        .sub-diary-middle { display: flex; align-items: center; gap: 2px; width: 100%; padding: 0 2px; }
         .sub-diary-disp { width: 44px; min-height: 44px; border-radius: 50%; background: linear-gradient(135deg,#E3F2FD,#BBDEFB); border: 2px solid var(--primary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
         .sub-diary-disp:hover { transform: scale(1.1); }
         .sub-diary-disp-zero { font-size: 0.8rem; color: #ccc; font-weight: 700; }
         .sub-diary-disp-val { font-size: 0.75rem; color: var(--success); font-weight: 700; }
-        .sub-diary-quick { display: flex; gap: 2px; width: 100%; padding: 0 2px; }
+        .sub-diary-quick { display: flex; gap: 2px; flex: 1; }
         .sub-diary-pm { flex: 1; min-height: 44px; border-radius: 5px; border: 1.5px solid var(--border); background: white; font-size: 0.9rem; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
         .sub-diary-pm.plus:hover { background: #E8F8EF; border-color: var(--success); color: var(--success); }
         .sub-diary-pm.minus:hover { background: #FFEBEE; border-color: var(--danger); color: var(--danger); }
@@ -8089,15 +8089,15 @@
                     + '<div class="sub-diary-header">'
                     +   '<span class="sub-diary-num">' + (i + 1) + '</span>'
                     +   '<span class="sub-diary-name" title="' + escapeHtml(stu.name) + '">' + escapeHtml(dispName) + '</span>'
+                    +   '<span class="sub-diary-total-row">累計' + total + '日</span>'
+                    +   '<span class="sub-diary-shortage ' + (isComplete ? 'ok' : 'ng') + '">' + (isComplete ? '✓達成' : '残' + shortage) + '</span>'
                     + '</div>'
-                    + '<div class="sub-diary-disp sub-diary-disp-tap" data-idx="' + i + '" title="+2日">' + dispHtml + '</div>'
-                    + '<div class="sub-diary-info">'
-                    +   '<div class="sub-diary-total-row">累計' + total + '日</div>'
-                    +   '<div class="sub-diary-shortage ' + (isComplete ? 'ok' : 'ng') + '">' + (isComplete ? '✓達成' : '残' + shortage) + '</div>'
-                    + '</div>'
-                    + '<div class="sub-diary-quick">'
-                    +   '<button class="sub-diary-pm minus" data-idx="' + i + '" data-d="-1">−</button>'
-                    +   '<button class="sub-diary-pm plus" data-idx="' + i + '" data-d="1">+1</button>'
+                    + '<div class="sub-diary-middle">'
+                    +   '<div class="sub-diary-disp sub-diary-disp-tap" data-idx="' + i + '" title="+2日">' + dispHtml + '</div>'
+                    +   '<div class="sub-diary-quick">'
+                    +     '<button class="sub-diary-pm minus" data-idx="' + i + '" data-d="-1">−</button>'
+                    +     '<button class="sub-diary-pm plus" data-idx="' + i + '" data-d="1">+1</button>'
+                    +   '</div>'
                     + '</div>';
                 frag.appendChild(card);
             });

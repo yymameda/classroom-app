@@ -2553,6 +2553,15 @@
 
                 <!-- 計算式タブ -->
                 <div id="grd-sub-overview" class="sub-sub active">
+                    <div class="card" style="margin-bottom:12px;">
+                        <div style="font-weight:700;font-size:0.95rem;margin-bottom:6px;">🏃 新体力テスト取込</div>
+                        <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">
+                            pf.html で「SPAに転送」を実行済みの場合、結果を体育「知識・技能」に取り込めます
+                        </div>
+                        <button onclick="grdImportFitnessTest()" class="btn-primary" style="width:100%;min-height:44px;font-size:0.9rem;">
+                            🏃 新体力テストを取り込む
+                        </button>
+                    </div>
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdOverviewSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
                     </div>
@@ -8625,6 +8634,94 @@
 
         // ================================================================
         // サブナビ
+        function grdImportFitnessTest() {
+            var masterData = StorageManager.get(KEYS.master, {});
+            var students = masterData.students || [];
+            var ci = masterData.classInfo || {};
+            var year = ci.year || new Date().getFullYear();
+
+            var pfKey = 'pf_fitness_' + year;
+            var pfData = null;
+            try { pfData = JSON.parse(localStorage.getItem(pfKey)); } catch(e) {}
+            if (!pfData || Object.keys(pfData).length === 0) {
+                showToast('pf_fitness_' + year + ' が見つかりません。pf.html で「SPAに転送」を先に実行してください', 'error');
+                return;
+            }
+
+            var pfRoster = null;
+            try { pfRoster = JSON.parse(localStorage.getItem('pf_roster')); } catch(e) {}
+            if (!pfRoster || !Array.isArray(pfRoster)) {
+                showToast('pf_roster が見つかりません', 'error');
+                return;
+            }
+
+            var idToIndex = {};
+            pfRoster.forEach(function(student) {
+                var name = student.name;
+                var id = student.id;
+                var idx = students.findIndex(function(s) { return s && s.name === name; });
+                if (idx !== -1) idToIndex[id] = idx;
+            });
+
+            function convertEval(e) {
+                if (e === 'A') return 'A';
+                if (e === 'B' || e === 'C' || e === 'D') return 'B';
+                if (e === 'E') return 'C';
+                return 'B';
+            }
+
+            var tests = StorageManager.get(KEYS.tests, []);
+            var testId = null;
+            var existing = tests.find(function(t) {
+                return t.subject === '体育' && t.name === '新体力テスト総合' && t.category === '知識・技能';
+            });
+            if (existing) {
+                testId = existing.id;
+            } else {
+                testId = 'fitness_' + Date.now();
+                tests.push({
+                    id: testId,
+                    subject: '体育',
+                    name: '新体力テスト総合',
+                    category: '知識・技能',
+                    testType: '実技記録',
+                    date: new Date().toLocaleDateString('sv-SE'),
+                    peUnit: '段階'
+                });
+                StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
+            }
+
+            var scores = StorageManager.get(KEYS.scores, []);
+            var matched = 0, unmatched = 0;
+
+            Object.keys(pfData).forEach(function(id) {
+                var idx = idToIndex[id];
+                if (idx === undefined) { unmatched++; return; }
+                var evalVal = convertEval(pfData[id].eval);
+                var existScore = scores.find(function(s) {
+                    return s.testId === testId && s.studentIndex === idx;
+                });
+                if (existScore) {
+                    existScore.score = evalVal;
+                    existScore.peManualABC = evalVal;
+                } else {
+                    scores.push({
+                        testId: testId,
+                        studentIndex: idx,
+                        score: evalVal,
+                        peManualABC: evalVal
+                    });
+                }
+                matched++;
+            });
+
+            if (!confirm(matched + '名のデータを取り込みます（未マッチ：' + unmatched + '名）。よろしいですか？')) return;
+            StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
+            showToast('新体力テスト総合を ' + matched + '名分取り込みました', 'success');
+            grdShowSub('overview');
+        }
+        window.grdImportFitnessTest = grdImportFitnessTest;
+
         // ================================================================
         var grdRoot = null;
         function grdGetRoot() { if (!grdRoot) grdRoot = document.getElementById('view-grades'); return grdRoot; }

@@ -8922,10 +8922,12 @@
             }
 
             function convertEval(e) {
-                if (e === 'A') return 'A';
-                if (e === 'B' || e === 'C' || e === 'D') return 'B';
-                if (e === 'E') return 'C';
-                return 'B';
+                if (e === 'A') return 10;
+                if (e === 'B') return 8;
+                if (e === 'C') return 6;
+                if (e === 'D') return 4;
+                if (e === 'E') return 2;
+                return 6;
             }
 
             var tests = StorageManager.get(KEYS.tests, []);
@@ -8945,9 +8947,9 @@
                     subject: '体育',
                     name: '新体力テスト総合',
                     category: '知識・技能',
-                    testType: '実技記録',
+                    testType: 'まとめテスト',
                     date: new Date().toLocaleDateString('sv-SE'),
-                    peUnit: '回',
+                    maxScore: 10,
                     year: String(year)
                 });
                 StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
@@ -8999,16 +9001,7 @@
                   total += pts;
                 });
                 if (total === 0) return;
-                var evalVal = convertEval(calcPfEval(total));
-                var existScore = scores.find(function(s) {
-                    return s.testId === testId && s.studentIndex === idx;
-                });
-                if (existScore) {
-                    existScore.score = evalVal;
-                    existScore.peManualABC = evalVal;
-                } else {
-                    scores.push({ testId: testId, studentIndex: idx, score: evalVal, peManualABC: evalVal });
-                }
+                scores.push({ testId: testId, studentIndex: idx, score: convertEval(calcPfEval(total)) });
                 matched++;
             });
 

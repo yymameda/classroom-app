@@ -1358,6 +1358,8 @@
         /* 提出物チェック：上部余白削減（修養日誌 1画面表示のため） */
         #view-submissions .view-header { padding: 6px 16px; }
         #view-submissions .sub-subnav { padding: 3px 8px; }
+        #view-grades .view-header { padding: 6px 16px; }
+        #view-grades .sub-subnav { padding: 3px 8px; }
         #sub-sub-diary .sub-input-top { padding: 3px 8px; gap: 4px; }
         #sub-sub-diary .sub-input-top input[type=date] { min-height: 34px; padding: 2px 6px; }
         #sub-sub-diary .sub-input-top input[type=number] { min-height: 34px; padding: 2px 4px; }
@@ -2631,15 +2633,6 @@
 
                 <!-- 計算式タブ -->
                 <div id="grd-sub-overview" class="sub-sub active">
-                    <div class="card" style="margin-bottom:12px;">
-                        <div style="font-weight:700;font-size:0.95rem;margin-bottom:6px;">🏃 新体力テスト取込</div>
-                        <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">
-                            新体力テストタブで入力した記録を体育の知識・技能（新体力テスト総合）として取り込みます
-                        </div>
-                        <button onclick="grdImportFitnessTest()" class="btn-primary" style="width:100%;min-height:44px;font-size:0.9rem;">
-                            🏃 新体力テストを取り込む
-                        </button>
-                    </div>
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdOverviewSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
                     </div>
@@ -3794,6 +3787,7 @@
         if (viewName === 'records' && typeof recOnShowView === 'function') { recOnShowView(); }
         if (viewName === 'kanji' && typeof kanjiInit === 'function') { kanjiInit(); }
         if (viewName === 'pf' && typeof pf_onShowView === 'function') { pf_onShowView(); }
+        if (viewName === 'grades' && typeof grdImportFitnessTest === 'function') { grdImportFitnessTest(); }
     }
 
     // ================================================================
@@ -9008,9 +9002,7 @@
                 matched++;
             });
 
-            if (!confirm(matched + '名のデータを取り込みます（未マッチ：' + unmatched + '名）。よろしいですか？')) return;
             StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
-            showToast('新体力テスト総合を ' + matched + '名分取り込みました', 'success');
             grdUpdateSubjectSelects();
             grdShowSub('overview');
         }

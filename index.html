@@ -2989,10 +2989,6 @@
                         <div class="pf-card-body">
                             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                                 <button class="pf-btn" onclick="pf_exportCSV()">📥 CSV出力</button>
-                                <button class="pf-btn" onclick="pf_transferToSpa()">🔗 spa.htmlに成績転送</button>
-                                <button class="pf-btn" onclick="pf_exportJSON()">📤 JSONバックアップ</button>
-                                <button class="pf-btn" onclick="pf_importJSONClick()">📥 JSON復元</button>
-                                <input type="file" id="pf-jsonFileInput" accept=".json" style="display:none;" onchange="pf_importJSON(event)">
                                 <button class="pf-btn pf-btn-danger" onclick="pf_confirmClearData()">⚠️ 記録データ削除</button>
                             </div>
                         </div>
@@ -12005,51 +12001,10 @@
         showToast('📥 CSV出力しました','success');
     }
 
-    function pf_transferToSpa(){
-        if(pf_roster.length===0){showToast('⚠️ 名簿がありません','warning');return;}
-        try{
-            if(!localStorage.getItem('spa_master')){showToast('⚠️ spa_masterが見つかりません','warning');return;}
-            var transfer={};
-            pf_roster.forEach(function(s){
-                var total=pf_calcTotal(s,pf_records[s.id]||{});var ev=pf_calcEval(s,total);
-                if(total>0){transfer[s.id]={total:total,eval:ev,year:pf_setting.year,detail:Object.fromEntries(PF_EVENTS.map(function(e){return[e,pf_records[s.id]?pf_records[s.id][e]||null:null];}))};}
-            });
-            localStorage.setItem('pf_fitness_'+pf_setting.year,JSON.stringify(transfer));
-            showToast('✅ spa.htmlにデータを転送しました（'+Object.keys(transfer).length+'名分）','success');
-        }catch(e){showToast('⚠️ 転送エラー: '+e.message,'error');}
-    }
 
     function pf_confirmClearData(){
         if(!confirm('記録データをすべて削除しますか？名簿は残ります。\nこの操作は取り消せません。')){return;}
         pf_records={};localStorage.removeItem(pf_storageKey());pf_renderInputGrid();showToast('🗑 記録データを削除しました','success');
-    }
-
-    function pf_exportJSON(){
-        var today=new Date().toISOString().slice(0,10);
-        var data={version:1,exportedAt:new Date().toISOString(),setting:pf_setting,roster:pf_roster,records:pf_records};
-        var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-        a.download='新体力テスト_バックアップ_'+today+'.json';a.click();
-        showToast('📤 JSONバックアップを出力しました','success');
-    }
-
-    function pf_importJSONClick(){var el=document.getElementById('pf-jsonFileInput');if(el){el.value='';el.click();}}
-
-    function pf_importJSON(event){
-        var file=event.target.files[0];if(!file){return;}
-        if(!confirm('現在のデータを上書きします。よろしいですか？')){return;}
-        var reader=new FileReader();
-        reader.onload=function(e){
-            try{
-                var data=JSON.parse(e.target.result);
-                if(data.setting){localStorage.setItem(pf_settingKey(),JSON.stringify(data.setting));}
-                if(data.roster){localStorage.setItem(pf_rosterKey(),JSON.stringify(data.roster));}
-                if(data.records){var year=(data.setting&&data.setting.year)||pf_setting.year;localStorage.setItem('pf_records_'+year,JSON.stringify(data.records));}
-                pf_loadAll();pf_renderInputGrid();
-                showToast('✅ 復元しました（'+(data.roster||[]).length+'名）','success');
-            }catch(err){showToast('⚠️ 復元に失敗しました: '+err.message,'error');}
-        };
-        reader.readAsText(file);
     }
 
     function pf_switchView(id){

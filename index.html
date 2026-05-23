@@ -9009,7 +9009,8 @@
 
             if (!confirm(matched + '名のデータを取り込みます（未マッチ：' + unmatched + '名）。よろしいですか？')) return;
             StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
-            showToast('新体力テスト総合を ' + matched + '名分取り込みました', 'success');
+            showToast('新体力テスト総合を ' + matched + '名分取り込みました（testId: ' + testId + ', scores書込: ' + scores.length + '件）', 'success');
+            grdUpdateSubjectSelects();
             grdShowSub('overview');
         }
         window.grdImportFitnessTest = grdImportFitnessTest;

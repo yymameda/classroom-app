@@ -4601,6 +4601,13 @@
         });
         // 万全のため全localStorageも保存
         backup.rawLocalStorage = StorageManager.exportAll();
+        // pf_*キー（新体力テスト）はStorageManager経由外で書き込まれるため直接追加
+        for (var i = 0; i < localStorage.length; i++) {
+            var pfKey = localStorage.key(i);
+            if (pfKey && pfKey.startsWith('pf_')) {
+                backup.rawLocalStorage[pfKey] = localStorage.getItem(pfKey);
+            }
+        }
         var jsonStr = JSON.stringify(backup, null, 2);
 
         if (useEncryption) {

@@ -8931,12 +8931,15 @@
             var tests = StorageManager.get(KEYS.tests, []);
             var testId = null;
             var existing = tests.find(function(t) {
-                return t.subject === '体育' && t.name === '新体力テスト総合' && t.category === '知識・技能';
+                return t.subject === '体育'
+                    && t.name === '新体力テスト総合'
+                    && t.category === '知識・技能'
+                    && (t.year === String(year) || !t.year);
             });
             if (existing) {
                 testId = existing.id;
             } else {
-                testId = 'fitness_' + Date.now();
+                testId = 'fitness_' + year;
                 tests.push({
                     id: testId,
                     subject: '体育',
@@ -8944,12 +8947,14 @@
                     category: '知識・技能',
                     testType: '実技記録',
                     date: new Date().toLocaleDateString('sv-SE'),
-                    peUnit: '回'
+                    peUnit: '回',
+                    year: String(year)
                 });
                 StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
             }
 
             var scores = StorageManager.get(KEYS.scores, []);
+            scores = scores.filter(function(s) { return s.testId !== testId; });
             var matched = 0, unmatched = 0;
 
             Object.keys(pfRecords).forEach(function(id) {
@@ -9009,7 +9014,7 @@
 
             if (!confirm(matched + '名のデータを取り込みます（未マッチ：' + unmatched + '名）。よろしいですか？')) return;
             StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
-            showToast('新体力テスト総合を ' + matched + '名分取り込みました（testId: ' + testId + ', scores書込: ' + scores.length + '件）', 'success');
+            showToast('新体力テスト総合を ' + matched + '名分取り込みました', 'success');
             grdUpdateSubjectSelects();
             grdShowSub('overview');
         }

@@ -1674,6 +1674,82 @@
             left: 28px;
             z-index: 2;
         }
+
+        /* ========== 新体力テスト (pf) ========== */
+        .pf-subnav{display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;background:white;border-bottom:2px solid var(--border);}
+        .pf-subnav-btn{padding:10px 14px;font-size:13px;color:var(--text-light);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;border-top:none;border-left:none;border-right:none;background:none;font-family:inherit;transition:all .15s;margin-bottom:-2px;}
+        .pf-subnav-btn.active{color:#1a6b4a;border-bottom-color:#1a6b4a;font-weight:600;}
+        .pf-subnav-btn:hover:not(.active){background:rgba(0,0,0,.04);}
+        .pf-sub{display:none;}
+        .pf-sub.active{display:block;}
+        .pf-card{background:white;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;}
+        .pf-card-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+        .pf-card-title{font-size:13px;font-weight:600;color:var(--text);}
+        .pf-card-body{padding:14px 16px;}
+        .pf-form-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+        .pf-form-label{font-size:12px;color:var(--text-light);white-space:nowrap;min-width:80px;}
+        .pf-form-hint{font-size:11px;color:var(--text-light);margin-top:3px;}
+        .pf-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:36px;padding:0 14px;border-radius:8px;font-size:13px;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--text);transition:all .15s;white-space:nowrap;font-weight:500;font-family:inherit;}
+        .pf-btn:hover{background:var(--bg);}
+        .pf-btn:active{transform:scale(.98);}
+        .pf-btn-primary{background:#1a6b4a;border-color:#1a6b4a;color:#fff;}
+        .pf-btn-primary:hover{background:#155c3d;}
+        .pf-btn-sm{height:30px;padding:0 10px;font-size:12px;}
+        .pf-btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+        .pf-info-box{padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.7;margin-bottom:10px;}
+        .pf-info-box.green{background:#e8f5ee;border:1px solid #9fd4bb;color:#0d4a30;}
+        .pf-info-box.blue{background:#e8f0fb;border:1px solid #a8c4f0;color:#0d2e6b;}
+        .pf-info-box.warn{background:#fff3e8;border:1px solid #f0c090;color:#7a3c00;}
+        .pf-input-grid{overflow-x:auto;}
+        .pf-sg-table{border-collapse:collapse;width:100%;min-width:900px;font-size:12px;}
+        .pf-sg-table th{background:var(--bg);color:var(--text-light);font-weight:600;padding:6px;border:1px solid var(--border);text-align:center;position:sticky;top:0;white-space:nowrap;z-index:1;}
+        .pf-sg-table th.pf-event-head{font-size:11px;line-height:1.3;}
+        .pf-sg-table td{border:1px solid var(--border);padding:3px 4px;vertical-align:middle;}
+        .pf-sg-table td.pf-name-cell{padding:4px 8px;white-space:nowrap;font-weight:500;background:var(--bg);}
+        .pf-sg-table td.pf-score-cell{background:#f0fbf6;font-size:12px;font-weight:600;text-align:center;color:#1a6b4a;}
+        .pf-sg-table td.pf-eval-cell{text-align:center;font-weight:700;font-size:13px;}
+        .pf-sg-table input[type=number]{height:28px;padding:0 4px;font-size:12px;text-align:right;border:1px solid var(--border);border-radius:4px;background:white;width:58px;}
+        .pf-sg-table input[type=number]:focus{border-color:#1a6b4a;background:#f0fbf6;outline:none;}
+        .pf-sg-table tr:hover td{background:#fafaf8;}
+        .pf-sg-table tr:hover td.pf-name-cell{background:#f0ede8;}
+        .pf-eval-A{color:#0d7a3e;} .pf-eval-B{color:#1a4a8a;} .pf-eval-C{color:#555;} .pf-eval-D{color:#b85c00;} .pf-eval-E{color:#9a2020;}
+        .pf-result-table{border-collapse:collapse;width:100%;font-size:12px;}
+        .pf-result-table th{background:var(--bg);padding:7px 8px;border:1px solid var(--border);text-align:center;font-weight:600;color:var(--text-light);}
+        .pf-result-table td{padding:6px 8px;border:1px solid var(--border);text-align:center;}
+        .pf-result-table tr:nth-child(even) td{background:var(--bg);}
+        .pf-result-table td.pf-name{text-align:left;font-weight:500;}
+        .pf-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;}
+        .pf-badge-A{background:#d4f0e4;color:#0d7a3e;} .pf-badge-B{background:#d8e8fb;color:#1a4a8a;} .pf-badge-C{background:#e8e6e0;color:#444;} .pf-badge-D{background:#fde8d0;color:#b85c00;} .pf-badge-E{background:#fde0e0;color:#9a2020;}
+        .pf-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px;}
+        .pf-stat-card{background:white;border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center;}
+        .pf-stat-val{font-size:22px;font-weight:700;color:#1a6b4a;}
+        .pf-stat-label{font-size:11px;color:var(--text-light);margin-top:2px;}
+        .pf-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center;}
+        .pf-modal-overlay.show{display:flex;}
+        .pf-modal{background:white;border-radius:16px;padding:20px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+        .pf-modal-title{font-size:15px;font-weight:700;margin-bottom:12px;}
+        .pf-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+        .pf-empty{text-align:center;padding:40px 20px;color:var(--text-light);}
+        .pf-empty-icon{font-size:40px;margin-bottom:12px;}
+        .pf-heat-1{background:#fdeaea;color:#9a2020;} .pf-heat-2{background:#fde8d0;color:#b85c00;} .pf-heat-3{background:#fffbe6;color:#7a6000;} .pf-heat-4{background:#e8f5ee;color:#0d4a30;} .pf-heat-5{background:#d4f0e4;color:#0d7a3e;}
+        .pf-radar-wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;}
+        .pf-radar-canvas-wrap{position:relative;flex:0 0 auto;}
+        .pf-radar-legend{flex:1;min-width:180px;}
+        .pf-radar-legend-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;}
+        .pf-radar-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+        .pf-analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+        @media(max-width:580px){.pf-analysis-grid{grid-template-columns:1fr;}}
+        .pf-strength-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;margin-bottom:4px;}
+        .pf-strength-item.good{background:#e8f5ee;} .pf-strength-item.weak{background:#fdeaea;}
+        .pf-score-pill{display:inline-block;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;text-align:center;line-height:26px;flex-shrink:0;}
+        .pf-pill-10{background:#0d7a3e;color:#fff;} .pf-pill-8{background:#1a6b4a;color:#fff;} .pf-pill-6{background:#5c9a70;color:#fff;} .pf-pill-5{background:#999;color:#fff;} .pf-pill-3{background:#b85c00;color:#fff;} .pf-pill-1{background:#9a2020;color:#fff;}
+        .pf-cmp-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+        .pf-cmp-label{font-size:12px;min-width:90px;color:var(--text-light);}
+        .pf-cmp-bars{flex:1;}
+        .pf-cmp-bar-wrap{display:flex;align-items:center;gap:4px;margin-bottom:3px;}
+        .pf-cmp-bar{height:10px;border-radius:5px;transition:width .4s;}
+        .pf-cmp-bar.cls{background:#1a6b4a;} .pf-cmp-bar.nat{background:var(--border);}
+        .pf-cmp-bar-val{font-size:11px;font-weight:600;min-width:24px;}
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>
@@ -1693,6 +1769,8 @@
         <div class="nav-group-label">【評価】</div>
         <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
+        <div class="nav-group-label">【体育】</div>
+        <button class="nav-btn" data-view="pf" data-tooltip="新体力テスト" id="nav-pf">🏃</button>
         <div class="nav-group-label">【データ】</div>
         <button class="nav-btn" data-view="export" data-tooltip="データ出力" id="nav-export">📤</button>
         <button class="nav-btn" data-action="backup" data-tooltip="バックアップ" id="nav-backup">💾</button>
@@ -2773,6 +2851,156 @@
 
             </div>
         </div>
+
+        <!-- ===== 新体力テスト ===== -->
+        <div id="view-pf" class="view">
+            <div class="view-header" style="background:linear-gradient(135deg,#1a6b4a,#2a8a5a);flex-direction:column;align-items:stretch;padding:0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;">
+                    <h2>🏃 新体力テスト <span id="pf-headerSub" style="font-size:0.72rem;opacity:0.75;font-weight:400;margin-left:8px;"></span></h2>
+                    <div class="hdr-actions">
+                        <button class="hdr-btn" onclick="pf_exportCSV()">📥 CSV</button>
+                        <button class="hdr-btn" onclick="pf_saveAll()">💾 保存</button>
+                    </div>
+                </div>
+                <div class="pf-subnav">
+                    <button class="pf-subnav-btn active" data-pfview="input" onclick="pf_switchView('input')">📝 記録入力</button>
+                    <button class="pf-subnav-btn" data-pfview="result" onclick="pf_switchView('result')">📊 結果一覧</button>
+                    <button class="pf-subnav-btn" data-pfview="analysis" onclick="pf_switchView('analysis')">🎯 個人分析</button>
+                    <button class="pf-subnav-btn" data-pfview="stats" onclick="pf_switchView('stats')">📈 クラス統計</button>
+                    <button class="pf-subnav-btn" data-pfview="settings" onclick="pf_switchView('settings')">⚙️ 設定</button>
+                </div>
+            </div>
+            <div style="padding:12px;max-width:960px;margin:0 auto;">
+
+                <!-- 記録入力 -->
+                <div id="pf-view-input" class="pf-sub active">
+                    <div class="pf-card">
+                        <div class="pf-card-head">
+                            <span class="pf-card-title">記録入力</span>
+                            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+                                <span style="font-size:12px;color:var(--text-light);">表示：</span>
+                                <select id="pf-genderFilter" style="width:80px;height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderInputGrid()">
+                                    <option value="all">全員</option>
+                                    <option value="男">男子</option>
+                                    <option value="女">女子</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pf-card-body">
+                            <div class="pf-info-box green">
+                                <strong>入力のポイント：</strong>握力＝左右それぞれ入力→自動で平均（小数第1位）を計算／50m走＝1/10秒未満<strong>切り上げ</strong>／その他2回試技はよい方を入力。入力後は「💾 保存」を押してください。
+                            </div>
+                            <div id="pf-inputGridWrap">
+                                <div class="pf-empty"><div class="pf-empty-icon">👥</div>まず「⚙️ 設定」タブで名簿を読み込んでください</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 結果一覧 -->
+                <div id="pf-view-result" class="pf-sub">
+                    <div class="pf-card">
+                        <div class="pf-card-head">
+                            <span class="pf-card-title">結果一覧</span>
+                            <div style="margin-left:auto;">
+                                <select id="pf-resultGenderFilter" style="width:80px;height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderResultTable()">
+                                    <option value="all">全員</option>
+                                    <option value="男">男子</option>
+                                    <option value="女">女子</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pf-card-body">
+                            <div id="pf-resultTableWrap"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 個人分析 -->
+                <div id="pf-view-analysis" class="pf-sub">
+                    <div class="pf-card">
+                        <div class="pf-card-head">
+                            <span class="pf-card-title">個人分析</span>
+                            <div style="margin-left:auto;">
+                                <select id="pf-analysisStudent" style="width:160px;height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderAnalysis()">
+                                    <option value="">児童を選択</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pf-card-body" id="pf-analysisContent">
+                            <div class="pf-empty"><div class="pf-empty-icon">🎯</div>上の選択肢から児童を選んでください</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- クラス統計 -->
+                <div id="pf-view-stats" class="pf-sub">
+                    <div id="pf-statsContent"></div>
+                </div>
+
+                <!-- 設定 -->
+                <div id="pf-view-settings" class="pf-sub">
+                    <div class="pf-card">
+                        <div class="pf-card-head"><span class="pf-card-title">名簿の取得</span></div>
+                        <div class="pf-card-body">
+                            <div class="pf-info-box blue">
+                                <strong>同じindex.html環境の場合：</strong>下の「名簿を読み込む」ボタンでlocalStorage（spa_master）を自動取得できます。<br>
+                                <strong>別環境の場合：</strong>「手動入力」で名前・性別を入力してください。
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                                <button class="pf-btn pf-btn-primary" onclick="pf_loadFromSpa()">📂 名簿を読み込む</button>
+                                <button class="pf-btn" onclick="pf_showManualInput()">✏️ 手動入力</button>
+                                <button class="pf-btn" onclick="pf_clearRoster()">🗑 名簿をリセット</button>
+                            </div>
+                            <div id="pf-rosterPreview"></div>
+                        </div>
+                    </div>
+
+                    <div class="pf-card">
+                        <div class="pf-card-head"><span class="pf-card-title">年度・クラス設定</span></div>
+                        <div class="pf-card-body">
+                            <div class="pf-form-row">
+                                <span class="pf-form-label">実施年度</span>
+                                <select id="pf-settingYear" style="width:120px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="pf_saveSetting()">
+                                    <option>2026</option><option>2025</option><option>2027</option>
+                                </select>
+                            </div>
+                            <div class="pf-form-row">
+                                <span class="pf-form-label">学年</span>
+                                <select id="pf-settingGrade" style="width:160px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="pf_saveSetting()">
+                                    <option value="1">1年生（6歳）</option>
+                                    <option value="2">2年生（7歳）</option>
+                                    <option value="3">3年生（8歳）</option>
+                                    <option value="4">4年生（9歳）</option>
+                                    <option value="5" selected>5年生（10歳）</option>
+                                    <option value="6">6年生（11歳）</option>
+                                </select>
+                            </div>
+                            <div class="pf-form-row">
+                                <span class="pf-form-label">クラス名</span>
+                                <input type="text" id="pf-settingClass" placeholder="例：5年つくし組" style="max-width:200px;height:36px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" oninput="pf_saveSetting()">
+                            </div>
+                            <div class="pf-form-hint">学年を設定すると評価基準が切り替わります。年度が変わると記録データも切り替わります。</div>
+                        </div>
+                    </div>
+
+                    <div class="pf-card">
+                        <div class="pf-card-head"><span class="pf-card-title">データ管理</span></div>
+                        <div class="pf-card-body">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <button class="pf-btn" onclick="pf_exportCSV()">📥 CSV出力</button>
+                                <button class="pf-btn" onclick="pf_transferToSpa()">🔗 spa.htmlに成績転送</button>
+                                <button class="pf-btn" onclick="pf_exportJSON()">📤 JSONバックアップ</button>
+                                <button class="pf-btn" onclick="pf_importJSONClick()">📥 JSON復元</button>
+                                <input type="file" id="pf-jsonFileInput" accept=".json" style="display:none;" onchange="pf_importJSON(event)">
+                                <button class="pf-btn pf-btn-danger" onclick="pf_confirmClearData()">⚠️ 記録データ削除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /pf content -->
+        </div><!-- /view-pf -->
     </div>
 
     <!-- バックアップモーダル -->
@@ -2824,6 +3052,19 @@
                     <button class="btn" id="btn-dec-confirm" style="width:100%; background:var(--primary); color:white;">🔓 このパスワードで復元</button>
                 </div>
                 <button class="btn btn-outline" onclick="importBackup()" style="width: 100%;">📤 バックアップから復元</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新体力テスト 手動入力モーダル -->
+    <div class="pf-modal-overlay" id="pf-manualModal">
+        <div class="pf-modal">
+            <div class="pf-modal-title">手動で名簿入力</div>
+            <div class="pf-info-box warn">1行1人で入力。形式：<strong>出席番号,氏名,性別</strong><br>例：1,山田太郎,男　または　氏名のみでも可</div>
+            <textarea id="pf-manualRosterText" style="width:100%;height:160px;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:13px;resize:vertical;font-family:inherit;" placeholder="1,山田太郎,男&#10;2,鈴木花子,女&#10;3,田中一朗,男"></textarea>
+            <div class="pf-modal-actions">
+                <button class="pf-btn" onclick="pf_closeModal('pf-manualModal')">キャンセル</button>
+                <button class="pf-btn pf-btn-primary" onclick="pf_applyManualRoster()">適用</button>
             </div>
         </div>
     </div>
@@ -3556,6 +3797,7 @@
         if (viewName === 'settings') { updateSettingsUI(); }
         if (viewName === 'records' && typeof recOnShowView === 'function') { recOnShowView(); }
         if (viewName === 'kanji' && typeof kanjiInit === 'function') { kanjiInit(); }
+        if (viewName === 'pf' && typeof pf_onShowView === 'function') { pf_onShowView(); }
     }
 
     // ================================================================
@@ -11291,6 +11533,600 @@
         document.getElementById('wipe-confirm-area').style.display = 'none';
     });
     // ▲▲▲ MODULE:WINDOW_EXPORTS ▲▲▲
+
+    // ================================================================
+    // ▼▼▼ 新体力テスト (pf) モジュール
+    // ================================================================
+    const PF_SCORE_TABLES = {
+      男: {
+        握力:          [[26,10],[23,9],[20,8],[17,7],[14,6],[11,5],[9,4],[7,3],[5,2],[0,1]],
+        上体起こし:    [[26,10],[23,9],[20,8],[18,7],[15,6],[12,5],[9,4],[6,3],[3,2],[0,1]],
+        長座体前屈:    [[49,10],[43,9],[38,8],[34,7],[30,6],[27,5],[23,4],[19,3],[15,2],[0,1]],
+        反復横とび:    [[50,10],[46,9],[42,8],[38,7],[34,6],[30,5],[26,4],[22,3],[18,2],[0,1]],
+        シャトルラン:  [[80,10],[69,9],[57,8],[45,7],[33,6],[23,5],[15,4],[10,3],[8,2],[0,1]],
+        立ち幅とび:    [[192,10],[180,9],[168,8],[156,7],[143,6],[130,5],[117,4],[105,3],[93,2],[0,1]],
+        ソフトボール投:[[40,10],[35,9],[30,8],[24,7],[18,6],[13,5],[10,4],[7,3],[5,2],[0,1]],
+      },
+      女: {
+        握力:          [[25,10],[22,9],[19,8],[16,7],[13,6],[11,5],[9,4],[7,3],[4,2],[0,1]],
+        上体起こし:    [[23,10],[20,9],[18,8],[16,7],[14,6],[12,5],[9,4],[6,3],[3,2],[0,1]],
+        長座体前屈:    [[52,10],[46,9],[41,8],[37,7],[33,6],[29,5],[25,4],[21,3],[18,2],[0,1]],
+        反復横とび:    [[47,10],[43,9],[40,8],[36,7],[32,6],[28,5],[25,4],[21,3],[17,2],[0,1]],
+        シャトルラン:  [[64,10],[54,9],[44,8],[35,7],[26,6],[19,5],[14,4],[10,3],[8,2],[0,1]],
+        立ち幅とび:    [[181,10],[170,9],[160,8],[147,7],[134,6],[121,5],[109,4],[98,3],[85,2],[0,1]],
+        ソフトボール投:[[25,10],[21,9],[17,8],[14,7],[11,6],[8,5],[6,4],[5,3],[4,2],[0,1]],
+      }
+    };
+    const PF_SCORE_50M = {
+      男: {80:10,81:9,82:9,83:9,84:9,85:8,86:8,87:8,88:8,89:7,90:7,91:7,92:7,93:7,94:6,95:6,96:6,97:6,98:6,99:6,100:5,101:5,102:5,103:5,104:5,105:5,106:5,107:4,108:4,109:4,110:4,111:4,112:4,113:4,114:4,115:3,116:3,117:3,118:3,119:3,120:3,121:3,122:3,123:2,124:2,125:2,126:2,127:2,128:2,129:2,130:2},
+      女: {83:10,84:9,85:9,86:9,87:9,88:8,89:8,90:8,91:8,92:7,93:7,94:7,95:7,96:7,97:6,98:6,99:6,100:6,101:6,102:6,103:5,104:5,105:5,106:5,107:5,108:5,109:5,110:4,111:4,112:4,113:4,114:4,115:4,116:4,117:3,118:3,119:3,120:3,121:3,122:3,123:3,124:3,125:2,126:2,127:2,128:2,129:2,130:2,131:2,132:2}
+    };
+    const PF_EVAL_TABLE = {
+      6:[39,33,27,22],7:[47,41,34,27],8:[53,46,39,32],
+      9:[59,52,45,38],10:[65,58,50,42],11:[71,63,55,46]
+    };
+    const PF_EVENTS = ['握力','上体起こし','長座体前屈','反復横とび','シャトルラン','50m走','立ち幅とび','ソフトボール投'];
+    const PF_EVENT_UNITS = {握力:'kg',上体起こし:'回',長座体前屈:'cm',反復横とび:'点',シャトルラン:'回','50m走':'秒',立ち幅とび:'cm',ソフトボール投:'m'};
+    const PF_EVENT_HINTS = {握力:'左右入力',上体起こし:'30秒',長座体前屈:'2回良',反復横とび:'2回良',シャトルラン:'折返し','50m走':'切上',立ち幅とび:'2回良',ソフトボール投:'2回良'};
+    const PF_NATIONAL_AVG_SCORE = {
+      男:{握力:6.2,上体起こし:5.8,長座体前屈:5.5,反復横とび:6.8,シャトルラン:5.4,'50m走':6.1,立ち幅とび:5.9,ソフトボール投:6.0},
+      女:{握力:6.0,上体起こし:5.9,長座体前屈:6.2,反復横とび:6.5,シャトルラン:5.1,'50m走':5.8,立ち幅とび:5.7,ソフトボール投:5.2}
+    };
+    const PF_EVENT_COMMENT = {
+      握力:{hi:'握力が高く、筋力の土台が育っています。',lo:'握力（筋力）の強化を意識した運動が効果的です。'},
+      上体起こし:{hi:'体幹・腹筋の筋持久力が優れています。',lo:'体幹トレーニングや腹筋運動の継続が有効です。'},
+      長座体前屈:{hi:'柔軟性が高く、ケガのリスクが低い体です。',lo:'ストレッチの習慣化で柔軟性向上が見込めます。'},
+      反復横とび:{hi:'敏捷性（素早い動き）が発達しています。',lo:'ラダーやサイドステップ練習で改善できます。'},
+      シャトルラン:{hi:'全身持久力（心肺機能）が高水準です。',lo:'持久走や縄跳びで心肺機能を高めましょう。'},
+      '50m走':{hi:'走力・スピードが優れています。',lo:'走フォームの改善やダッシュ練習が有効です。'},
+      立ち幅とび:{hi:'瞬発力・ジャンプ力が高いです。',lo:'スクワットやジャンプ練習で瞬発力を鍛えましょう。'},
+      ソフトボール投:{hi:'投力（腕の振り・体の使い方）が発達しています。',lo:'投げ込み練習やフォーム確認で投力が向上します。'}
+    };
+
+    let pf_roster = [];
+    let pf_records = {};
+    let pf_setting = {year:'2026', className:'', grade:5};
+
+    function pf_gradeToAge(grade){return parseInt(grade)+5;}
+    function pf_storageKey(){return 'pf_records_'+pf_setting.year;}
+    function pf_rosterKey(){return 'pf_roster';}
+    function pf_settingKey(){return 'pf_setting';}
+
+    function pf_loadAll(){
+        try{
+            var s=localStorage.getItem(pf_settingKey());
+            if(s){Object.assign(pf_setting,JSON.parse(s));}
+            var sy=document.getElementById('pf-settingYear');
+            var sg=document.getElementById('pf-settingGrade');
+            var sc=document.getElementById('pf-settingClass');
+            if(sy)sy.value=pf_setting.year;
+            if(sg)sg.value=pf_setting.grade||5;
+            if(sc)sc.value=pf_setting.className||'';
+            var r=localStorage.getItem(pf_rosterKey());
+            if(r){pf_roster=JSON.parse(r);}
+            var d=localStorage.getItem(pf_storageKey());
+            if(d){pf_records=JSON.parse(d);}
+            pf_updateHeaderSub();
+            pf_renderRosterPreview();
+        }catch(e){console.error(e);}
+    }
+
+    function pf_saveSetting(){
+        var sy=document.getElementById('pf-settingYear');
+        var sg=document.getElementById('pf-settingGrade');
+        var sc=document.getElementById('pf-settingClass');
+        pf_setting.year=sy?sy.value:'2026';
+        pf_setting.grade=parseInt(sg?sg.value:'5')||5;
+        pf_setting.className=sc?sc.value:'';
+        localStorage.setItem(pf_settingKey(),JSON.stringify(pf_setting));
+        pf_updateHeaderSub();
+        var d=localStorage.getItem(pf_storageKey());
+        pf_records=d?JSON.parse(d):{};
+    }
+
+    function pf_saveAll(){
+        localStorage.setItem(pf_storageKey(),JSON.stringify(pf_records));
+        localStorage.setItem(pf_rosterKey(),JSON.stringify(pf_roster));
+        showToast('💾 保存しました','success');
+    }
+
+    function pf_updateHeaderSub(){
+        var grade=pf_setting.grade||5;
+        var c=pf_setting.className||(grade+'年生');
+        var el=document.getElementById('pf-headerSub');
+        if(el)el.textContent=c+' '+pf_setting.year+'年度';
+    }
+
+    function pf_loadFromSpa(){
+        try{
+            var raw=localStorage.getItem('spa_master');
+            if(!raw){showToast('⚠️ spa_masterが見つかりません','warning');return;}
+            var md=JSON.parse(raw);
+            if(md.students&&Array.isArray(md.students)){
+                pf_roster=md.students.map(function(s,i){return{id:s.seqNo||s.id||(i+1),name:s.name||s.氏名||'',gender:s.gender||s.性別||'',age:s.age||s.年齢||10};}).filter(function(s){return s.name;});
+            }else if(Array.isArray(md)){
+                pf_roster=md.map(function(s,i){return{id:s.seqNo||s.id||(i+1),name:s.name||'',gender:s.gender||s.性別||'',age:s.age||10};}).filter(function(s){return s.name;});
+            }
+            if(pf_roster.length===0){showToast('⚠️ 名簿データが空です','warning');return;}
+            localStorage.setItem(pf_rosterKey(),JSON.stringify(pf_roster));
+            pf_renderRosterPreview();
+            pf_renderInputGrid();
+            showToast('✅ '+pf_roster.length+'名を読み込みました','success');
+        }catch(e){showToast('⚠️ 読み込みエラー: '+e.message,'error');}
+    }
+
+    function pf_showManualInput(){document.getElementById('pf-manualModal').classList.add('show');}
+    function pf_closeModal(id){var el=document.getElementById(id);if(el)el.classList.remove('show');}
+
+    function pf_applyManualRoster(){
+        var text=document.getElementById('pf-manualRosterText').value.trim();
+        if(!text){return;}
+        var lines=text.split('\n').filter(function(l){return l.trim();});
+        pf_roster=[];
+        lines.forEach(function(line,i){
+            var parts=line.trim().split(/[,，\t]/);
+            var id,name,gender,age;
+            if(parts.length>=3){id=parseInt(parts[0])||i+1;name=parts[1].trim();gender=parts[2].trim();age=parseInt(parts[3])||10;}
+            else if(parts.length===2){id=i+1;name=parts[0].trim();gender=parts[1].trim();age=10;}
+            else{id=i+1;name=parts[0].trim();gender='';age=10;}
+            if(name){pf_roster.push({id:id,name:name,gender:gender,age:age});}
+        });
+        localStorage.setItem(pf_rosterKey(),JSON.stringify(pf_roster));
+        pf_closeModal('pf-manualModal');
+        pf_renderRosterPreview();
+        pf_renderInputGrid();
+        showToast('✅ '+pf_roster.length+'名を登録しました','success');
+    }
+
+    function pf_clearRoster(){
+        if(!confirm('名簿をリセットしますか？記録データは残ります。')){return;}
+        pf_roster=[];
+        localStorage.removeItem(pf_rosterKey());
+        pf_renderRosterPreview();
+        pf_renderInputGrid();
+    }
+
+    function pf_renderRosterPreview(){
+        var el=document.getElementById('pf-rosterPreview');
+        if(!el)return;
+        if(pf_roster.length===0){el.innerHTML='<div style="color:var(--text-light);font-size:12px;">名簿が登録されていません</div>';return;}
+        var male=pf_roster.filter(function(s){return s.gender==='男';}).length;
+        var female=pf_roster.filter(function(s){return s.gender==='女';}).length;
+        el.innerHTML='<div class="pf-info-box green">登録済み：<strong>'+pf_roster.length+'名</strong>（男子 '+male+'名 / 女子 '+female+'名）<br>'+
+            pf_roster.slice(0,5).map(function(s){return escapeHtml(s.name);}).join('、')+(pf_roster.length>5?' …他':'')+'</div>';
+    }
+
+    function pf_renderInputGrid(){
+        var wrap=document.getElementById('pf-inputGridWrap');
+        if(!wrap)return;
+        var gf=document.getElementById('pf-genderFilter');
+        var filterVal=gf?gf.value:'all';
+        var filtered=filterVal==='all'?pf_roster:pf_roster.filter(function(s){return s.gender===filterVal;});
+        if(filtered.length===0){
+            wrap.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">👥</div>名簿が空です。設定タブで名簿を登録してください。</div>';
+            return;
+        }
+        var html='<div class="pf-input-grid"><table class="pf-sg-table"><thead><tr>';
+        html+='<th style="min-width:28px;">#</th><th style="min-width:80px;">氏名</th>';
+        PF_EVENTS.forEach(function(e){
+            if(e==='握力'){
+                html+='<th class="pf-event-head">握力(左)<br><span style="font-weight:400;color:var(--text-light);">kg</span></th>';
+                html+='<th class="pf-event-head">握力(右)<br><span style="font-weight:400;color:var(--text-light);">kg</span></th>';
+            }else{
+                html+='<th class="pf-event-head">'+e+'<br><span style="font-weight:400;color:var(--text-light);">'+PF_EVENT_UNITS[e]+'</span><br><span style="color:#9fd4bb;font-size:10px;">'+PF_EVENT_HINTS[e]+'</span></th>';
+            }
+        });
+        html+='<th>合計<br>点</th><th>評価</th></tr></thead><tbody>';
+        var inputIdx=0;
+        filtered.forEach(function(s){
+            var rec=pf_records[s.id]||{};
+            var total=pf_calcTotal(s,rec);
+            var ev=pf_calcEval(s,total);
+            html+='<tr><td class="pf-name-cell" style="text-align:center;font-size:11px;color:var(--text-light);">'+s.id+'</td>';
+            html+='<td class="pf-name-cell">'+escapeHtml(s.name)+'<br><span style="font-size:10px;color:var(--text-light);">'+(s.gender||'')+'</span></td>';
+            PF_EVENTS.forEach(function(e){
+                if(e==='握力'){
+                    var vL=rec['握力_左']!==undefined?rec['握力_左']:'';
+                    var vR=rec['握力_右']!==undefined?rec['握力_右']:'';
+                    html+='<td><input type="number" step="0.1" min="0" value="'+vL+'" placeholder="左" data-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'左\',this.value)" oninput="pf_setGripRecord('+s.id+',\'左\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="0.1" min="0" value="'+vR+'" placeholder="右" data-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'右\',this.value)" oninput="pf_setGripRecord('+s.id+',\'右\',this.value)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+s.id+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
+                }else{
+                    var step=e==='50m走'?'0.1':'1';
+                    var v=rec[e]!==undefined?rec[e]:'';
+                    html+='<td><input type="number" step="'+step+'" min="0" value="'+v+'" placeholder="—" data-idx="'+(inputIdx++)+'" onchange="pf_setRecord('+s.id+',\''+e+'\',this.value)" oninput="pf_setRecord('+s.id+',\''+e+'\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
+                }
+            });
+            var scoreHtml=total>0?total:'—';
+            var evalHtml=ev?'<span class="pf-eval-'+ev+'">'+ev+'</span>':'—';
+            html+='<td class="pf-score-cell" id="pf-total-'+s.id+'">'+scoreHtml+'</td>';
+            html+='<td class="pf-eval-cell" id="pf-eval-'+s.id+'">'+evalHtml+'</td></tr>';
+        });
+        html+='</tbody></table></div>';
+        wrap.innerHTML=html;
+    }
+
+    function pf_setRecord(id,event,val){
+        if(!pf_records[id]){pf_records[id]={};}
+        var n=parseFloat(val);
+        if(val===''||isNaN(n)){delete pf_records[id][event];}else{pf_records[id][event]=n;}
+        var s=pf_roster.find(function(r){return r.id===id;});
+        if(s){
+            var total=pf_calcTotal(s,pf_records[id]);
+            var ev=pf_calcEval(s,total);
+            var tEl=document.getElementById('pf-total-'+id);
+            var eEl=document.getElementById('pf-eval-'+id);
+            if(tEl)tEl.textContent=total>0?total:'—';
+            if(eEl)eEl.innerHTML=ev?'<span class="pf-eval-'+ev+'">'+ev+'</span>':'—';
+        }
+    }
+
+    function pf_setGripRecord(id,side,val){
+        if(!pf_records[id]){pf_records[id]={};}
+        var n=parseFloat(val);
+        var key=side==='左'?'握力_左':'握力_右';
+        if(val===''||isNaN(n)){delete pf_records[id][key];}else{pf_records[id][key]=n;}
+        var L=pf_records[id]['握力_左'],R=pf_records[id]['握力_右'];
+        if(L!==undefined&&R!==undefined){pf_records[id]['握力']=parseFloat(((L+R)/2).toFixed(1));}
+        else if(L!==undefined){pf_records[id]['握力']=L;}
+        else if(R!==undefined){pf_records[id]['握力']=R;}
+        else{delete pf_records[id]['握力'];}
+        var s=pf_roster.find(function(r){return r.id===id;});
+        if(s){
+            var total=pf_calcTotal(s,pf_records[id]);
+            var ev=pf_calcEval(s,total);
+            var tEl=document.getElementById('pf-total-'+id);
+            var eEl=document.getElementById('pf-eval-'+id);
+            if(tEl)tEl.textContent=total>0?total:'—';
+            if(eEl)eEl.innerHTML=ev?'<span class="pf-eval-'+ev+'">'+ev+'</span>':'—';
+            var avgDiv=document.getElementById('pf-avg-grip-'+id);
+            if(avgDiv){var avg=pf_records[id]['握力'];avgDiv.textContent=avg!==undefined?'平均:'+avg+'kg':'';}
+        }
+    }
+
+    function pf_getTableScore(gender,event,val){
+        if(val===undefined||val===null||val==='')return 0;
+        var v=parseFloat(val);if(isNaN(v))return 0;
+        var g=gender==='女'?'女':'男';
+        if(event==='50m走'){
+            var key=Math.ceil(v*10);var map=PF_SCORE_50M[g];
+            var keys=Object.keys(map).map(Number).sort(function(a,b){return a-b;});
+            for(var i=0;i<keys.length;i++){if(key<=keys[i])return map[keys[i]];}
+            return 1;
+        }
+        var table=PF_SCORE_TABLES[g][event];if(!table)return 0;
+        var intV=Math.floor(v);
+        for(var j=0;j<table.length;j++){if(intV>=table[j][0])return table[j][1];}
+        return 1;
+    }
+
+    function pf_calcTotal(student,rec){
+        if(!rec)return 0;
+        var g=student.gender==='女'?'女':'男';
+        var total=0,cnt=0;
+        PF_EVENTS.forEach(function(e){if(rec[e]!==undefined&&rec[e]!==''){total+=pf_getTableScore(g,e,rec[e]);cnt++;}});
+        return cnt>0?total:0;
+    }
+
+    function pf_calcEval(student,total){
+        if(total===0)return '';
+        var age=pf_gradeToAge(pf_setting.grade||5);
+        var th=PF_EVAL_TABLE[age]||PF_EVAL_TABLE[10];
+        if(total>=th[0])return 'A';if(total>=th[1])return 'B';if(total>=th[2])return 'C';if(total>=th[3])return 'D';return 'E';
+    }
+
+    function pf_renderResultTable(){
+        var wrap=document.getElementById('pf-resultTableWrap');if(!wrap)return;
+        var gf=document.getElementById('pf-resultGenderFilter');
+        var filterVal=gf?gf.value:'all';
+        var filtered=filterVal==='all'?pf_roster:pf_roster.filter(function(s){return s.gender===filterVal;});
+        if(filtered.length===0||pf_roster.length===0){wrap.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">📊</div>データがありません</div>';return;}
+        var html='<div style="overflow-x:auto;"><table class="pf-result-table"><thead><tr><th>#</th><th>氏名</th><th>性</th>';
+        PF_EVENTS.forEach(function(e){html+='<th>'+e+'<br><span style="font-weight:400;font-size:10px;">(点)</span></th>';});
+        html+='<th>合計</th><th>評価</th></tr></thead><tbody>';
+        filtered.forEach(function(s){
+            var rec=pf_records[s.id]||{};var g=s.gender==='女'?'女':'男';
+            var total=pf_calcTotal(s,rec);var ev=pf_calcEval(s,total);
+            html+='<tr><td>'+s.id+'</td><td class="pf-name">'+escapeHtml(s.name)+'</td><td>'+(s.gender||'')+'</td>';
+            PF_EVENTS.forEach(function(e){
+                var v=rec[e];var pts=(v!==undefined&&v!=='')?pf_getTableScore(g,e,v):'';
+                var raw=(v!==undefined&&v!=='')?v:'—';
+                var hc=pts===''?'':pts>=9?'pf-heat-5':pts>=7?'pf-heat-4':pts>=5?'pf-heat-3':pts>=3?'pf-heat-2':'pf-heat-1';
+                html+='<td class="'+hc+'" title="'+raw+PF_EVENT_UNITS[e]+'">'+(pts||'—')+'</td>';
+            });
+            html+='<td><strong>'+(total||'—')+'</strong></td><td><span class="pf-badge pf-badge-'+(ev||'C')+'">'+(ev||'—')+'</span></td></tr>';
+        });
+        html+='</tbody></table></div>';wrap.innerHTML=html;
+    }
+
+    function pf_renderStats(){
+        var el=document.getElementById('pf-statsContent');if(!el)return;
+        var completed=pf_roster.filter(function(s){return pf_records[s.id]&&PF_EVENTS.some(function(e){return pf_records[s.id][e]!==undefined;});});
+        if(completed.length===0){el.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">📈</div>入力データがありません</div>';return;}
+        var evalCount={A:0,B:0,C:0,D:0,E:0},evalM={A:0,B:0,C:0,D:0,E:0},evalF={A:0,B:0,C:0,D:0,E:0};
+        pf_roster.forEach(function(s){
+            var total=pf_calcTotal(s,pf_records[s.id]||{});var ev=pf_calcEval(s,total);
+            if(ev){evalCount[ev]++;if(s.gender==='男')evalM[ev]++;else if(s.gender==='女')evalF[ev]++;}
+        });
+        var eventAvgM={},eventAvgF={};
+        PF_EVENTS.forEach(function(e){
+            var male=[],female=[];
+            pf_roster.forEach(function(s){
+                var rec=pf_records[s.id]||{};
+                if(rec[e]!==undefined&&rec[e]!==''){
+                    var pts=pf_getTableScore(s.gender==='女'?'女':'男',e,rec[e]);
+                    if(s.gender==='男')male.push(pts);else if(s.gender==='女')female.push(pts);
+                }
+            });
+            var avg=function(arr){return arr.length>0?(arr.reduce(function(a,b){return a+b;},0)/arr.length).toFixed(1):null;};
+            eventAvgM[e]=avg(male);eventAvgF[e]=avg(female);
+        });
+        var totals=pf_roster.map(function(s){return pf_calcTotal(s,pf_records[s.id]||{});}).filter(function(t){return t>0;});
+        var avgTotal=totals.length>0?(totals.reduce(function(a,b){return a+b;},0)/totals.length).toFixed(1):0;
+        var avgMArr=pf_roster.filter(function(s){return s.gender==='男';}).map(function(s){return pf_calcTotal(s,pf_records[s.id]||{});}).filter(function(t){return t>0;});
+        var avgFArr=pf_roster.filter(function(s){return s.gender==='女';}).map(function(s){return pf_calcTotal(s,pf_records[s.id]||{});}).filter(function(t){return t>0;});
+        var avgMVal=avgMArr.length?(avgMArr.reduce(function(a,b){return a+b;},0)/avgMArr.length).toFixed(1):'—';
+        var avgFVal=avgFArr.length?(avgFArr.reduce(function(a,b){return a+b;},0)/avgFArr.length).toFixed(1):'—';
+
+        var html='<div class="pf-stat-grid">';
+        html+='<div class="pf-stat-card"><div class="pf-stat-val">'+completed.length+'/'+pf_roster.length+'</div><div class="pf-stat-label">入力完了</div></div>';
+        html+='<div class="pf-stat-card"><div class="pf-stat-val">'+avgTotal+'</div><div class="pf-stat-label">平均合計点</div></div>';
+        html+='<div class="pf-stat-card"><div class="pf-stat-val" style="color:var(--primary);">'+avgMVal+'</div><div class="pf-stat-label">男子平均</div></div>';
+        html+='<div class="pf-stat-card"><div class="pf-stat-val" style="color:#c44569;">'+avgFVal+'</div><div class="pf-stat-label">女子平均</div></div>';
+        ['A','B','C','D','E'].forEach(function(ev){html+='<div class="pf-stat-card"><div class="pf-stat-val pf-eval-'+ev+'">'+evalCount[ev]+'名</div><div class="pf-stat-label">評価'+ev+'</div></div>';});
+        html+='</div>';
+
+        html+='<div class="pf-card"><div class="pf-card-head"><span class="pf-card-title">種目別平均得点（クラス vs 全国参考値）</span></div><div class="pf-card-body">';
+        html+='<div style="display:flex;gap:16px;font-size:11px;color:var(--text-light);margin-bottom:10px;">';
+        html+='<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1a6b4a;margin-right:3px;"></span>男子クラス</span>';
+        html+='<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#c44569;margin-right:3px;"></span>女子クラス</span>';
+        html+='<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--border);margin-right:3px;"></span>全国参考</span></div>';
+        PF_EVENTS.forEach(function(e){
+            var cm=parseFloat(eventAvgM[e]||0),cf=parseFloat(eventAvgF[e]||0);
+            var nm=PF_NATIONAL_AVG_SCORE['男'][e],nf=PF_NATIONAL_AVG_SCORE['女'][e];
+            var diffM=eventAvgM[e]?(cm-nm):null,diffF=eventAvgF[e]?(cf-nf):null;
+            html+='<div style="margin-bottom:12px;">';
+            html+='<div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-light);">'+e+'</div>';
+            html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">';
+            html+='<span style="font-size:11px;min-width:28px;color:var(--primary);">男子</span>';
+            html+='<div style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden;"><div style="width:'+(cm*10)+'%;height:100%;background:#1a6b4a;border-radius:5px;"></div></div>';
+            html+='<span style="font-size:11px;font-weight:600;min-width:32px;color:#1a6b4a;">'+(eventAvgM[e]||'—')+'</span>';
+            html+='<span style="font-size:10px;color:var(--text-light);min-width:28px;">(全'+nm+')</span>';
+            html+='<span style="font-size:11px;font-weight:600;min-width:36px;color:'+(diffM===null?'var(--text-light)':diffM>=0?'#1a6b4a':'var(--danger)')+';">'+(diffM!==null?(diffM>=0?'+':'')+diffM.toFixed(1):'—')+'</span></div>';
+            html+='<div style="display:flex;align-items:center;gap:8px;">';
+            html+='<span style="font-size:11px;min-width:28px;color:#c44569;">女子</span>';
+            html+='<div style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden;"><div style="width:'+(cf*10)+'%;height:100%;background:#c44569;border-radius:5px;"></div></div>';
+            html+='<span style="font-size:11px;font-weight:600;min-width:32px;color:#c44569;">'+(eventAvgF[e]||'—')+'</span>';
+            html+='<span style="font-size:10px;color:var(--text-light);min-width:28px;">(全'+nf+')</span>';
+            html+='<span style="font-size:11px;font-weight:600;min-width:36px;color:'+(diffF===null?'var(--text-light)':diffF>=0?'#1a6b4a':'var(--danger)')+';">'+(diffF!==null?(diffF>=0?'+':'')+diffF.toFixed(1):'—')+'</span></div></div>';
+        });
+        html+='</div></div>';
+
+        html+='<div class="pf-card"><div class="pf-card-head"><span class="pf-card-title">評価分布</span></div><div class="pf-card-body">';
+        html+='<div style="margin-bottom:10px;font-size:12px;font-weight:600;color:var(--text-light);">クラス全体</div>';
+        html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">';
+        var total_ev=Object.values(evalCount).reduce(function(a,b){return a+b;},0);
+        ['A','B','C','D','E'].forEach(function(ev){
+            var n=evalCount[ev];var pct=total_ev>0?Math.round(n/total_ev*100):0;
+            html+='<div style="text-align:center;min-width:54px;"><div style="font-size:24px;font-weight:700;" class="pf-eval-'+ev+'">'+n+'</div>';
+            html+='<span class="pf-badge pf-badge-'+ev+'">'+ev+'</span><div style="font-size:11px;color:var(--text-light);">'+pct+'%</div></div>';
+        });
+        html+='</div><div style="display:flex;gap:24px;flex-wrap:wrap;">';
+        html+='<div><div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--primary);">男子</div><div style="display:flex;gap:8px;">';
+        ['A','B','C','D','E'].forEach(function(ev){html+='<div style="text-align:center;"><div style="font-size:18px;font-weight:700;" class="pf-eval-'+ev+'">'+evalM[ev]+'</div><span class="pf-badge pf-badge-'+ev+'" style="font-size:10px;">'+ev+'</span></div>';});
+        html+='</div></div><div><div style="font-size:12px;font-weight:600;margin-bottom:6px;color:#c44569;">女子</div><div style="display:flex;gap:8px;">';
+        ['A','B','C','D','E'].forEach(function(ev){html+='<div style="text-align:center;"><div style="font-size:18px;font-weight:700;" class="pf-eval-'+ev+'">'+evalF[ev]+'</div><span class="pf-badge pf-badge-'+ev+'" style="font-size:10px;">'+ev+'</span></div>';});
+        html+='</div></div></div></div></div>';
+        el.innerHTML=html;
+    }
+
+    function pf_exportCSV(){
+        if(pf_roster.length===0){showToast('⚠️ 名簿がありません','warning');return;}
+        var csv='﻿出席番号,氏名,性別,年齢,';
+        PF_EVENTS.forEach(function(e){
+            if(e==='握力'){csv+='握力左(kg),握力右(kg),握力平均(kg),握力(点),';}
+            else{csv+=e+'('+PF_EVENT_UNITS[e]+'),'+e+'(点),';}
+        });
+        csv+='合計点,総合評価\n';
+        pf_roster.forEach(function(s){
+            var rec=pf_records[s.id]||{};var g=s.gender==='女'?'女':'男';
+            var total=pf_calcTotal(s,rec);var ev=pf_calcEval(s,total);
+            csv+=s.id+','+s.name+','+(s.gender||'')+','+(s.age||'')+',';
+            PF_EVENTS.forEach(function(e){
+                if(e==='握力'){
+                    var vL=rec['握力_左']!==undefined?rec['握力_左']:'';var vR=rec['握力_右']!==undefined?rec['握力_右']:'';
+                    var vAvg=rec['握力']!==undefined&&rec['握力']!==''?rec['握力']:'';
+                    csv+=vL+','+vR+','+vAvg+','+(vAvg!==''?pf_getTableScore(g,'握力',vAvg):'')+',';
+                }else{
+                    var v=rec[e]!==undefined&&rec[e]!==''?rec[e]:'';
+                    csv+=v+','+(v!==''?pf_getTableScore(g,e,v):'')+',';
+                }
+            });
+            csv+=(total||'')+','+(ev||'')+'\n';
+        });
+        var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+        a.download='新体力テスト_'+(pf_setting.className||'クラス')+'_'+pf_setting.year+'.csv';a.click();
+        showToast('📥 CSV出力しました','success');
+    }
+
+    function pf_transferToSpa(){
+        if(pf_roster.length===0){showToast('⚠️ 名簿がありません','warning');return;}
+        try{
+            if(!localStorage.getItem('spa_master')){showToast('⚠️ spa_masterが見つかりません','warning');return;}
+            var transfer={};
+            pf_roster.forEach(function(s){
+                var total=pf_calcTotal(s,pf_records[s.id]||{});var ev=pf_calcEval(s,total);
+                if(total>0){transfer[s.id]={total:total,eval:ev,year:pf_setting.year,detail:Object.fromEntries(PF_EVENTS.map(function(e){return[e,pf_records[s.id]?pf_records[s.id][e]||null:null];}))};}
+            });
+            localStorage.setItem('pf_fitness_'+pf_setting.year,JSON.stringify(transfer));
+            showToast('✅ spa.htmlにデータを転送しました（'+Object.keys(transfer).length+'名分）','success');
+        }catch(e){showToast('⚠️ 転送エラー: '+e.message,'error');}
+    }
+
+    function pf_confirmClearData(){
+        if(!confirm('記録データをすべて削除しますか？名簿は残ります。\nこの操作は取り消せません。')){return;}
+        pf_records={};localStorage.removeItem(pf_storageKey());pf_renderInputGrid();showToast('🗑 記録データを削除しました','success');
+    }
+
+    function pf_exportJSON(){
+        var today=new Date().toISOString().slice(0,10);
+        var data={version:1,exportedAt:new Date().toISOString(),setting:pf_setting,roster:pf_roster,records:pf_records};
+        var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+        a.download='新体力テスト_バックアップ_'+today+'.json';a.click();
+        showToast('📤 JSONバックアップを出力しました','success');
+    }
+
+    function pf_importJSONClick(){var el=document.getElementById('pf-jsonFileInput');if(el){el.value='';el.click();}}
+
+    function pf_importJSON(event){
+        var file=event.target.files[0];if(!file){return;}
+        if(!confirm('現在のデータを上書きします。よろしいですか？')){return;}
+        var reader=new FileReader();
+        reader.onload=function(e){
+            try{
+                var data=JSON.parse(e.target.result);
+                if(data.setting){localStorage.setItem(pf_settingKey(),JSON.stringify(data.setting));}
+                if(data.roster){localStorage.setItem(pf_rosterKey(),JSON.stringify(data.roster));}
+                if(data.records){var year=(data.setting&&data.setting.year)||pf_setting.year;localStorage.setItem('pf_records_'+year,JSON.stringify(data.records));}
+                pf_loadAll();pf_renderInputGrid();
+                showToast('✅ 復元しました（'+(data.roster||[]).length+'名）','success');
+            }catch(err){showToast('⚠️ 復元に失敗しました: '+err.message,'error');}
+        };
+        reader.readAsText(file);
+    }
+
+    function pf_switchView(id){
+        document.querySelectorAll('.pf-subnav-btn').forEach(function(t){t.classList.remove('active');});
+        document.querySelectorAll('.pf-sub').forEach(function(v){v.classList.remove('active');});
+        var target=document.getElementById('pf-view-'+id);if(target)target.classList.add('active');
+        var btn=document.querySelector('[data-pfview="'+id+'"]');if(btn)btn.classList.add('active');
+        if(id==='result')pf_renderResultTable();
+        if(id==='stats')pf_renderStats();
+        if(id==='input')pf_renderInputGrid();
+        if(id==='analysis'){pf_populateAnalysisSelect();pf_renderAnalysis();}
+    }
+
+    function pf_populateAnalysisSelect(){
+        var sel=document.getElementById('pf-analysisStudent');if(!sel)return;
+        var cur=sel.value;
+        sel.innerHTML='<option value="">児童を選択</option>';
+        pf_roster.forEach(function(s){
+            var opt=document.createElement('option');opt.value=s.id;opt.textContent=s.name+(s.gender?' ('+s.gender+')':'');sel.appendChild(opt);
+        });
+        if(cur)sel.value=cur;
+    }
+
+    function pf_renderAnalysis(){
+        var sel=document.getElementById('pf-analysisStudent');
+        var sid=sel?parseInt(sel.value):0;
+        var el=document.getElementById('pf-analysisContent');if(!el)return;
+        if(!sid){el.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">🎯</div>上の選択肢から児童を選んでください</div>';return;}
+        var s=pf_roster.find(function(r){return r.id===sid;});
+        if(!s){el.innerHTML='<div class="pf-empty">データなし</div>';return;}
+        var rec=pf_records[s.id]||{};var g=s.gender==='女'?'女':'男';
+        var total=pf_calcTotal(s,rec);var ev=pf_calcEval(s,total);
+        var scores=PF_EVENTS.map(function(e){return{e:e,pts:(rec[e]!==undefined&&rec[e]!=='')?pf_getTableScore(g,e,rec[e]):null,val:rec[e]};});
+        var filledScores=scores.filter(function(x){return x.pts!==null;});
+        var natAvg=PF_NATIONAL_AVG_SCORE[g];
+        var sorted=filledScores.slice().sort(function(a,b){return b.pts-a.pts;});
+        var strengths=sorted.slice(0,3);var weaknesses=sorted.slice().reverse().slice(0,3);
+
+        var html='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">';
+        html+='<div style="font-size:18px;font-weight:700;">'+escapeHtml(s.name)+'</div>';
+        html+='<div style="font-size:12px;color:var(--text-light);">'+(s.gender||'')+'・'+(s.age||'')+'歳</div>';
+        html+='<div style="margin-left:auto;display:flex;gap:10px;align-items:baseline;">';
+        html+='<span style="font-size:28px;font-weight:700;color:#1a6b4a;">'+(total||'—')+'</span>';
+        html+='<span style="font-size:13px;color:var(--text-light);">点</span>';
+        html+='<span class="pf-badge pf-badge-'+(ev||'C')+'" style="font-size:14px;padding:4px 12px;">'+(ev||'—')+'</span></div></div>';
+
+        html+='<div class="pf-radar-wrap"><div class="pf-radar-canvas-wrap"><canvas id="pf-radarCanvas" width="260" height="260"></canvas></div>';
+        html+='<div class="pf-radar-legend">';
+        html+='<div class="pf-radar-legend-row"><div class="pf-radar-dot" style="background:rgba(26,107,74,.85);"></div><span style="font-weight:600;">'+escapeHtml(s.name)+'</span></div>';
+        html+='<div class="pf-radar-legend-row"><div class="pf-radar-dot" style="background:rgba(100,100,100,.4);"></div><span style="color:var(--text-light);">全国平均（同学年参考）</span></div>';
+        html+='<div style="margin-top:10px;">';
+        scores.forEach(function(item){
+            var pct=item.pts!==null?item.pts:0;
+            var pillClass=pct>=9?'pf-pill-10':pct>=7?'pf-pill-8':pct>=6?'pf-pill-6':pct>=5?'pf-pill-5':pct>=3?'pf-pill-3':'pf-pill-1';
+            html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;">';
+            html+='<span class="pf-score-pill '+pillClass+'">'+(item.pts!==null?item.pts:'—')+'</span>';
+            html+='<span style="color:var(--text-light);">'+item.e+'</span></div>';
+        });
+        html+='</div></div></div>';
+
+        html+='<div class="pf-analysis-grid" style="margin-top:14px;">';
+        html+='<div><div style="font-size:12px;font-weight:600;margin-bottom:6px;color:#1a6b4a;">🌟 得意な種目</div>';
+        strengths.forEach(function(item){
+            html+='<div class="pf-strength-item good"><span class="pf-score-pill pf-pill-'+(item.pts>=8?'8':item.pts>=6?'6':'5')+'">'+item.pts+'</span>';
+            html+='<div><div style="font-weight:600;">'+item.e+'</div><div style="color:var(--text-light);font-size:11px;">'+PF_EVENT_COMMENT[item.e].hi+'</div></div></div>';
+        });
+        html+='</div><div><div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--danger);">📌 伸びしろの種目</div>';
+        weaknesses.forEach(function(item){
+            html+='<div class="pf-strength-item weak"><span class="pf-score-pill pf-pill-'+(item.pts<=3?'1':'3')+'">'+item.pts+'</span>';
+            html+='<div><div style="font-weight:600;">'+item.e+'</div><div style="color:var(--text-light);font-size:11px;">'+PF_EVENT_COMMENT[item.e].lo+'</div></div></div>';
+        });
+        html+='</div></div>';
+
+        html+='<div class="pf-card" style="margin-top:12px;"><div class="pf-card-head"><span class="pf-card-title">全国平均との比較</span></div><div class="pf-card-body">';
+        PF_EVENTS.forEach(function(e){
+            var item=filledScores.find(function(x){return x.e===e;});
+            var pts=item?item.pts:null;var nat=natAvg[e];
+            if(pts===null||pts===undefined){html+='<div class="pf-cmp-row"><span class="pf-cmp-label">'+e+'</span><span style="font-size:11px;color:var(--text-light);">未入力</span></div>';return;}
+            var clsPct=pts/10*100;var natPct=nat/10*100;var diff=pts-nat;
+            var diffStr=diff>=0?'+'+diff.toFixed(1):diff.toFixed(1);
+            var diffColor=diff>=1?'#1a6b4a':diff<=-1?'var(--danger)':'var(--text-light)';
+            html+='<div class="pf-cmp-row"><span class="pf-cmp-label">'+e+'</span>';
+            html+='<div class="pf-cmp-bars">';
+            html+='<div class="pf-cmp-bar-wrap"><div class="pf-cmp-bar cls" style="width:'+clsPct+'%;"></div><span class="pf-cmp-bar-val" style="color:#1a6b4a;">'+pts+'pt</span></div>';
+            html+='<div class="pf-cmp-bar-wrap"><div class="pf-cmp-bar nat" style="width:'+natPct+'%;"></div><span class="pf-cmp-bar-val" style="color:var(--text-light);">'+nat+'pt</span></div>';
+            html+='</div><span style="font-size:12px;font-weight:700;min-width:36px;text-align:right;color:'+diffColor+';">'+diffStr+'</span></div>';
+        });
+        html+='</div></div>';
+        el.innerHTML=html;
+        pf_drawRadar(scores.map(function(x){return x.pts||0;}),PF_EVENTS.map(function(e){return natAvg[e]||5;}));
+    }
+
+    function pf_drawRadar(values,natValues){
+        var canvas=document.getElementById('pf-radarCanvas');if(!canvas)return;
+        var ctx=canvas.getContext('2d');
+        var W=260,H=260,cx=130,cy=130,r=100,n=PF_EVENTS.length;
+        ctx.clearRect(0,0,W,H);
+        var angle=function(i){return(-Math.PI/2)+(2*Math.PI/n)*i;};
+        var pt=function(i,val){var a=angle(i);var d=r*(val/10);return{x:cx+d*Math.cos(a),y:cy+d*Math.sin(a)};};
+        for(var lv=2;lv<=10;lv+=2){
+            ctx.beginPath();
+            for(var i=0;i<n;i++){var p=pt(i,lv);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);}
+            ctx.closePath();ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=lv===10?1.5:0.8;ctx.stroke();
+        }
+        for(var i=0;i<n;i++){var p=pt(i,10);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p.x,p.y);ctx.strokeStyle='rgba(0,0,0,.1)';ctx.lineWidth=0.8;ctx.stroke();}
+        ctx.beginPath();
+        for(var i=0;i<n;i++){var p=pt(i,natValues[i]);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);}
+        ctx.closePath();ctx.fillStyle='rgba(150,150,150,.18)';ctx.fill();ctx.strokeStyle='rgba(120,120,120,.5)';ctx.lineWidth=1.5;ctx.stroke();
+        ctx.beginPath();
+        for(var i=0;i<n;i++){var p=pt(i,Math.max(0.5,values[i]));if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);}
+        ctx.closePath();ctx.fillStyle='rgba(26,107,74,.25)';ctx.fill();ctx.strokeStyle='rgba(26,107,74,.9)';ctx.lineWidth=2;ctx.stroke();
+        values.forEach(function(v,i){
+            if(v<=0)return;var p=pt(i,v);
+            ctx.beginPath();ctx.arc(p.x,p.y,4,0,2*Math.PI);ctx.fillStyle='#1a6b4a';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+        });
+        var shortLabel={握力:'握力',上体起こし:'上体起',長座体前屈:'長座',反復横とび:'反復',シャトルラン:'シャトル','50m走':'50m',立ち幅とび:'立ち幅',ソフトボール投:'投げ'};
+        ctx.font='bold 10px sans-serif';ctx.fillStyle='#444';ctx.textAlign='center';
+        for(var i=0;i<n;i++){var a=angle(i);ctx.fillText(shortLabel[PF_EVENTS[i]]||PF_EVENTS[i],cx+(r+18)*Math.cos(a),cy+(r+18)*Math.sin(a)+4);}
+    }
+
+    function pfMoveNext(e,el){
+        if(e.key!=='Enter')return;e.preventDefault();
+        var idx=parseInt(el.dataset.idx);
+        var next=document.querySelector('input[data-idx="'+(idx+9)+'"]');
+        if(next){next.focus();next.select();}
+    }
+
+    function pf_onShowView(){
+        pf_loadAll();
+        pf_renderInputGrid();
+        pf_populateAnalysisSelect();
+    }
+    // ▲▲▲ 新体力テスト (pf) モジュール ▲▲▲
 
     </script>
 

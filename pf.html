@@ -324,6 +324,9 @@ canvas.radar{display:block;}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn" onclick="exportCSV()">📥 CSV出力</button>
         <button class="btn" onclick="transferToSpa()">🔗 spa.htmlに成績転送</button>
+        <button class="btn" onclick="exportJSON()">📤 JSONバックアップ</button>
+        <button class="btn" onclick="importJSONClick()">📥 JSON復元</button>
+        <input type="file" id="jsonFileInput" accept=".json" style="display:none;" onchange="importJSON(event)">
         <button class="btn btn-danger" onclick="confirmClearData()">⚠️ 記録データ削除</button>
       </div>
     </div>
@@ -930,6 +933,57 @@ function confirmClearData(){
   localStorage.removeItem(storageKey());
   renderInputGrid();
   showToast('🗑 記録データを削除しました');
+}
+
+// ============================================================
+// ▼▼▼ JSONバックアップ・復元
+// ============================================================
+function exportJSON(){
+  const today=new Date().toISOString().slice(0,10);
+  const data={
+    version:1,
+    exportedAt:new Date().toISOString(),
+    setting:setting,
+    roster:roster,
+    records:records
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`新体力テスト_バックアップ_${today}.json`;
+  a.click();
+  showToast('📤 JSONバックアップを出力しました');
+}
+
+function importJSONClick(){
+  document.getElementById('jsonFileInput').value='';
+  document.getElementById('jsonFileInput').click();
+}
+
+function importJSON(event){
+  const file=event.target.files[0];
+  if(!file){return;}
+  if(!confirm('現在のデータを上書きします。よろしいですか？')){return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      if(data.setting){localStorage.setItem(settingKey(),JSON.stringify(data.setting));}
+      if(data.roster){localStorage.setItem(rosterKey(),JSON.stringify(data.roster));}
+      if(data.records){
+        // バックアップ時点のyearキーで保存
+        const year=(data.setting&&data.setting.year)||setting.year;
+        localStorage.setItem('pf_records_'+year,JSON.stringify(data.records));
+      }
+      loadAll();
+      renderInputGrid();
+      const count=(data.roster||[]).length;
+      showToast(`✅ 復元しました（${count}名）`,3000);
+    }catch(err){
+      showToast('⚠️ 復元に失敗しました: '+err.message,4000);
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ============================================================

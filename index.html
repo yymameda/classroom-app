@@ -1767,6 +1767,9 @@
         .audit-status-error{color:#e74c3c;}
         .audit-status-info {color:#3498db;}
         .audit-copy-buttons{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;}
+        .audit-detail-block{margin-top:4px;}
+        .audit-detail-block summary{cursor:pointer;font-size:0.85em;color:#3498db;}
+        .audit-detail-body{margin:6px 0 0 8px;font-size:0.85em;}
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>
@@ -11234,7 +11237,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.7.60';
+        var _VER = 'v1.7.61';
 
         // ----------------------------------------------------------------
         // データ収集関数
@@ -11269,6 +11272,28 @@
                 if (Array.isArray(arr)) karteLifeCount += arr.length;
             });
 
+            var patrolBySubject = {};
+            var patrolStudentCovered = {};
+            var patrolDateCovered = {};
+            (Array.isArray(patrol) ? patrol : []).forEach(function(p) {
+                var subj = p.subject || '(未設定)';
+                patrolBySubject[subj] = (patrolBySubject[subj] || 0) + 1;
+                if (typeof p.studentIndex === 'number') patrolStudentCovered[p.studentIndex] = true;
+                if (p.date) patrolDateCovered[p.date] = true;
+            });
+            var patrolDates = Object.keys(patrolDateCovered).sort();
+            var patrolBreakdown = {
+                bySubject:       patrolBySubject,
+                studentsCovered: Object.keys(patrolStudentCovered).length,
+                totalStudents:   master.students.length,
+                coveragePct:     master.students.length > 0
+                    ? (Object.keys(patrolStudentCovered).length / master.students.length * 100).toFixed(1)
+                    : '0.0',
+                daysCount:  patrolDates.length,
+                dateFirst:  patrolDates.length > 0 ? patrolDates[0] : null,
+                dateLast:   patrolDates.length > 0 ? patrolDates[patrolDates.length - 1] : null
+            };
+
             return {
                 studentCount:    master.students.length,
                 testCount:       tests.length,
@@ -11277,6 +11302,7 @@
                 assignmentCount: assignments.length,
                 submissionCount: subs.length,
                 patrolCount:     Array.isArray(patrol) ? patrol.length : 0,
+                patrolBreakdown: patrolBreakdown,
                 karteRecCount:   Array.isArray(karteRecs) ? karteRecs.length : 0,
                 karteLifeCount:  karteLifeCount,
                 attendanceDays:  Object.keys(att).length,
@@ -11391,6 +11417,21 @@
                 return t.type !== 'matome' && (!t.maxScore || t.maxScore <= 0);
             }).length;
 
+            // maxScore 欠損の testType × subject 内訳
+            var maxScoreEmptyMap = {};
+            tests.filter(function(t) {
+                return t.type !== 'matome' && (!t.maxScore || t.maxScore <= 0);
+            }).forEach(function(t) {
+                var key = (t.testType || '(未設定)') + '|' + (t.subject || '(未設定)');
+                maxScoreEmptyMap[key] = (maxScoreEmptyMap[key] || 0) + 1;
+            });
+            var maxScoreEmptyBreakdown = Object.keys(maxScoreEmptyMap)
+                .map(function(key) {
+                    var parts = key.split('|');
+                    return { testType: parts[0], subject: parts[1], count: maxScoreEmptyMap[key] };
+                })
+                .sort(function(a, b) { return b.count - a.count; });
+
             // まとめテスト × matome_questions 対応
             var matomeTests = tests.filter(function(t) { return t.type === 'matome'; });
             var matomeNoQ = matomeTests.filter(function(t) {
@@ -11399,16 +11440,17 @@
             }).length;
 
             return {
-                testIdDups:       testIdDups,
-                scoreOrphans:     scoreOrphans,
-                studentIndexOver: studentIndexOver,
-                studentCount:     studentCount,
-                assignIdDups:     assignIdDups,
-                subOrphans:       subOrphans,
-                categoryMissing:  categoryMissing,
-                maxScoreMissing:  maxScoreMissing,
-                matomeTotal:      matomeTests.length,
-                matomeNoQ:        matomeNoQ
+                testIdDups:             testIdDups,
+                scoreOrphans:           scoreOrphans,
+                studentIndexOver:       studentIndexOver,
+                studentCount:           studentCount,
+                assignIdDups:           assignIdDups,
+                subOrphans:             subOrphans,
+                categoryMissing:        categoryMissing,
+                maxScoreMissing:        maxScoreMissing,
+                maxScoreEmptyBreakdown: maxScoreEmptyBreakdown,
+                matomeTotal:            matomeTests.length,
+                matomeNoQ:              matomeNoQ
             };
         }
 
@@ -11645,7 +11687,22 @@
             html += _aRow('得点レコード総数',       d.scoreRecordCount.toLocaleString() + '件');
             html += _aRow('提出物課題数',           d.assignmentCount + '件');
             html += _aRow('提出記録数',             d.submissionCount.toLocaleString() + '件');
-            html += _aRow('机間巡視レコード数',     d.patrolCount + '件');
+            var patrolCell = d.patrolCount + '件';
+            if (d.patrolCount > 0 && d.patrolBreakdown) {
+                var pb = d.patrolBreakdown;
+                var pbHtml = '<details class="audit-detail-block"><summary>詳細を表示</summary>';
+                pbHtml += '<div class="audit-detail-body">';
+                pbHtml += '教科別内訳:<br>';
+                Object.keys(pb.bySubject).sort().forEach(function(s) {
+                    pbHtml += '&nbsp;&nbsp;' + escapeHtml(s) + ': ' + pb.bySubject[s] + '件<br>';
+                });
+                pbHtml += '児童カバー率: ' + pb.studentsCovered + '名 / ' + pb.totalStudents + '名 (' + pb.coveragePct + '%)<br>';
+                var pbDateRange = pb.dateFirst ? escapeHtml(pb.dateFirst) + ' ~ ' + escapeHtml(pb.dateLast) : 'なし';
+                pbHtml += '日数: ' + pb.daysCount + '日 (' + pbDateRange + ')';
+                pbHtml += '</div></details>';
+                patrolCell += pbHtml;
+            }
+            html += _aRow('机間巡視レコード数', patrolCell);
             html += _aRow('児童記録(カルテ)数',    d.karteRecCount + '件');
             html += _aRow('生活記録数',             d.karteLifeCount + '件');
             html += _aRow('出席記録日数',           d.attendanceDays + '日');
@@ -11704,7 +11761,17 @@
             html += '<tr><td>' + _sts(si.assignIdDups === 0) + ' 課題 id 重複</td><td>' + (si.assignIdDups === 0 ? 'なし' : '<span class="audit-status-warn">' + si.assignIdDups + '件</span>') + '</td></tr>';
             html += '<tr><td>' + _sts(si.subOrphans === 0) + ' orphan 提出記録</td><td>' + (si.subOrphans === 0 ? '0件' : '<span class="audit-status-warn">' + si.subOrphans + '件</span>') + '</td></tr>';
             html += '<tr><td>' + _sts(si.categoryMissing === 0) + ' category 欠損テスト</td><td>' + (si.categoryMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.categoryMissing + '件</span>') + '</td></tr>';
-            html += '<tr><td>' + _sts(si.maxScoreMissing === 0) + ' maxScore 欠損または0</td><td>' + (si.maxScoreMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.maxScoreMissing + '件</span>') + '</td></tr>';
+            var maxScoreCell = si.maxScoreMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.maxScoreMissing + '件</span>';
+            if (si.maxScoreMissing > 0 && si.maxScoreEmptyBreakdown && si.maxScoreEmptyBreakdown.length > 0) {
+                var msHtml = '<details class="audit-detail-block"><summary>詳細を表示</summary>';
+                msHtml += '<div class="audit-detail-body">';
+                si.maxScoreEmptyBreakdown.forEach(function(item) {
+                    msHtml += 'testType="' + escapeHtml(item.testType) + '" subject="' + escapeHtml(item.subject) + '" : ' + item.count + '件<br>';
+                });
+                msHtml += '</div></details>';
+                maxScoreCell += msHtml;
+            }
+            html += '<tr><td>' + _sts(si.maxScoreMissing === 0) + ' maxScore 欠損または0</td><td>' + maxScoreCell + '</td></tr>';
             html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめテスト問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
             html += '</table></div>';
 
@@ -11863,6 +11930,14 @@
             lines.push('提出物課題数: ' + d.assignmentCount + '件');
             lines.push('提出記録数: ' + d.submissionCount.toLocaleString() + '件');
             lines.push('机間巡視レコード数: ' + d.patrolCount + '件');
+            if (d.patrolCount > 0 && d.patrolBreakdown) {
+                var pb4 = d.patrolBreakdown;
+                var subjParts = Object.keys(pb4.bySubject).sort().map(function(s) { return s + ':' + pb4.bySubject[s]; });
+                lines.push('  教科別: ' + subjParts.join(' / '));
+                lines.push('  児童カバー率: ' + pb4.studentsCovered + '/' + pb4.totalStudents + ' (' + pb4.coveragePct + '%)');
+                var dr4 = pb4.dateFirst ? pb4.dateFirst + ' ~ ' + pb4.dateLast : 'なし';
+                lines.push('  日数: ' + pb4.daysCount + '日 (' + dr4 + ')');
+            }
             lines.push('児童記録(カルテ)数: ' + d.karteRecCount + '件');
             lines.push('生活記録数: ' + d.karteLifeCount + '件');
             lines.push('出席記録日数: ' + d.attendanceDays + '日');
@@ -11898,6 +11973,11 @@
             lines.push('orphan 提出記録: ' + si.subOrphans + '件');
             lines.push('category 欠損テスト: ' + si.categoryMissing + '件');
             lines.push('maxScore 欠損または0: ' + si.maxScoreMissing + '件');
+            if (si.maxScoreMissing > 0 && si.maxScoreEmptyBreakdown && si.maxScoreEmptyBreakdown.length > 0) {
+                si.maxScoreEmptyBreakdown.forEach(function(item) {
+                    lines.push('  testType="' + item.testType + '" subject="' + item.subject + '" : ' + item.count + '件');
+                });
+            }
             lines.push('まとめテスト問題定義なし: ' + si.matomeNoQ + '件');
             lines.push('');
 

@@ -1752,6 +1752,21 @@
         .pf-cmp-bar{height:10px;border-radius:5px;transition:width .4s;}
         .pf-cmp-bar.cls{background:#1a6b4a;} .pf-cmp-bar.nat{background:var(--border);}
         .pf-cmp-bar-val{font-size:11px;font-weight:600;min-width:24px;}
+        /* AUDIT_DIAGNOSIS */
+        .audit-diagnosis-section summary{cursor:pointer;font-weight:bold;font-size:1.1em;list-style:none;display:flex;align-items:baseline;gap:4px;}
+        .audit-diagnosis-section summary::-webkit-details-marker{display:none;}
+        .audit-subtitle{font-weight:normal;font-size:0.85em;color:#666;margin-left:6px;}
+        .audit-description{margin:12px 0;font-size:0.9em;color:#555;}
+        .audit-result-subsection{margin:16px 0;padding:12px;background:white;border-left:4px solid #4a90e2;border-radius:4px;}
+        .audit-result-subsection h4{margin:0 0 8px;font-size:1em;}
+        .audit-table{border-collapse:collapse;font-size:0.85em;width:100%;}
+        .audit-table td,.audit-table th{padding:3px 8px;vertical-align:top;border-bottom:1px solid #eee;}
+        .audit-table th{font-weight:600;text-align:left;background:#f5f5f5;}
+        .audit-status-ok   {color:#27ae60;}
+        .audit-status-warn {color:#e67e22;}
+        .audit-status-error{color:#e74c3c;}
+        .audit-status-info {color:#3498db;}
+        .audit-copy-buttons{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;}
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
 </head>
@@ -2840,6 +2855,18 @@
                         </select>
                     </div>
                     <button id="expGradeBtn" class="btn-primary" style="width:100%;padding:10px;">📥 成績処理 CSV 出力</button>
+                </div>
+
+                <!-- 監査診断 -->
+                <div class="card audit-diagnosis-section" style="margin-bottom:12px;">
+                    <details>
+                        <summary>🔍 監査診断<span class="audit-subtitle">データの素性を確認（個人情報は表示・出力されません）</span></summary>
+                        <div class="audit-description">
+                            <p>このアプリのデータが「どう解釈されて評価になるか」を確認します。児童の氏名や自由記述は表示・出力されません。データは一切変更されません。</p>
+                        </div>
+                        <button class="btn-primary" style="width:100%;padding:10px;" onclick="runAuditDiagnosis()">診断を実行</button>
+                        <div id="audit-result-container"></div>
+                    </details>
                 </div>
 
             </div>
@@ -11197,6 +11224,768 @@
 
     })();
     // ▲▲▲ MODULE:CSV_EXPORT ▲▲▲
+
+    // ▼▼▼ MODULE:AUDIT_DIAGNOSIS ▼▼▼
+    // ================================================================
+    // 監査診断機能 (フェーズ2.5)
+    // バックアップを外部に出さずに、データの素性を画面で確認するための機能。
+    // 読み取り専用。既存データは一切変更しない。
+    // ================================================================
+    (function() {
+        'use strict';
+
+        var _VER = 'v1.7.60';
+
+        // ----------------------------------------------------------------
+        // データ収集関数
+        // ----------------------------------------------------------------
+
+        function collectMeta() {
+            return {
+                appType: 'classroom-app',
+                appVersion: _VER,
+                schoolYear: String((master.classInfo && master.classInfo.year) ? master.classInfo.year : ''),
+                analyzedAt: new Date().toISOString()
+            };
+        }
+
+        function collectDataVolume() {
+            var tests       = StorageManager.get(KEYS.tests, []);
+            var scores      = StorageManager.get(KEYS.scores, []);
+            var assignments = StorageManager.get(KEYS.submissions_assignments, []);
+            var subs        = StorageManager.get(KEYS.submissions_data, []);
+            var patrol      = StorageManager.get(KEYS.patrol, []);
+            var karteRecs   = StorageManager.get(KEYS.karte_recs, []);
+            var karteLife   = StorageManager.get(KEYS.karte_life, {});
+            var att         = StorageManager.get(KEYS.attendance, {});
+            var kanjiData   = StorageManager.get(KEYS.kanji, { units: [] });
+            var fgtHistory  = StorageManager.get(KEYS.forgotten_history, []);
+
+            var matomeCount = tests.filter(function(t) { return t.type === 'matome'; }).length;
+
+            var karteLifeCount = 0;
+            Object.keys(karteLife).forEach(function(k) {
+                var arr = karteLife[k];
+                if (Array.isArray(arr)) karteLifeCount += arr.length;
+            });
+
+            return {
+                studentCount:    master.students.length,
+                testCount:       tests.length,
+                scoreRecordCount: scores.length,
+                matomeTestCount: matomeCount,
+                assignmentCount: assignments.length,
+                submissionCount: subs.length,
+                patrolCount:     Array.isArray(patrol) ? patrol.length : 0,
+                karteRecCount:   Array.isArray(karteRecs) ? karteRecs.length : 0,
+                karteLifeCount:  karteLifeCount,
+                attendanceDays:  Object.keys(att).length,
+                kanjiUnits:      (kanjiData.units && Array.isArray(kanjiData.units)) ? kanjiData.units.length : 0,
+                forgottenHistory: Array.isArray(fgtHistory) ? fgtHistory.length : 0
+            };
+        }
+
+        function analyzeScoreTypes() {
+            var scores = StorageManager.get(KEYS.scores, []);
+            var result = {
+                numeric: 0,
+                abc: { total: 0, A: 0, B: 0, C: 0 },
+                circles: { total: 0, '○': 0, '△': 0, '×': 0 },
+                dash: 0,
+                otherString: 0,
+                nullOrMissing: 0,
+                total: scores.length
+            };
+
+            scores.forEach(function(rec) {
+                var s = rec.score;
+                if (s === null || s === undefined || s === '') {
+                    result.nullOrMissing++;
+                } else if (typeof s === 'number') {
+                    result.numeric++;
+                } else if (s === 'A' || s === 'B' || s === 'C') {
+                    result.abc.total++;
+                    result.abc[s]++;
+                } else if (s === '○' || s === '△' || s === '×') {
+                    result.circles.total++;
+                    result.circles[s]++;
+                } else if (s === '－' || s === '-') {
+                    result.dash++;
+                } else {
+                    result.otherString++;
+                }
+            });
+
+            return result;
+        }
+
+        function analyzeTestDistribution() {
+            var tests = StorageManager.get(KEYS.tests, []);
+            var byType = {}, bySubject = {}, byCategory = {};
+
+            tests.forEach(function(t) {
+                var tp = t.testType || '(未設定)';
+                byType[tp] = (byType[tp] || 0) + 1;
+
+                var subj = t.subject || '(未設定)';
+                bySubject[subj] = (bySubject[subj] || 0) + 1;
+
+                var cat = t.category || '';
+                if (!cat) cat = '(空/null)';
+                byCategory[cat] = (byCategory[cat] || 0) + 1;
+            });
+
+            var categoryMissing = tests.filter(function(t) { return !t.category; }).length;
+
+            return {
+                byType:          byType,
+                bySubject:       bySubject,
+                byCategory:      byCategory,
+                categoryMissing: categoryMissing,
+                total:           tests.length
+            };
+        }
+
+        function checkStructuralIntegrity() {
+            var tests       = StorageManager.get(KEYS.tests, []);
+            var scores      = StorageManager.get(KEYS.scores, []);
+            var assignments = StorageManager.get(KEYS.submissions_assignments, []);
+            var subs        = StorageManager.get(KEYS.submissions_data, []);
+            var matomeQAll  = StorageManager.get(KEYS.matome_questions, {});
+            var studentCount = master.students.length;
+
+            // テスト id 重複
+            var testIds = tests.map(function(t) { return t.id; });
+            var testIdSet = {};
+            var testIdDups = 0;
+            testIds.forEach(function(id) { testIdSet[id] = (testIdSet[id] || 0) + 1; });
+            Object.keys(testIdSet).forEach(function(k) { if (testIdSet[k] > 1) testIdDups++; });
+
+            // スコアの orphan (対応するテストなし)
+            var testIdMap = {};
+            tests.forEach(function(t) { testIdMap[t.id] = true; });
+            var scoreOrphans = scores.filter(function(sc) { return !testIdMap[sc.testId]; }).length;
+
+            // studentIndex 範囲超過
+            var studentIndexOver = scores.filter(function(sc) {
+                return typeof sc.studentIndex === 'number' && (sc.studentIndex < 0 || sc.studentIndex >= studentCount);
+            }).length;
+
+            // 課題 id 重複
+            var assignIds = assignments.map(function(a) { return a.id; });
+            var assignIdSet = {};
+            var assignIdDups = 0;
+            assignIds.forEach(function(id) { assignIdSet[id] = (assignIdSet[id] || 0) + 1; });
+            Object.keys(assignIdSet).forEach(function(k) { if (assignIdSet[k] > 1) assignIdDups++; });
+
+            // 提出 orphan (対応する課題なし)
+            var assignIdMap = {};
+            assignments.forEach(function(a) { assignIdMap[a.id] = true; });
+            var subOrphans = subs.filter(function(s) { return !assignIdMap[s.assignmentId]; }).length;
+
+            // category 欠損テスト数
+            var categoryMissing = tests.filter(function(t) { return !t.category; }).length;
+
+            // maxScore 欠損または0 (matome 除く)
+            var maxScoreMissing = tests.filter(function(t) {
+                return t.type !== 'matome' && (!t.maxScore || t.maxScore <= 0);
+            }).length;
+
+            // まとめテスト × matome_questions 対応
+            var matomeTests = tests.filter(function(t) { return t.type === 'matome'; });
+            var matomeNoQ = matomeTests.filter(function(t) {
+                return !(matomeQAll[t.id] && matomeQAll[t.id].length > 0) &&
+                       !(t.matomePoints && t.matomePoints.length > 0);
+            }).length;
+
+            return {
+                testIdDups:       testIdDups,
+                scoreOrphans:     scoreOrphans,
+                studentIndexOver: studentIndexOver,
+                studentCount:     studentCount,
+                assignIdDups:     assignIdDups,
+                subOrphans:       subOrphans,
+                categoryMissing:  categoryMissing,
+                maxScoreMissing:  maxScoreMissing,
+                matomeTotal:      matomeTests.length,
+                matomeNoQ:        matomeNoQ
+            };
+        }
+
+        function analyzeMatomeBalance() {
+            var tests      = StorageManager.get(KEYS.tests, []);
+            var matomeQAll = StorageManager.get(KEYS.matome_questions, {});
+            var matomeTests = tests.filter(function(t) { return t.type === 'matome'; });
+
+            var totalByType = { '知': 0, '思': 0, '主': 0, unset: 0 };
+            var perTest = [];
+
+            matomeTests.forEach(function(t) {
+                var qs = matomeQAll[t.id] || null;
+                var types, points;
+
+                if (qs && qs.length > 0) {
+                    types  = qs.map(function(q) { return q.type || ''; });
+                    points = qs.map(function(q) { return q.points || 1; });
+                } else if (t.matomeQuestionTypes && t.matomeQuestionTypes.length > 0) {
+                    types  = t.matomeQuestionTypes;
+                    points = t.matomePoints || types.map(function() { return 1; });
+                } else {
+                    perTest.push({ testId: t.id, chi: 0, shi: 0, shu: 0, unset: 0, total: 0 });
+                    return;
+                }
+
+                var cnt = { '知': 0, '思': 0, '主': 0, unset: 0 };
+                types.forEach(function(tp, i) {
+                    var pt = points[i] || 1;
+                    if (tp === '知') { cnt['知'] += pt; totalByType['知'] += pt; }
+                    else if (tp === '思') { cnt['思'] += pt; totalByType['思'] += pt; }
+                    else if (tp === '主') { cnt['主'] += pt; totalByType['主'] += pt; }
+                    else { cnt.unset += pt; totalByType.unset += pt; }
+                });
+
+                var total = cnt['知'] + cnt['思'] + cnt['主'] + cnt.unset;
+                perTest.push({ testId: t.id, chi: cnt['知'], shi: cnt['思'], shu: cnt['主'], unset: cnt.unset, total: total });
+            });
+
+            return {
+                matomeCount: matomeTests.length,
+                totalByType: totalByType,
+                perTest:     perTest
+            };
+        }
+
+        function analyzeSubmissionStatus() {
+            var subs = StorageManager.get(KEYS.submissions_data, []);
+            var bySt = {};
+            var flagAbsent = 0, flagLateOnDue = 0, flagCorrDone = 0;
+            var legacyCount = 0;
+            var legacyVals = ['○', '△', 'A', '◎', '×', 'B', 'C'];
+
+            subs.forEach(function(r) {
+                var st = r.status || '(なし)';
+                bySt[st] = (bySt[st] || 0) + 1;
+                if (r.absent === true) flagAbsent++;
+                if (r.lateOnDue === true) flagLateOnDue++;
+                if (r.correctionDone === true) flagCorrDone++;
+                if (legacyVals.indexOf(st) >= 0) legacyCount++;
+            });
+
+            return {
+                total:        subs.length,
+                byStatus:     bySt,
+                flagAbsent:   flagAbsent,
+                flagLateOnDue: flagLateOnDue,
+                flagCorrDone: flagCorrDone,
+                legacyCount:  legacyCount
+            };
+        }
+
+        function analyzeAnswersFormat() {
+            var scores = StorageManager.get(KEYS.scores, []);
+            var hasAnswers = 0, binaryCount = 0, actualCount = 0, unknownCount = 0;
+            var hasMatomeAnswers = 0;
+
+            scores.forEach(function(rec) {
+                if (rec.matomeAnswers !== undefined) hasMatomeAnswers++;
+                if (!Array.isArray(rec.answers) || rec.answers.length === 0) return;
+                hasAnswers++;
+                var isBinary = rec.answers.every(function(v) { return v === 0 || v === 1 || v === true || v === false; });
+                if (isBinary && rec.answers.length > 0) {
+                    // さらに、すべての値が 0/1/true/false のみかつ最大1の場合をバイナリとみなす
+                    var maxVal = Math.max.apply(null, rec.answers.map(function(v) { return typeof v === 'boolean' ? (v ? 1 : 0) : v; }));
+                    if (maxVal <= 1) {
+                        binaryCount++;
+                        return;
+                    }
+                }
+                actualCount++;
+            });
+
+            unknownCount = hasAnswers - binaryCount - actualCount;
+
+            return {
+                hasAnswersCount:     hasAnswers,
+                binaryCount:         binaryCount,
+                actualCount:         actualCount,
+                unknownCount:        unknownCount,
+                hasMatomeAnswers:    hasMatomeAnswers
+            };
+        }
+
+        function collectMigrationFlags() {
+            var flags = {};
+            // StorageManager のキャッシュ or localStorage を全スキャン
+            var allKeys = StorageManager.getAllKeys ? StorageManager.getAllKeys() :
+                          Object.keys(localStorage);
+            allKeys.forEach(function(k) {
+                if (k.indexOf('igrated') >= 0 || k.indexOf('migration') >= 0) {
+                    var val = StorageManager.getRaw ? StorageManager.getRaw(k) : localStorage.getItem(k);
+                    flags[k] = val;
+                }
+            });
+            return { flags: flags };
+        }
+
+        function collectAnomalies(result) {
+            var critical = [], warn = [], info = [];
+
+            // --- answers バイナリ残存(重大) ---
+            if (result.answersFormat.binaryCount > 0) {
+                critical.push('answers にバイナリ形式が ' + result.answersFormat.binaryCount + '件残存(評価計算に直接影響)');
+            }
+
+            // --- orphan スコア(重大) ---
+            if (result.structuralIntegrity.scoreOrphans > 0) {
+                critical.push('対応するテストのないスコアレコード ' + result.structuralIntegrity.scoreOrphans + '件');
+            }
+
+            // --- id 重複(重大) ---
+            if (result.structuralIntegrity.testIdDups > 0) {
+                critical.push('テスト id 重複 ' + result.structuralIntegrity.testIdDups + '件');
+            }
+            if (result.structuralIntegrity.assignIdDups > 0) {
+                critical.push('課題 id 重複 ' + result.structuralIntegrity.assignIdDups + '件');
+            }
+
+            // --- matomeAnswers 旧フィールド残存(重大) ---
+            if (result.answersFormat.hasMatomeAnswers > 0) {
+                critical.push('旧フィールド matomeAnswers が ' + result.answersFormat.hasMatomeAnswers + '件残存');
+            }
+
+            // --- category 欠損(注意) ---
+            if (result.structuralIntegrity.categoryMissing > 0) {
+                warn.push('category 欠損テスト ' + result.structuralIntegrity.categoryMissing + '件');
+            }
+
+            // --- maxScore 欠損(注意) ---
+            if (result.structuralIntegrity.maxScoreMissing > 0) {
+                warn.push('maxScore 欠損または0のテスト ' + result.structuralIntegrity.maxScoreMissing + '件(matome除く)');
+            }
+
+            // --- studentIndex 超過(注意) ---
+            if (result.structuralIntegrity.studentIndexOver > 0) {
+                warn.push('studentIndex 範囲超過スコア ' + result.structuralIntegrity.studentIndexOver + '件(児童数:' + result.structuralIntegrity.studentCount + ')');
+            }
+
+            // --- 旧 status 形式(注意) ---
+            if (result.submissionStatus.legacyCount > 0) {
+                warn.push('提出物に旧形式 status (○/△/A/◎等) ' + result.submissionStatus.legacyCount + '件');
+            }
+
+            // --- matome 問題定義なし(注意) ---
+            if (result.matomeBalance.matomeNoQ > 0) {
+                warn.push('まとめテストのうち問題定義のないもの ' + result.matomeBalance.matomeNoQ + '件');
+            }
+
+            // --- 観点バランス偏り(情報) ---
+            result.matomeBalance.perTest.forEach(function(pt) {
+                var total = pt.total;
+                if (total === 0) return;
+                var maxPct = Math.max(pt.chi, pt.shi, pt.shu) / total;
+                if (maxPct >= 1.0) {
+                    info.push('まとめテスト testId=' + pt.testId + ': 全問が単一観点(観点不均衡の可能性)');
+                }
+            });
+
+            // --- late レコード(情報) ---
+            var lateCount = result.submissionStatus.byStatus['late'] || 0;
+            if (lateCount > 0) {
+                info.push("'late' ステータス " + lateCount + '件(B-5修正の影響範囲)');
+            }
+
+            // --- C評価スコア(情報) ---
+            var cCount = result.scoreTypes.abc.C || 0;
+            if (cCount > 0) {
+                info.push("score='C' " + cCount + '件(B-1修正で評点変化の可能性)');
+            }
+
+            var overallStatus;
+            if (critical.length > 0) {
+                overallStatus = '🔴 致命的問題あり';
+            } else if (warn.length > 0) {
+                overallStatus = '🟠 注意項目あり';
+            } else {
+                overallStatus = '🟢 致命的問題なし';
+            }
+
+            return { critical: critical, warn: warn, info: info, overallStatus: overallStatus };
+        }
+
+        // ----------------------------------------------------------------
+        // 描画
+        // ----------------------------------------------------------------
+
+        function _pct(n, total) {
+            if (!total) return '0.0%';
+            return (n / total * 100).toFixed(1) + '%';
+        }
+
+        function _sts(ok) { return ok ? '<span class="audit-status-ok">✅</span>' : '<span class="audit-status-warn">⚠️</span>'; }
+
+        function renderAuditResult(result) {
+            var d = result.dataVolume;
+            var st = result.scoreTypes;
+            var td = result.testDistribution;
+            var si = result.structuralIntegrity;
+            var mb = result.matomeBalance;
+            var ss = result.submissionStatus;
+            var af = result.answersFormat;
+            var mf = result.migrationFlags;
+            var an = result.anomalies;
+
+            var html = '';
+
+            // 1. データ量サマリー
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>1. データ量サマリー</h4>';
+            html += '<table class="audit-table">';
+            html += _aRow('児童数',               d.studentCount + '名');
+            html += _aRow('テスト総数',            d.testCount + '件 (まとめテスト: ' + d.matomeTestCount + '件)');
+            html += _aRow('得点レコード総数',       d.scoreRecordCount.toLocaleString() + '件');
+            html += _aRow('提出物課題数',           d.assignmentCount + '件');
+            html += _aRow('提出記録数',             d.submissionCount.toLocaleString() + '件');
+            html += _aRow('机間巡視レコード数',     d.patrolCount + '件');
+            html += _aRow('児童記録(カルテ)数',    d.karteRecCount + '件');
+            html += _aRow('生活記録数',             d.karteLifeCount + '件');
+            html += _aRow('出席記録日数',           d.attendanceDays + '日');
+            html += _aRow('漢字単元数',             d.kanjiUnits + '件');
+            html += _aRow('忘れ物履歴数',           d.forgottenHistory + '件');
+            html += '</table></div>';
+
+            // 2. score 値の型分布
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>2. score 値の型分布</h4>';
+            html += '<table class="audit-table">';
+            html += _aRow('合計',             st.total.toLocaleString() + '件');
+            html += _aRow('数値型',           st.numeric.toLocaleString() + '件 (' + _pct(st.numeric, st.total) + ')');
+            html += _aRow("'A'/'B'/'C' 文字列", st.abc.total + '件 (' + _pct(st.abc.total, st.total) + ')  A:' + st.abc.A + ' B:' + st.abc.B + ' C:' + st.abc.C);
+            html += _aRow("'○'/'△'/'×' 文字列", st.circles.total + '件 (' + _pct(st.circles.total, st.total) + ')  ○:' + st.circles['○'] + ' △:' + st.circles['△'] + ' ×:' + st.circles['×']);
+            html += _aRow("'－' 文字列",      st.dash + '件');
+            html += _aRow('その他文字列',     st.otherString + '件');
+            html += _aRow('null または欠損',  st.nullOrMissing + '件');
+            html += '</table></div>';
+
+            // 3. testType・subject・category 分布
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>3. testType・subject・category 分布</h4>';
+            html += '<div style="display:flex;gap:16px;flex-wrap:wrap;">';
+
+            html += '<div><b>testType</b><table class="audit-table">';
+            Object.keys(td.byType).sort().forEach(function(k) {
+                html += _aRow(escapeHtml(k), td.byType[k] + '件');
+            });
+            html += '</table></div>';
+
+            html += '<div><b>subject</b><table class="audit-table">';
+            Object.keys(td.bySubject).sort().forEach(function(k) {
+                html += _aRow(escapeHtml(k), td.bySubject[k] + '件');
+            });
+            html += '</table></div>';
+
+            html += '<div><b>category</b><table class="audit-table">';
+            Object.keys(td.byCategory).sort().forEach(function(k) {
+                var isMissing = (k === '(空/null)');
+                var label = escapeHtml(k);
+                if (isMissing && td.categoryMissing > 0) label = '<span class="audit-status-warn">' + label + '</span>';
+                html += '<tr><td>' + label + '</td><td>' + td.byCategory[k] + '件</td></tr>';
+            });
+            html += '</table></div>';
+
+            html += '</div></div>';
+
+            // 4. 構造的整合性
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>4. テスト・課題の構造的整合性</h4>';
+            html += '<table class="audit-table">';
+            html += '<tr><td>' + _sts(si.testIdDups === 0) + ' テスト id 重複</td><td>' + (si.testIdDups === 0 ? 'なし' : '<span class="audit-status-warn">' + si.testIdDups + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.scoreOrphans === 0) + ' orphan スコア(対応テストなし)</td><td>' + (si.scoreOrphans === 0 ? '0件' : '<span class="audit-status-error">' + si.scoreOrphans + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.studentIndexOver === 0) + ' studentIndex 範囲超過</td><td>' + (si.studentIndexOver === 0 ? '0件 (児童数:' + si.studentCount + ')' : '<span class="audit-status-warn">' + si.studentIndexOver + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.assignIdDups === 0) + ' 課題 id 重複</td><td>' + (si.assignIdDups === 0 ? 'なし' : '<span class="audit-status-warn">' + si.assignIdDups + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.subOrphans === 0) + ' orphan 提出記録</td><td>' + (si.subOrphans === 0 ? '0件' : '<span class="audit-status-warn">' + si.subOrphans + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.categoryMissing === 0) + ' category 欠損テスト</td><td>' + (si.categoryMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.categoryMissing + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.maxScoreMissing === 0) + ' maxScore 欠損または0</td><td>' + (si.maxScoreMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.maxScoreMissing + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめテスト問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
+            html += '</table></div>';
+
+            // 5. まとめテストの観点バランス
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>5. まとめテストの観点バランス</h4>';
+            html += '<p style="margin:4px 0;">まとめテスト数: ' + mb.matomeCount + '件</p>';
+            var tb = mb.totalByType;
+            var tbTotal = tb['知'] + tb['思'] + tb['主'] + tb.unset;
+            html += '<table class="audit-table">';
+            html += _aRow('知 (合算)', tb['知'] + '問 (' + _pct(tb['知'], tbTotal) + ')');
+            html += _aRow('思 (合算)', tb['思'] + '問 (' + _pct(tb['思'], tbTotal) + ')');
+            html += _aRow('主 (合算)', tb['主'] + '問 (' + _pct(tb['主'], tbTotal) + ')');
+            if (tb.unset > 0) {
+                html += '<tr><td><span class="audit-status-warn">未設定 (合算)</span></td><td><span class="audit-status-warn">' + tb.unset + '問 (' + _pct(tb.unset, tbTotal) + ') ⚠️ 「知」として扱われる</span></td></tr>';
+            }
+            html += '</table>';
+            if (mb.perTest.length > 0) {
+                html += '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:0.9em;">各まとめテストの内訳を表示</summary>';
+                html += '<table class="audit-table" style="margin-top:6px;">';
+                html += '<tr><th>testId</th><th>知</th><th>思</th><th>主</th><th>未設定</th><th>合計</th></tr>';
+                mb.perTest.forEach(function(pt) {
+                    var flag = (pt.total > 0 && (pt.chi / pt.total >= 1.0)) ? ' <span class="audit-status-error">❌全問単一観点</span>' : '';
+                    html += '<tr><td>' + pt.testId + '</td><td>' + pt.chi + '</td><td>' + pt.shi + '</td><td>' + pt.shu + '</td><td>' + (pt.unset > 0 ? '<span class="audit-status-warn">' + pt.unset + '</span>' : '0') + '</td><td>' + pt.total + flag + '</td></tr>';
+                });
+                html += '</table></details>';
+            }
+            html += '</div>';
+
+            // 6. 提出物 status の分布
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>6. 提出物 status の分布</h4>';
+            html += '<table class="audit-table">';
+            html += _aRow('合計', ss.total.toLocaleString() + '件');
+            var statusOrder = ['submitted', 'late', 'missing', 'resubmit', '(なし)'];
+            statusOrder.forEach(function(k) {
+                if (ss.byStatus[k] !== undefined) {
+                    html += _aRow("'" + escapeHtml(k) + "'", ss.byStatus[k] + '件 (' + _pct(ss.byStatus[k], ss.total) + ')');
+                }
+            });
+            Object.keys(ss.byStatus).forEach(function(k) {
+                if (statusOrder.indexOf(k) < 0) {
+                    var isLegacy = ['○','△','A','◎','×','B','C'].indexOf(k) >= 0;
+                    var label = "'" + escapeHtml(k) + "'";
+                    if (isLegacy) label = '<span class="audit-status-warn">' + label + ' ⚠️旧形式</span>';
+                    html += '<tr><td>' + label + '</td><td>' + ss.byStatus[k] + '件 (' + _pct(ss.byStatus[k], ss.total) + ')</td></tr>';
+                }
+            });
+            html += _aRow('フラグ: absent=true', ss.flagAbsent + '件');
+            html += _aRow('フラグ: lateOnDue=true', ss.flagLateOnDue + '件');
+            html += _aRow('フラグ: correctionDone=true', ss.flagCorrDone + '件');
+            html += '</table></div>';
+
+            // 7. answers/matomeAnswers の形式
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>7. answers / matomeAnswers の形式</h4>';
+            html += '<table class="audit-table">';
+            html += _aRow('answers フィールド保持レコード', af.hasAnswersCount + '件');
+            var binaryLabel = af.binaryCount > 0 ? '<span class="audit-status-error">バイナリ形式 ❌ ' + af.binaryCount + '件(マイグレーション未完了)</span>' : '0件 ✅ マイグレーション完了';
+            html += '<tr><td>&nbsp;&nbsp;└ バイナリ形式</td><td>' + binaryLabel + '</td></tr>';
+            html += '<tr><td>&nbsp;&nbsp;└ 実点数形式</td><td>' + af.actualCount + '件' + (af.actualCount > 0 && af.binaryCount === 0 ? ' ✅' : '') + '</td></tr>';
+            html += '<tr><td>&nbsp;&nbsp;└ 判別不能</td><td>' + af.unknownCount + '件</td></tr>';
+            var maTxt = af.hasMatomeAnswers > 0 ? '<span class="audit-status-error">⚠️ ' + af.hasMatomeAnswers + '件残存</span>' : '0件 ✅ 旧フィールドなし';
+            html += '<tr><td>matomeAnswers フィールド保持</td><td>' + maTxt + '</td></tr>';
+            html += '</table></div>';
+
+            // 8. マイグレーションフラグ
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>8. マイグレーションフラグ</h4>';
+            var flagKeys = Object.keys(mf.flags);
+            if (flagKeys.length === 0) {
+                html += '<p class="audit-status-info">マイグレーション関連キーなし</p>';
+            } else {
+                html += '<table class="audit-table">';
+                flagKeys.forEach(function(k) {
+                    html += _aRow(escapeHtml(k), escapeHtml(String(mf.flags[k])));
+                });
+                html += '</table>';
+            }
+            html += '</div>';
+
+            // 9. 異常検出サマリー
+            html += '<div class="audit-result-subsection">';
+            html += '<h4>9. 異常検出サマリー</h4>';
+            html += '<p><b>' + an.overallStatus + '</b></p>';
+            html += '<p><span class="audit-status-error">🔴 重大(評価に直接影響)</span></p>';
+            if (an.critical.length === 0) {
+                html += '<p style="margin-left:1em;">・なし</p>';
+            } else {
+                an.critical.forEach(function(msg) { html += '<p style="margin-left:1em;"><span class="audit-status-error">・' + escapeHtml(msg) + '</span></p>'; });
+            }
+            html += '<p><span class="audit-status-warn">🟠 注意(確認推奨)</span></p>';
+            if (an.warn.length === 0) {
+                html += '<p style="margin-left:1em;">・なし</p>';
+            } else {
+                an.warn.forEach(function(msg) { html += '<p style="margin-left:1em;"><span class="audit-status-warn">・' + escapeHtml(msg) + '</span></p>'; });
+            }
+            html += '<p><span class="audit-status-info">🟡 情報(参考)</span></p>';
+            if (an.info.length === 0) {
+                html += '<p style="margin-left:1em;">・なし</p>';
+            } else {
+                an.info.forEach(function(msg) { html += '<p style="margin-left:1em;"><span class="audit-status-info">・' + escapeHtml(msg) + '</span></p>'; });
+            }
+            html += '</div>';
+
+            // コピーボタン
+            html += '<div class="audit-copy-buttons">';
+            html += '<button class="btn-primary" onclick="copyAuditResultAsJSON()" style="padding:8px 16px;">📋 全結果を JSON でコピー</button>';
+            html += '<button class="btn-primary" onclick="copyAuditResultAsText()" style="padding:8px 16px;">📝 全結果をテキストでコピー</button>';
+            html += '</div>';
+
+            document.getElementById('audit-result-container').innerHTML = html;
+        }
+
+        function _aRow(label, value) {
+            return '<tr><td>' + label + '</td><td>' + value + '</td></tr>';
+        }
+
+        // ----------------------------------------------------------------
+        // コピー機能
+        // ----------------------------------------------------------------
+
+        function copyAuditResultAsJSON() {
+            if (!window._auditDiagnosisLastResult) {
+                showToast('先に「診断を実行」してください', 'warning');
+                return;
+            }
+            var text = JSON.stringify(window._auditDiagnosisLastResult, null, 2);
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('JSON をクリップボードにコピーしました');
+            }).catch(function() {
+                showToast('コピーに失敗しました。ブラウザの設定を確認してください', 'error');
+            });
+        }
+
+        function copyAuditResultAsText() {
+            if (!window._auditDiagnosisLastResult) {
+                showToast('先に「診断を実行」してください', 'warning');
+                return;
+            }
+            var r = window._auditDiagnosisLastResult;
+            var d = r.dataVolume, st = r.scoreTypes, td = r.testDistribution;
+            var si = r.structuralIntegrity, mb = r.matomeBalance;
+            var ss = r.submissionStatus, af = r.answersFormat, an = r.anomalies;
+
+            var lines = [];
+            lines.push('=== classroom-app 監査診断結果 ===');
+            lines.push('実行日時: ' + r.meta.analyzedAt);
+            lines.push('appVersion: ' + r.meta.appVersion + '  schoolYear: ' + r.meta.schoolYear);
+            lines.push('');
+
+            lines.push('【データ量サマリー】');
+            lines.push('児童数: ' + d.studentCount + '名');
+            lines.push('テスト総数: ' + d.testCount + '件 (まとめテスト: ' + d.matomeTestCount + '件)');
+            lines.push('得点レコード総数: ' + d.scoreRecordCount.toLocaleString() + '件');
+            lines.push('提出物課題数: ' + d.assignmentCount + '件');
+            lines.push('提出記録数: ' + d.submissionCount.toLocaleString() + '件');
+            lines.push('机間巡視レコード数: ' + d.patrolCount + '件');
+            lines.push('児童記録(カルテ)数: ' + d.karteRecCount + '件');
+            lines.push('生活記録数: ' + d.karteLifeCount + '件');
+            lines.push('出席記録日数: ' + d.attendanceDays + '日');
+            lines.push('漢字単元数: ' + d.kanjiUnits + '件');
+            lines.push('忘れ物履歴数: ' + d.forgottenHistory + '件');
+            lines.push('');
+
+            lines.push('【score 値の型分布】');
+            lines.push('合計: ' + st.total.toLocaleString() + '件');
+            lines.push('数値型: ' + st.numeric + '件 (' + _pct(st.numeric, st.total) + ')');
+            lines.push("A/B/C 文字列: " + st.abc.total + '件  A:' + st.abc.A + ' B:' + st.abc.B + ' C:' + st.abc.C);
+            lines.push("○/△/× 文字列: " + st.circles.total + '件  ○:' + st.circles['○'] + ' △:' + st.circles['△'] + ' ×:' + st.circles['×']);
+            lines.push("'－' 文字列: " + st.dash + '件');
+            lines.push('その他文字列: ' + st.otherString + '件');
+            lines.push('null または欠損: ' + st.nullOrMissing + '件');
+            lines.push('');
+
+            lines.push('【testType 分布】');
+            Object.keys(td.byType).sort().forEach(function(k) { lines.push(k + ': ' + td.byType[k] + '件'); });
+            lines.push('');
+            lines.push('【subject 分布】');
+            Object.keys(td.bySubject).sort().forEach(function(k) { lines.push(k + ': ' + td.bySubject[k] + '件'); });
+            lines.push('');
+            lines.push('【category 分布】');
+            Object.keys(td.byCategory).sort().forEach(function(k) { lines.push(k + ': ' + td.byCategory[k] + '件'); });
+            lines.push('');
+
+            lines.push('【構造的整合性】');
+            lines.push('テスト id 重複: ' + si.testIdDups + '件');
+            lines.push('orphan スコア: ' + si.scoreOrphans + '件');
+            lines.push('studentIndex 範囲超過: ' + si.studentIndexOver + '件 (児童数:' + si.studentCount + ')');
+            lines.push('課題 id 重複: ' + si.assignIdDups + '件');
+            lines.push('orphan 提出記録: ' + si.subOrphans + '件');
+            lines.push('category 欠損テスト: ' + si.categoryMissing + '件');
+            lines.push('maxScore 欠損または0: ' + si.maxScoreMissing + '件');
+            lines.push('まとめテスト問題定義なし: ' + si.matomeNoQ + '件');
+            lines.push('');
+
+            lines.push('【まとめテストの観点バランス】');
+            lines.push('まとめテスト数: ' + mb.matomeCount + '件');
+            var tb = mb.totalByType;
+            var tbTotal = tb['知'] + tb['思'] + tb['主'] + tb.unset;
+            lines.push('知(合算): ' + tb['知'] + '問 (' + _pct(tb['知'], tbTotal) + ')');
+            lines.push('思(合算): ' + tb['思'] + '問 (' + _pct(tb['思'], tbTotal) + ')');
+            lines.push('主(合算): ' + tb['主'] + '問 (' + _pct(tb['主'], tbTotal) + ')');
+            lines.push('未設定(合算): ' + tb.unset + '問');
+            lines.push('');
+
+            lines.push('【提出物 status 分布】');
+            lines.push('合計: ' + ss.total.toLocaleString() + '件');
+            Object.keys(ss.byStatus).forEach(function(k) { lines.push("'" + k + "': " + ss.byStatus[k] + '件 (' + _pct(ss.byStatus[k], ss.total) + ')'); });
+            lines.push('absent=true: ' + ss.flagAbsent + '件');
+            lines.push('lateOnDue=true: ' + ss.flagLateOnDue + '件');
+            lines.push('correctionDone=true: ' + ss.flagCorrDone + '件');
+            lines.push('');
+
+            lines.push('【answers / matomeAnswers 形式】');
+            lines.push('answers 保持レコード: ' + af.hasAnswersCount + '件');
+            lines.push('  バイナリ形式: ' + af.binaryCount + '件');
+            lines.push('  実点数形式: ' + af.actualCount + '件');
+            lines.push('  判別不能: ' + af.unknownCount + '件');
+            lines.push('matomeAnswers 保持: ' + af.hasMatomeAnswers + '件');
+            lines.push('');
+
+            lines.push('【異常検出サマリー】');
+            lines.push(an.overallStatus);
+            lines.push('');
+            lines.push('重大(評価に直接影響):');
+            (an.critical.length ? an.critical : ['なし']).forEach(function(m) { lines.push('  ・' + m); });
+            lines.push('');
+            lines.push('注意(確認推奨):');
+            (an.warn.length ? an.warn : ['なし']).forEach(function(m) { lines.push('  ・' + m); });
+            lines.push('');
+            lines.push('情報(参考):');
+            (an.info.length ? an.info : ['なし']).forEach(function(m) { lines.push('  ・' + m); });
+
+            var text = lines.join('\n');
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('テキストをクリップボードにコピーしました');
+            }).catch(function() {
+                showToast('コピーに失敗しました。ブラウザの設定を確認してください', 'error');
+            });
+        }
+
+        // ----------------------------------------------------------------
+        // メインエントリ
+        // ----------------------------------------------------------------
+
+        function runAuditDiagnosis() {
+            showToast('診断中...');
+            setTimeout(function() {
+                try {
+                    var result = {
+                        meta:                collectMeta(),
+                        dataVolume:          collectDataVolume(),
+                        scoreTypes:          analyzeScoreTypes(),
+                        testDistribution:    analyzeTestDistribution(),
+                        structuralIntegrity: checkStructuralIntegrity(),
+                        matomeBalance:       analyzeMatomeBalance(),
+                        submissionStatus:    analyzeSubmissionStatus(),
+                        answersFormat:       analyzeAnswersFormat(),
+                        migrationFlags:      collectMigrationFlags()
+                    };
+                    result.anomalies = collectAnomalies(result);
+                    renderAuditResult(result);
+                    window._auditDiagnosisLastResult = result;
+                    showToast('診断が完了しました');
+                } catch (e) {
+                    showToast('診断中にエラーが発生しました: ' + e.message, 'error');
+                    console.error('[AUDIT_DIAGNOSIS]', e);
+                }
+            }, 50);
+        }
+
+        // ----------------------------------------------------------------
+        // グローバル公開
+        // ----------------------------------------------------------------
+        window.runAuditDiagnosis     = runAuditDiagnosis;
+        window.copyAuditResultAsJSON = copyAuditResultAsJSON;
+        window.copyAuditResultAsText = copyAuditResultAsText;
+
+    })();
+    // ▲▲▲ MODULE:AUDIT_DIAGNOSIS ▲▲▲
 
     // ▼▼▼ MODULE:WINDOW_EXPORTS ▼▼▼
     // ================================================================

@@ -5997,7 +5997,6 @@
             passData[skillId] = passData[skillId] === 1 ? 0 : 1;
             var stage = kenteiCalcStage(config, passData);
             var score10 = kenteiStageToScore10(config, stage);
-            var grade = recNwCalcGrade(passData); // 既存UI(なわとび)互換のため維持。Step4-D で kenteiStageToLabel に置き換え
             var hasRecord = stage > 0;
             var rec = { id: Date.now(), studentIndex: studentIndex, testId: recCurrentTestId,
                 passData: passData, stage: stage, score10: score10,
@@ -6005,11 +6004,11 @@
                 createdAt: new Date().toISOString() };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
-            recNwUpdateCardUI(studentIndex, passData, grade, hasRecord);
+            recNwUpdateCardUI(studentIndex, passData, stage, hasRecord, config);
             recUpdateProgressByCount();
         };
 
-        function recNwUpdateCardUI(idx, passData, grade, hasRecord) {
+        function recNwUpdateCardUI(idx, passData, stage, hasRecord, config) {
             var card = document.getElementById('rec-row-' + idx);
             if (card) card.classList.toggle('has-record', hasRecord);
             var numEl = card ? card.querySelector('.rec-nw-num') : null;
@@ -6018,21 +6017,26 @@
             if (statusEl) statusEl.textContent = hasRecord ? '✓' : '';
             var gradeEl = document.getElementById('rec-nw-grade-' + idx);
             if (gradeEl) {
-                var g = grade;
-                var bg = g <= 0 ? '#FFD600' : g <= 2 ? '#F48FB1' : g <= 8 ? '#FFE0B2' : g <= 14 ? '#BBDEFB' : g <= 20 ? '#C8E6C9' : '#F5F5F5';
-                var color = g <= 0 ? '#E65100' : '#333';
-                gradeEl.textContent = recNwGradeLabel(g);
+                // TODO(Step5): recNwCalcGrade はなわとび専用。泳力は grade 誤り→色崩れ。
+                // 泳力対応時に stage ベースの色分けに置換する。
+                var grade = recNwCalcGrade(passData);
+                var bg = grade <= 0 ? '#FFD600' : grade <= 2 ? '#F48FB1' : grade <= 8 ? '#FFE0B2' : grade <= 14 ? '#BBDEFB' : grade <= 20 ? '#C8E6C9' : '#F5F5F5';
+                var color = grade <= 0 ? '#E65100' : '#333';
+                gradeEl.textContent = kenteiStageToLabel(config, stage);
                 gradeEl.style.background = bg;
                 gradeEl.style.color = color;
             }
-            REC_NW_SKILLS.forEach(function(skill) {
-                var btn = document.getElementById('rec-nw-' + idx + '-' + skill.id);
-                if (!btn) return;
-                var passed = passData[skill.id] === 1;
-                var uncounted = recNwIsLocked(skill.cat, passData);
-                btn.className = 'rec-nw-skill-btn' + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
-                btn.innerHTML = (passed ? '&#9675;' : '') +
-                    '<div style="font-size:0.42rem;color:' + (passed ? '#2E7D32' : '#999') + ';line-height:1;">' + skill.short + '</div>';
+            if (!config) return;
+            config.categories.forEach(function(cat) {
+                cat.skills.forEach(function(skill) {
+                    var btn = document.getElementById('rec-nw-' + idx + '-' + skill.id);
+                    if (!btn) return;
+                    var passed = passData[skill.id] === 1;
+                    var uncounted = kenteiIsLocked(config, cat.id, passData);
+                    btn.className = 'rec-nw-skill-btn' + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
+                    btn.innerHTML = (passed ? '&#9675;' : '') +
+                        '<div style="font-size:0.42rem;color:' + (passed ? '#2E7D32' : '#999') + ';line-height:1;">' + skill.short + '</div>';
+                });
             });
         }
 

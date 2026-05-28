@@ -2218,6 +2218,7 @@
                                         <option value="回">回数（回）</option><option value="m">距離（m）</option>
                                         <option value="cm">距離（cm）</option><option value="点">得点（点）</option>
                                         <option value="なわとびカード">🪢 なわとびカード（級判定）</option>
+                                        <option value="検定:swimming">🏊 泳力検定カード（級判定）</option>
                                     </select>
                                     <label style="font-size:0.78rem;">方向:</label>
                                     <select id="recTestPeDirection" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
@@ -6519,6 +6520,10 @@
                 test.peUnit = document.getElementById('recTestPeUnit').value;
                 test.peDirection = document.getElementById('recTestPeDirection').value;
                 test.peTrials = parseInt(document.getElementById('recTestPeTrials').value) || 1;
+                var _pid = kenteiGetPresetId(test.peUnit);
+                if (_pid && !test.kenteiConfig) {
+                    test.kenteiConfig = kenteiBuildFromPreset(_pid);
+                }
             }
 
             if (recEditingTestId !== null) {

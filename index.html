@@ -6680,10 +6680,121 @@
                     '<div class="rec-test-item-acts">' +
                     '<button class="btn-rec-small goto" onclick="recSelectTestGoto(' + test.id + ')">入力</button>' +
                     '<button class="btn-rec-small edit" onclick="recEditTest(' + test.id + ')">編集</button>' +
+                    (kenteiGetConfig(test) ? '<button class="btn-rec-small" onclick="recEditKenteiTable(' + test.id + ')">換算表</button>' : '') +
                     '<button class="btn-rec-small del" onclick="recDeleteTest(' + test.id + ')">削除</button>' +
                     '</div></div>';
             }).join('');
         }
+
+        // ============================================================
+        // 換算表編集モーダル (フェーズ3a Step5-B)
+        // ============================================================
+        var _kenteiTableTestId = null;
+
+        function recKenteiRecalcScores(test) {
+            var cfg = kenteiGetConfig(test);
+            if (!cfg) return;
+            var scores = recGetScores();
+            var changed = false;
+            scores.forEach(function(sc) {
+                if (sc.testId !== test.id) return;
+                var stage;
+                if (typeof sc.stage === 'number') {
+                    stage = sc.stage;
+                } else {
+                    var pd = sc.passData || sc.nawatobiData;
+                    if (pd) stage = kenteiCalcStage(cfg, pd); else return;
+                }
+                sc.stage = stage;
+                sc.score10 = kenteiStageToScore10(cfg, stage);
+                changed = true;
+            });
+            if (changed) recSaveScores(scores);
+        }
+
+        window.recEditKenteiTable = function(testId) {
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === testId; });
+            if (!test) return;
+            if (!test.kenteiConfig) {
+                var pid = kenteiGetPresetId(test.peUnit);
+                if (!pid) return;
+                test.kenteiConfig = kenteiBuildFromPreset(pid);
+                recSaveTests(tests);
+            }
+            var config = test.kenteiConfig;
+            _kenteiTableTestId = testId;
+            var rows = (config.conversionTable || []).map(function(row) {
+                return '<tr>' +
+                    '<td style="padding:4px 8px;text-align:center;font-size:0.82rem;">' + row.stage + '</td>' +
+                    '<td style="padding:4px 8px;text-align:center;font-size:0.82rem;color:var(--text-light);">' + escapeHtml(row.label || '-') + '</td>' +
+                    '<td style="padding:4px 8px;text-align:center;">' +
+                    '<input type="number" min="0" max="10" step="0.1" value="' + (row.score10 != null ? row.score10 : '') + '" ' +
+                    'data-stage="' + row.stage + '" style="width:64px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:0.82rem;">' +
+                    '</td></tr>';
+            }).join('');
+            var existing = document.getElementById('kenteiTableModal');
+            if (existing) existing.remove();
+            var modal = document.createElement('div');
+            modal.id = 'kenteiTableModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
+            modal.innerHTML =
+                '<div style="background:#fff;border-radius:12px;padding:20px;width:320px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">' +
+                '<div style="font-weight:700;font-size:1rem;">換算表の編集</div>' +
+                '<div style="font-size:0.78rem;color:var(--text-light);">' + escapeHtml(test.name) + '</div>' +
+                '<div style="overflow-y:auto;flex:1;min-height:0;">' +
+                '<table style="width:100%;border-collapse:collapse;">' +
+                '<thead><tr>' +
+                '<th style="padding:4px 8px;font-size:0.78rem;color:var(--text-light);font-weight:500;">段階</th>' +
+                '<th style="padding:4px 8px;font-size:0.78rem;color:var(--text-light);font-weight:500;">級</th>' +
+                '<th style="padding:4px 8px;font-size:0.78rem;color:var(--text-light);font-weight:500;">10点換算</th>' +
+                '</tr></thead>' +
+                '<tbody>' + rows + '</tbody>' +
+                '</table></div>' +
+                '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">' +
+                '<button onclick="recResetKenteiTable()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">プリセットに戻す</button>' +
+                '<button onclick="recCloseKenteiTableModal()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">閉じる</button>' +
+                '<button onclick="recSaveKenteiTable()" style="padding:6px 14px;border:none;border-radius:6px;font-size:0.8rem;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;">保存</button>' +
+                '</div></div>';
+            document.body.appendChild(modal);
+        };
+
+        window.recSaveKenteiTable = function() {
+            if (_kenteiTableTestId === null) return;
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === _kenteiTableTestId; });
+            if (!test || !test.kenteiConfig) return;
+            document.querySelectorAll('#kenteiTableModal input[data-stage]').forEach(function(inp) {
+                var stage = parseInt(inp.dataset.stage);
+                var val = parseFloat(inp.value);
+                var row = test.kenteiConfig.conversionTable.find(function(r) { return r.stage === stage; });
+                if (row && !isNaN(val)) row.score10 = Math.min(10, Math.max(0, Math.round(val * 10) / 10));
+            });
+            recSaveTests(tests);
+            recKenteiRecalcScores(test);
+            recCloseKenteiTableModal();
+            recRenderTestList();
+        };
+
+        window.recResetKenteiTable = function() {
+            if (_kenteiTableTestId === null) return;
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === _kenteiTableTestId; });
+            if (!test || !test.kenteiConfig) return;
+            var pid = test.kenteiConfig._presetId || test.kenteiConfig.presetId;
+            if (!pid) return;
+            test.kenteiConfig = kenteiBuildFromPreset(pid);
+            recSaveTests(tests);
+            recKenteiRecalcScores(test);
+            recCloseKenteiTableModal();
+            recEditKenteiTable(_kenteiTableTestId);
+        };
+
+        window.recCloseKenteiTableModal = function() {
+            var modal = document.getElementById('kenteiTableModal');
+            if (modal) modal.remove();
+            _kenteiTableTestId = null;
+        };
 
         // ============================================================
         // 初期化（view-records が表示された時）

@@ -5982,17 +5982,23 @@
 
         window.recNwToggle = function(studentIndex, skillId) {
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
-            if (!test || test.peUnit !== 'なわとびカード') return;
+            if (!test) return;
+            var config = kenteiGetConfig(test);
+            if (!config) return;
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === studentIndex && s.testId === recCurrentTestId; });
             var sc = ei >= 0 ? scores[ei] : null;
-            var passData = (sc && sc.nawatobiData) ? JSON.parse(JSON.stringify(sc.nawatobiData)) : {};
+            var passData = (sc && (sc.passData || sc.nawatobiData)) ?
+                JSON.parse(JSON.stringify(sc.passData || sc.nawatobiData)) : {};
             passData[skillId] = passData[skillId] === 1 ? 0 : 1;
-            var grade = recNwCalcGrade(passData);
-            var totalPassed = REC_NW_SKILLS.filter(function(s) { return passData[s.id] === 1; }).length;
-            var hasRecord = totalPassed > 0;
+            var stage = kenteiCalcStage(config, passData);
+            var score10 = kenteiStageToScore10(config, stage);
+            var grade = recNwCalcGrade(passData); // 既存UI(なわとび)互換のため維持。Step4-D で kenteiStageToLabel に置き換え
+            var hasRecord = stage > 0;
             var rec = { id: Date.now(), studentIndex: studentIndex, testId: recCurrentTestId,
-                score: totalPassed, nawatobiData: passData, createdAt: new Date().toISOString() };
+                passData: passData, stage: stage, score10: score10,
+                nawatobiData: passData, score: stage,
+                createdAt: new Date().toISOString() };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
             recNwUpdateCardUI(studentIndex, passData, grade, hasRecord);

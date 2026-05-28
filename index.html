@@ -8852,8 +8852,26 @@
             return Math.round(3 - (grade - 18) * (2 / 2));
         }
         function peRecordToScore10(sr, test) {
-            if (!sr || sr.score === null || sr.score === undefined) return null;
-            if (test.peUnit === 'なわとびカード') return nawatobiToScore10(sr.score);
+            if (!sr) return null;
+            // === 検定カード型(なわとび・泳力など) ===
+            var kConfig = kenteiGetConfig(test);
+            if (kConfig) {
+                // 優先順位: 1)保存済 score10  2)保存済 stage  3)passData から再計算
+                if (typeof sr.score10 === 'number') return sr.score10;
+                var pd = sr.passData || sr.nawatobiData || null;
+                var stage;
+                if (typeof sr.stage === 'number') {
+                    stage = sr.stage;
+                } else if (pd) {
+                    stage = kenteiCalcStage(kConfig, pd);
+                } else {
+                    // 旧データ救済: score に合格技数(totalPassed)が入っている前提で stage とみなす
+                    stage = (typeof sr.score === 'number') ? sr.score : 0;
+                }
+                return kenteiStageToScore10(kConfig, stage);
+            }
+            // === 以下、従来の実技記録ロジック(変更なし) ===
+            if (sr.score === null || sr.score === undefined) return null;
             if (test.peUnit === 'タイム差') { var s = sr.finalScore !== undefined ? sr.finalScore : sr.score; return s !== null ? Math.min(10, s) : null; }
             if (test.peUnit === '回' && sr.peManualABC) return sr.peManualABC === 'A' ? 10 : sr.peManualABC === 'B' ? 7 : 4;
             var max = test.maxScore || 10;
@@ -11434,7 +11452,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.7.62';
+        var _VER = 'v1.7.63';
 
         // ----------------------------------------------------------------
         // データ収集関数

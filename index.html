@@ -5422,7 +5422,7 @@
             var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
             var isMatome = test.type === 'matome';
             var isPE = test.testType === '実技記録';
-            var isNawatobi = isPE && test.peUnit === 'なわとびカード';
+            var isNawatobi = isPE && kenteiGetPresetId(test.peUnit) !== null;
             // nw-modeクラスで列数レイアウト制御
             var bw = document.getElementById('recBulkWrap');
             var subInput = document.getElementById('rec-sub-input');
@@ -5575,7 +5575,7 @@
             }
 
             var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
-            var isNawatobi = test.testType === '実技記録' && test.peUnit === 'なわとびカード';
+            var isNawatobi = test.testType === '実技記録' && kenteiGetPresetId(test.peUnit) !== null;
             var count = scores.length;
 
             function statCard(value, label, color) {

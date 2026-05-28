@@ -5942,34 +5942,35 @@
         }
 
         function recBuildNawatobiCard(test, scores, idx, stu) {
+            var config = kenteiGetConfig(test);
+            if (!config) return '';
             var sc = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
-            var passData = (sc && sc.nawatobiData) ? sc.nawatobiData : {};
+            var passData = (sc && (sc.passData || sc.nawatobiData)) ? (sc.passData || sc.nawatobiData) : {};
+            var stage = kenteiCalcStage(config, passData);
+            var hasRecord = stage > 0;
+            var gradeLabel = kenteiStageToLabel(config, stage);
+            // TODO(Step5): recNwCalcGrade はなわとび専用。泳力は grade 誤り→色/級表示が崩れる。
+            // 泳力対応時に kenteiCalcStage/kenteiStageToLabel ベースに置換する。
             var grade = recNwCalcGrade(passData);
-            var totalPassed = REC_NW_SKILLS.filter(function(s) { return passData[s.id] === 1; }).length;
-            var hasRecord = totalPassed > 0;
-            var gradeLabel = recNwGradeLabel(grade);
             var gradeColor = grade <= 0 ? '#E65100' : '#333';
             var gradeBg = grade <= 0 ? '#FFD600' : grade <= 2 ? '#F48FB1' : grade <= 8 ? '#FFE0B2' : grade <= 14 ? '#BBDEFB' : grade <= 20 ? '#C8E6C9' : '#F5F5F5';
 
             var skillsHtml = '';
-            var curCat = '';
-            REC_NW_SKILLS.forEach(function(skill) {
-                if (skill.cat !== curCat) {
-                    curCat = skill.cat;
-                    var span = curCat === 'high' ? 'grid-column:1/span 3;' : 'grid-column:1/-1;';
-                    skillsHtml += '<div class="rec-nw-cat-label rec-nw-cat-' + curCat + '" style="' + span + '">' +
-                        REC_NW_CATS.find(function(c){return c.id===curCat;}).name + '</div>';
-                }
-                var passed = passData[skill.id] === 1;
-                var uncounted = recNwIsLocked(skill.cat, passData);
-                var btnClass = 'rec-nw-skill-btn' + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
-                skillsHtml += '<button class="' + btnClass + '"' +
-                    ' id="rec-nw-' + idx + '-' + skill.id + '"' +
-                    ' title="' + skill.name + '"' +
-                    ' onclick="recNwToggle(' + idx + ',\x27' + skill.id + '\x27)">' +
-                    (passed ? '○' : '') +
-                    '<div style="font-size:0.4rem;color:#999;line-height:1;margin-top:1px;">' + skill.short + '</div>' +
-                    '</button>';
+            config.categories.forEach(function(cat) {
+                var span = cat.isMaster ? 'grid-column:1/span 3;' : 'grid-column:1/-1;';
+                skillsHtml += '<div class="rec-nw-cat-label rec-nw-cat-' + cat.id + '" style="' + span + '">' + cat.name + '</div>';
+                cat.skills.forEach(function(skill) {
+                    var passed = passData[skill.id] === 1;
+                    var uncounted = kenteiIsLocked(config, cat.id, passData);
+                    var btnClass = 'rec-nw-skill-btn' + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
+                    skillsHtml += '<button class="' + btnClass + '"' +
+                        ' id="rec-nw-' + idx + '-' + skill.id + '"' +
+                        ' title="' + skill.short + '"' +
+                        ' onclick="recNwToggle(' + idx + ',\x27' + skill.id + '\x27)">' +
+                        (passed ? '○' : '') +
+                        '<div style="font-size:0.4rem;color:#999;line-height:1;margin-top:1px;">' + skill.short + '</div>' +
+                        '</button>';
+                });
             });
 
             return '<div class="rec-nawatobi-card' + (hasRecord ? ' has-record' : '') + '" id="rec-row-' + idx + '">' +

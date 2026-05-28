@@ -6683,6 +6683,37 @@
             }
         };
 
+        // --- 検定カードスコア正規化マイグレーション ---
+        function migrateKenteiCardScores() {
+            try {
+                if (localStorage.getItem('migration_kenteiCard_v1')) return; // 冪等
+                var tests = recGetTests();
+                var scores = recGetScores();
+                var kmap = {};
+                tests.forEach(function(t) {
+                    var cfg = kenteiGetConfig(t);
+                    if (cfg) kmap[t.id] = cfg;
+                });
+                var migrated = 0, changed = false;
+                scores.forEach(function(sc) {
+                    var cfg = kmap[sc.testId];
+                    if (!cfg) return;
+                    if (typeof sc.stage === 'number' && typeof sc.score10 === 'number') return;
+                    var pd = sc.passData || sc.nawatobiData || {};
+                    sc.passData = pd;
+                    sc.stage = kenteiCalcStage(cfg, pd);
+                    sc.score10 = kenteiStageToScore10(cfg, sc.stage);
+                    sc.score = sc.stage;
+                    if (!sc.nawatobiData) sc.nawatobiData = pd;
+                    migrated++; changed = true;
+                });
+                if (changed) recSaveScores(scores);
+                localStorage.setItem('migration_kenteiCard_v1', JSON.stringify({ count: migrated, ts: new Date().toISOString() }));
+                if (migrated > 0) console.log('migrateKenteiCardScores: ' + migrated + '件を正規化');
+            } catch(e) { console.error('migrateKenteiCardScores error', e); }
+        }
+        document.addEventListener('DOMContentLoaded', migrateKenteiCardScores);
+
     })();
 
         // ===== 机間巡視 JS =====
@@ -11452,7 +11483,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.7.63';
+        var _VER = 'v1.7.64';
 
         // ----------------------------------------------------------------
         // データ収集関数

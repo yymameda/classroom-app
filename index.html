@@ -5711,6 +5711,203 @@
             { id: 'x3', short: '連続難',     cat: 'high' }
         ];
 
+        // ============================================================
+        // KenteiCard 共通モジュール (フェーズ3a, v1.8.0)
+        // なわとび・泳力検定など「級ベース検定カード」の汎用基盤
+        // ============================================================
+        var KenteiPresets = {
+            nawatobi: {
+                id: 'nawatobi',
+                name: 'なわとびカード',
+                emoji: '🪢',
+                // 実コードの REC_NW_CATS / REC_NW_SKILLS と完全一致させる
+                categories: [
+                    { id: 'hop',  name: 'ホップ',       color: '#4CAF50', skills: [
+                        { id: 'h1', short: '両足前' }, { id: 'h2', short: '両足後' },
+                        { id: 'h3', short: 'かけ足前' }, { id: 'h4', short: 'かけ足後' },
+                        { id: 'h5', short: '片足前' }, { id: 'h6', short: '片足後' }
+                    ]},
+                    { id: 'step', name: 'ステップ',     color: '#2196F3', skills: [
+                        { id: 's1', short: 'ｸﾞｰﾊﾟｰ前' }, { id: 's2', short: 'ｸﾞｰﾊﾟｰ後' },
+                        { id: 's3', short: 'ｸﾞｰﾁｮｷ前' }, { id: 's4', short: 'ｸﾞｰﾁｮｷ後' },
+                        { id: 's5', short: 'あや前' }, { id: 's6', short: 'こうさ前' }
+                    ]},
+                    { id: 'jump', name: 'ジャンプ',     color: '#FF9800', skills: [
+                        { id: 'j1', short: 'あや後' }, { id: 'j2', short: 'こうさ後' },
+                        { id: 'j3', short: 'ｻｲﾄﾞ前' }, { id: 'j4', short: 'ｻｲﾄﾞ後' },
+                        { id: 'j5', short: 'ﾏﾘｰﾅ前' }, { id: 'j6', short: '二重前' }
+                    ]},
+                    { id: 'high', name: 'ハイジャンプ', color: '#E91E63', isMaster: true, skills: [
+                        { id: 'x1', short: '二重後' }, { id: 'x2', short: '連続易' },
+                        { id: 'x3', short: '連続難' }
+                    ]}
+                ],
+                // stage(=合格累計技数) → ラベル。なわとびは総21技。
+                stageToLabel: function(stage) {
+                    if (stage <= 0) return '-';
+                    if (stage >= 21) return 'マスター';
+                    return (21 - stage) + '級';
+                },
+                // 換算表プリセット: 既存 nawatobiToScore10(級) を stage ベースに写経
+                defaultConversionTable: function() {
+                    var self = this; var table = [];
+                    for (var stage = 0; stage <= 21; stage++) {
+                        table.push({ stage: stage, label: self.stageToLabel(stage),
+                            score10: kenteiNawatobiStageScore10(stage) });
+                    }
+                    return table;
+                }
+            },
+            swimming: {
+                id: 'swimming',
+                name: '泳力検定カード',
+                emoji: '🏊',
+                // PDF(R8 泳力検定カード)に基づく。総24技。
+                categories: [
+                    { id: 'hop',  name: 'ホップ',       color: '#4CAF50', skills: [
+                        { id: 'sh1', short: 'かけっこ',   desc: '水中を10m走る' },
+                        { id: 'sh2', short: 'もぐる易',   desc: '水中にもぐる' },
+                        { id: 'sh3', short: 'もぐる難',   desc: '水中に5秒もぐる' },
+                        { id: 'sh4', short: 'バブリング', desc: '水中で息をはく(細く長く、3秒)' },
+                        { id: 'sh5', short: 'ボビング',   desc: '水中で息をはき、とびあがって空気中で息を吸う' },
+                        { id: 'sh6', short: 'ふしうき易', desc: 'かべにつかまって伏し浮き' }
+                    ]},
+                    { id: 'step', name: 'ステップ',     color: '#2196F3', skills: [
+                        { id: 'ss1', short: 'ふしうき難', desc: '伏し浮きを5秒' },
+                        { id: 'ss2', short: 'せうき',     desc: '背浮きを5秒' },
+                        { id: 'ss3', short: 'け伸び',     desc: 'かべをけって、体を一直線にする' },
+                        { id: 'ss4', short: '面ｸﾛｰﾙ',   desc: '呼吸をしないクロールをする' },
+                        { id: 'ss5', short: '面平泳',    desc: '呼吸をしない平泳ぎをする' },
+                        { id: 'ss6', short: 'かんたん泳', desc: '呼吸をしながら25m泳ぐ(背泳ぎ・ドル平も可)' }
+                    ]},
+                    { id: 'jump', name: 'ジャンプ',     color: '#FF9800', skills: [
+                        { id: 'sj1', short: 'ｸﾛｰﾙ',     desc: 'クロールで25m泳ぐ' },
+                        { id: 'sj2', short: '平泳ぎ',     desc: '平泳ぎで25m泳ぐ' },
+                        { id: 'sj3', short: 'ｸﾛｰﾙ長',   desc: 'クロールで50m泳ぐ' },
+                        { id: 'sj4', short: '平泳長',     desc: '平泳ぎで50m泳ぐ' },
+                        { id: 'sj5', short: 'ｸﾛｰﾙ速',   desc: '25mを30秒以内' },
+                        { id: 'sj6', short: '平泳速',     desc: '25mを40秒以内' }
+                    ]},
+                    { id: 'high', name: 'ハイジャンプ', color: '#E91E63', isMaster: true, skills: [
+                        { id: 'sx1', short: 'M6', desc: 'マスター6: クロールで100m泳ぐ' },
+                        { id: 'sx2', short: 'M5', desc: 'マスター5: 平泳ぎで100m泳ぐ' },
+                        { id: 'sx3', short: 'M4', desc: 'マスター4: 25mを25秒以内' },
+                        { id: 'sx4', short: 'M3', desc: 'マスター3: 25mを35秒以内' },
+                        { id: 'sx5', short: 'M2', desc: 'マスター2: クロールで50m泳ぐ' },
+                        { id: 'sx6', short: 'M1', desc: 'マスター1: 平泳ぎで50m泳ぐ(究極)' }
+                    ]}
+                ],
+                // stage(=合格累計技数) → ラベル。総24技。stage19-24がマスター6-1。
+                stageToLabel: function(stage) {
+                    if (stage <= 0) return '-';
+                    if (stage >= 19) return 'マスター' + (25 - stage);  // 19→M6 ... 24→M1
+                    return (19 - stage) + '級';                          // 1→18級 ... 18→1級
+                },
+                // 換算表プリセット: 倍率1(上から10、下を0)
+                defaultConversionTable: function() {
+                    var self = this; var table = []; var maxStage = 24;
+                    for (var stage = 0; stage <= maxStage; stage++) {
+                        var score10 = Math.round((stage / maxStage) * 10 * 10) / 10;
+                        table.push({ stage: stage, label: self.stageToLabel(stage), score10: score10 });
+                    }
+                    return table;
+                }
+            }
+        };
+
+        // なわとび専用: stage(合格累計) → 10点。既存 nawatobiToScore10(級) と等価になるよう写経。
+        function kenteiNawatobiStageScore10(stage) {
+            if (stage === undefined || stage === null) return null;
+            if (stage >= 21) return 10;     // マスター
+            if (stage <= 0) return 0;       // 何も合格していない(旧 grade>20 → 0 に対応)
+            var grade = 21 - stage;         // stage → 級
+            if (grade <= 0) return 10;
+            if (grade > 20) return 0;
+            if (grade <= 7)  return Math.round(10 - (grade - 1) * (2 / 6));
+            if (grade <= 17) return Math.round(7  - (grade - 8) * (3 / 9));
+            return Math.round(3 - (grade - 18) * (2 / 2));
+        }
+
+        // peUnit 文字列 → プリセットID。後方互換: 'なわとびカード' は nawatobi。
+        function kenteiGetPresetId(peUnit) {
+            if (!peUnit) return null;
+            if (peUnit === 'なわとびカード') return 'nawatobi';
+            if (peUnit.indexOf('検定:') === 0) return peUnit.substring(3);
+            return null;
+        }
+
+        // テストオブジェクト → config。kenteiConfig があれば優先、なければプリセットから構築。
+        function kenteiGetConfig(test) {
+            if (!test) return null;
+            if (test.kenteiConfig) return test.kenteiConfig;
+            var pid = kenteiGetPresetId(test.peUnit);
+            if (pid && KenteiPresets[pid]) return kenteiBuildFromPreset(pid);
+            return null;
+        }
+
+        function kenteiBuildFromPreset(presetId) {
+            var preset = KenteiPresets[presetId];
+            if (!preset) return null;
+            return {
+                presetId: presetId,
+                categories: JSON.parse(JSON.stringify(preset.categories)),
+                _presetId: presetId,
+                conversionTable: preset.defaultConversionTable()
+            };
+        }
+
+        // config の総技数
+        function kenteiTotalSkills(config) {
+            if (!config) return 0;
+            return config.categories.reduce(function(n, c) { return n + c.skills.length; }, 0);
+        }
+
+        // passData → stage(合格累計技数)。カテゴリ順に進み、未完了カテゴリで打ち切り。
+        function kenteiCalcStage(config, passData) {
+            if (!config || !passData) return 0;
+            var total = 0;
+            for (var ci = 0; ci < config.categories.length; ci++) {
+                var cat = config.categories[ci];
+                var passed = cat.skills.filter(function(s) { return passData[s.id] === 1; }).length;
+                total += passed;
+                if (passed < cat.skills.length) break;
+            }
+            return total;
+        }
+
+        // stage → ラベル
+        function kenteiStageToLabel(config, stage) {
+            if (!config) return '-';
+            if (config._presetId && KenteiPresets[config._presetId]) {
+                return KenteiPresets[config._presetId].stageToLabel(stage);
+            }
+            var row = (config.conversionTable || []).find(function(r) { return r.stage === stage; });
+            return row ? row.label : (stage + '段階');
+        }
+
+        // stage → 10点。conversionTable を引く。
+        function kenteiStageToScore10(config, stage) {
+            if (!config || stage === null || stage === undefined) return null;
+            var row = (config.conversionTable || []).find(function(r) { return r.stage === stage; });
+            return row ? row.score10 : null;
+        }
+
+        // カテゴリがロック(前カテゴリ未完了)か
+        function kenteiIsLocked(config, catId, passData) {
+            if (!config) return false;
+            var idx = config.categories.findIndex(function(c) { return c.id === catId; });
+            if (idx <= 0) return false;
+            for (var i = 0; i < idx; i++) {
+                var prev = config.categories[i];
+                var cnt = prev.skills.filter(function(s) { return passData[s.id] === 1; }).length;
+                if (cnt < prev.skills.length) return true;
+            }
+            return false;
+        }
+        // ============================================================
+        // KenteiCard 共通モジュール ここまで
+        // ============================================================
+
         function recNwCalcGrade(passData) {
             var catOrder = ['hop', 'step', 'jump', 'high'];
             var total = 0;
@@ -11237,7 +11434,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.7.61';
+        var _VER = 'v1.7.62';
 
         // ----------------------------------------------------------------
         // データ収集関数

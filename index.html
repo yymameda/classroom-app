@@ -5576,6 +5576,7 @@
 
             var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
             var isNawatobi = test.testType === '実技記録' && kenteiGetPresetId(test.peUnit) !== null;
+            var kConfig = isNawatobi ? kenteiGetConfig(test) : null;
             var count = scores.length;
 
             function statCard(value, label, color) {
@@ -5605,24 +5606,26 @@
                 chartWrap.style.display = '';
 
             } else if (isNawatobi) {
-                var grades = scores.map(function(s){return s.score||21;});
-                var bestGrade = Math.min.apply(null, grades);
-                var worstGrade = Math.max.apply(null, grades);
-                grid.innerHTML = statCard(recNwGradeLabel(bestGrade),'最高級','#27AE60') +
-                    statCard(recNwGradeLabel(worstGrade),'最低級','#E67E22') +
-                    statCard(count+'/'+students.length,'入力済み');
-                // 級別分布
-                var gradeCounts = {};
-                grades.forEach(function(g) {
-                    var lbl = recNwGradeLabel(g);
-                    gradeCounts[lbl] = (gradeCounts[lbl]||0) + 1;
+                // stage(合格累計技数)で処理。passData優先、なければ s.stage、旧データは s.score
+                var stages = scores.map(function(s) {
+                    var pd = s.passData || s.nawatobiData;
+                    if (pd && kConfig) return kenteiCalcStage(kConfig, pd);
+                    return typeof s.stage === 'number' ? s.stage : (typeof s.score === 'number' ? s.score : 0);
                 });
-                var gradeLabels = Object.keys(gradeCounts).sort(function(a,b){
-                    var na = a==='マスター'?0:parseInt(a); var nb = b==='マスター'?0:parseInt(b);
-                    return na-nb;
-                });
-                var maxGC = Math.max.apply(null, Object.values(gradeCounts).concat([1]));
-                bar.innerHTML = gradeLabels.map(function(lbl){return barItem(gradeCounts[lbl],lbl,maxGC);}).join('');
+                var bestStage  = Math.max.apply(null, stages);
+                var worstStage = Math.min.apply(null, stages);
+                var toLabel = function(st) { return kConfig ? kenteiStageToLabel(kConfig, st) : recNwGradeLabel(21 - st); };
+                grid.innerHTML = statCard(toLabel(bestStage),  '最高級', '#27AE60') +
+                    statCard(toLabel(worstStage), '最低級', '#E67E22') +
+                    statCard(count + '/' + students.length, '入力済み');
+                // stage を key に集計し、昇順に並べてラベル変換
+                var stageCounts = {};
+                stages.forEach(function(st) { stageCounts[st] = (stageCounts[st] || 0) + 1; });
+                var stageKeys = Object.keys(stageCounts).map(Number).sort(function(a, b) { return a - b; });
+                var maxSC = Math.max.apply(null, stageKeys.map(function(k) { return stageCounts[k]; }).concat([1]));
+                bar.innerHTML = stageKeys.map(function(st) {
+                    return barItem(stageCounts[st], toLabel(st), maxSC);
+                }).join('');
                 chartWrap.style.display = '';
 
             } else {

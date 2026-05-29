@@ -1776,6 +1776,8 @@
         .audit-detail-body{margin:6px 0 0 8px;font-size:0.85em;}
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <!-- サイドバー -->
@@ -7290,65 +7292,82 @@
             var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
             var methodLabels = { phone:'電話', meeting:'面談', note:'連絡帳', other:'その他' };
 
-            var pages = '';
-            selectedIdxs.forEach(function(idx, pageIdx) {
+            var sec  = { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions };
+            var data = { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels };
+
+            var pageList = [];
+            selectedIdxs.forEach(function(idx) {
                 var s = students[idx];
                 if (!s || !s.name) return;
-                var isLast = (pageIdx === selectedIdxs.length - 1);
+                var html = designMode === 'child'
+                    ? kvBuildChildPage(idx, s, ci, classLabel, true, sec, data)
+                    : kvBuildTeacherPage(idx, s, ci, classLabel, true, sec, data);
+                pageList.push({ html: html, name: s.name });
+            });
 
-                if (designMode === 'child') {
-                    pages += kvBuildChildPage(idx, s, ci, classLabel, isLast,
-                        { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions },
-                        { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels });
-                } else {
-                    pages += kvBuildTeacherPage(idx, s, ci, classLabel, isLast,
-                        { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions },
-                        { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels });
+            if (!pageList.length) { showToast('出力できるデータがありません', 'warning'); return; }
+
+            if (typeof html2canvas === 'undefined' || !window.jspdf) {
+                showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
+                return;
+            }
+
+            showToast('PDF生成中…しばらくお待ちください', 'info');
+
+            var container = document.createElement('div');
+            container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;'
+                + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
+                + 'box-sizing:border-box;';
+            document.body.appendChild(container);
+
+            var jsPDF = window.jspdf.jsPDF;
+            var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            var A4_W = 210, A4_H = 297, MARGIN = 10;
+            var pageIdx = 0;
+
+            function processNext() {
+                if (pageIdx >= pageList.length) {
+                    if (document.body.contains(container)) document.body.removeChild(container);
+                    var fname = pageList.length === 1
+                        ? 'カルテ_' + pageList[0].name + '.pdf'
+                        : 'カルテ_' + pageList.length + '名.pdf';
+                    pdf.save(fname);
+                    showToast('PDFを保存しました', 'success');
+                    return;
                 }
-            });
+                container.innerHTML = pageList[pageIdx].html;
+                var el = container.firstElementChild || container;
+                html2canvas(el, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 794,
+                    scrollX: 0,
+                    scrollY: 0
+                }).then(function(canvas) {
+                    var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                    var availW = A4_W - MARGIN * 2;
+                    var imgW = availW;
+                    var imgH = canvas.height / canvas.width * imgW;
+                    var maxH = A4_H - MARGIN * 2;
+                    if (imgH > maxH) {
+                        imgH = maxH;
+                        imgW = canvas.width / canvas.height * imgH;
+                    }
+                    var x = (A4_W - imgW) / 2;
+                    if (pageIdx > 0) pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
+                    pageIdx++;
+                    processNext();
+                }).catch(function(err) {
+                    if (document.body.contains(container)) document.body.removeChild(container);
+                    showToast('PDF生成中にエラーが発生しました', 'error');
+                    console.error('kvPrint html2canvas error:', err);
+                });
+            }
 
-            if (!pages) { showToast('出力できるデータがありません', 'warning'); return; }
-
-            var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
-                + '@page{size:A4 portrait;margin:10mm 12mm;}'
-                + '*{box-sizing:border-box;margin:0;padding:0;}'
-                + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
-                + '@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
-                + '</style></head><body>' + pages + '</body></html>';
-
-            var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
-            var blobUrl = URL.createObjectURL(blob);
-            var overlay = document.createElement('div');
-            overlay.id = 'kv-overlay';
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
-            var iframe = document.createElement('iframe');
-            iframe.src = blobUrl;
-            iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
-            var btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
-            var printBtn2 = document.createElement('button');
-            printBtn2.textContent = '🖨️ 印刷 / PDF保存';
-            printBtn2.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;';
-            var backBtn2 = document.createElement('button');
-            backBtn2.textContent = '✕ 元の画面に戻る';
-            backBtn2.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;';
-            btnRow.appendChild(printBtn2); btnRow.appendChild(backBtn2);
-            overlay.appendChild(iframe); overlay.appendChild(btnRow);
-            document.body.appendChild(overlay);
-            function cleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('kv-overlay'); if (ov) ov.remove(); }
-            printBtn2.addEventListener('click', function() {
-                var ok = confirm('印刷ダイアログが開きます。\nSafari / Chrome では「ヘッダーとフッター」をオフにしてから印刷してください。');
-                if (!ok) return;
-                var win = window.open('', '_blank', 'width=900,height=700');
-                if (!win) { showToast('ポップアップがブロックされました。ブラウザの設定で許可してください', 'warning'); return; }
-                win.document.open();
-                win.document.write(printDoc);
-                win.document.close();
-                win.focus();
-                win.print();
-                win.addEventListener('afterprint', function() { win.close(); });
-            });
-            backBtn2.addEventListener('click', cleanup);
+            processNext();
         }
 
         // ----------------------------------------------------------------

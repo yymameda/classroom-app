@@ -1084,6 +1084,10 @@
         .ks-hub-row { margin-bottom: 0.25rem; }
         .ks-hub-label { font-size: 0.65rem; color: var(--text-light); }
         .ks-hub-val { font-size: 0.75rem; }
+        .ks-missing-row { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; border-bottom:1px solid var(--border); }
+        .ks-missing-row:last-child { border-bottom:none; }
+        .ks-missing-name { flex:1; font-size:0.8rem; color:var(--text); }
+        .ks-missing-status { flex:none; font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; color:#fff; white-space:nowrap; }
         .ks-recent { margin-top: 0.5rem; }
         .ks-recent-title { font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 0.4rem; }
         /* 生活記録 */
@@ -7496,9 +7500,9 @@
                     subDetailHtml += '<div style="margin-top:4px;">';
                     subMissList.slice(0, 5).forEach(function(item) {
                         var col = item.status === '未提出' ? 'var(--danger)' : '#B7950B';
-                        subDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label" style="flex:1;">' + escapeHtml(item.name) + '</span><span style="font-size:0.65rem;color:' + col + ';font-weight:700;">' + item.status + '</span></div>';
+                        subDetailHtml += '<div class="ks-missing-row"><span class="ks-missing-name">' + escapeHtml(item.name) + '</span><span class="ks-missing-status" style="background:' + col + ';">' + item.status + '</span></div>';
                     });
-                    if (subMissList.length > 5) subDetailHtml += '<div class="ks-hub-label" style="margin-top:2px;">ほか ' + (subMissList.length - 5) + ' 件</div>';
+                    if (subMissList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subMissList.length - 5) + ' 件</div>';
                     subDetailHtml += '</div>';
                 }
             }

@@ -13227,12 +13227,12 @@
                 if(e==='握力'){
                     var vL=rec['握力_左']!==undefined?rec['握力_左']:'';
                     var vR=rec['握力_右']!==undefined?rec['握力_右']:'';
-                    html+='<td><input type="number" step="0.1" min="0" value="'+vL+'" placeholder="左" data-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'左\',this.value)" oninput="pf_setGripRecord('+s.id+',\'左\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
-                    html+='<td><input type="number" step="0.1" min="0" value="'+vR+'" placeholder="右" data-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'右\',this.value)" oninput="pf_setGripRecord('+s.id+',\'右\',this.value)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+s.id+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
+                    html+='<td><input type="number" step="0.1" min="0" value="'+vL+'" placeholder="左" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'左\',this.value)" oninput="pf_setGripRecord('+s.id+',\'左\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="0.1" min="0" value="'+vR+'" placeholder="右" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'右\',this.value)" oninput="pf_setGripRecord('+s.id+',\'右\',this.value)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+s.id+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
                 }else{
                     var step=e==='50m走'?'0.1':'1';
                     var v=rec[e]!==undefined?rec[e]:'';
-                    html+='<td><input type="number" step="'+step+'" min="0" value="'+v+'" placeholder="—" data-idx="'+(inputIdx++)+'" onchange="pf_setRecord('+s.id+',\''+e+'\',this.value)" oninput="pf_setRecord('+s.id+',\''+e+'\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="'+step+'" min="0" value="'+v+'" placeholder="—" data-pf-idx="'+(inputIdx++)+'" onchange="pf_setRecord('+s.id+',\''+e+'\',this.value)" oninput="pf_setRecord('+s.id+',\''+e+'\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
                 }
             });
             var scoreHtml=total>0?total:'—';
@@ -13574,8 +13574,9 @@
 
     function pfMoveNext(e,el){
         if(e.key!=='Enter')return;e.preventDefault();
-        var idx=parseInt(el.dataset.idx);
-        var next=document.querySelector('input[data-idx="'+(idx+9)+'"]');
+        var idx=parseInt(el.dataset.pfIdx);
+        var wrap=document.getElementById('pf-inputGridWrap');
+        var next=wrap&&wrap.querySelector('input[data-pf-idx="'+(idx+9)+'"]');
         if(next){next.focus();next.select();}
     }
 

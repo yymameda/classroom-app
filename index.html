@@ -7327,7 +7327,7 @@
             var btnRow = document.createElement('div');
             btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
             var printBtn2 = document.createElement('button');
-            printBtn2.textContent = '🖨️ 印刷 / PDF保存（ダイアログでヘッダー・フッターをオフに）';
+            printBtn2.textContent = '🖨️ 印刷 / PDF保存';
             printBtn2.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;';
             var backBtn2 = document.createElement('button');
             backBtn2.textContent = '✕ 元の画面に戻る';
@@ -7336,9 +7336,19 @@
             overlay.appendChild(iframe); overlay.appendChild(btnRow);
             document.body.appendChild(overlay);
             function cleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('kv-overlay'); if (ov) ov.remove(); }
-            printBtn2.addEventListener('click', function() { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.open(blobUrl, '_blank'); } });
+            printBtn2.addEventListener('click', function() {
+                var ok = confirm('印刷ダイアログが開きます。\nSafari / Chrome では「ヘッダーとフッター」をオフにしてから印刷してください。');
+                if (!ok) return;
+                var win = window.open('', '_blank', 'width=900,height=700');
+                if (!win) { showToast('ポップアップがブロックされました。ブラウザの設定で許可してください', 'warning'); return; }
+                win.document.open();
+                win.document.write(printDoc);
+                win.document.close();
+                win.focus();
+                win.print();
+                win.addEventListener('afterprint', function() { win.close(); });
+            });
             backBtn2.addEventListener('click', cleanup);
-            iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', cleanup); } catch(e) {} });
         }
 
         // ----------------------------------------------------------------

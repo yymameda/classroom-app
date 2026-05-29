@@ -7310,9 +7310,10 @@
             if (!pages) { showToast('出力できるデータがありません', 'warning'); return; }
 
             var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
-                + '@page{size:A4 portrait;margin:0;}'
+                + '@page{size:A4 portrait;margin:10mm 12mm;}'
                 + '*{box-sizing:border-box;margin:0;padding:0;}'
                 + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
+                + '@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
                 + '</style></head><body>' + pages + '</body></html>';
 
             var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
@@ -7326,7 +7327,7 @@
             var btnRow = document.createElement('div');
             btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
             var printBtn2 = document.createElement('button');
-            printBtn2.textContent = '🖨️ 印刷 / PDF保存';
+            printBtn2.textContent = '🖨️ 印刷 / PDF保存（ダイアログでヘッダー・フッターをオフに）';
             printBtn2.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;';
             var backBtn2 = document.createElement('button');
             backBtn2.textContent = '✕ 元の画面に戻る';
@@ -7345,10 +7346,10 @@
         // ----------------------------------------------------------------
         function kvBuildChildPage(idx, s, ci, classLabel, isLast, sec, data) {
             var gradeColors = { 'A':'#2E7D32','B':'#1565C0','C':'#E65100' };
-            var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:10mm 12mm 8mm;box-sizing:border-box;background:#fff;min-height:297mm;">';
+            var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';box-sizing:border-box;background:#fff;">';
 
             // ── ヘッダー ──────────────────────────────────────────
-            html += '<div style="background:linear-gradient(135deg,#1a2332 0%,#2D7D9A 100%);border-radius:12pt;padding:12pt 16pt;margin-bottom:10pt;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
+            html += '<div style="background:linear-gradient(135deg,#1a2332 0%,#2D7D9A 100%);border-radius:12pt;padding:10pt 14pt;margin-bottom:6pt;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
                 + '<div>'
                 + '<div style="font-size:7pt;opacity:0.75;letter-spacing:0.1em;margin-bottom:3pt;">' + escapeHtml(String(ci.year||'') + '年度　' + String(ci.grade||'') + '年' + String(ci.class||'') + '組') + '</div>'
                 + '<div style="font-size:20pt;font-weight:900;letter-spacing:0.05em;">' + escapeHtml(s.name) + '</div>'
@@ -7362,7 +7363,7 @@
 
             // ── 成績 ─────────────────────────────────────────────
             if (sec.secGrades && data.subjects.length) {
-                html += '<div style="margin-bottom:8pt;">'
+                html += '<div style="margin-bottom:5pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2D7D9A;">📈 成績</div>'
                     + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80pt,1fr));gap:5pt;">';
                 data.subjects.forEach(function(subj) {
@@ -7402,7 +7403,7 @@
                 var total = present + absent;
                 var attPct = total > 0 ? Math.round(present / total * 100) : 100;
                 var barW = attPct;
-                html += '<div style="margin-bottom:8pt;">'
+                html += '<div style="margin-bottom:5pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #27AE60;">📅 出席</div>'
                     + '<div style="background:#F0FFF4;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:12pt;">'
                     + '<div style="flex:1;">'
@@ -7426,7 +7427,7 @@
             if (sec.secKanji) {
                 var kjUnits = data.kanjiData.units || [];
                 if (kjUnits.length) {
-                    html += '<div style="margin-bottom:8pt;">'
+                    html += '<div style="margin-bottom:5pt;">'
                         + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2E7D32;">✍️ 漢字チェック</div>'
                         + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90pt,1fr));gap:4pt;">';
                     kjUnits.forEach(function(unit) {
@@ -7466,7 +7467,7 @@
                 });
                 var subTotal = data.assigns.length;
                 var subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) : 100;
-                html += '<div style="margin-bottom:8pt;">'
+                html += '<div style="margin-bottom:5pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #3498DB;">📚 提出物</div>'
                     + '<div style="background:#EBF5FB;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:14pt;">'
                     + '<div style="flex:1;">'
@@ -7505,7 +7506,7 @@
                 var lifeRecs = Array.isArray(data.lifeAll[String(idx)]) ? data.lifeAll[String(idx)] : [];
                 var growthRecs = lifeRecs.filter(function(r) { return r.categories && r.categories.indexOf('growth') >= 0; });
                 var sorted = lifeRecs.slice().sort(function(a, b) { return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||''); });
-                html += '<div style="margin-bottom:8pt;">'
+                html += '<div style="margin-bottom:5pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #9B59B6;">📔 生活記録</div>';
                 if (growthRecs.length > 0) {
                     html += '<div style="font-size:7pt;color:#7B1FA2;font-weight:600;margin-bottom:4pt;">✨ 成長エピソード</div>'
@@ -7530,7 +7531,7 @@
             }
 
             // ── フッター ──────────────────────────────────────────
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1pt solid #e0e0e0;padding-top:5pt;margin-top:auto;">'
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1pt solid #e0e0e0;padding-top:4pt;margin-top:6pt;">'
                 + '<span style="font-size:7pt;color:#aaa;">' + escapeHtml(classLabel) + '</span>'
                 + '<span style="font-size:7pt;color:#aaa;">発行日：' + new Date().toLocaleDateString('ja-JP') + '</span>'
                 + '</div>';

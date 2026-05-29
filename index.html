@@ -1793,6 +1793,7 @@
         <div class="nav-group-label">【評価】</div>
         <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
+        <button class="nav-btn" data-view="karte" data-tooltip="個人カルテ" id="nav-karte">👤</button>
         <div class="nav-group-label">【体育】</div>
         <button class="nav-btn" data-view="pf" data-tooltip="新体力テスト" id="nav-pf">🏃</button>
         <div class="nav-group-label">【データ】</div>
@@ -1948,7 +1949,7 @@
                         <button class="att-mode-tab active" id="attTabGrid"    onclick="attSetTab('grid')">📝 入力</button>
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
-                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showKarte(null,'attendance')">👤 カルテ</button>
+                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showView('karte')">👤 カルテ</button>
                         <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte('attendance')">🖨️ 一括印刷</button>
                     </div>
                 </div>
@@ -2045,7 +2046,7 @@
 
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
-            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'all')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <div class="view-content" id="seating-content" style="max-width: 600px;">
                 <div class="card">
                     <div class="btn-group" style="margin-bottom: 12px;">
@@ -2100,7 +2101,7 @@
                     <button class="rec-subnav-btn" onclick="recShowSub('tests')">📋 課題管理</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
-                    <button class="rec-subnav-btn" onclick="showKarte(null,'all')">👤 個人カルテ</button>
+                    <button class="rec-subnav-btn" onclick="showView('karte')">👤 個人カルテ</button>
                     <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;margin-left:auto;flex-shrink:0;" onclick="printAllKarte()">🖨️ 一括印刷</button>
                 </div>
             </div>
@@ -2428,7 +2429,7 @@
 
         <!-- ===== 提出物チェック (Phase 5) ===== -->
         <div id="view-submissions" class="view">
-            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'submissions')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte('submissions')">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte('submissions')">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2549,7 +2550,7 @@
 
         <!-- ===== 忘れ物チェック (Phase 6) ===== -->
         <div id="view-forgotten" class="view">
-            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showKarte(null,'all')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2769,7 +2770,7 @@
                 <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
                 <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
                 <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showKarte(null,'all')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
@@ -2787,6 +2788,57 @@
                         <button onclick="kanjiCloseUnitModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">キャンセル</button>
                         <button onclick="kanjiSaveUnit()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">保存</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 個人カルテ（統合） ===== -->
+        <div id="view-karte" class="view">
+            <div class="view-header"><h2>👤 個人カルテ</h2></div>
+            <div class="view-content" style="max-width:760px;">
+                <div class="card">
+                    <h3>👥 出力する児童</h3>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+                        <button id="kvSelectAll" class="btn btn-outline" style="padding:5px 12px;font-size:0.82rem;">全員選択</button>
+                        <button id="kvDeselectAll" class="btn btn-outline" style="padding:5px 12px;font-size:0.82rem;">全て解除</button>
+                        <span id="kvStatusText" style="font-size:0.8rem;color:var(--text-light);margin-left:4px;"></span>
+                    </div>
+                    <div id="kvStudentList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                </div>
+                <div class="card">
+                    <h3>📋 出力するセクション</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_grades" checked> 📈 成績（観点別・評定）</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_attendance" checked> 📅 出欠席</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_life" checked> 📔 生活記録</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_kanji" checked> ✍️ 漢字チェック</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_parent"> 👨‍👩‍👧 保護者対応</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_health"> 🏥 身体・配慮</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_learning"> 📖 学習面配慮</label>
+                    </div>
+                    <div style="padding-top:10px;border-top:1px solid var(--border);">
+                        <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text);">📚 提出物（教科を選択）</div>
+                        <div id="kvSubjectChecks" style="display:flex;flex-wrap:wrap;gap:6px;min-height:24px;"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🎨 PDFデザイン</h3>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <label style="flex:1;min-width:200px;cursor:pointer;">
+                            <input type="radio" name="kvDesign" value="teacher" style="margin-right:6px;">
+                            <strong>先生用</strong>
+                            <span style="display:block;font-size:0.78rem;color:var(--text-light);margin-top:3px;margin-left:18px;">数値・記録を密に表示。内部資料向け。</span>
+                        </label>
+                        <label style="flex:1;min-width:200px;cursor:pointer;">
+                            <input type="radio" name="kvDesign" value="child" checked style="margin-right:6px;">
+                            <strong>子ども向け ✨</strong>
+                            <span style="display:block;font-size:0.78rem;color:var(--text-light);margin-top:3px;margin-left:18px;">成長を見える化。もらった本人が振り返れるデザイン。</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:24px;">
+                    <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,#2D7D9A,#1E5A70);border:none;border-radius:10px;min-height:48px;">🖨️ カルテ出力（PDF）</button>
+                    <span style="font-size:0.8rem;color:var(--text-light);">選択した児童・セクションをA4縦でまとめて出力します</span>
                 </div>
             </div>
         </div>
@@ -3823,6 +3875,7 @@
         if (viewName === 'kanji' && typeof kanjiInit === 'function') { kanjiInit(); }
         if (viewName === 'pf' && typeof pf_onShowView === 'function') { pf_onShowView(); }
         if (viewName === 'grades' && typeof grdImportFitnessTest === 'function') { grdImportFitnessTest(); }
+        if (viewName === 'karte' && typeof karteViewInit === 'function') { karteViewInit(); }
     }
 
     // ================================================================
@@ -7133,6 +7186,504 @@
                     (r.memo ? '<div class="history-item-memo">' + r.memo + '</div>' : '') +
                     '</div>';
             }).join('');
+        }
+
+
+        // ================================================================
+        // 👤 個人カルテ ビュー（統合カルテ出力センター）
+        // ================================================================
+        function karteViewInit() {
+            var students = (StorageManager.get(KEYS.master, {}).students || []);
+            var container = document.getElementById('kvStudentList');
+            if (!container) return;
+
+            // 既にイベント登録済なら再レンダリングのみ
+            container.innerHTML = students.map(function(s, i) {
+                return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
+                    + '<input type="checkbox" class="kv-student-chk" value="' + i + '" checked>'
+                    + escapeHtml((i + 1) + '. ' + (s.name || ''))
+                    + '</label>';
+            }).join('');
+
+            function updateStatus() {
+                var cnt = container.querySelectorAll('.kv-student-chk:checked').length;
+                var el = document.getElementById('kvStatusText');
+                if (el) el.textContent = cnt + '名が選択されています';
+            }
+            container.addEventListener('change', updateStatus);
+            updateStatus();
+
+            // 提出物教科
+            var assigns = StorageManager.get(KEYS.submissions_assignments, []);
+            var subjSet = {};
+            assigns.forEach(function(a) { if (a.subject) subjSet[a.subject] = 1; });
+            var subjList = Object.keys(subjSet);
+            var subsEl = document.getElementById('kvSubjectChecks');
+            if (subsEl) {
+                subsEl.innerHTML = subjList.length === 0
+                    ? '<span style="font-size:0.8rem;color:var(--text-light);">（課題データなし）</span>'
+                    : subjList.map(function(subj) {
+                        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:0.82rem;cursor:pointer;padding:3px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
+                            + '<input type="checkbox" class="kv-subj-chk" value="' + escapeHtml(subj) + '" checked>'
+                            + escapeHtml(subj) + '</label>';
+                    }).join('');
+            }
+
+            // ボタン
+            var selAll = document.getElementById('kvSelectAll');
+            var deselAll = document.getElementById('kvDeselectAll');
+            var printBtn = document.getElementById('kvPrintBtn');
+            if (selAll) selAll.onclick = function() {
+                container.querySelectorAll('.kv-student-chk').forEach(function(c) { c.checked = true; });
+                updateStatus();
+            };
+            if (deselAll) deselAll.onclick = function() {
+                container.querySelectorAll('.kv-student-chk').forEach(function(c) { c.checked = false; });
+                updateStatus();
+            };
+            if (printBtn) printBtn.onclick = kvPrint;
+        }
+
+        function kvGetSelectedIdxs() {
+            var arr = [];
+            document.querySelectorAll('.kv-student-chk:checked').forEach(function(c) { arr.push(parseInt(c.value)); });
+            return arr;
+        }
+
+        function kvPrint() {
+            var selectedIdxs = kvGetSelectedIdxs();
+            if (!selectedIdxs.length) { showToast('出力する児童を選択してください', 'warning'); return; }
+
+            var secGrades     = !!(document.getElementById('kvSec_grades')     && document.getElementById('kvSec_grades').checked);
+            var secAttendance = !!(document.getElementById('kvSec_attendance') && document.getElementById('kvSec_attendance').checked);
+            var secLife       = !!(document.getElementById('kvSec_life')       && document.getElementById('kvSec_life').checked);
+            var secParent     = !!(document.getElementById('kvSec_parent')     && document.getElementById('kvSec_parent').checked);
+            var secHealth     = !!(document.getElementById('kvSec_health')     && document.getElementById('kvSec_health').checked);
+            var secLearning   = !!(document.getElementById('kvSec_learning')   && document.getElementById('kvSec_learning').checked);
+            var secKanji      = !!(document.getElementById('kvSec_kanji')      && document.getElementById('kvSec_kanji').checked);
+            var selectedSubjects = [];
+            document.querySelectorAll('.kv-subj-chk:checked').forEach(function(c) { selectedSubjects.push(c.value); });
+            var secSubmissions = selectedSubjects.length > 0;
+
+            if (!secGrades && !secAttendance && !secSubmissions && !secLife && !secParent && !secHealth && !secLearning && !secKanji) {
+                showToast('出力するセクションを1つ以上選択してください', 'warning'); return;
+            }
+
+            var designMode = 'child';
+            var designEl = document.querySelector('input[name="kvDesign"]:checked');
+            if (designEl) designMode = designEl.value;
+
+            var masterData  = StorageManager.get(KEYS.master, {});
+            var students    = masterData.students || [];
+            var ci          = masterData.classInfo || {};
+            var attAll      = secAttendance  ? StorageManager.get(KEYS.attendance, {})              : {};
+            var allAssigns  = secSubmissions ? StorageManager.get(KEYS.submissions_assignments, []) : [];
+            var assigns     = secSubmissions ? allAssigns.filter(function(a) { return selectedSubjects.indexOf(a.subject) >= 0; }) : [];
+            var subsData    = secSubmissions ? StorageManager.get(KEYS.submissions_data, [])        : [];
+            var lifeAll     = secLife        ? StorageManager.get(KEYS.karte_life, {})              : {};
+            var parentAll   = secParent      ? StorageManager.get(KEYS.karte_parent, {})            : {};
+            var healthAll   = secHealth      ? StorageManager.get(KEYS.karte_health, {})            : {};
+            var learningAll = secLearning    ? StorageManager.get(KEYS.karte_learning, {})          : {};
+            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { units: [] })        : { units: [] };
+            var subjects    = secGrades && typeof grdGetAvailableSubjects === 'function' ? grdGetAvailableSubjects() : [];
+
+            var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
+            var methodLabels = { phone:'電話', meeting:'面談', note:'連絡帳', other:'その他' };
+
+            var pages = '';
+            selectedIdxs.forEach(function(idx, pageIdx) {
+                var s = students[idx];
+                if (!s || !s.name) return;
+                var isLast = (pageIdx === selectedIdxs.length - 1);
+
+                if (designMode === 'child') {
+                    pages += kvBuildChildPage(idx, s, ci, classLabel, isLast,
+                        { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions },
+                        { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels });
+                } else {
+                    pages += kvBuildTeacherPage(idx, s, ci, classLabel, isLast,
+                        { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions },
+                        { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels });
+                }
+            });
+
+            if (!pages) { showToast('出力できるデータがありません', 'warning'); return; }
+
+            var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
+                + '@page{size:A4 portrait;margin:0;}'
+                + '*{box-sizing:border-box;margin:0;padding:0;}'
+                + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
+                + '</style></head><body>' + pages + '</body></html>';
+
+            var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
+            var blobUrl = URL.createObjectURL(blob);
+            var overlay = document.createElement('div');
+            overlay.id = 'kv-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
+            var iframe = document.createElement('iframe');
+            iframe.src = blobUrl;
+            iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
+            var printBtn2 = document.createElement('button');
+            printBtn2.textContent = '🖨️ 印刷 / PDF保存';
+            printBtn2.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;';
+            var backBtn2 = document.createElement('button');
+            backBtn2.textContent = '✕ 元の画面に戻る';
+            backBtn2.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;';
+            btnRow.appendChild(printBtn2); btnRow.appendChild(backBtn2);
+            overlay.appendChild(iframe); overlay.appendChild(btnRow);
+            document.body.appendChild(overlay);
+            function cleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('kv-overlay'); if (ov) ov.remove(); }
+            printBtn2.addEventListener('click', function() { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.open(blobUrl, '_blank'); } });
+            backBtn2.addEventListener('click', cleanup);
+            iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', cleanup); } catch(e) {} });
+        }
+
+        // ----------------------------------------------------------------
+        // 子ども向けPDFページ生成
+        // ----------------------------------------------------------------
+        function kvBuildChildPage(idx, s, ci, classLabel, isLast, sec, data) {
+            var gradeColors = { 'A':'#2E7D32','B':'#1565C0','C':'#E65100' };
+            var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:10mm 12mm 8mm;box-sizing:border-box;background:#fff;min-height:297mm;">';
+
+            // ── ヘッダー ──────────────────────────────────────────
+            html += '<div style="background:linear-gradient(135deg,#1a2332 0%,#2D7D9A 100%);border-radius:12pt;padding:12pt 16pt;margin-bottom:10pt;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
+                + '<div>'
+                + '<div style="font-size:7pt;opacity:0.75;letter-spacing:0.1em;margin-bottom:3pt;">' + escapeHtml(String(ci.year||'') + '年度　' + String(ci.grade||'') + '年' + String(ci.class||'') + '組') + '</div>'
+                + '<div style="font-size:20pt;font-weight:900;letter-spacing:0.05em;">' + escapeHtml(s.name) + '</div>'
+                + '<div style="font-size:8pt;opacity:0.8;margin-top:3pt;">出席番号 ' + (idx + 1) + '番</div>'
+                + '</div>'
+                + '<div style="text-align:right;">'
+                + '<div style="font-size:9pt;font-weight:700;opacity:0.9;">わたしの　せいちょうカルテ</div>'
+                + '<div style="font-size:7pt;opacity:0.65;margin-top:3pt;">担任：' + escapeHtml(ci.teacher || '') + '</div>'
+                + '</div>'
+                + '</div>';
+
+            // ── 成績 ─────────────────────────────────────────────
+            if (sec.secGrades && data.subjects.length) {
+                html += '<div style="margin-bottom:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2D7D9A;">📈 成績</div>'
+                    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80pt,1fr));gap:5pt;">';
+                data.subjects.forEach(function(subj) {
+                    var res; try { res = grdCalculate(subj); } catch(e) { return; }
+                    var sr = res && res.find(function(r) { return r.index === idx; });
+                    if (!sr) return;
+                    var hy = sr.hyoutei || '—';
+                    var hyColor = hy === '3' ? '#E65100' : hy === '2' ? '#F9A825' : hy === '1' ? '#aaa' : '#27AE60';
+                    if (hy === '5' || hy === '4') hyColor = '#27AE60';
+                    html += '<div style="background:#F8FBFF;border:1.5pt solid #D0E8F5;border-radius:8pt;padding:5pt 6pt;text-align:center;">'
+                        + '<div style="font-size:7.5pt;font-weight:700;color:#1a2332;margin-bottom:3pt;">' + escapeHtml(subj) + '</div>'
+                        + '<div style="font-size:18pt;font-weight:900;line-height:1;color:' + hyColor + ';">' + hy + '</div>'
+                        + '<div style="font-size:6pt;color:#888;margin-top:2pt;">評定</div>'
+                        + '<div style="display:flex;justify-content:center;gap:4pt;margin-top:4pt;">'
+                        + ['知', '思', '態'].map(function(label, li) {
+                            var obs = [sr.knowledge, sr.thinking, sr.attitude][li];
+                            var abc = (obs && obs.abc) || '—';
+                            var c = gradeColors[abc] || '#aaa';
+                            return '<span style="font-size:6pt;background:' + c + '20;color:' + c + ';border-radius:3pt;padding:1pt 3pt;font-weight:700;">' + label + ':' + abc + '</span>';
+                        }).join('')
+                        + '</div></div>';
+                });
+                html += '</div></div>';
+            }
+
+            // ── 出欠席 ────────────────────────────────────────────
+            if (sec.secAttendance) {
+                var present = 0, absent = 0, late = 0, early = 0;
+                Object.keys(data.attAll).forEach(function(dk) {
+                    var st = (data.attAll[dk] || {})[String(idx)];
+                    if (!st) return;
+                    if (st==='○'||st==='チ'||st==='ソ'||st==='チソ') present++;
+                    if (st==='×'||st==='／') absent++;
+                    if (st==='チ'||st==='チソ') late++;
+                    if (st==='ソ'||st==='チソ') early++;
+                });
+                var total = present + absent;
+                var attPct = total > 0 ? Math.round(present / total * 100) : 100;
+                var barW = Math.round(attPct * 0.8);
+                html += '<div style="margin-bottom:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #27AE60;">📅 出席</div>'
+                    + '<div style="background:#F0FFF4;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:12pt;">'
+                    + '<div style="flex:1;">'
+                    + '<div style="font-size:7pt;color:#555;margin-bottom:3pt;">出席率</div>'
+                    + '<div style="background:#ddd;border-radius:20pt;height:7pt;overflow:hidden;">'
+                    + '<div style="background:linear-gradient(90deg,#27AE60,#2ECC71);height:100%;width:' + barW + '%;border-radius:20pt;"></div>'
+                    + '</div>'
+                    + '<div style="font-size:7pt;color:#888;margin-top:2pt;">' + attPct + '% (' + present + '日出席 / ' + total + '日)</div>'
+                    + '</div>'
+                    + '<div style="display:flex;gap:8pt;">'
+                    + [['欠席', absent, '#E74C3C'],['遅刻', late, '#E67E22'],['早退', early, '#F39C12']].map(function(col) {
+                        return '<div style="text-align:center;">'
+                            + '<div style="font-size:7pt;color:#777;">' + col[0] + '</div>'
+                            + '<div style="font-size:14pt;font-weight:900;color:' + (col[1] > 0 ? col[2] : '#ccc') + ';">' + col[1] + '</div>'
+                            + '</div>';
+                    }).join('')
+                    + '</div></div></div>';
+            }
+
+            // ── 漢字チェック ──────────────────────────────────────
+            if (sec.secKanji) {
+                var kjUnits = data.kanjiData.units || [];
+                if (kjUnits.length) {
+                    html += '<div style="margin-bottom:8pt;">'
+                        + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2E7D32;">✍️ 漢字チェック</div>'
+                        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90pt,1fr));gap:4pt;">';
+                    kjUnits.forEach(function(unit) {
+                        var chars = unit.chars || [];
+                        var stuChecks = (unit.checks || {})[String(idx)] || {};
+                        var done = 0;
+                        chars.forEach(function(_, ci2) { if (stuChecks[String(ci2)] === 'o') done++; });
+                        var rate = chars.length > 0 ? Math.round(done / chars.length * 100) : 0;
+                        var starFull = Math.floor(rate / 20);
+                        var stars = '★'.repeat(starFull) + '☆'.repeat(5 - starFull);
+                        var barColor = rate >= 100 ? '#27AE60' : rate >= 80 ? '#1565C0' : rate >= 60 ? '#F9A825' : '#E67E22';
+                        html += '<div style="background:#F9FFF9;border:1pt solid #C8E6C9;border-radius:8pt;padding:5pt 7pt;">'
+                            + '<div style="font-size:7pt;font-weight:700;color:#2E7D32;margin-bottom:2pt;">' + escapeHtml(unit.name || '') + '</div>'
+                            + '<div style="background:#e0e0e0;border-radius:10pt;height:5pt;overflow:hidden;margin-bottom:2pt;">'
+                            + '<div style="background:' + barColor + ';height:100%;width:' + rate + '%;border-radius:10pt;"></div>'
+                            + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                            + '<span style="font-size:7pt;color:' + barColor + ';font-weight:700;">' + rate + '%</span>'
+                            + '<span style="font-size:7.5pt;color:#F9A825;">' + stars + '</span>'
+                            + '</div>'
+                            + '<div style="font-size:6.5pt;color:#888;margin-top:1pt;">' + done + '/' + chars.length + '字</div>'
+                            + '</div>';
+                    });
+                    html += '</div></div>';
+                }
+            }
+
+            // ── 提出物 ────────────────────────────────────────────
+            if (sec.secSubmissions && data.assigns.length) {
+                var subOk=0, subRe=0, subMiss=0;
+                data.assigns.forEach(function(a) {
+                    var r = data.subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
+                    if (r && r.status === 'submitted') subOk++;
+                    else if (r && r.status === 'resubmit') subRe++;
+                    else subMiss++;
+                });
+                var subTotal = data.assigns.length;
+                var subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) : 100;
+                html += '<div style="margin-bottom:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #3498DB;">📚 提出物</div>'
+                    + '<div style="background:#EBF5FB;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:14pt;">'
+                    + '<div style="flex:1;">'
+                    + '<div style="font-size:7pt;color:#555;margin-bottom:3pt;">提出率</div>'
+                    + '<div style="background:#ddd;border-radius:20pt;height:7pt;overflow:hidden;">'
+                    + '<div style="background:linear-gradient(90deg,#2980B9,#3498DB);height:100%;width:' + Math.round(subRate * 0.8) + '%;border-radius:20pt;"></div>'
+                    + '</div>'
+                    + '<div style="font-size:7pt;color:#888;margin-top:2pt;">' + subRate + '% (' + (subOk+subRe) + '/' + subTotal + '件)</div>'
+                    + '</div>'
+                    + '<div style="display:flex;gap:8pt;">'
+                    + [['提出済', subOk, '#27AE60'],['再提出', subRe, '#F9A825'],['未提出', subMiss, '#E74C3C']].map(function(col) {
+                        return '<div style="text-align:center;">'
+                            + '<div style="font-size:7pt;color:#777;">' + col[0] + '</div>'
+                            + '<div style="font-size:13pt;font-weight:900;color:' + (col[1] > 0 ? col[2] : '#ccc') + ';">' + col[1] + '</div>'
+                            + '</div>';
+                    }).join('')
+                    + '</div></div></div>';
+            }
+
+            // ── 生活記録（成長エピソード） ─────────────────────────
+            if (sec.secLife) {
+                var lifeRecs = Array.isArray(data.lifeAll[String(idx)]) ? data.lifeAll[String(idx)] : [];
+                var growthRecs = lifeRecs.filter(function(r) { return r.categories && r.categories.indexOf('growth') >= 0; });
+                var sorted = lifeRecs.slice().sort(function(a, b) { return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||''); });
+                html += '<div style="margin-bottom:8pt;">'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #9B59B6;">📔 生活記録</div>';
+                if (growthRecs.length > 0) {
+                    html += '<div style="font-size:7pt;color:#7B1FA2;font-weight:600;margin-bottom:4pt;">✨ 成長エピソード</div>'
+                        + growthRecs.slice(0, 3).map(function(r) {
+                            return '<div style="background:#F3E5F5;border-left:3pt solid #9B59B6;border-radius:0 6pt 6pt 0;padding:4pt 8pt;margin-bottom:3pt;">'
+                                + '<div style="font-size:7pt;color:#555;">' + escapeHtml(r.date || '') + '</div>'
+                                + '<div style="font-size:8pt;color:#4A148C;">' + escapeHtml((r.summary || r.memo || '').slice(0, 120)) + '</div>'
+                                + '</div>';
+                        }).join('');
+                }
+                if (sorted.length > 0) {
+                    html += '<div style="font-size:7pt;color:#888;margin-top:3pt;">直近の記録（' + sorted.length + '件）：'
+                        + sorted.slice(0, 4).map(function(r) {
+                            return escapeHtml((r.summary || r.memo || '').slice(0, 30));
+                        }).join('　/　')
+                        + (sorted.length > 4 ? '…ほか' : '')
+                        + '</div>';
+                } else {
+                    html += '<div style="font-size:7.5pt;color:#aaa;padding:4pt;">記録なし</div>';
+                }
+                html += '</div>';
+            }
+
+            // ── 先生からのメッセージ枠 ─────────────────────────────
+            html += '<div style="margin-bottom:8pt;border:1.5pt dashed #B0BEC5;border-radius:10pt;padding:8pt 12pt;">'
+                + '<div style="font-size:7.5pt;font-weight:700;color:#546E7A;margin-bottom:16pt;">💬 先生より</div>'
+                + '<div style="border-bottom:0.5pt solid #CFD8DC;margin-bottom:8pt;"></div>'
+                + '<div style="border-bottom:0.5pt solid #CFD8DC;margin-bottom:8pt;"></div>'
+                + '<div style="border-bottom:0.5pt solid #CFD8DC;"></div>'
+                + '</div>';
+
+            // ── フッター ──────────────────────────────────────────
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1pt solid #e0e0e0;padding-top:5pt;margin-top:auto;">'
+                + '<span style="font-size:7pt;color:#aaa;">' + escapeHtml(classLabel) + '</span>'
+                + '<span style="font-size:7pt;color:#aaa;">発行日：' + new Date().toLocaleDateString('ja-JP') + '</span>'
+                + '</div>';
+
+            html += '</div>';
+            return html;
+        }
+
+        // ----------------------------------------------------------------
+        // 先生用PDFページ（既存ロジックを流用・整形）
+        // ----------------------------------------------------------------
+        function kvBuildTeacherPage(idx, s, ci, classLabel, isLast, sec, data) {
+            var CARD = 'border:1.5pt solid #ddd;border-radius:8pt;padding:8pt 10pt;margin-bottom:8pt;';
+            var TITLE = 'font-size:8pt;font-weight:700;color:#555;margin-bottom:6pt;';
+            var methodLabels = data.methodLabels;
+            var body = '';
+
+            if (sec.secGrades && data.subjects.length) {
+                var gradeSec = '<div style="' + CARD + '">';
+                gradeSec += '<div style="' + TITLE + '">📈 成績</div>';
+                gradeSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">'
+                    + '<thead><tr style="background:#1a1a2e;color:#fff;">'
+                    + '<th style="padding:3pt 5pt;text-align:left;">教科</th>'
+                    + '<th style="padding:3pt 5pt;text-align:center;">知識・技能</th>'
+                    + '<th style="padding:3pt 5pt;text-align:center;">思考・判断</th>'
+                    + '<th style="padding:3pt 5pt;text-align:center;">主体性</th>'
+                    + '<th style="padding:3pt 5pt;text-align:center;">評定</th>'
+                    + '</tr></thead><tbody>';
+                data.subjects.forEach(function(subj) {
+                    var res; try { res = grdCalculate(subj); } catch(e) { return; }
+                    var sr = res && res.find(function(r) { return r.index === idx; });
+                    if (!sr) return;
+                    var abc = function(v) { var c = v==='A'?'#27AE60':v==='B'?'#3498DB':v==='C'?'#E67E22':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+(v||'—')+'</span>'; };
+                    gradeSec += '<tr style="border-bottom:1pt solid #eee;">'
+                        + '<td style="padding:3pt 5pt;font-weight:600;">' + escapeHtml(subj) + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.knowledge.abc) + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.thinking.abc) + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.attitude.abc) + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;background:#f9f9f9;font-size:10pt;font-weight:900;">' + (sr.hyoutei || '—') + '</td>'
+                        + '</tr>';
+                });
+                gradeSec += '</tbody></table></div>';
+                body += gradeSec;
+            }
+
+            if (sec.secAttendance) {
+                var present=0,absent=0,late=0,early=0;
+                Object.keys(data.attAll).forEach(function(dk) {
+                    var st=(data.attAll[dk]||{})[String(idx)];
+                    if (!st) return;
+                    if(st==='○'||st==='チ'||st==='ソ'||st==='チソ') present++;
+                    if(st==='×'||st==='／') absent++;
+                    if(st==='チ'||st==='チソ') late++;
+                    if(st==='ソ'||st==='チソ') early++;
+                });
+                body += '<div style="' + CARD + '"><div style="' + TITLE + '">📅 出欠席</div>'
+                    + '<div style="display:flex;gap:8pt;">'
+                    + [['出席',present,'#27AE60'],['欠席',absent,'#E74C3C'],['遅刻',late,'#E67E22'],['早退',early,'#E67E22']].map(function(c){
+                        return '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
+                            +'<div style="font-size:6.5pt;color:#777;">'+c[0]+'</div>'
+                            +'<div style="font-size:14pt;font-weight:900;color:'+c[2]+';">'+c[1]+'</div></div>';
+                    }).join('')
+                    + '</div></div>';
+            }
+
+            if (sec.secSubmissions && data.assigns.length) {
+                var subOk2=0,subRe2=0,subMiss2=0;
+                data.assigns.forEach(function(a){
+                    var r=data.subsData.find(function(r2){return r2.studentIndex===idx&&r2.assignmentId===a.id;});
+                    if(r&&r.status==='submitted') subOk2++;
+                    else if(r&&r.status==='resubmit') subRe2++;
+                    else subMiss2++;
+                });
+                var subT=data.assigns.length;
+                var subR=subT>0?Math.round((subOk2+subRe2)/subT*100):100;
+                body += '<div style="'+CARD+'"><div style="'+TITLE+'">📚 提出物（'+subR+'%）</div>'
+                    +'<div style="display:flex;gap:8pt;">'
+                    +[['提出済',subOk2,'#27AE60'],['再提出',subRe2,'#B7950B'],['未提出',subMiss2,'#E74C3C']].map(function(c){
+                        return '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
+                            +'<div style="font-size:6.5pt;color:#777;">'+c[0]+'</div>'
+                            +'<div style="font-size:13pt;font-weight:900;color:'+(c[1]>0?c[2]:'#ccc')+';">'+c[1]+'</div></div>';
+                    }).join('')+'</div></div>';
+            }
+
+            if (sec.secLife) {
+                var lifeRecs=(Array.isArray(data.lifeAll[String(idx)])?data.lifeAll[String(idx)]:[]).slice().sort(function(a,b){return(b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');});
+                body+='<div style="'+CARD+'"><div style="'+TITLE+'">📔 生活記録（'+lifeRecs.length+'件）</div>';
+                if(lifeRecs.length){
+                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
+                    lifeRecs.slice(0,5).forEach(function(r){body+='<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;color:#555;width:70pt;">'+escapeHtml(r.date||'')+'</td><td style="padding:2pt 5pt;">'+escapeHtml((r.summary||r.memo||'').slice(0,100))+'</td></tr>';});
+                    body+='</table>';
+                } else { body+='<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>'; }
+                body+='</div>';
+            }
+
+            if (sec.secParent) {
+                var parentRecs=(Array.isArray(data.parentAll[String(idx)])?data.parentAll[String(idx)]:[]).slice().sort(function(a,b){return(b.datetime||b.date||'').localeCompare(a.datetime||a.date||'');});
+                body+='<div style="'+CARD+'"><div style="'+TITLE+'">👨‍👩‍👧 保護者対応（'+parentRecs.length+'件）</div>';
+                if(parentRecs.length){
+                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
+                    parentRecs.slice(0,5).forEach(function(r){
+                        var m=methodLabels[r.method]||r.method||'';
+                        var d=r.datetime?new Date(r.datetime).toLocaleDateString('ja-JP'):(r.date||'');
+                        body+='<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;color:#555;width:55pt;">'+escapeHtml(d)+'</td><td style="padding:2pt 5pt;width:40pt;">'+escapeHtml(m)+'</td><td style="padding:2pt 5pt;">'+escapeHtml((r.content||'').slice(0,80))+'</td></tr>';
+                    });
+                    body+='</table>';
+                } else { body+='<div style="font-size:7.5pt;color:#aaa;padding:6pt;">記録なし</div>'; }
+                body+='</div>';
+            }
+
+            if (sec.secHealth) {
+                var hd=(data.healthAll[String(idx)])||{allergies:[],medication:'',exerciseLimit:'',familyMemo:''};
+                var hasH=false;
+                var healthBody='';
+                if((hd.allergies||[]).length){healthBody+='<div style="font-size:7.5pt;margin-bottom:4pt;"><b>アレルギー：</b>'+hd.allergies.map(function(a){return escapeHtml(a);}).join('、')+'</div>';hasH=true;}
+                if(hd.medication){healthBody+='<div style="font-size:7.5pt;margin-bottom:4pt;"><b>服薬：</b>'+escapeHtml(hd.medication)+'</div>';hasH=true;}
+                if(hd.exerciseLimit){healthBody+='<div style="font-size:7.5pt;margin-bottom:4pt;"><b>運動制限：</b>'+escapeHtml(hd.exerciseLimit)+'</div>';hasH=true;}
+                if(hd.familyMemo){healthBody+='<div style="font-size:7.5pt;"><b>家庭メモ：</b>'+escapeHtml(hd.familyMemo)+'</div>';hasH=true;}
+                body+='<div style="'+CARD+'"><div style="'+TITLE+'">🏥 身体・配慮</div>'+(hasH?healthBody:'<div style="font-size:7.5pt;color:#aaa;padding:4pt;">記録なし</div>')+'</div>';
+            }
+
+            if (sec.secLearning) {
+                var ld=(data.learningAll[String(idx)])||{characteristics:'',classroomSupport:'',communication:'',supportKeywords:[]};
+                var hasL=false;
+                var learnBody='';
+                if((ld.supportKeywords||[]).length){learnBody+='<div style="font-size:7.5pt;margin-bottom:4pt;"><b>支援KW：</b>'+ld.supportKeywords.map(function(k){return escapeHtml(k);}).join(' / ')+'</div>';hasL=true;}
+                if(ld.characteristics){learnBody+='<div style="font-size:7.5pt;margin-bottom:3pt;"><b>特性：</b>'+escapeHtml(ld.characteristics.slice(0,120))+'</div>';hasL=true;}
+                if(ld.classroomSupport){learnBody+='<div style="font-size:7.5pt;"><b>授業配慮：</b>'+escapeHtml(ld.classroomSupport.slice(0,100))+'</div>';hasL=true;}
+                body+='<div style="'+CARD+'"><div style="'+TITLE+'">📖 学習面配慮</div>'+(hasL?learnBody:'<div style="font-size:7.5pt;color:#aaa;padding:4pt;">記録なし</div>')+'</div>';
+            }
+
+            if (sec.secKanji) {
+                var kjUnits=data.kanjiData.units||[];
+                body+='<div style="'+CARD+'"><div style="'+TITLE+'">✍️ 漢字チェック</div>';
+                if(kjUnits.length){
+                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;"><thead><tr style="background:#e8f5e9;"><th style="padding:2pt 5pt;text-align:left;color:#2E7D32;">単元</th><th style="padding:2pt 5pt;text-align:right;">文字数</th><th style="padding:2pt 5pt;text-align:right;color:#27AE60;">○完了</th><th style="padding:2pt 5pt;text-align:right;color:#1565C0;">達成率</th></tr></thead><tbody>';
+                    kjUnits.forEach(function(unit){
+                        var chars=unit.chars||[];
+                        var sc=(unit.checks||{})[String(idx)]||{};
+                        var done=0;
+                        chars.forEach(function(_,ci2){if(sc[String(ci2)]==='o')done++;});
+                        var rate=chars.length>0?Math.round(done/chars.length*100):0;
+                        var rc=rate>=100?'#27AE60':rate>=80?'#1565C0':'#E67E22';
+                        body+='<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;font-weight:600;">'+escapeHtml(unit.name||'')+'</td><td style="padding:2pt 5pt;text-align:right;">'+chars.length+'字</td><td style="padding:2pt 5pt;text-align:right;color:#27AE60;">'+done+'</td><td style="padding:2pt 5pt;text-align:right;font-weight:700;color:'+rc+';">'+rate+'%</td></tr>';
+                    });
+                    body+='</tbody></table>';
+                } else { body+='<div style="font-size:7.5pt;color:#aaa;padding:4pt;">データなし</div>'; }
+                body+='</div>';
+            }
+
+            return '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:10mm 12mm;box-sizing:border-box;">'
+                + '<div style="border-bottom:3pt solid #1a1a2e;padding-bottom:5pt;margin-bottom:8pt;display:flex;justify-content:space-between;align-items:flex-end;">'
+                + '<div style="font-size:16pt;font-weight:900;color:#1a1a2e;">個人カルテ</div>'
+                + '<div style="font-size:7.5pt;color:#555;">' + classLabel + '</div></div>'
+                + '<div style="background:#f4f6f9;border-radius:8pt;padding:6pt 10pt;margin-bottom:8pt;display:flex;align-items:center;gap:14pt;">'
+                + '<span style="font-size:8pt;color:#555;font-weight:700;">番号</span>'
+                + '<span style="font-size:13pt;font-weight:900;color:#1a1a2e;">' + (idx+1) + '</span>'
+                + '<span style="font-size:8pt;color:#555;font-weight:700;">氏名</span>'
+                + '<span style="font-size:15pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
+                + '</div>' + body + '</div>';
         }
 
 

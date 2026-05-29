@@ -915,12 +915,12 @@
             flex: 1; min-height: 0;
         }
         .rec-nw-skill-btn {
-            border: 1px solid #ddd; border-radius: 2px; font-size: 0.4rem;
-            padding: 0; cursor: pointer; text-align: center;
+            border: 1px solid #ddd; border-radius: 2px; font-size: 0.85rem;
+            padding: 10px 2px; cursor: pointer; text-align: center;
             background: #fff; transition: background 0.1s; line-height: 1;
             font-family: inherit;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 0; height: 100%;
+            min-height: 48px; height: 100%;
         }
         .rec-nw-skill-btn.passed { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
         .rec-nw-skill-btn.uncounted { background: #F5F5F5; border-color: #E0E0E0; color: #BDBDBD; }
@@ -6022,7 +6022,7 @@
 
             var skillsHtml = '';
             config.categories.forEach(function(cat) {
-                var span = cat.isMaster ? 'grid-column:1/span 3;' : 'grid-column:1/-1;';
+                var span = (cat.isMaster && cat.skills.length <= 3) ? 'grid-column:1/span 3;' : 'grid-column:1/-1;';
                 skillsHtml += '<div class="rec-nw-cat-label rec-nw-cat-' + cat.id + '" style="' + span + '">' + cat.name + '</div>';
                 cat.skills.forEach(function(skill) {
                     var passed = passData[skill.id] === 1;
@@ -6033,7 +6033,7 @@
                         ' title="' + skill.short + '"' +
                         ' onclick="recNwToggle(' + idx + ',\x27' + skill.id + '\x27)">' +
                         (passed ? '○' : '') +
-                        '<div style="font-size:0.4rem;color:#999;line-height:1;margin-top:1px;">' + skill.short + '</div>' +
+                        '<div style="font-size:0.7rem;color:#999;line-height:1;margin-top:2px;">' + skill.short + '</div>' +
                         '</button>';
                 });
             });

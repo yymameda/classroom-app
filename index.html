@@ -12241,7 +12241,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.24';
+        var _VER = 'v1.8.25';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------
@@ -12534,6 +12534,7 @@
             var matomeQ = StorageManager.get(KEYS.matome_questions, {});
             var hasAnswers = 0, binaryCount = 0, binaryProblem = 0, actualCount = 0, unknownCount = 0;
             var hasMatomeAnswers = 0;
+            var problemByTest = {};
 
             // テストの配点が複数点を含むか（true=複数点 / false=全問1点 / null=配点不明）
             function testHasMultiPoint(testId) {
@@ -12558,7 +12559,12 @@
                         binaryCount++;
                         // 数値0/1で、かつ配点が複数点のテストのみ過小集計の実害あり
                         var hasNumericBinary = rec.answers.some(function(v) { return typeof v === 'number'; });
-                        if (hasNumericBinary && testHasMultiPoint(rec.testId) === true) binaryProblem++;
+                        if (hasNumericBinary && testHasMultiPoint(rec.testId) === true) {
+                            binaryProblem++;
+                            var k = String(rec.testId);
+                            if (!problemByTest[k]) problemByTest[k] = { testId: rec.testId, count: 0, sample: rec.answers.slice(0, 12) };
+                            problemByTest[k].count++;
+                        }
                         return;
                     }
                 }
@@ -12567,10 +12573,29 @@
 
             unknownCount = hasAnswers - binaryCount - actualCount;
 
+            // 問題のある20件をテスト別に集計（変換前の確認用）
+            var binaryProblemList = Object.keys(problemByTest).map(function(k) {
+                var p = problemByTest[k];
+                var t = tests.find(function(x) { return x.id === p.testId; });
+                var mq = matomeQ[p.testId];
+                var pts = (mq && Array.isArray(mq)) ? mq.map(function(q) { return q.points || 1; }) : ((t && Array.isArray(t.matomePoints)) ? t.matomePoints : []);
+                return {
+                    testId:   p.testId,
+                    name:     t ? (t.name || '(無題)') : '(テスト不明)',
+                    subject:  t ? (t.subject || '-') : '-',
+                    testType: t ? (t.testType || '-') : '-',
+                    date:     t ? (t.date || '') : '',
+                    count:    p.count,
+                    maxPt:    pts.length ? Math.max.apply(null, pts) : null,
+                    sample:   p.sample
+                };
+            });
+
             return {
                 hasAnswersCount:     hasAnswers,
                 binaryCount:         binaryCount,
                 binaryProblem:       binaryProblem,
+                binaryProblemList:   binaryProblemList,
                 actualCount:         actualCount,
                 unknownCount:        unknownCount,
                 hasMatomeAnswers:    hasMatomeAnswers
@@ -13005,6 +13030,12 @@
                     : '0件 ✅';
             html += '<tr><td>&nbsp;&nbsp;└ バイナリ形式</td><td>' + binaryLabel + '</td></tr>';
             html += '<tr><td>&nbsp;&nbsp;└ 実点数形式</td><td>' + af.actualCount + '件' + (af.actualCount > 0 ? ' ✅' : '') + '</td></tr>';
+            if (af.binaryProblemList && af.binaryProblemList.length > 0) {
+                html += '<tr><td colspan="2"><b>要対応の内訳（テスト別）</b></td></tr>';
+                af.binaryProblemList.forEach(function(p) {
+                    html += '<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;・' + escapeHtml(p.subject) + ' ' + escapeHtml(p.testType) + ' 「' + escapeHtml(String(p.name)) + '」' + (p.date ? ' (' + escapeHtml(p.date) + ')' : '') + '</td><td>' + p.count + '件 / 最大配点' + (p.maxPt != null ? p.maxPt : '?') + '点 / 例:[' + p.sample.join(',') + ']</td></tr>';
+                });
+            }
             html += '<tr><td>&nbsp;&nbsp;└ 判別不能</td><td>' + af.unknownCount + '件</td></tr>';
             var maTxt = af.hasMatomeAnswers > 0 ? '<span class="audit-status-error">⚠️ ' + af.hasMatomeAnswers + '件残存</span>' : '0件 ✅ 旧フィールドなし';
             html += '<tr><td>matomeAnswers フィールド保持</td><td>' + maTxt + '</td></tr>';
@@ -13218,6 +13249,12 @@
             lines.push('【answers / matomeAnswers 形式】');
             lines.push('answers 保持レコード: ' + af.hasAnswersCount + '件');
             lines.push('  バイナリ形式: ' + af.binaryCount + '件' + ((af.binaryProblem || 0) > 0 ? '（うち複数点配点で未変換=要対応 ' + af.binaryProblem + '件 / 全問1点で正常 ' + (af.binaryCount - af.binaryProblem) + '件）' : '（全て全問1点＝正常）'));
+            if (af.binaryProblemList && af.binaryProblemList.length > 0) {
+                lines.push('  要対応の内訳(テスト別):');
+                af.binaryProblemList.forEach(function(p) {
+                    lines.push('    ・' + p.subject + ' ' + p.testType + ' 「' + p.name + '」' + (p.date ? ' (' + p.date + ')' : '') + ' : ' + p.count + '件 / 最大配点' + (p.maxPt != null ? p.maxPt : '?') + '点 / 例:[' + p.sample.join(',') + '] / testId=' + p.testId);
+                });
+            }
             lines.push('  実点数形式: ' + af.actualCount + '件');
             lines.push('  判別不能: ' + af.unknownCount + '件');
             lines.push('matomeAnswers 保持: ' + af.hasMatomeAnswers + '件');

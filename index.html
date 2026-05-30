@@ -9609,7 +9609,10 @@
         }
         function grdGetItemWeight(subject, category, itemKey) {
             var cw = grdGetSubjectWeights(subject)[category] || {};
-            return cw[itemKey] !== undefined ? cw[itemKey] : null;
+            if (cw[itemKey] !== undefined) return cw[itemKey];
+            // 既定: 補助項目（提出物・机間巡視）=0、テスト・まとめ項目=1
+            if (itemKey === 'submission' || itemKey === 'patrol_thinking' || itemKey === 'patrol_attitude') return 0;
+            return 1;
         }
 
         // ================================================================
@@ -12238,7 +12241,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.21';
+        var _VER = 'v1.8.22';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

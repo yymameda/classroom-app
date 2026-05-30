@@ -9647,7 +9647,7 @@
             // === 以下、従来の実技記録ロジック(変更なし) ===
             if (sr.score === null || sr.score === undefined) return null;
             if (test.peUnit === 'タイム差') { var s = sr.finalScore !== undefined ? sr.finalScore : sr.score; return s !== null ? Math.min(10, s) : null; }
-            if (test.peUnit === '回' && sr.peManualABC) return sr.peManualABC === 'A' ? 10 : sr.peManualABC === 'B' ? 7 : 4;
+            if (test.peUnit === '回' && sr.peManualABC) return sr.peManualABC === 'A' ? 10 : sr.peManualABC === 'B' ? 7 : 3;
             var max = test.maxScore || 10;
             if (max > 0 && typeof sr.score === 'number') return Math.min(10, Math.round(sr.score / max * 10 * 10) / 10);
             return null;
@@ -9655,8 +9655,8 @@
         function abcTo10(val) {
             if (val === 'A' || val === '◎') return 10;
             if (val === 'B' || val === '○') return 7;
-            if (val === 'C' || val === '△') return 4;
-            if (val === 3) return 10; if (val === 2) return 7; if (val === 1) return 4;
+            if (val === 'C' || val === '△') return 3;
+            if (val === 3) return 10; if (val === 2) return 7; if (val === 1) return 3;
             return null;
         }
         function scoreTo10(score, maxScore) {
@@ -12226,7 +12226,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.19';
+        var _VER = 'v1.8.20';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

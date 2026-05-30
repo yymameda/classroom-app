@@ -12241,7 +12241,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.23';
+        var _VER = 'v1.8.24';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------
@@ -12530,8 +12530,22 @@
 
         function analyzeAnswersFormat() {
             var scores = StorageManager.get(KEYS.scores, []);
-            var hasAnswers = 0, binaryCount = 0, actualCount = 0, unknownCount = 0;
+            var tests = StorageManager.get(KEYS.tests, []);
+            var matomeQ = StorageManager.get(KEYS.matome_questions, {});
+            var hasAnswers = 0, binaryCount = 0, binaryProblem = 0, actualCount = 0, unknownCount = 0;
             var hasMatomeAnswers = 0;
+
+            // テストの配点が複数点を含むか（true=複数点 / false=全問1点 / null=配点不明）
+            function testHasMultiPoint(testId) {
+                var mq = matomeQ[testId];
+                var pts = (mq && Array.isArray(mq)) ? mq.map(function(q) { return q.points || 1; }) : null;
+                if (!pts) {
+                    var t = tests.find(function(x) { return x.id === testId; });
+                    pts = (t && Array.isArray(t.matomePoints)) ? t.matomePoints : null;
+                }
+                if (!pts || pts.length === 0) return null;
+                return pts.some(function(p) { return p > 1; });
+            }
 
             scores.forEach(function(rec) {
                 if (rec.matomeAnswers !== undefined) hasMatomeAnswers++;
@@ -12539,10 +12553,12 @@
                 hasAnswers++;
                 var isBinary = rec.answers.every(function(v) { return v === 0 || v === 1 || v === true || v === false; });
                 if (isBinary && rec.answers.length > 0) {
-                    // さらに、すべての値が 0/1/true/false のみかつ最大1の場合をバイナリとみなす
                     var maxVal = Math.max.apply(null, rec.answers.map(function(v) { return typeof v === 'boolean' ? (v ? 1 : 0) : v; }));
                     if (maxVal <= 1) {
                         binaryCount++;
+                        // 数値0/1で、かつ配点が複数点のテストのみ過小集計の実害あり
+                        var hasNumericBinary = rec.answers.some(function(v) { return typeof v === 'number'; });
+                        if (hasNumericBinary && testHasMultiPoint(rec.testId) === true) binaryProblem++;
                         return;
                     }
                 }
@@ -12554,6 +12570,7 @@
             return {
                 hasAnswersCount:     hasAnswers,
                 binaryCount:         binaryCount,
+                binaryProblem:       binaryProblem,
                 actualCount:         actualCount,
                 unknownCount:        unknownCount,
                 hasMatomeAnswers:    hasMatomeAnswers
@@ -12698,9 +12715,9 @@
         function collectAnomalies(result) {
             var critical = [], warn = [], info = [];
 
-            // --- answers バイナリ残存(重大) ---
-            if (result.answersFormat.binaryCount > 0) {
-                critical.push('answers にバイナリ形式が ' + result.answersFormat.binaryCount + '件残存(評価計算に直接影響)');
+            // --- answers バイナリ残存（複数点配点で未変換のもののみ重大）---
+            if (result.answersFormat.binaryProblem > 0) {
+                critical.push('answers が複数点配点なのに 0/1 のまま ' + result.answersFormat.binaryProblem + '件（得点が過小集計・要再変換）');
             }
 
             // --- orphan スコア(重大) ---
@@ -12980,9 +12997,14 @@
             html += '<h4>7. answers / matomeAnswers の形式</h4>';
             html += '<table class="audit-table">';
             html += _aRow('answers フィールド保持レコード', af.hasAnswersCount + '件');
-            var binaryLabel = af.binaryCount > 0 ? '<span class="audit-status-error">バイナリ形式 ❌ ' + af.binaryCount + '件(マイグレーション未完了)</span>' : '0件 ✅ マイグレーション完了';
+            var bp = af.binaryProblem || 0;
+            var binaryLabel = bp > 0
+                ? '<span class="audit-status-error">❌ 複数点配点で未変換 ' + bp + '件（過小集計）</span>' + (af.binaryCount - bp > 0 ? ' ／ 全問1点で正常 ' + (af.binaryCount - bp) + '件' : '')
+                : af.binaryCount > 0
+                    ? af.binaryCount + '件（全問1点＝0/1が実得点。正常 ✅）'
+                    : '0件 ✅';
             html += '<tr><td>&nbsp;&nbsp;└ バイナリ形式</td><td>' + binaryLabel + '</td></tr>';
-            html += '<tr><td>&nbsp;&nbsp;└ 実点数形式</td><td>' + af.actualCount + '件' + (af.actualCount > 0 && af.binaryCount === 0 ? ' ✅' : '') + '</td></tr>';
+            html += '<tr><td>&nbsp;&nbsp;└ 実点数形式</td><td>' + af.actualCount + '件' + (af.actualCount > 0 ? ' ✅' : '') + '</td></tr>';
             html += '<tr><td>&nbsp;&nbsp;└ 判別不能</td><td>' + af.unknownCount + '件</td></tr>';
             var maTxt = af.hasMatomeAnswers > 0 ? '<span class="audit-status-error">⚠️ ' + af.hasMatomeAnswers + '件残存</span>' : '0件 ✅ 旧フィールドなし';
             html += '<tr><td>matomeAnswers フィールド保持</td><td>' + maTxt + '</td></tr>';
@@ -13195,7 +13217,7 @@
 
             lines.push('【answers / matomeAnswers 形式】');
             lines.push('answers 保持レコード: ' + af.hasAnswersCount + '件');
-            lines.push('  バイナリ形式: ' + af.binaryCount + '件');
+            lines.push('  バイナリ形式: ' + af.binaryCount + '件' + ((af.binaryProblem || 0) > 0 ? '（うち複数点配点で未変換=要対応 ' + af.binaryProblem + '件 / 全問1点で正常 ' + (af.binaryCount - af.binaryProblem) + '件）' : '（全て全問1点＝正常）'));
             lines.push('  実点数形式: ' + af.actualCount + '件');
             lines.push('  判別不能: ' + af.unknownCount + '件');
             lines.push('matomeAnswers 保持: ' + af.hasMatomeAnswers + '件');

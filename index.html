@@ -6025,11 +6025,11 @@
             var stage = kenteiCalcStage(config, passData);
             var hasRecord = stage > 0;
             var gradeLabel = kenteiStageToLabel(config, stage);
-            // TODO(Step5): recNwCalcGrade はなわとび専用。泳力は grade 誤り→色/級表示が崩れる。
-            // 泳力対応時に kenteiCalcStage/kenteiStageToLabel ベースに置換する。
-            var grade = recNwCalcGrade(passData);
-            var gradeColor = grade <= 0 ? '#E65100' : '#333';
-            var gradeBg = grade <= 0 ? '#FFD600' : grade <= 2 ? '#F48FB1' : grade <= 8 ? '#FFE0B2' : grade <= 14 ? '#BBDEFB' : grade <= 20 ? '#C8E6C9' : '#F5F5F5';
+            // 級badgeの色分けは stage / 総技数 の達成率ベース（なわとび・泳力 共通）
+            var _tot = kenteiTotalSkills(config) || 1;
+            var _ratio = stage / _tot;
+            var gradeColor = _ratio >= 1 ? '#E65100' : '#333';
+            var gradeBg = _ratio >= 1 ? '#FFD600' : _ratio >= 0.9 ? '#F48FB1' : _ratio >= 0.6 ? '#FFE0B2' : _ratio >= 0.3 ? '#BBDEFB' : _ratio > 0 ? '#C8E6C9' : '#F5F5F5';
 
             var skillsHtml = '';
             config.categories.forEach(function(cat) {
@@ -6092,11 +6092,11 @@
             if (statusEl) statusEl.textContent = hasRecord ? '✓' : '';
             var gradeEl = document.getElementById('rec-nw-grade-' + idx);
             if (gradeEl) {
-                // TODO(Step5): recNwCalcGrade はなわとび専用。泳力は grade 誤り→色崩れ。
-                // 泳力対応時に stage ベースの色分けに置換する。
-                var grade = recNwCalcGrade(passData);
-                var bg = grade <= 0 ? '#FFD600' : grade <= 2 ? '#F48FB1' : grade <= 8 ? '#FFE0B2' : grade <= 14 ? '#BBDEFB' : grade <= 20 ? '#C8E6C9' : '#F5F5F5';
-                var color = grade <= 0 ? '#E65100' : '#333';
+                // 級badgeの色分けは stage / 総技数 の達成率ベース（なわとび・泳力 共通）
+                var _tot = kenteiTotalSkills(config) || 1;
+                var _ratio = stage / _tot;
+                var bg = _ratio >= 1 ? '#FFD600' : _ratio >= 0.9 ? '#F48FB1' : _ratio >= 0.6 ? '#FFE0B2' : _ratio >= 0.3 ? '#BBDEFB' : _ratio > 0 ? '#C8E6C9' : '#F5F5F5';
+                var color = _ratio >= 1 ? '#E65100' : '#333';
                 gradeEl.textContent = kenteiStageToLabel(config, stage);
                 gradeEl.style.background = bg;
                 gradeEl.style.color = color;
@@ -12241,7 +12241,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.22';
+        var _VER = 'v1.8.23';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

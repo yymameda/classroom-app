@@ -927,10 +927,11 @@
         .rec-nw-skill-btn.uncounted.passed { background: #FFF9C4; border-color: #FBC02D; color: #F57F17; font-weight: 700; }
         /* 泳力検定カード: グリッド行の縦引き伸ばしを防止 */
         .swimming-card .rec-nw-skills { align-content: start; }
-        /* 泳力検定スキルボタン：正方形固定・状態変化でサイズ不変（高さはJSで明示指定） */
+        /* 泳力検定スキルボタン：高さ固定 */
         .rec-nw-skill-btn.sw-skill-btn {
-            aspect-ratio: 1 / 1;
             width: 100% !important;
+            height: 40px !important;
+            min-height: 0 !important;
             padding: 2px !important;
             font-size: 0.7rem !important;
             overflow: hidden !important;
@@ -5582,8 +5583,6 @@
                     '<div class="rec-row-name">' + escapeHtml(stu.name || '') + '</div>' +
                     scoreArea + '</div>';
             }).join('');
-            setTimeout(recSwimmingFixSizes, 0);
-            setTimeout(recSwimmingFixSizes, 100);
         }
 
         function recCalcMatomeTotal(test, scores, studentIndex) {
@@ -6089,18 +6088,6 @@
             recUpdateProgressByCount();
         };
 
-        function recSwimmingFixSizes() {
-            var btn = document.querySelector('.sw-skill-btn');
-            if (btn) console.log('sw-skill-btn offsetWidth:', btn.offsetWidth, 'offsetHeight:', btn.offsetHeight);
-            document.querySelectorAll('.sw-skill-btn').forEach(function(btn) {
-                var w = btn.offsetWidth;
-                if (w > 0) {
-                    btn.style.height = w + 'px';
-                }
-            });
-        }
-        window.addEventListener('resize', recSwimmingFixSizes);
-
         function recNwUpdateCardUI(idx, passData, stage, hasRecord, config) {
             var card = document.getElementById('rec-row-' + idx);
             if (card) card.classList.toggle('has-record', hasRecord);
@@ -6131,7 +6118,6 @@
                         '<div style="font-size:0.42rem;color:' + (passed ? '#2E7D32' : '#999') + ';line-height:1;">' + skill.short + '</div>';
                 });
             });
-            recSwimmingFixSizes();
         }
 
         window.recOnScoreInput = function(idx) {

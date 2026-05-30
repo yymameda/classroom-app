@@ -923,7 +923,11 @@
             /* 列幅に合わせた正方形：高さ=幅。合否（○表示）で大きさが変わらない */
             width: 100%; aspect-ratio: 1 / 1; height: auto; min-height: 0;
             box-sizing: border-box; overflow: hidden;
+            container-type: inline-size; /* ラベルをボタン幅に追従させる */
         }
+        .rec-nw-skill-lbl { font-size: clamp(8px, 34cqw, 13px); line-height: 1.05; white-space: nowrap; color: #555; }
+        .rec-nw-skill-btn.passed .rec-nw-skill-lbl { color: #2E7D32; font-weight: 700; }
+        .rec-nw-skill-btn.uncounted .rec-nw-skill-lbl { color: #BDBDBD; }
         .rec-nw-skill-btn.passed { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
         .rec-nw-skill-btn.uncounted { background: #F5F5F5; border-color: #E0E0E0; color: #BDBDBD; }
         .rec-nw-skill-btn.uncounted.passed { background: #FFF9C4; border-color: #FBC02D; color: #F57F17; font-weight: 700; }
@@ -5753,27 +5757,27 @@
             { id: 'high', name: 'ハイジャンプ', color: '#E91E63' }
         ];
         var REC_NW_SKILLS = [
-            { id: 'h1', short: '両足前',     cat: 'hop'  },
-            { id: 'h2', short: '両足後',     cat: 'hop'  },
-            { id: 'h3', short: 'かけ足前',   cat: 'hop'  },
-            { id: 'h4', short: 'かけ足後',   cat: 'hop'  },
-            { id: 'h5', short: '片足前',     cat: 'hop'  },
-            { id: 'h6', short: '片足後',     cat: 'hop'  },
-            { id: 's1', short: 'ｸﾞｰﾊﾟｰ前',  cat: 'step' },
-            { id: 's2', short: 'ｸﾞｰﾊﾟｰ後',  cat: 'step' },
-            { id: 's3', short: 'ｸﾞｰﾁｮｷ前',  cat: 'step' },
-            { id: 's4', short: 'ｸﾞｰﾁｮｷ後',  cat: 'step' },
-            { id: 's5', short: 'あや前',     cat: 'step' },
-            { id: 's6', short: 'こうさ前',   cat: 'step' },
-            { id: 'j1', short: 'あや後',     cat: 'jump' },
-            { id: 'j2', short: 'こうさ後',   cat: 'jump' },
-            { id: 'j3', short: 'ｻｲﾄﾞ前',    cat: 'jump' },
-            { id: 'j4', short: 'ｻｲﾄﾞ後',    cat: 'jump' },
-            { id: 'j5', short: 'ﾏﾘｰﾅ前',    cat: 'jump' },
-            { id: 'j6', short: '二重前',     cat: 'jump' },
-            { id: 'x1', short: '二重後',     cat: 'high' },
-            { id: 'x2', short: '連続易',     cat: 'high' },
-            { id: 'x3', short: '連続難',     cat: 'high' }
+            { id: 'h1', short: '両前',     cat: 'hop'  },
+            { id: 'h2', short: '両後',     cat: 'hop'  },
+            { id: 'h3', short: '駆前',   cat: 'hop'  },
+            { id: 'h4', short: '駆後',   cat: 'hop'  },
+            { id: 'h5', short: '片前',     cat: 'hop'  },
+            { id: 'h6', short: '片後',     cat: 'hop'  },
+            { id: 's1', short: 'ｸﾞﾊﾟ前',  cat: 'step' },
+            { id: 's2', short: 'ｸﾞﾊﾟ後',  cat: 'step' },
+            { id: 's3', short: 'ｸﾞﾁ前',  cat: 'step' },
+            { id: 's4', short: 'ｸﾞﾁ後',  cat: 'step' },
+            { id: 's5', short: 'あ前',     cat: 'step' },
+            { id: 's6', short: 'こ前',   cat: 'step' },
+            { id: 'j1', short: 'あ後',     cat: 'jump' },
+            { id: 'j2', short: 'こ後',   cat: 'jump' },
+            { id: 'j3', short: 'サ前',    cat: 'jump' },
+            { id: 'j4', short: 'サ後',    cat: 'jump' },
+            { id: 'j5', short: 'マ前',    cat: 'jump' },
+            { id: 'j6', short: '二前',     cat: 'jump' },
+            { id: 'x1', short: '二後',     cat: 'high' },
+            { id: 'x2', short: '連易',     cat: 'high' },
+            { id: 'x3', short: '連難',     cat: 'high' }
         ];
 
         // ============================================================
@@ -5788,23 +5792,23 @@
                 // 実コードの REC_NW_CATS / REC_NW_SKILLS と完全一致させる
                 categories: [
                     { id: 'hop',  name: 'ホップ',       color: '#4CAF50', skills: [
-                        { id: 'h1', short: '両足前' }, { id: 'h2', short: '両足後' },
-                        { id: 'h3', short: 'かけ足前' }, { id: 'h4', short: 'かけ足後' },
-                        { id: 'h5', short: '片足前' }, { id: 'h6', short: '片足後' }
+                        { id: 'h1', short: '両前' }, { id: 'h2', short: '両後' },
+                        { id: 'h3', short: '駆前' }, { id: 'h4', short: '駆後' },
+                        { id: 'h5', short: '片前' }, { id: 'h6', short: '片後' }
                     ]},
                     { id: 'step', name: 'ステップ',     color: '#2196F3', skills: [
-                        { id: 's1', short: 'ｸﾞｰﾊﾟｰ前' }, { id: 's2', short: 'ｸﾞｰﾊﾟｰ後' },
-                        { id: 's3', short: 'ｸﾞｰﾁｮｷ前' }, { id: 's4', short: 'ｸﾞｰﾁｮｷ後' },
-                        { id: 's5', short: 'あや前' }, { id: 's6', short: 'こうさ前' }
+                        { id: 's1', short: 'ｸﾞﾊﾟ前' }, { id: 's2', short: 'ｸﾞﾊﾟ後' },
+                        { id: 's3', short: 'ｸﾞﾁ前' }, { id: 's4', short: 'ｸﾞﾁ後' },
+                        { id: 's5', short: 'あ前' }, { id: 's6', short: 'こ前' }
                     ]},
                     { id: 'jump', name: 'ジャンプ',     color: '#FF9800', skills: [
-                        { id: 'j1', short: 'あや後' }, { id: 'j2', short: 'こうさ後' },
-                        { id: 'j3', short: 'ｻｲﾄﾞ前' }, { id: 'j4', short: 'ｻｲﾄﾞ後' },
-                        { id: 'j5', short: 'ﾏﾘｰﾅ前' }, { id: 'j6', short: '二重前' }
+                        { id: 'j1', short: 'あ後' }, { id: 'j2', short: 'こ後' },
+                        { id: 'j3', short: 'サ前' }, { id: 'j4', short: 'サ後' },
+                        { id: 'j5', short: 'マ前' }, { id: 'j6', short: '二前' }
                     ]},
                     { id: 'high', name: 'ハイジャンプ', color: '#E91E63', isMaster: true, skills: [
-                        { id: 'x1', short: '二重後' }, { id: 'x2', short: '連続易' },
-                        { id: 'x3', short: '連続難' }
+                        { id: 'x1', short: '二後' }, { id: 'x2', short: '連易' },
+                        { id: 'x3', short: '連難' }
                     ]}
                 ],
                 // stage(=合格累計技数) → ラベル。なわとびは総21技。
@@ -5830,36 +5834,36 @@
                 // PDF(R8 泳力検定カード)に基づく。総24技。
                 categories: [
                     { id: 'hop',  name: 'ホップ',       color: '#4CAF50', skills: [
-                        { id: 'sh1', short: 'かけっこ',   desc: '水中を10m走る' },
-                        { id: 'sh2', short: 'もぐる易',   desc: '水中にもぐる' },
-                        { id: 'sh3', short: 'もぐる難',   desc: '水中に5秒もぐる' },
-                        { id: 'sh4', short: 'バブリング', desc: '水中で息をはく(細く長く、3秒)' },
-                        { id: 'sh5', short: 'ボビング',   desc: '水中で息をはき、とびあがって空気中で息を吸う' },
-                        { id: 'sh6', short: 'ふしうき易', desc: 'かべにつかまって伏し浮き' }
+                        { id: 'sh1', short: '走水',   desc: '水中を10m走る' },
+                        { id: 'sh2', short: '潜易',   desc: '水中にもぐる' },
+                        { id: 'sh3', short: '潜難',   desc: '水中に5秒もぐる' },
+                        { id: 'sh4', short: 'バブ', desc: '水中で息をはく(細く長く、3秒)' },
+                        { id: 'sh5', short: 'ボビ',   desc: '水中で息をはき、とびあがって空気中で息を吸う' },
+                        { id: 'sh6', short: '伏易', desc: 'かべにつかまって伏し浮き' }
                     ]},
                     { id: 'step', name: 'ステップ',     color: '#2196F3', skills: [
-                        { id: 'ss1', short: 'ふしうき難', desc: '伏し浮きを5秒' },
-                        { id: 'ss2', short: 'せうき',     desc: '背浮きを5秒' },
-                        { id: 'ss3', short: 'け伸び',     desc: 'かべをけって、体を一直線にする' },
-                        { id: 'ss4', short: '面ｸﾛｰﾙ',   desc: '呼吸をしないクロールをする' },
-                        { id: 'ss5', short: '面平泳',    desc: '呼吸をしない平泳ぎをする' },
-                        { id: 'ss6', short: 'かんたん泳', desc: '呼吸をしながら25m泳ぐ(背泳ぎ・ドル平も可)' }
+                        { id: 'ss1', short: '伏難', desc: '伏し浮きを5秒' },
+                        { id: 'ss2', short: '背浮',     desc: '背浮きを5秒' },
+                        { id: 'ss3', short: '蹴伸',     desc: 'かべをけって、体を一直線にする' },
+                        { id: 'ss4', short: '面ク',   desc: '呼吸をしないクロールをする' },
+                        { id: 'ss5', short: '面平',    desc: '呼吸をしない平泳をする' },
+                        { id: 'ss6', short: '楽泳', desc: '呼吸をしながら25m泳ぐ(背泳ぎ・ドル平も可)' }
                     ]},
                     { id: 'jump', name: 'ジャンプ',     color: '#FF9800', skills: [
-                        { id: 'sj1', short: 'ｸﾛｰﾙ',     desc: 'クロールで25m泳ぐ' },
-                        { id: 'sj2', short: '平泳ぎ',     desc: '平泳ぎで25m泳ぐ' },
-                        { id: 'sj3', short: 'ｸﾛｰﾙ長',   desc: 'クロールで50m泳ぐ' },
-                        { id: 'sj4', short: '平泳長',     desc: '平泳ぎで50m泳ぐ' },
-                        { id: 'sj5', short: 'ｸﾛｰﾙ速',   desc: '25mを30秒以内' },
-                        { id: 'sj6', short: '平泳速',     desc: '25mを40秒以内' }
+                        { id: 'sj1', short: 'クロ',     desc: 'クロールで25m泳ぐ' },
+                        { id: 'sj2', short: '平泳',     desc: '平泳で25m泳ぐ' },
+                        { id: 'sj3', short: 'ク長',   desc: 'クロールで50m泳ぐ' },
+                        { id: 'sj4', short: '平長',     desc: '平泳で50m泳ぐ' },
+                        { id: 'sj5', short: 'ク速',   desc: '25mを30秒以内' },
+                        { id: 'sj6', short: '平速',     desc: '25mを40秒以内' }
                     ]},
                     { id: 'high', name: 'ハイジャンプ', color: '#E91E63', isMaster: true, skills: [
                         { id: 'sx1', short: 'M6', desc: 'マスター6: クロールで100m泳ぐ' },
-                        { id: 'sx2', short: 'M5', desc: 'マスター5: 平泳ぎで100m泳ぐ' },
+                        { id: 'sx2', short: 'M5', desc: 'マスター5: 平泳で100m泳ぐ' },
                         { id: 'sx3', short: 'M4', desc: 'マスター4: 25mを25秒以内' },
                         { id: 'sx4', short: 'M3', desc: 'マスター3: 25mを35秒以内' },
                         { id: 'sx5', short: 'M2', desc: 'マスター2: クロールで50m泳ぐ' },
-                        { id: 'sx6', short: 'M1', desc: 'マスター1: 平泳ぎで50m泳ぐ(究極)' }
+                        { id: 'sx6', short: 'M1', desc: 'マスター1: 平泳で50m泳ぐ(究極)' }
                     ]}
                 ],
                 // stage(=合格累計技数) → ラベル。総24技。stage19-24がマスター6-1。
@@ -6036,8 +6040,7 @@
                         ' id="rec-nw-' + idx + '-' + skill.id + '"' +
                         ' title="' + skill.short + '"' +
                         ' onclick="recNwToggle(' + idx + ',\x27' + skill.id + '\x27)">' +
-                        (passed ? '○' : '') +
-                        '<div style="font-size:0.7rem;color:#999;line-height:1;margin-top:2px;">' + skill.short + '</div>' +
+                        '<div class="rec-nw-skill-lbl">' + skill.short + '</div>' +
                         '</button>';
                 });
             });
@@ -6103,8 +6106,7 @@
                     var passed = passData[skill.id] === 1;
                     var uncounted = kenteiIsLocked(config, cat.id, passData);
                     btn.className = 'rec-nw-skill-btn' + (config.id === 'swimming' ? ' sw-skill-btn' : '') + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
-                    btn.innerHTML = (passed ? '&#9675;' : '') +
-                        '<div style="font-size:0.42rem;color:' + (passed ? '#2E7D32' : '#999') + ';line-height:1;">' + skill.short + '</div>';
+                    btn.innerHTML = '<div class="rec-nw-skill-lbl">' + skill.short + '</div>';
                 });
             });
         }
@@ -12214,7 +12216,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.15';
+        var _VER = 'v1.8.16';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

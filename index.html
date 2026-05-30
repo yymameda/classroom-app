@@ -5582,7 +5582,8 @@
                     '<div class="rec-row-name">' + escapeHtml(stu.name || '') + '</div>' +
                     scoreArea + '</div>';
             }).join('');
-            recSwimmingFixSizes();
+            setTimeout(recSwimmingFixSizes, 0);
+            setTimeout(recSwimmingFixSizes, 100);
         }
 
         function recCalcMatomeTotal(test, scores, studentIndex) {
@@ -6089,14 +6090,11 @@
         };
 
         function recSwimmingFixSizes() {
-            document.querySelectorAll('.swimming-card .rec-nw-skills').forEach(function(grid) {
-                var gw = grid.offsetWidth;
-                if (!gw) return;
-                var size = Math.floor((gw - 5) / 6);
-                grid.querySelectorAll('.sw-skill-btn').forEach(function(btn) {
-                    btn.style.height = size + 'px';
-                    btn.style.minHeight = '0';
-                });
+            document.querySelectorAll('.sw-skill-btn').forEach(function(btn) {
+                var w = btn.offsetWidth;
+                if (w > 0) {
+                    btn.style.height = w + 'px';
+                }
             });
         }
         window.addEventListener('resize', recSwimmingFixSizes);

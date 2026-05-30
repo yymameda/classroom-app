@@ -6224,6 +6224,9 @@
                 (studentIndex + 1) + '番 ' + (stu.name || '') + ' の' + (test.testType || 'テスト');
             recRenderMatomeModalGrid(test, studentIndex);
             document.getElementById('recMatomeModal').classList.add('active');
+            // カードが開いたら最初の設問欄へ自動フォーカス（タップ不要）
+            var first = document.getElementById('rec-mq-0');
+            if (first) { first.focus(); try { first.select(); } catch (e) {} }
         };
 
         function recRenderMatomeModalGrid(test, studentIndex) {
@@ -6488,10 +6491,14 @@
             e.preventDefault();
             var num = parseInt(input.id.replace('rec-mq-', ''));
             var total = document.getElementById('recMatomeGrid').querySelectorAll('input[id^="rec-mq-"]').length;
-            var next = (num + 1 < total)
-                ? document.getElementById('rec-mq-' + (num + 1))
-                : document.querySelector('#recMatomeModal .btn-rec-primary');
-            if (next) next.focus();
+            if (num + 1 < total) {
+                // まだ設問が残っていれば次の設問欄へ
+                var next = document.getElementById('rec-mq-' + (num + 1));
+                if (next) { next.focus(); try { next.select(); } catch (err) {} }
+            } else {
+                // 最終設問で Enter → 保存して次の児童カードへ（recOpenMatomeModal 側で先頭欄へ自動フォーカス）
+                recMatomeModalNext();
+            }
         });
 
         window.recToggleMqType = function(num) {
@@ -12219,7 +12226,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.18';
+        var _VER = 'v1.8.19';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

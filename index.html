@@ -12241,7 +12241,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.25';
+        var _VER = 'v1.8.26';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------
@@ -12557,9 +12557,9 @@
                     var maxVal = Math.max.apply(null, rec.answers.map(function(v) { return typeof v === 'boolean' ? (v ? 1 : 0) : v; }));
                     if (maxVal <= 1) {
                         binaryCount++;
-                        // 数値0/1で、かつ配点が複数点のテストのみ過小集計の実害あり
+                        // 複数設問・複数点配点で全0/1のものだけ「要確認」（単一設問は実点と判別不能なので除外）
                         var hasNumericBinary = rec.answers.some(function(v) { return typeof v === 'number'; });
-                        if (hasNumericBinary && testHasMultiPoint(rec.testId) === true) {
+                        if (hasNumericBinary && rec.answers.length >= 2 && testHasMultiPoint(rec.testId) === true) {
                             binaryProblem++;
                             var k = String(rec.testId);
                             if (!problemByTest[k]) problemByTest[k] = { testId: rec.testId, count: 0, sample: rec.answers.slice(0, 12) };
@@ -12740,9 +12740,9 @@
         function collectAnomalies(result) {
             var critical = [], warn = [], info = [];
 
-            // --- answers バイナリ残存（複数点配点で未変換のもののみ重大）---
+            // --- answers 複数設問で全0/1（バイナリか実点か判定不可・要確認）---
             if (result.answersFormat.binaryProblem > 0) {
-                critical.push('answers が複数点配点なのに 0/1 のまま ' + result.answersFormat.binaryProblem + '件（得点が過小集計・要再変換）');
+                info.push('複数設問・複数点配点で answers が全0/1 のレコード ' + result.answersFormat.binaryProblem + '件（旧バイナリか実点かは自動判定不可・該当テストを目視確認）');
             }
 
             // --- orphan スコア(重大) ---
@@ -13024,14 +13024,14 @@
             html += _aRow('answers フィールド保持レコード', af.hasAnswersCount + '件');
             var bp = af.binaryProblem || 0;
             var binaryLabel = bp > 0
-                ? '<span class="audit-status-error">❌ 複数点配点で未変換 ' + bp + '件（過小集計）</span>' + (af.binaryCount - bp > 0 ? ' ／ 全問1点で正常 ' + (af.binaryCount - bp) + '件' : '')
+                ? '<span class="audit-status-warn">⚠️ 複数設問で全0/1 ' + bp + '件（要確認：旧バイナリか実点か判定不可）</span>' + (af.binaryCount - bp > 0 ? ' ／ 単一設問の実点・全問1点配点 ' + (af.binaryCount - bp) + '件は正常 ✅' : '')
                 : af.binaryCount > 0
-                    ? af.binaryCount + '件（全問1点＝0/1が実得点。正常 ✅）'
+                    ? af.binaryCount + '件（単一設問の実点／全問1点配点＝0/1が実得点。正常 ✅）'
                     : '0件 ✅';
             html += '<tr><td>&nbsp;&nbsp;└ バイナリ形式</td><td>' + binaryLabel + '</td></tr>';
             html += '<tr><td>&nbsp;&nbsp;└ 実点数形式</td><td>' + af.actualCount + '件' + (af.actualCount > 0 ? ' ✅' : '') + '</td></tr>';
             if (af.binaryProblemList && af.binaryProblemList.length > 0) {
-                html += '<tr><td colspan="2"><b>要対応の内訳（テスト別）</b></td></tr>';
+                html += '<tr><td colspan="2"><b>要確認の内訳（複数設問で全0/1・テスト別）</b></td></tr>';
                 af.binaryProblemList.forEach(function(p) {
                     html += '<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;・' + escapeHtml(p.subject) + ' ' + escapeHtml(p.testType) + ' 「' + escapeHtml(String(p.name)) + '」' + (p.date ? ' (' + escapeHtml(p.date) + ')' : '') + '</td><td>' + p.count + '件 / 最大配点' + (p.maxPt != null ? p.maxPt : '?') + '点 / 例:[' + p.sample.join(',') + ']</td></tr>';
                 });
@@ -13248,9 +13248,9 @@
 
             lines.push('【answers / matomeAnswers 形式】');
             lines.push('answers 保持レコード: ' + af.hasAnswersCount + '件');
-            lines.push('  バイナリ形式: ' + af.binaryCount + '件' + ((af.binaryProblem || 0) > 0 ? '（うち複数点配点で未変換=要対応 ' + af.binaryProblem + '件 / 全問1点で正常 ' + (af.binaryCount - af.binaryProblem) + '件）' : '（全て全問1点＝正常）'));
+            lines.push('  バイナリ形式: ' + af.binaryCount + '件' + ((af.binaryProblem || 0) > 0 ? '（うち複数設問で全0/1=要確認 ' + af.binaryProblem + '件 / 単一設問の実点・全問1点で正常 ' + (af.binaryCount - af.binaryProblem) + '件）' : '（単一設問の実点／全問1点＝正常）'));
             if (af.binaryProblemList && af.binaryProblemList.length > 0) {
-                lines.push('  要対応の内訳(テスト別):');
+                lines.push('  要確認の内訳(複数設問で全0/1・テスト別):');
                 af.binaryProblemList.forEach(function(p) {
                     lines.push('    ・' + p.subject + ' ' + p.testType + ' 「' + p.name + '」' + (p.date ? ' (' + p.date + ')' : '') + ' : ' + p.count + '件 / 最大配点' + (p.maxPt != null ? p.maxPt : '?') + '点 / 例:[' + p.sample.join(',') + '] / testId=' + p.testId);
                 });

@@ -9706,13 +9706,25 @@
         }
 
         // 学期判定
-        function grdGetCurrentTerm() { var m = new Date().getMonth() + 1; return m >= 4 && m <= 7 ? '1' : m >= 9 && m <= 12 ? '2' : '3'; }
+        function grdGetCurrentTerm() {
+            var ts = (master && master.classInfo && master.classInfo.termSystem) || 3;
+            var m = new Date().getMonth() + 1;
+            if (Number(ts) === 2) { return (m >= 4 && m <= 9) ? '1' : '2'; }
+            if (m >= 4 && m <= 8) return '1';
+            if (m >= 9 && m <= 12) return '2';
+            return '3';
+        }
         function grdGetTermRange(term) {
+            var ts = (master && master.classInfo && master.classInfo.termSystem) || 3;
             var now = new Date(), fy = now.getFullYear();
             if (now.getMonth() + 1 <= 3) fy--;
-            if (term === '1') return { start: fy+'-04-01', end: fy+'-07-20' };
-            if (term === '2') return { start: fy+'-09-01', end: fy+'-12-25' };
-            return { start: (fy+1)+'-01-01', end: (fy+1)+'-03-25' };
+            if (Number(ts) === 2) {
+                if (term === '1') return { start: fy+'-04-01', end: fy+'-09-30' };
+                return { start: fy+'-10-01', end: (fy+1)+'-03-31' };
+            }
+            if (term === '1') return { start: fy+'-04-01', end: fy+'-08-31' };
+            if (term === '2') return { start: fy+'-09-01', end: fy+'-12-31' };
+            return { start: (fy+1)+'-01-01', end: (fy+1)+'-03-31' };
         }
 
         // 提出物→10点
@@ -12226,7 +12238,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.20';
+        var _VER = 'v1.8.21';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

@@ -1867,7 +1867,7 @@
 
         <!-- ===== 名簿・設定 ===== -->
         <div id="view-settings" class="view">
-            <div class="view-header"><h2>⚙️ 名簿・設定</h2></div>
+            <div class="view-header"><h2>⚙️ 名簿・設定 <span id="ver-disp" style="font-size:0.7rem;opacity:0.6;"></span></h2></div>
             <div class="view-content">
                 <!-- クラス情報 -->
                 <div class="card">
@@ -6090,6 +6090,8 @@
         };
 
         function recSwimmingFixSizes() {
+            var btn = document.querySelector('.sw-skill-btn');
+            if (btn) console.log('sw-skill-btn offsetWidth:', btn.offsetWidth, 'offsetHeight:', btn.offsetHeight);
             document.querySelectorAll('.sw-skill-btn').forEach(function(btn) {
                 var w = btn.offsetWidth;
                 if (w > 0) {
@@ -12237,7 +12239,8 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.0';
+        var _VER = 'v1.8.13';
+        (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------
         // データ収集関数

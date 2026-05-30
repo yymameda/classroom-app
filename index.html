@@ -5377,6 +5377,11 @@
             var sel = document.getElementById('recInputTestSelect');
             recCurrentTestId = sel.value ? parseInt(sel.value) : null;
             recRenderInputArea();
+            // 課題選択直後、最初の空欄へフォーカス（外付けキーボードで即入力可。空欄が無ければ何もしない）
+            var inputs = document.querySelectorAll('#recList input[id^="rec-sc-"]');
+            for (var i = 0; i < inputs.length; i++) {
+                if (inputs[i].value === '') { inputs[i].focus(); try { inputs[i].select(); } catch (e) {} break; }
+            }
         };
 
         function recRenderInputArea() {
@@ -5728,22 +5733,20 @@
 
         window.recHandleScoreKey = function(event, idx) {
             var students = recGetStudents();
-            if (event.key === 'Enter' || event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
-                event.preventDefault();
-                recOnScoreBlur(idx);
-                for (var next = idx + 1; next < students.length; next++) {
-                    var ni = document.getElementById('rec-sc-' + next);
-                    if (ni && ni.offsetParent !== null) { ni.focus(); ni.select(); return; }
-                }
+            var key = event.key;
+            var forward = (key === 'Enter' || key === 'ArrowDown' || (key === 'Tab' && !event.shiftKey));
+            var backward = (key === 'ArrowUp' || (key === 'Tab' && event.shiftKey));
+            if (!forward && !backward) return;
+            event.preventDefault();
+            recOnScoreBlur(idx);
+            var step = forward ? 1 : -1;
+            for (var i = idx + step; i >= 0 && i < students.length; i += step) {
+                var ni = document.getElementById('rec-sc-' + i);
+                if (ni && !ni.disabled) { ni.focus(); try { ni.select(); } catch (e) {} return; }
+            }
+            if (forward) {
                 var cur = document.getElementById('rec-sc-' + idx);
                 if (cur) cur.blur();
-            } else if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
-                event.preventDefault();
-                recOnScoreBlur(idx);
-                for (var prev = idx - 1; prev >= 0; prev--) {
-                    var pi = document.getElementById('rec-sc-' + prev);
-                    if (pi && pi.offsetParent !== null) { pi.focus(); pi.select(); return; }
-                }
             }
         };
 
@@ -12216,7 +12219,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.17';
+        var _VER = 'v1.8.18';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

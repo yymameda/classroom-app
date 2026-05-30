@@ -925,16 +925,19 @@
         .rec-nw-skill-btn.passed { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
         .rec-nw-skill-btn.uncounted { background: #F5F5F5; border-color: #E0E0E0; color: #BDBDBD; }
         .rec-nw-skill-btn.uncounted.passed { background: #FFF9C4; border-color: #FBC02D; color: #F57F17; font-weight: 700; }
+        /* 泳力検定カード: グリッド行の縦引き伸ばしを防止 */
+        .swimming-card .rec-nw-skills { align-content: start; }
         /* 泳力検定スキルボタン：正方形固定・状態変化でサイズ不変 */
         .rec-nw-skill-btn.sw-skill-btn {
-            aspect-ratio: 1 / 1;
-            width: 100%;
-            height: auto;
-            min-height: unset;
-            padding: 2px;
-            font-size: 0.7rem;
-            overflow: hidden;
-            box-sizing: border-box;
+            aspect-ratio: 1 / 1 !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            padding: 2px !important;
+            font-size: 0.7rem !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+            border-width: 1px !important;
         }
         /* 横向き6列×5行（スクロールなし） */
         /* 縦向き・横向き共通：カードサイズを縦向き4列基準に統一 */
@@ -6051,7 +6054,7 @@
                 });
             });
 
-            return '<div class="rec-nawatobi-card' + (hasRecord ? ' has-record' : '') + '" id="rec-row-' + idx + '">' +
+            return '<div class="rec-nawatobi-card' + (config.id === 'swimming' ? ' swimming-card' : '') + (hasRecord ? ' has-record' : '') + '" id="rec-row-' + idx + '">' +
                 '<div class="rec-nw-hd">' +
                 '<div class="rec-nw-num' + (hasRecord ? ' has' : '') + '">' + (idx+1) + '</div>' +
                 '<span style="font-size:0.75rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">' + escapeHtml(stu.name || '') + '</span>' +

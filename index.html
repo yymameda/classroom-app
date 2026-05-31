@@ -1054,17 +1054,18 @@
         .history-item-memo { margin-top: 0.4rem; font-size: 0.82rem; color: var(--text-light); padding-left: 0.4rem; border-left: 2px solid #E2E8F0; }
 
         /* ===== 個人カルテ CSS ===== */
-        .karte-container { background: var(--white); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%; }
-        .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, #fff 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; flex-shrink: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .karte-container { background: var(--white); border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 92px 1fr; grid-template-rows: auto auto minmax(0,1fr); height: 100%; }
+        .karte-container > div:first-child { grid-column: 1 / -1; grid-row: 1; }
+        .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, #fff 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-column: 1 / -1; grid-row: 2; max-height: 116px; }
         .karte-student-bar-inner { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
         .karte-student-btn { padding: 0.35rem 0.15rem; border: 1.5px solid var(--border); background: var(--white); color: var(--text); font-size: 0.65rem; font-family: inherit; cursor: pointer; border-radius: 6px; white-space: nowrap; min-height: 44px; transition: all 0.15s; text-align: center; line-height: 1.2; }
         .karte-student-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 600; }
         .karte-student-btn.has-records { border-color: #9B59B6; background: #F3E5F5; }
         .karte-student-btn.has-records.active { background: var(--primary); border-color: var(--primary); }
-        .karte-tabs { display: flex; border-bottom: 2px solid var(--border); background: #FAFCFD; flex-shrink: 0; }
-        .karte-tab-btn { flex: 1; padding: 0.5rem 0.15rem; border: none; background: transparent; color: var(--text-light); font-size: 0.68rem; font-family: inherit; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; min-height: 44px; }
-        .karte-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; background: var(--white); }
-        .karte-tab-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.75rem; }
+        .karte-tabs { display: flex; flex-direction: column; border-right: 2px solid var(--border); background: #FAFCFD; grid-column: 1; grid-row: 3; overflow-y: auto; }
+        .karte-tab-btn { flex: 0 0 auto; padding: 0.55rem 0.3rem; border: none; background: transparent; color: var(--text-light); font-size: 0.72rem; font-family: inherit; font-weight: 500; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; min-height: 48px; text-align: center; line-height: 1.25; }
+        .karte-tab-btn.active { color: var(--primary); border-left-color: var(--primary); font-weight: 700; background: var(--white); }
+        .karte-tab-content { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.75rem; grid-column: 2; grid-row: 3; min-height: 0; }
         .ktab-pane { display: none; }
         .ktab-pane.active { display: block; }
         .karte-placeholder { text-align: center; padding: 2rem 1rem; color: var(--text-light); }
@@ -1402,17 +1403,21 @@
         }
         @media (orientation: landscape) and (min-width: 1000px) {
 
-            /* 個人カルテ：左=児童一覧 右=カルテ詳細 */
+            /* 個人カルテ：左=児童一覧 中=タブ 右=詳細 */
             .karte-container {
-                flex-direction: row !important;
+                grid-template-columns: 150px 96px 1fr;
+                grid-template-rows: auto minmax(0,1fr);
+            }
+            .karte-container > div:first-child {
+                grid-column: 1 / -1;
+                grid-row: 1;
             }
             .karte-student-bar {
-                width: 160px;
-                flex-shrink: 0;
+                grid-column: 1;
+                grid-row: 2;
                 border-bottom: none;
                 border-right: 2px solid var(--border);
-                overflow-y: auto;
-                height: 100%;
+                max-height: none;
             }
             .karte-student-bar-inner {
                 grid-template-columns: 1fr !important;
@@ -1423,7 +1428,12 @@
                 padding: 0.35rem 0.4rem;
             }
             .karte-tabs {
-                flex-shrink: 0;
+                grid-column: 2;
+                grid-row: 2;
+            }
+            .karte-tab-content {
+                grid-column: 3;
+                grid-row: 2;
             }
 
             /* 出席簿：統計バーを横並びに拡張 */
@@ -12453,7 +12463,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.29';
+        var _VER = 'v1.8.30';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

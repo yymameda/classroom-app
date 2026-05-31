@@ -1802,6 +1802,7 @@
         <button class="nav-btn" data-view="seating" data-tooltip="座席表" id="nav-seating">🪑</button>
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
         <button class="nav-btn" data-view="karte" data-tooltip="個人カルテ" id="nav-karte">👤</button>
+        <button class="nav-btn" data-view="quickmemo" data-tooltip="クイックメモ" id="nav-quickmemo">💬</button>
         <div class="nav-group-label">【体育】</div>
         <button class="nav-btn" data-view="pf" data-tooltip="新体力テスト" id="nav-pf">🏃</button>
         <div class="nav-group-label">【データ】</div>
@@ -1856,6 +1857,15 @@
                         <div class="storage-bar-fill" id="storageBar" style="width: 0%;"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ===== クイックメモ ===== -->
+        <div id="view-quickmemo" class="view">
+            <div class="view-header"><h2>💬 クイックメモ</h2></div>
+            <div style="padding:0 0.5rem;">
+                <div id="qmGrid" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.8rem;"></div>
+                <div id="qmDetail"></div>
             </div>
         </div>
 
@@ -3884,6 +3894,7 @@
         if (viewName === 'pf' && typeof pf_onShowView === 'function') { pf_onShowView(); }
         if (viewName === 'grades' && typeof grdImportFitnessTest === 'function') { grdImportFitnessTest(); }
         if (viewName === 'karte' && typeof karteViewInit === 'function') { karteViewInit(); }
+        if (viewName === 'quickmemo' && typeof qmInit === 'function') { qmInit(); }
     }
 
     // ================================================================
@@ -7834,6 +7845,207 @@
             if (idx !== null && idx !== undefined && idx >= 0) selectKarteStudent(idx);
         }
         window.showKarte = showKarte;
+
+        // ===================================================================
+        // クイックメモ（保護者・児童メモの瞬間入力）
+        //  - 保存先は既存の karte_life / karte_parent（既存フォーマット・karteSafeSet経由）
+        //  - 児童グリッドは既存カルテと同じ名簿・同じ idx 体系
+        //  - 身体・配慮は表示のみ（編集は👤カルテへ誘導）
+        // ===================================================================
+        var qmSelIdx = -1;
+        var qmOpenForm = null;      // 'life' | 'parent' | null
+        var qmParentMethod = '';
+
+        function qmNowLocal() {
+            var d = new Date(), p = function(n){ return (n < 10 ? '0' : '') + n; };
+            return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+        }
+
+        function qmInit() {
+            qmRenderGrid();
+            if (qmSelIdx >= 0) { qmRenderDetail(); }
+            else { var d = document.getElementById('qmDetail'); if (d) d.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:2rem 0;">児童を選んでメモを記録できます</div>'; }
+        }
+
+        function qmRenderGrid() {
+            var grid = document.getElementById('qmGrid'); if (!grid) return;
+            var students = karteGetStudents();
+            var html = '';
+            for (var i = 0; i < students.length; i++) {
+                var s = students[i]; if (!s || !s.name) continue;
+                var name = s.name.length > 5 ? s.name.substring(0, 5) : s.name;
+                var hasParent = karteGetStudentParent(i).length > 0;
+                var active = (i === qmSelIdx);
+                var style = 'padding:0.45rem 0.6rem;border-radius:8px;font-size:0.85rem;cursor:pointer;border:1.5px solid ';
+                style += active ? 'var(--accent);background:var(--accent);color:#fff;'
+                       : (hasParent ? '#9c6ade;background:#f3ecfb;color:#5e35b1;' : 'var(--border);background:var(--white);color:var(--text);');
+                html += '<button onclick="qmSelect(' + i + ')" style="' + style + '">' + (i+1) + ' ' + escapeHtml(name) + '</button>';
+            }
+            grid.innerHTML = html || '<div style="color:var(--text-light);">名簿が未登録です</div>';
+        }
+
+        function qmSelect(idx) {
+            qmSelIdx = idx; qmOpenForm = null; qmParentMethod = '';
+            qmRenderGrid(); qmRenderDetail();
+        }
+
+        function qmToggleForm(kind) {
+            qmOpenForm = (qmOpenForm === kind) ? null : kind;
+            qmParentMethod = '';
+            qmRenderDetail();
+        }
+
+        function qmSetMethod(id) {
+            qmParentMethod = (qmParentMethod === id) ? '' : id;
+            document.querySelectorAll('#qmDetail [data-qmid]').forEach(function(b) {
+                b.style.background = (b.dataset.qmid === qmParentMethod) ? 'var(--accent)' : 'var(--white)';
+                b.style.color = (b.dataset.qmid === qmParentMethod) ? '#fff' : 'var(--text)';
+            });
+        }
+
+        function qmSaveLife() {
+            if (qmSelIdx < 0) return;
+            var el = document.getElementById('qmLifeText'); var text = el ? el.value.trim() : '';
+            if (!text) { showToast('内容を入力してください', 'warning'); return; }
+            var all = karteGetLifeRecords();
+            var list = Array.isArray(all[String(qmSelIdx)]) ? all[String(qmSelIdx)] : [];
+            var now = new Date().toISOString(), today = now.slice(0, 10);
+            list.push({ id: Date.now(), date: today, categories: [], summary: text, fact: '', response: '', impression: '', templates: [], createdAt: now, updatedAt: now });
+            all[String(qmSelIdx)] = list;
+            if (karteSafeSet(KK.life, all)) { showToast('👦 児童メモを保存しました', 'success'); qmOpenForm = null; qmRenderDetail(); }
+        }
+
+        function qmSaveParent() {
+            if (qmSelIdx < 0) return;
+            var el = document.getElementById('qmParentText'); var text = el ? el.value.trim() : '';
+            if (!text) { showToast('内容を入力してください', 'warning'); return; }
+            var all = karteGetParentContacts();
+            var list = Array.isArray(all[String(qmSelIdx)]) ? all[String(qmSelIdx)] : [];
+            var now = new Date().toISOString();
+            list.push({ id: Date.now(), datetime: qmNowLocal(), method: qmParentMethod, content: text, createdAt: now, updatedAt: now });
+            all[String(qmSelIdx)] = list;
+            if (karteSafeSet(KK.parent, all)) { showToast('👨‍👩‍👧 保護者メモを保存しました', 'success'); qmOpenForm = null; qmParentMethod = ''; qmRenderGrid(); qmRenderDetail(); }
+        }
+
+        function qmDelLife(id) {
+            if (qmSelIdx < 0) return;
+            var all = karteGetLifeRecords();
+            var list = Array.isArray(all[String(qmSelIdx)]) ? all[String(qmSelIdx)] : [];
+            var target = list.find(function(r) { return r.id === id; });
+            if (target) karteDeletedBuffer.push({ type: 'life', studentIndex: qmSelIdx, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() });
+            all[String(qmSelIdx)] = list.filter(function(r) { return r.id !== id; });
+            if (karteSafeSet(KK.life, all)) { showToast('削除しました（元に戻せます）', 'warning'); qmRenderDetail(); }
+        }
+
+        function qmDelParent(id) {
+            if (qmSelIdx < 0) return;
+            var all = karteGetParentContacts();
+            var list = Array.isArray(all[String(qmSelIdx)]) ? all[String(qmSelIdx)] : [];
+            var target = list.find(function(r) { return r.id === id; });
+            if (target) karteDeletedBuffer.push({ type: 'parent', studentIndex: qmSelIdx, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() });
+            all[String(qmSelIdx)] = list.filter(function(r) { return r.id !== id; });
+            if (karteSafeSet(KK.parent, all)) { showToast('削除しました（元に戻せます）', 'warning'); qmRenderGrid(); qmRenderDetail(); }
+        }
+
+        function qmJump() { if (qmSelIdx >= 0) showKarte(qmSelIdx, 'all'); }
+
+        function qmMethodLabel(id) {
+            var m = KARTE_PARENT_METHODS.find(function(x) { return x.id === id; });
+            return m ? m.label : '';
+        }
+
+        function qmRenderDetail() {
+            var c = document.getElementById('qmDetail'); if (!c) return;
+            if (qmSelIdx < 0) { c.innerHTML = ''; return; }
+            var students = karteGetStudents();
+            var s = students[qmSelIdx] || {};
+            var card = 'background:var(--white);border:1px solid var(--border);border-radius:12px;padding:0.8rem;margin-bottom:0.8rem;';
+            var h = '';
+
+            // 見出し＋詳細リンク
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">';
+            h += '<div style="font-size:1.1rem;font-weight:bold;">' + (qmSelIdx+1) + '　' + escapeHtml(s.name || '') + '</div>';
+            h += '<button onclick="qmJump()" style="font-size:0.75rem;padding:0.3rem 0.6rem;border:1px solid var(--border);border-radius:6px;background:var(--white);color:var(--accent);cursor:pointer;">👤 カルテで詳細・編集 →</button>';
+            h += '</div>';
+
+            // クイックボタン
+            h += '<div style="display:flex;gap:0.5rem;margin-bottom:0.6rem;">';
+            h += '<button onclick="qmToggleForm(\'life\')" style="flex:1;padding:0.7rem;border-radius:10px;border:1.5px solid #4caf50;background:' + (qmOpenForm==='life'?'#4caf50':'var(--white)') + ';color:' + (qmOpenForm==='life'?'#fff':'#388e3c') + ';font-size:0.95rem;font-weight:bold;cursor:pointer;">👦 児童メモ</button>';
+            h += '<button onclick="qmToggleForm(\'parent\')" style="flex:1;padding:0.7rem;border-radius:10px;border:1.5px solid #9c6ade;background:' + (qmOpenForm==='parent'?'#9c6ade':'var(--white)') + ';color:' + (qmOpenForm==='parent'?'#fff':'#5e35b1') + ';font-size:0.95rem;font-weight:bold;cursor:pointer;">👨‍👩‍👧 保護者メモ</button>';
+            h += '</div>';
+
+            // 入力フォーム
+            if (qmOpenForm === 'life') {
+                h += '<div style="' + card + '">';
+                h += '<textarea id="qmLifeText" rows="3" placeholder="気づいたことをメモ" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.5rem;font-size:0.9rem;"></textarea>';
+                h += '<button onclick="qmSaveLife()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#4caf50;color:#fff;font-weight:bold;cursor:pointer;">💾 児童メモを保存</button>';
+                h += '</div>';
+            } else if (qmOpenForm === 'parent') {
+                h += '<div style="' + card + '">';
+                h += '<div style="display:flex;gap:0.3rem;margin-bottom:0.5rem;flex-wrap:wrap;">';
+                KARTE_PARENT_METHODS.forEach(function(m) {
+                    var on = qmParentMethod === m.id;
+                    h += '<button data-qmid="' + m.id + '" onclick="qmSetMethod(\'' + m.id + '\')" style="padding:0.35rem 0.6rem;border:1.5px solid var(--accent);border-radius:6px;font-size:0.8rem;cursor:pointer;background:' + (on?'var(--accent)':'var(--white)') + ';color:' + (on?'#fff':'var(--text)') + ';">' + m.label + '</button>';
+                });
+                h += '</div>';
+                h += '<textarea id="qmParentText" rows="3" placeholder="対応内容をメモ" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.5rem;font-size:0.9rem;"></textarea>';
+                h += '<button onclick="qmSaveParent()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#9c6ade;color:#fff;font-weight:bold;cursor:pointer;">💾 保護者メモを保存</button>';
+                h += '</div>';
+            }
+
+            // 身体・配慮（表示のみ）
+            var hd = karteGetStudentHealth(qmSelIdx);
+            var hasHealth = (hd.allergies && hd.allergies.length) || hd.medication || hd.exerciseLimit || hd.familyMemo;
+            h += '<div style="' + card + 'border-color:#ffcdd2;background:#fff7f7;">';
+            h += '<div style="font-size:0.8rem;font-weight:bold;color:#c62828;margin-bottom:0.4rem;">🚨 身体・配慮（表示のみ）</div>';
+            if (hasHealth) {
+                if (hd.allergies && hd.allergies.length) h += '<div style="font-size:0.85rem;margin-bottom:0.2rem;">アレルギー：' + hd.allergies.map(function(a){return escapeHtml(a);}).join('・') + '</div>';
+                if (hd.medication)    h += '<div style="font-size:0.85rem;margin-bottom:0.2rem;">💊 ' + escapeHtml(hd.medication) + '</div>';
+                if (hd.exerciseLimit) h += '<div style="font-size:0.85rem;margin-bottom:0.2rem;">🏃 ' + escapeHtml(hd.exerciseLimit) + '</div>';
+                if (hd.familyMemo)    h += '<div style="font-size:0.85rem;margin-bottom:0.2rem;">🏠 ' + escapeHtml(hd.familyMemo) + '</div>';
+            } else {
+                h += '<div style="font-size:0.8rem;color:var(--text-light);">未登録（編集はカルテから）</div>';
+            }
+            h += '</div>';
+
+            // 直近5件：保護者
+            var pRecs = karteGetStudentParent(qmSelIdx).slice().sort(function(a,b){ return (b.datetime||b.createdAt||'').localeCompare(a.datetime||a.createdAt||''); }).slice(0,5);
+            h += '<div style="' + card + '"><div style="font-size:0.8rem;font-weight:bold;color:#5e35b1;margin-bottom:0.4rem;">👨‍👩‍👧 保護者対応（直近5件）</div>';
+            if (pRecs.length) {
+                pRecs.forEach(function(r) {
+                    var dt = r.datetime ? new Date(r.datetime).toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+                    var ml = qmMethodLabel(r.method);
+                    h += '<div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;">';
+                    h += '<div><span style="color:var(--text-light);font-size:0.75rem;">' + dt + (ml?'・'+ml:'') + '</span><br>' + escapeHtml(r.content || '') + '</div>';
+                    h += '<button onclick="qmDelParent(' + r.id + ')" style="flex-shrink:0;border:none;background:none;color:var(--danger);cursor:pointer;font-size:0.9rem;">🗑</button></div>';
+                });
+            } else { h += '<div style="font-size:0.8rem;color:var(--text-light);">記録なし</div>'; }
+            h += '</div>';
+
+            // 直近5件：児童
+            var lRecs = karteGetStudentLife(qmSelIdx).slice().sort(function(a,b){ return (b.date||b.createdAt||'').localeCompare(a.date||a.createdAt||''); }).slice(0,5);
+            h += '<div style="' + card + '"><div style="font-size:0.8rem;font-weight:bold;color:#388e3c;margin-bottom:0.4rem;">👦 生活記録（直近5件）</div>';
+            if (lRecs.length) {
+                lRecs.forEach(function(r) {
+                    h += '<div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;">';
+                    h += '<div><span style="color:var(--text-light);font-size:0.75rem;">' + escapeHtml(r.date || '') + '</span><br>' + escapeHtml(r.summary || '') + '</div>';
+                    h += '<button onclick="qmDelLife(' + r.id + ')" style="flex-shrink:0;border:none;background:none;color:var(--danger);cursor:pointer;font-size:0.9rem;">🗑</button></div>';
+                });
+            } else { h += '<div style="font-size:0.8rem;color:var(--text-light);">記録なし</div>'; }
+            h += '</div>';
+
+            c.innerHTML = h;
+        }
+
+        window.qmInit = qmInit;
+        window.qmSelect = qmSelect;
+        window.qmToggleForm = qmToggleForm;
+        window.qmSetMethod = qmSetMethod;
+        window.qmSaveLife = qmSaveLife;
+        window.qmSaveParent = qmSaveParent;
+        window.qmDelLife = qmDelLife;
+        window.qmDelParent = qmDelParent;
+        window.qmJump = qmJump;
 
         // --- 児童切替バー ---
         function renderKarteStudentBar() {
@@ -12241,7 +12453,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.26';
+        var _VER = 'v1.8.28';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

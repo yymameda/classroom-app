@@ -7977,7 +7977,7 @@
             // 入力フォーム
             if (qmOpenForm === 'life') {
                 h += '<div style="' + card + '">';
-                h += '<textarea id="qmLifeText" rows="3" placeholder="気づいたことをメモ" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.5rem;font-size:0.9rem;"></textarea>';
+                h += '<textarea id="qmLifeText" rows="6" placeholder="気づいたことを手書きでメモ（Scribble対応）" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.6rem;font-size:16px;line-height:1.8;min-height:180px;"></textarea>';
                 h += '<button onclick="qmSaveLife()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#4caf50;color:#fff;font-weight:bold;cursor:pointer;">💾 児童メモを保存</button>';
                 h += '</div>';
             } else if (qmOpenForm === 'parent') {
@@ -7988,7 +7988,7 @@
                     h += '<button data-qmid="' + m.id + '" onclick="qmSetMethod(\'' + m.id + '\')" style="padding:0.35rem 0.6rem;border:1.5px solid var(--accent);border-radius:6px;font-size:0.8rem;cursor:pointer;background:' + (on?'var(--accent)':'var(--white)') + ';color:' + (on?'#fff':'var(--text)') + ';">' + m.label + '</button>';
                 });
                 h += '</div>';
-                h += '<textarea id="qmParentText" rows="3" placeholder="対応内容をメモ" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.5rem;font-size:0.9rem;"></textarea>';
+                h += '<textarea id="qmParentText" rows="8" placeholder="対応内容を手書きでメモ（Scribble対応）" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.6rem;font-size:16px;line-height:1.8;min-height:240px;"></textarea>';
                 h += '<button onclick="qmSaveParent()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#9c6ade;color:#fff;font-weight:bold;cursor:pointer;">💾 保護者メモを保存</button>';
                 h += '</div>';
             }
@@ -12453,7 +12453,7 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.28';
+        var _VER = 'v1.8.29';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
 
         // ----------------------------------------------------------------

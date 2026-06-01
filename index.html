@@ -12459,8 +12459,19 @@
     (function() {
         'use strict';
 
-        var _VER = 'v1.8.30';
+        var _VER = '...';
         (function() { var el = document.getElementById('ver-disp'); if (el) el.textContent = _VER; })();
+        (function() {
+            function applyVersion(v) { _VER = v; var el = document.getElementById('ver-disp'); if (el) el.textContent = v; }
+            function askSW(sw) { if (sw) sw.postMessage({ type: 'GET_VERSION' }); }
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', function(e) {
+                    if (e.data && e.data.type === 'VERSION') applyVersion(e.data.version);
+                });
+                if (navigator.serviceWorker.controller) { askSW(navigator.serviceWorker.controller); }
+                navigator.serviceWorker.ready.then(function(reg) { askSW(reg.active); });
+            }
+        })();
 
         // ----------------------------------------------------------------
         // データ収集関数

@@ -2794,7 +2794,7 @@
                 <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
                 <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
                 <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button></div>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKanjiPDF()">🖨️ 一括印刷</button></div>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
@@ -13929,6 +13929,130 @@
                 if (document.body.contains(container)) document.body.removeChild(container);
                 showToast('PDF生成中にエラーが発生しました', 'error');
                 console.error('printAllKarte html2canvas error:', err);
+            });
+        }
+        processNext();
+    };
+
+    // ===== 漢字チェック一括PDF出力 =====
+    window.printAllKanjiPDF = function() {
+        var masterData = StorageManager.get(KEYS.master, {});
+        var students = masterData.students || [];
+        if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
+        var ci = masterData.classInfo || {};
+        var kanjiData = StorageManager.get(KEYS.kanji, { units: [] });
+        var units = kanjiData.units || [];
+        if (!units.length) { showToast('漢字データがありません', 'warning'); return; }
+
+        var pageHtmls = [];
+        students.forEach(function(s, idx) {
+            if (!s || !s.name) return;
+            var unitsHtml = '';
+            units.forEach(function(unit) {
+                var chars = unit.chars || [];
+                var checks = unit.checks || {};
+                if (!chars.length) return;
+                var doneCount = 0, retryCount = 0;
+                var cellsHtml = '';
+                chars.forEach(function(c, charIdx) {
+                    var val = (checks[String(idx)] || {})[String(charIdx)];
+                    var bg, color, mark;
+                    if (val === 'o') {
+                        bg = '#C8E6C9'; color = '#9E9E9E'; mark = '○';
+                        doneCount++;
+                    } else if (val === 'd') {
+                        bg = '#FFF8E1'; color = '#F57F17'; mark = '△';
+                        retryCount++;
+                    } else {
+                        bg = '#fff'; color = '#1a1a2e'; mark = '';
+                    }
+                    cellsHtml += '<div style="width:36px;text-align:center;border:1px solid #ddd;'
+                        + 'background:' + bg + ';padding:2px 0;border-radius:3px;">'
+                        + '<div style="font-size:14px;font-weight:700;color:' + color + ';">' + escapeHtml(c) + '</div>'
+                        + '<div style="font-size:10px;color:' + color + ';font-weight:700;min-height:14px;">' + mark + '</div>'
+                        + '</div>';
+                });
+                var remaining = chars.length - doneCount;
+                var summaryColor = remaining === 0 ? '#27AE60' : '#555';
+                var summaryText = '完了 ' + doneCount + '/' + chars.length + '字　のこり ' + remaining + '字'
+                    + (retryCount > 0 ? '　△' + retryCount + '字' : '');
+                unitsHtml += '<div style="border:1.5px solid #ddd;border-radius:6px;padding:8px;margin-bottom:8px;">'
+                    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+                    + '<div style="font-size:11px;font-weight:700;color:#555;">📝 ' + escapeHtml(unit.name || '') + '</div>'
+                    + '<div style="font-size:10px;font-weight:700;color:' + summaryColor + ';">' + summaryText + '</div>'
+                    + '</div>'
+                    + '<div style="display:flex;flex-wrap:wrap;gap:3px;">' + cellsHtml + '</div>'
+                    + '</div>';
+            });
+            var pageHtml = '<div style="padding:12mm 14mm;box-sizing:border-box;">'
+                + '<div style="border-bottom:3px solid #1a1a2e;padding-bottom:6pt;margin-bottom:10pt;'
+                + 'display:flex;justify-content:space-between;align-items:flex-end;">'
+                + '<div style="font-size:18pt;font-weight:900;color:#1a1a2e;">漢字チェック</div>'
+                + '<div style="font-size:8pt;color:#555;">' + escapeHtml(String(ci.grade || '')) + '年'
+                + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '') + '</div>'
+                + '</div>'
+                + '<div style="background:#f4f6f9;border-radius:8pt;padding:8pt 12pt;margin-bottom:10pt;'
+                + 'display:flex;align-items:center;gap:16pt;">'
+                + '<span style="font-size:9pt;color:#555;font-weight:700;">番号</span>'
+                + '<span style="font-size:14pt;font-weight:900;color:#1a1a2e;">' + (idx + 1) + '</span>'
+                + '<span style="font-size:9pt;color:#555;font-weight:700;">氏名</span>'
+                + '<span style="font-size:16pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
+                + '</div>'
+                + unitsHtml
+                + '</div>';
+            pageHtmls.push(pageHtml);
+        });
+
+        if (typeof html2canvas === 'undefined' || !window.jspdf) {
+            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
+            return;
+        }
+        showToast('PDF生成中…しばらくお待ちください', 'info');
+
+        var container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;'
+            + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
+            + 'box-sizing:border-box;';
+        document.body.appendChild(container);
+
+        var jsPDF = window.jspdf.jsPDF;
+        var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        var A4_W = 210, A4_H = 297, MARGIN = 10;
+        var pageIdx = 0;
+
+        function processNext() {
+            if (pageIdx >= pageHtmls.length) {
+                if (document.body.contains(container)) document.body.removeChild(container);
+                pdf.save('漢字チェック一括_' + pageHtmls.length + '名.pdf');
+                showToast('PDFを保存しました', 'success');
+                return;
+            }
+            container.innerHTML = pageHtmls[pageIdx];
+            var el = container.firstElementChild || container;
+            html2canvas(el, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: 794,
+                scrollX: 0,
+                scrollY: 0
+            }).then(function(canvas) {
+                var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                var availW = A4_W - MARGIN * 2;
+                var imgW = availW;
+                var imgH = canvas.height / canvas.width * imgW;
+                var maxH = A4_H - MARGIN * 2;
+                if (imgH > maxH) { imgH = maxH; imgW = canvas.width / canvas.height * imgH; }
+                var x = (A4_W - imgW) / 2;
+                if (pageIdx > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
+                pageIdx++;
+                processNext();
+            }).catch(function(err) {
+                if (document.body.contains(container)) document.body.removeChild(container);
+                showToast('PDF生成中にエラーが発生しました', 'error');
+                console.error('printAllKanjiPDF html2canvas error:', err);
             });
         }
         processNext();

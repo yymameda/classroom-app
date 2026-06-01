@@ -2074,7 +2074,7 @@
 
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
-            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button></div></div>
             <div class="view-content" id="seating-content" style="max-width: 600px;">
                 <div class="card">
                     <div class="btn-group" style="margin-bottom: 12px;">
@@ -2130,7 +2130,6 @@
                     <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
                     <button class="rec-subnav-btn" onclick="showView('karte')">👤 個人カルテ</button>
-                    <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;margin-left:auto;flex-shrink:0;" onclick="printAllKarte()">🖨️ 一括印刷</button>
                 </div>
             </div>
             <div class="view-content" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
@@ -2355,9 +2354,6 @@
                 <!-- ===== 個人カルテ サブビュー ===== -->
                 <div id="rec-sub-karte" class="rec-sub">
                     <div class="karte-container">
-                        <div style="padding:6px 8px 0;display:flex;justify-content:flex-end;">
-                            <button onclick="printAllKarte()" style="min-height:44px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;padding:0 14px;font-family:inherit;">🖨️ 全員分PDF出力</button>
-                        </div>
                         <div class="karte-student-bar">
                             <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>
                         </div>
@@ -2578,7 +2574,7 @@
 
         <!-- ===== 忘れ物チェック (Phase 6) ===== -->
         <div id="view-forgotten" class="view">
-            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2798,7 +2794,7 @@
                 <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
                 <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
                 <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte()">🖨️ 一括印刷</button></div>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button></div>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
@@ -13681,7 +13677,7 @@
         var parentAll = StorageManager.get(KEYS.karte_parent, {});
         var methodLabels = { phone: '📞 電話', meeting: '🤝 面談', note: '📝 連絡帳', other: '💬 その他' };
         var titleSuffix = mode === 'attendance' ? '（出欠席）' : mode === 'submissions' ? '（提出物）' : '';
-        var pages = '';
+        var pageHtmls = [];
         students.forEach(function(s, idx) {
             if (!s || !s.name) return;
             // 出席集計
@@ -13868,36 +13864,63 @@
                     + '<table style="width:100%;border-collapse:collapse;">' + parentRows + '</table>'
                     + '</div>';
             }
-            pages += pageHtml + '</div>';
+            pageHtmls.push(pageHtml + '</div>');
         });
-        var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
-            + '@page{size:A4 portrait;margin:0;}'
-            + '*{box-sizing:border-box;margin:0;padding:0;}'
-            + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
-            + '</style></head><body>' + pages + '</body></html>';
-        var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
-        var blobUrl = URL.createObjectURL(blob);
-        var overlay = document.createElement('div');
-        overlay.id = 'po-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
-        var iframe = document.createElement('iframe');
-        iframe.src = blobUrl;
-        iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
-        var btnRow = document.createElement('div');
-        btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
-        var printBtn = document.createElement('button');
-        printBtn.textContent = '🖨️ 印刷 / PDF保存';
-        printBtn.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-        var backBtn = document.createElement('button');
-        backBtn.textContent = '✕ 元の画面に戻る';
-        backBtn.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-        btnRow.appendChild(printBtn); btnRow.appendChild(backBtn);
-        overlay.appendChild(iframe); overlay.appendChild(btnRow);
-        document.body.appendChild(overlay);
-        function poCleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('po-overlay'); if (ov) ov.remove(); }
-        printBtn.addEventListener('click', function() { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.open(blobUrl, '_blank'); } });
-        backBtn.addEventListener('click', poCleanup);
-        iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', poCleanup); } catch(e) {} });
+        if (typeof html2canvas === 'undefined' || !window.jspdf) {
+            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
+            return;
+        }
+        showToast('PDF生成中…しばらくお待ちください', 'info');
+
+        var container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;'
+            + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
+            + 'box-sizing:border-box;';
+        document.body.appendChild(container);
+
+        var jsPDF = window.jspdf.jsPDF;
+        var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        var A4_W = 210, A4_H = 297, MARGIN = 10;
+        var pageIdx = 0;
+
+        function processNext() {
+            if (pageIdx >= pageHtmls.length) {
+                if (document.body.contains(container)) document.body.removeChild(container);
+                var titleSuffix = mode === 'attendance' ? '出欠席' : mode === 'submissions' ? '提出物' : '全項目';
+                var fname = 'カルテ一括_' + titleSuffix + '_' + pageHtmls.length + '名.pdf';
+                pdf.save(fname);
+                showToast('PDFを保存しました', 'success');
+                return;
+            }
+            container.innerHTML = pageHtmls[pageIdx];
+            var el = container.firstElementChild || container;
+            html2canvas(el, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: 794,
+                scrollX: 0,
+                scrollY: 0
+            }).then(function(canvas) {
+                var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                var availW = A4_W - MARGIN * 2;
+                var imgW = availW;
+                var imgH = canvas.height / canvas.width * imgW;
+                var maxH = A4_H - MARGIN * 2;
+                if (imgH > maxH) { imgH = maxH; imgW = canvas.width / canvas.height * imgH; }
+                var x = (A4_W - imgW) / 2;
+                if (pageIdx > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
+                pageIdx++;
+                processNext();
+            }).catch(function(err) {
+                if (document.body.contains(container)) document.body.removeChild(container);
+                showToast('PDF生成中にエラーが発生しました', 'error');
+                console.error('printAllKarte html2canvas error:', err);
+            });
+        }
+        processNext();
     };
 
     // --- 暗号化バックアップ: prompt()の代わりにモーダルUI ---

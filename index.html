@@ -5528,6 +5528,7 @@
             }
             list.style.gridTemplateColumns = '';
 
+            var _recIsRegular = !isNawatobi && !isABC && !isMatome;
             list.innerHTML = students.map(function(stu, idx) {
                 var existingSc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
                 var hasSc = existingSc !== undefined;
@@ -5573,9 +5574,10 @@
                         + '</div>';
                 } else {
                     var curVal = hasSc ? existingSc.score : '';
+                    var isLateRec = hasSc && existingSc.lateSubmit === true;
                     return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
                         + '<div class="rec-row-hd">'
-                        +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
+                        +   '<button class="sub-row-num' + (isLateRec ? ' late-on' : '') + '" data-idx="' + idx + '">' + (isLateRec ? '遅' : (idx + 1)) + '</button>'
                         +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
                         +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
                         +   (hasSc ? '✓' : '') + '</div>'
@@ -5598,7 +5600,33 @@
                     '<div class="rec-row-name">' + escapeHtml(stu.name || '') + '</div>' +
                     scoreArea + '</div>';
             }).join('');
+
+            if (_recIsRegular) {
+                list.querySelectorAll('.sub-row-num[data-idx]').forEach(function(numBtn) {
+                    var bidx = parseInt(numBtn.dataset.idx);
+                    var lpTimer = null, lpFired = false;
+                    numBtn.addEventListener('pointerdown', function() {
+                        lpFired = false;
+                        lpTimer = setTimeout(function() {
+                            lpFired = true;
+                            recToggleLate(bidx);
+                        }, 500);
+                    });
+                    numBtn.addEventListener('pointerup', function() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+                    numBtn.addEventListener('pointerleave', function() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+                });
+            }
         }
+
+        window.recToggleLate = function(idx) {
+            var row = document.getElementById('rec-row-' + idx);
+            if (!row) return;
+            var numBtn = row.querySelector('.sub-row-num[data-idx]');
+            if (!numBtn) return;
+            var nowLate = numBtn.classList.toggle('late-on');
+            numBtn.textContent = nowLate ? '遅' : String(idx + 1);
+            recOnScoreBlur(idx);
+        };
 
         function recCalcMatomeTotal(test, scores, studentIndex) {
             var sc = scores.find(function(s) { return s.studentIndex === studentIndex && s.testId === test.id; });
@@ -6163,7 +6191,9 @@
             }
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
-            var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: v, createdAt: new Date().toISOString() };
+            var numBtnBlur = document.querySelector('#rec-row-' + idx + ' .sub-row-num[data-idx]');
+            var isLateBlur = numBtnBlur ? numBtnBlur.classList.contains('late-on') : (ei >= 0 ? !!scores[ei].lateSubmit : false);
+            var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: v, lateSubmit: isLateBlur, createdAt: new Date().toISOString() };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
         };
@@ -6209,7 +6239,9 @@
                 if (isNaN(v) || v < 0) return;
                 v = Math.round(v * 100) / 100;
                 var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === test.id; });
-                var rec = { id: Date.now() + idx, studentIndex: idx, testId: test.id, score: v, createdAt: new Date().toISOString() };
+                var numBtnAll = document.querySelector('#rec-row-' + idx + ' .sub-row-num[data-idx]');
+                var isLateAll = numBtnAll ? numBtnAll.classList.contains('late-on') : (ei >= 0 ? !!scores[ei].lateSubmit : false);
+                var rec = { id: Date.now() + idx, studentIndex: idx, testId: test.id, score: v, lateSubmit: isLateAll, createdAt: new Date().toISOString() };
                 if (ei >= 0) scores[ei] = rec; else scores.push(rec);
                 saved++;
             });
@@ -8137,6 +8169,7 @@
             var subRate = '-';
             var subOk = 0, subRe = 0, subMiss = 0, subTotal = 0;
             var subMissList = [];
+            var subLate = 0, subLateList = [];
             try {
                 var assigns = karteSafeGet(KEYS.submissions_assignments, []);
                 var subs = karteSafeGet(KEYS.submissions_data, []);
@@ -8148,8 +8181,18 @@
                     if (sub && sub.status === 'submitted') { subOk++; }
                     else if (sub && sub.status === 'resubmit') { subRe++; subMissList.push({ name: a.name, status: '再提出' }); }
                     else { subMiss++; subMissList.push({ name: a.name, status: '未提出' }); }
+                    if (sub && sub.lateOnDue === true) { subLate++; subLateList.push({ name: a.name }); }
                 });
                 subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) + '%' : '-';
+                var recAllScores = karteSafeGet(KEYS.scores, []);
+                var recAllTests = karteSafeGet(KEYS.tests, []);
+                recAllScores.forEach(function(sc) {
+                    if (String(sc.studentIndex) === String(idx) && sc.lateSubmit === true) {
+                        var t2 = recAllTests.find(function(t3) { return t3.id === sc.testId; });
+                        subLate++;
+                        subLateList.push({ name: t2 ? t2.name : '（不明）' });
+                    }
+                });
             } catch(e) {}
 
             // 生活記録件数
@@ -8315,7 +8358,8 @@
             } else {
                 subDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label">提出済み：</span><span class="ks-hub-val" style="color:var(--success);">' + subOk + '件</span></div>'
                     + (subRe > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">再提出：</span><span class="ks-hub-val" style="color:#B7950B;">' + subRe + '件</span></div>' : '')
-                    + (subMiss > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">未提出：</span><span class="ks-hub-val" style="color:var(--danger);">' + subMiss + '件</span></div>' : '');
+                    + (subMiss > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">未提出：</span><span class="ks-hub-val" style="color:var(--danger);">' + subMiss + '件</span></div>' : '')
+                    + (subLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">提出遅れ：</span><span class="ks-hub-val" style="color:#E67E22;">' + subLate + '件</span></div>' : '');
                 if (subMissList.length > 0) {
                     subDetailHtml += '<div style="margin-top:4px;">';
                     subMissList.slice(0, 5).forEach(function(item) {
@@ -8323,6 +8367,14 @@
                         subDetailHtml += '<div class="ks-missing-row"><span class="ks-missing-name">' + escapeHtml(item.name) + '</span><span class="ks-missing-status" style="background:' + col + ';">' + item.status + '</span></div>';
                     });
                     if (subMissList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subMissList.length - 5) + ' 件</div>';
+                    subDetailHtml += '</div>';
+                }
+                if (subLateList.length > 0) {
+                    subDetailHtml += '<div style="margin-top:4px;">';
+                    subLateList.slice(0, 5).forEach(function(item) {
+                        subDetailHtml += '<div class="ks-missing-row"><span class="ks-missing-name">' + escapeHtml(item.name) + '</span><span class="ks-missing-status" style="background:#E67E22;">提出遅れ</span></div>';
+                    });
+                    if (subLateList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subLateList.length - 5) + ' 件</div>';
                     subDetailHtml += '</div>';
                 }
             }
@@ -10021,7 +10073,7 @@
                     if (!sr) { kItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, itemKey: ik, weight: w }); return; }
                     var s10 = null, raw = null;
                     if (test.testType === '実技記録') { s10 = peRecordToScore10(sr, test); raw = sr.score; }
-                    else if (typeof sr.score === 'number') { s10 = scoreTo10(sr.score, test.maxScore || 100); raw = sr.score; }
+                    else if (typeof sr.score === 'number') { s10 = scoreTo10(sr.score, test.maxScore || 100); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * 0.8 * 10) / 10; raw = sr.score; }
                     else if (typeof sr.score === 'string') { s10 = abcTo10(sr.score); raw = sr.score; }
                     kItems.push({ name: test.name, type: test.testType||'', score10: s10 !== null ? Math.round(s10*10)/10 : null, raw: raw, max: test.maxScore, itemKey: ik, weight: w });
                 });
@@ -10041,7 +10093,7 @@
                     var isPeR = peReflections.some(function(r) { return r.id === test.id; });
                     if (!sr) { tItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, isPeReflection: isPeR, itemKey: ik, weight: w }); return; }
                     var s10 = null;
-                    if (typeof sr.score === 'number' && test.maxScore > 0) s10 = scoreTo10(sr.score, test.maxScore);
+                    if (typeof sr.score === 'number' && test.maxScore > 0) { s10 = scoreTo10(sr.score, test.maxScore); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * 0.8 * 10) / 10; }
                     else if (typeof sr.score === 'string') s10 = abcTo10(sr.score);
                     tItems.push({ name: test.name, type: test.testType||'', score10: s10 !== null ? Math.round(s10*10)/10 : null, raw: sr.score, max: test.maxScore, isPeReflection: isPeR, itemKey: ik, weight: w });
                 });

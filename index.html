@@ -494,6 +494,8 @@
         .grid-cell.suspended .status { color: #1a5276; font-weight: 800; }
         .grid-cell.closure     { background: #f3e8ff; border-color: #7B1FA2; border-width: 2px; opacity: 0.8; }
         .grid-cell.closure .status { color: #6a1b9a; font-weight: 800; }
+        .grid-cell.school-off  { background: #FFEBEE; border-color: #E53935; border-width: 2px; }
+        .grid-cell.school-off .status { color: #B71C1C; font-weight: 800; }
         /* 届出チェックストリップ */
         .grid-cell-notice-strip {
             position: absolute; bottom: 0; left: 28px; right: 0;
@@ -1999,6 +2001,7 @@
                         <button class="att-quick-btn" style="background:#27AE60;color:white;" onclick="attMarkAll('○')">✅ 全員出席</button>
                         <button class="att-quick-btn" style="background:#eee;color:var(--text);" onclick="attClearDay()">🔄 クリア</button>
                         <button class="att-quick-btn" style="background:#7B1FA2;color:white;" onclick="attMarkAll('休')">🏫 学級閉鎖</button>
+                        <button class="att-quick-btn" style="background:#E53935;color:white;" onclick="attMarkAll('校')">🏫 休校</button>
                     </div>
                 </div>
 
@@ -2050,7 +2053,6 @@
                     <div class="att-status-opt" data-s="チソ" onclick="attSelectStatus('チソ')"><span class="sym">チソ</span><span class="lbl">遅刻早退</span></div>
                     <div class="att-status-opt" data-s="忌"  onclick="attSelectStatus('忌')"><span class="sym">忌</span><span class="lbl">忌引</span></div>
                     <div class="att-status-opt" data-s="停"  onclick="attSelectStatus('停')"><span class="sym">停</span><span class="lbl">停止</span></div>
-                    <div class="att-status-opt" data-s="休"  onclick="attSelectStatus('休')"><span class="sym">休</span><span class="lbl">学閉</span></div>
                     <div class="att-status-opt" data-s=""   onclick="attSelectStatus('')"><span class="sym">－</span><span class="lbl">クリア</span></div>
                 </div>
                 <button onclick="openKarteFromAtt()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;margin-bottom:8px;font-family:inherit;">👤 カルテを開く</button>
@@ -4829,7 +4831,8 @@
         'チソ':{ cls: 'late-early',   label: '遅刻早退' },
         '忌':  { cls: 'mourning',     label: '忌引' },
         '停':  { cls: 'suspended',    label: '停止' },
-        '休':  { cls: 'closure',      label: '学閉' }
+        '休':  { cls: 'closure',      label: '学閉' },
+        '校':  { cls: 'school-off',   label: '休校' }
     };
     // 届出チェック対象ステータス（欠席・遅刻・早退・出席停止）
     const ATT_NOTICE_TARGETS = new Set(['×', '／', 'チ', 'ソ', 'チソ', '停']);
@@ -5199,7 +5202,7 @@
         table.innerHTML = html;
     }
     function attStatusColor(st) {
-        const map = { '○':'#1a8a42','×':'#c0392b','／':'#922b21','チ':'#9a7611','ソ':'#6c2d8a','チソ':'#b5600f','忌':'#2c3e50','停':'#1a5276','休':'#6a1b9a' };
+        const map = { '○':'#1a8a42','×':'#c0392b','／':'#922b21','チ':'#9a7611','ソ':'#6c2d8a','チソ':'#b5600f','忌':'#2c3e50','停':'#1a5276','休':'#6a1b9a','校':'#B71C1C' };
         return map[st] || 'inherit';
     }
 
@@ -5217,7 +5220,7 @@
         }
         const schoolDates = new Set(
             Object.entries(allData)
-                .filter(([,day]) => Object.values(day).some(s => ['○','×','／','チ','ソ','チソ','忌','停'].includes(s)))
+                .filter(([,day]) => Object.values(day).some(s => ['○','×','／','チ','ソ','チソ','忌','停','校'].includes(s)))
                 .map(([d]) => d)
         );
         let html = `<p style="font-size:0.82rem;color:var(--text-light);margin-bottom:8px;">学校日数（推定）: <b>${schoolDates.size}日</b></p>`;
@@ -5238,6 +5241,7 @@
                 ${cnts['／']>0?`<div class="att-summary-row"><span>事故欠</span><span>${cnts['／']}日</span></div>`:''}
                 ${cnts['忌']>0?`<div class="att-summary-row"><span>忌引</span><span>${cnts['忌']}日</span></div>`:''}
                 ${cnts['停']>0?`<div class="att-summary-row"><span>停止</span><span>${cnts['停']}日</span></div>`:''}
+                ${cnts['校']>0?`<div class="att-summary-row"><span>休校</span><span>${cnts['校']}日</span></div>`:''}
             </div>`;
         });
         container.innerHTML = html;

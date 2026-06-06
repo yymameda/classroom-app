@@ -700,6 +700,8 @@
             background: var(--white); gap: 1px; transition: all 0.15s; cursor: pointer;
         }
         .rec-row.has-score { background: #E8F5E9; border-color: var(--primary); }
+        .rec-row.absent { background: #F5F5F5; border-color: #9E9E9E; }
+        .rec-row.absent input[type="number"] { color: #aaa; }
         .rec-row-hd { display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; }
         .rec-row-num {
             font-size: 0.58rem; font-weight: 700; color: var(--white);
@@ -5562,27 +5564,32 @@
                     return recBuildNawatobiCard(test, scores, idx, stu);
                 } else if (isABC) {
                     var curAbc = existingSc ? existingSc.score : '';
-                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
+                    var isAbsent = !!(existingSc && existingSc.absent);
+                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + (isAbsent ? ' absent' : '') + '" id="rec-row-' + idx + '">'
                         + '<div class="rec-row-hd">'
                         +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
                         +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
+                        +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
                         +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
                         +   (hasSc ? '✓' : '') + '</div>'
                         + '</div>'
                         + '<div class="rec-abc-btns">'
                         + ['A','B','C'].map(function(v) {
                             var sel = curAbc === v ? ' sel-' + v.toLowerCase() : '';
-                            return '<button class="rec-abc-btn' + sel + '" onclick="recSelectABC(' + idx + ',\'' + v + '\')">' + v + '</button>';
+                            return '<button class="rec-abc-btn' + sel + '"' + (isAbsent ? ' disabled' : '') + ' onclick="recSelectABC(' + idx + ',\'' + v + '\')">' + v + '</button>';
                         }).join('')
+                        + '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
                         + '</div>'
                         + '</div>';
                 } else {
                     var curVal = hasSc ? existingSc.score : '';
+                    var isAbsent = !!(existingSc && existingSc.absent);
                     var isLateRec = hasSc && existingSc.lateSubmit === true;
-                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">'
+                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + (isAbsent ? ' absent' : '') + '" id="rec-row-' + idx + '">'
                         + '<div class="rec-row-hd">'
                         +   '<button class="sub-row-num' + (isLateRec ? ' late-on' : '') + '" data-idx="' + idx + '">' + (isLateRec ? '遅' : (idx + 1)) + '</button>'
                         +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
+                        +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
                         +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
                         +   (hasSc ? '✓' : '') + '</div>'
                         + '</div>'
@@ -5591,7 +5598,9 @@
                         +   ' min="0" max="' + test.maxScore + '" placeholder="—"'
                         +   ' step="' + (isPE ? '0.01' : '1') + '"'
                         +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
+                        +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
+                        +   '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
                         + '</div>'
                         + '</div>';
                 }
@@ -5716,11 +5725,14 @@
             }
 
             if (isABC) {
-                var cA = scores.filter(function(s){return s.score==='A';}).length;
-                var cB = scores.filter(function(s){return s.score==='B';}).length;
-                var cC = scores.filter(function(s){return s.score==='C';}).length;
+                var present = scores.filter(function(s){ return !s.absent; });
+                var absentCount = scores.length - present.length;
+                var cA = present.filter(function(s){return s.score==='A';}).length;
+                var cB = present.filter(function(s){return s.score==='B';}).length;
+                var cC = present.filter(function(s){return s.score==='C';}).length;
                 grid.innerHTML = statCard(cA+'人','A評価','#27AE60') + statCard(cB+'人','B評価','#3498DB') +
-                    statCard(cC+'人','C評価','#E67E22') + statCard(count+'/'+students.length,'入力済み');
+                    statCard(cC+'人','C評価','#E67E22') + statCard(present.length+'/'+students.length,'入力済み') +
+                    (absentCount > 0 ? statCard(absentCount+'人','欠席','#9E9E9E') : '');
                 var maxABC = Math.max(cA,cB,cC,1);
                 bar.innerHTML = barItem(cA,'A',maxABC,'#27AE60') + barItem(cB,'B',maxABC,'#3498DB') + barItem(cC,'C',maxABC,'#E67E22');
                 chartWrap.style.display = '';
@@ -5750,7 +5762,9 @@
 
             } else {
                 // 通常点数
-                var vals = scores.map(function(s){return s.score;}).filter(function(v){return typeof v==='number';});
+                var present = scores.filter(function(s){ return !s.absent; });
+                var absentCount = scores.length - present.length;
+                var vals = present.map(function(s){return s.score;}).filter(function(v){return typeof v==='number';});
                 if (vals.length === 0) {
                     grid.innerHTML = '<div style="color:var(--text-light);padding:20px;text-align:center;">数値データがありません</div>';
                     chartWrap.style.display = 'none'; return;
@@ -5758,11 +5772,12 @@
                 var avg = (vals.reduce(function(a,b){return a+b;},0)/vals.length).toFixed(1);
                 var maxV = Math.max.apply(null,vals);
                 var minV = Math.min.apply(null,vals);
-                var perfectCount = scores.filter(function(s){return s.score===test.maxScore;}).length;
+                var perfectCount = present.filter(function(s){return s.score===test.maxScore;}).length;
 
                 grid.innerHTML = statCard(avg,'平均点') + statCard(maxV,'最高点','#27AE60') +
-                    statCard(minV,'最低点','#E74C3C') + statCard(count+'/'+students.length,'入力済み') +
-                    statCard(perfectCount+'人','満点','#27AE60');
+                    statCard(minV,'最低点','#E74C3C') + statCard(present.length+'/'+students.length,'入力済み') +
+                    statCard(perfectCount+'人','満点','#27AE60') +
+                    (absentCount > 0 ? statCard(absentCount+'人','欠席','#9E9E9E') : '');
 
                 // 点数分布
                 var ranges = [
@@ -6209,6 +6224,24 @@
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
             var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: value, createdAt: new Date().toISOString() };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
+            recSaveScores(scores);
+            recRenderList(test);
+            recUpdateProgress(test);
+        };
+
+        window.recToggleAbsent = function(idx) {
+            if (!recCurrentTestId) { showToast('課題を選択してください', 'warning'); return; }
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!test) return;
+            var scores = recGetScores();
+            var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
+            var nowAbsent = !(ei >= 0 && scores[ei].absent === true);
+            if (nowAbsent) {
+                var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: '', absent: true, createdAt: new Date().toISOString() };
+                if (ei >= 0) scores[ei] = rec; else scores.push(rec);
+            } else {
+                if (ei >= 0) scores.splice(ei, 1);
+            }
             recSaveScores(scores);
             recRenderList(test);
             recUpdateProgress(test);
@@ -12334,7 +12367,7 @@
                 var row = [i + 1, s.name || ''];
                 tests.forEach(function(t) {
                     var sc = scores.find(function(s) { return Number(s.studentIndex) === i && s.testId === t.id; });
-                    row.push(sc !== undefined ? (sc.score !== null && sc.score !== undefined ? sc.score : '') : '');
+                    row.push(sc !== undefined ? (sc.absent ? '欠席' : (sc.score !== null && sc.score !== undefined ? sc.score : '')) : '');
                 });
                 rows.push(row);
             });

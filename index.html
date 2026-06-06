@@ -4952,6 +4952,22 @@
     }
 
     // ---- グリッド描画 ----
+    // セルタップ：空なら出席○を直接付与、すでに状態があればモーダルを開く
+    function attCellTap(i) {
+        const dateKey = attDateStr(attCurrentDate);
+        const cur = (attGetAll()[dateKey] || {})[String(i)] || '';
+        if (cur === '') {
+            const allData = attGetAll();
+            if (!allData[dateKey]) allData[dateKey] = {};
+            allData[dateKey][String(i)] = '○';
+            attSave(allData);
+            attRenderGrid();
+            attUpdateStats();
+        } else {
+            attOpenModal(i);
+        }
+    }
+
     function attRenderGrid() {
         const grid = document.getElementById('attGrid');
         if (!grid) return;
@@ -4995,7 +5011,7 @@
                     <span class="status">${status === '○' ? '' : escapeHtml(status)}</span>
                 </div>
                 ${noticeHtml}`;
-            cell.onclick = () => attOpenModal(i);
+            cell.onclick = () => attCellTap(i);
             frag.appendChild(cell);
         });
         grid.innerHTML = '';

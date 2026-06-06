@@ -2196,10 +2196,11 @@
                         <div class="rec-test-form" id="recTestForm">
                             <select id="recTestSubject">
                                 <option value="">教科を選択</option>
-                                <option>国語</option><option>算数</option><option>理科</option>
-                                <option>社会</option><option>英語</option><option>音楽</option>
-                                <option>図工</option><option>体育</option><option>家庭</option>
-                                <option>道徳</option><option>総合</option><option>その他</option>
+                                <option>国語</option><option>社会</option><option>算数</option>
+                                <option>理科</option><option>生活</option><option>音楽</option>
+                                <option>図工</option><option>家庭</option><option>体育</option>
+                                <option>英語</option><option>道徳</option><option>総合</option>
+                                <option>その他</option>
                             </select>
                             <select id="recTestType" onchange="recOnTestTypeChange()">
                                 <option value="">種別を選択</option>
@@ -2306,14 +2307,15 @@
                                     <select id="patrolSubject">
                                         <option value="">教科を選択</option>
                                         <option value="国語">国語</option>
+                                        <option value="社会">社会</option>
                                         <option value="算数">算数</option>
                                         <option value="理科">理科</option>
-                                        <option value="社会">社会</option>
-                                        <option value="英語">英語</option>
+                                        <option value="生活">生活</option>
                                         <option value="音楽">音楽</option>
                                         <option value="図工">図工</option>
-                                        <option value="体育">体育</option>
                                         <option value="家庭">家庭</option>
+                                        <option value="体育">体育</option>
+                                        <option value="英語">英語</option>
                                         <option value="道徳">道徳</option>
                                         <option value="総合">総合</option>
                                         <option value="その他">その他</option>
@@ -2508,8 +2510,9 @@
                             <select id="subAssignSubject">
                                 <option value="">選択してください</option>
                                 <option>国語</option><option>社会</option><option>算数</option><option>理科</option>
-                                <option>音楽</option><option>図工</option><option>家庭</option><option>体育</option>
-                                <option>英語</option><option>道徳</option><option>総合</option><option>その他</option>
+                                <option>生活</option><option>音楽</option><option>図工</option><option>家庭</option>
+                                <option>体育</option><option>英語</option><option>道徳</option><option>総合</option>
+                                <option>その他</option>
                             </select>
                         </div>
                         <div class="sub-form-group">
@@ -2790,15 +2793,15 @@
                         <button id="kvDeselectAll" class="btn btn-outline" style="padding:5px 12px;font-size:0.82rem;">全て解除</button>
                         <span id="kvStatusText" style="font-size:0.8rem;color:var(--text-light);margin-left:4px;"></span>
                     </div>
-                    <div id="kvStudentList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                    <div id="kvStudentList" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;"></div>
                 </div>
                 <div class="card">
                     <h3>📋 出力するセクション</h3>
-                    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_grades" checked> 📈 成績（観点別・評定）</label>
-                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_attendance" checked> 📅 出欠席</label>
-                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_life" checked> 📔 生活記録</label>
-                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_kanji" checked> ✍️ 漢字チェック</label>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;">
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_grades"> 📈 成績（観点別・評定）</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_attendance"> 📅 出欠席</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_life"> 📔 生活記録</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_kanji"> ✍️ 漢字チェック</label>
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_parent"> 👨‍👩‍👧 保護者対応</label>
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_health"> 🏥 身体・配慮</label>
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_learning"> 📖 学習面配慮</label>
@@ -7293,9 +7296,9 @@
 
             // 既にイベント登録済なら再レンダリングのみ
             container.innerHTML = students.map(function(s, i) {
-                return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
-                    + '<input type="checkbox" class="kv-student-chk" value="' + i + '" checked>'
-                    + escapeHtml((i + 1) + '. ' + (s.name || ''))
+                return '<label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;padding:0.35rem 0.4rem;border:1.5px solid var(--border);border-radius:8px;background:var(--white);line-height:1.2;white-space:nowrap;overflow:hidden;min-width:0;">'
+                    + '<input type="checkbox" class="kv-student-chk" value="' + i + '" checked style="flex-shrink:0;">'
+                    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml((i + 1) + '. ' + (s.name || '')) + '</span>'
                     + '</label>';
             }).join('');
 

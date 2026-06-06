@@ -1981,7 +1981,7 @@
                         <button class="att-mode-tab active" id="attTabGrid"    onclick="attSetTab('grid')">📝 入力</button>
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
-                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="showView('karte')">👤 カルテ</button>
+
                         <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte('attendance')">🖨️ 一括印刷</button>
                     </div>
                 </div>
@@ -2057,7 +2057,7 @@
                     <div class="att-status-opt" data-s="停"  onclick="attSelectStatus('停')"><span class="sym">停</span><span class="lbl">停止</span></div>
                     <div class="att-status-opt" data-s=""   onclick="attSelectStatus('')"><span class="sym">－</span><span class="lbl">クリア</span></div>
                 </div>
-                <button onclick="openKarteFromAtt()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;margin-bottom:8px;font-family:inherit;">👤 カルテを開く</button>
+
                 <button class="att-modal-close" onclick="attCloseModal()">閉じる</button>
             </div>
         </div>
@@ -2078,7 +2078,7 @@
 
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
-            <div class="view-header"><h2>🪑 座席表</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button></div></div>
+            <div class="view-header"><h2>🪑 座席表</h2></div>
             <div class="view-content" id="seating-content" style="max-width: 600px;">
                 <div class="card">
                     <div class="btn-group" style="margin-bottom: 12px;">
@@ -2133,7 +2133,7 @@
                     <button class="rec-subnav-btn" onclick="recShowSub('tests')">📋 課題管理</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
-                    <button class="rec-subnav-btn" onclick="showView('karte')">👤 個人カルテ</button>
+
                 </div>
             </div>
             <div class="view-content" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
@@ -2355,42 +2355,7 @@
                     </div>
                 </div>
 
-                <!-- ===== 個人カルテ サブビュー ===== -->
-                <div id="rec-sub-karte" class="rec-sub">
-                    <div class="karte-container">
-                        <div class="karte-student-bar">
-                            <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>
-                        </div>
-                        <div class="karte-tabs">
-                            <button class="karte-tab-btn active" data-ktab="summary" onclick="switchKarteTab('summary')">サマリー</button>
-                            <button class="karte-tab-btn" data-ktab="records" onclick="switchKarteTab('records')">児童記録</button>
-                            <button class="karte-tab-btn" data-ktab="learning" onclick="switchKarteTab('learning')">学習配慮</button>
-                            <button class="karte-tab-btn" data-ktab="life" onclick="switchKarteTab('life')">生活記録</button>
-                            <button class="karte-tab-btn" data-ktab="parent" onclick="switchKarteTab('parent')">保護者</button>
-                            <button class="karte-tab-btn" data-ktab="health" onclick="switchKarteTab('health')">身体・配慮</button>
-                        </div>
-                        <div class="karte-tab-content">
-                            <div id="ktab-summary" class="ktab-pane active">
-                                <div id="karteSummaryContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
-                            </div>
-                            <div id="ktab-records" class="ktab-pane">
-                                <div id="karteRecordsContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
-                            </div>
-                            <div id="ktab-learning" class="ktab-pane">
-                                <div id="karteLearningContent"><div class="karte-placeholder"><div class="placeholder-icon">📚</div><p>児童を選択してください</p></div></div>
-                            </div>
-                            <div id="ktab-life" class="ktab-pane">
-                                <div id="karteLifeContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
-                            </div>
-                            <div id="ktab-parent" class="ktab-pane">
-                                <div id="karteParentContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
-                            </div>
-                            <div id="ktab-health" class="ktab-pane">
-                                <div id="karteHealthContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- 個人カルテは👤ハブ（kvViewPane）へ移設しました -->
             </div>
         </div>
         <!-- 机間巡視評価モーダル -->
@@ -2457,7 +2422,7 @@
 
         <!-- ===== 提出物チェック (Phase 5) ===== -->
         <div id="view-submissions" class="view">
-            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKarte('submissions')">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="printAllKarte('submissions')">🖨️ 一括印刷</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2578,7 +2543,7 @@
 
         <!-- ===== 忘れ物チェック (Phase 6) ===== -->
         <div id="view-forgotten" class="view">
-            <div class="view-header"><h2>🎒 忘れ物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button></div></div>
+            <div class="view-header"><h2>🎒 忘れ物チェック</h2></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2655,7 +2620,7 @@
                 </div>
                 <div id="fgtModalItems" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
                 <button id="fgtModalSave" class="btn-primary" style="width:100%;padding:12px;font-size:1rem;">保存</button>
-                <button onclick="openKarteFromFgt()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;margin-top:8px;font-family:inherit;">👤 カルテを開く</button>
+
             </div>
         </div>
 
@@ -2665,7 +2630,7 @@
                 <span id="kanjiKartePopupName" style="font-size:0.85rem;font-weight:700;color:var(--primary);"></span>
                 <button onclick="kanjiCloseKartePopup()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-light);padding:0;line-height:1;">×</button>
             </div>
-            <button onclick="kanjiGoKarte()" style="min-height:44px;width:100%;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;font-family:inherit;">👤 カルテを開く</button>
+
         </div>
 
         <!-- ===== 成績処理統合 (Phase 7) ===== -->
@@ -2798,7 +2763,7 @@
                 <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
                 <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
                 <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="showView('karte')">👤 カルテ</button><button class="hdr-btn" onclick="printAllKanjiPDF()">🖨️ 一括印刷</button></div>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">🖨️ 一括印刷</button></div>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiTableWrap" style="height:100%;overflow:auto;"></div>
@@ -2822,8 +2787,51 @@
 
         <!-- ===== 個人カルテ（統合） ===== -->
         <div id="view-karte" class="view">
-            <div class="view-header"><h2>👤 個人カルテ</h2></div>
-            <div class="view-content" style="max-width:760px;">
+            <div class="view-header">
+                <h2>👤 個人カルテ</h2>
+                <div class="hdr-actions">
+                    <button class="hdr-btn" id="kvModeViewBtn" onclick="kvSetMode('view')">👁 見る</button>
+                    <button class="hdr-btn active" id="kvModeOutputBtn" onclick="kvSetMode('output')">🖨️ 出力</button>
+                </div>
+            </div>
+            <!-- 見るモード（次ステップで詳細カルテをここへ移設） -->
+            <div id="kvViewPane" class="view-content" style="max-width:760px;display:none;">
+                <div class="karte-container">
+                    <div class="karte-student-bar">
+                        <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>
+                    </div>
+                    <div class="karte-tabs">
+                        <button class="karte-tab-btn active" data-ktab="summary" onclick="switchKarteTab('summary')">サマリー</button>
+                        <button class="karte-tab-btn" data-ktab="records" onclick="switchKarteTab('records')">児童記録</button>
+                        <button class="karte-tab-btn" data-ktab="learning" onclick="switchKarteTab('learning')">学習配慮</button>
+                        <button class="karte-tab-btn" data-ktab="life" onclick="switchKarteTab('life')">生活記録</button>
+                        <button class="karte-tab-btn" data-ktab="parent" onclick="switchKarteTab('parent')">保護者</button>
+                        <button class="karte-tab-btn" data-ktab="health" onclick="switchKarteTab('health')">身体・配慮</button>
+                    </div>
+                    <div class="karte-tab-content">
+                        <div id="ktab-summary" class="ktab-pane active">
+                            <div id="karteSummaryContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
+                        </div>
+                        <div id="ktab-records" class="ktab-pane">
+                            <div id="karteRecordsContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
+                        </div>
+                        <div id="ktab-learning" class="ktab-pane">
+                            <div id="karteLearningContent"><div class="karte-placeholder"><div class="placeholder-icon">📚</div><p>児童を選択してください</p></div></div>
+                        </div>
+                        <div id="ktab-life" class="ktab-pane">
+                            <div id="karteLifeContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
+                        </div>
+                        <div id="ktab-parent" class="ktab-pane">
+                            <div id="karteParentContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
+                        </div>
+                        <div id="ktab-health" class="ktab-pane">
+                            <div id="karteHealthContent"><div class="karte-placeholder"><div class="placeholder-icon">👤</div><p>児童を選択してください</p></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 出力モード（現状のPDF出力設定） -->
+            <div id="kvOutputPane" class="view-content" style="max-width:760px;">
                 <div class="card">
                     <h3>👥 出力する児童</h3>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
@@ -7292,6 +7300,23 @@
 
 
         // ================================================================
+        // 👤 個人カルテ ビュー：見る｜出力 モード切替
+        // ================================================================
+        window.kvSetMode = function(mode) {
+            var vp = document.getElementById('kvViewPane');
+            var op = document.getElementById('kvOutputPane');
+            var vb = document.getElementById('kvModeViewBtn');
+            var ob = document.getElementById('kvModeOutputBtn');
+            if (!vp || !op) return;
+            var isView = (mode === 'view');
+            vp.style.display = isView ? '' : 'none';
+            op.style.display = isView ? 'none' : '';
+            if (vb) vb.classList.toggle('active', isView);
+            if (ob) ob.classList.toggle('active', !isView);
+            if (isView) { karteMode = 'all'; if (typeof initKarteView === 'function') initKarteView(); }
+        };
+
+        // ================================================================
         // 👤 個人カルテ ビュー（統合カルテ出力センター）
         // ================================================================
         function karteViewInit() {
@@ -7914,9 +7939,8 @@
         }
 
         function showKarte(idx, mode) {
-            karteMode = mode || 'all';
-            showView('records');
-            recShowSub('karte');
+            showView('karte');
+            kvSetMode('view');
             if (idx !== null && idx !== undefined && idx >= 0) selectKarteStudent(idx);
         }
         window.showKarte = showKarte;

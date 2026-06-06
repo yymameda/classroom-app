@@ -629,15 +629,15 @@
 
         /* サブナビ */
         .rec-subnav {
-            display: flex; gap: 4px; padding: 6px 8px;
-            background: #F8FAFC; border-bottom: 1px solid var(--border);
+            display: flex; gap: 4px; padding: 8px 12px;
+            background: var(--white); border-bottom: 1px solid var(--border);
             flex-shrink: 0; flex-wrap: nowrap; overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
         .rec-subnav-btn {
-            padding: 6px 12px; border: 1.5px solid var(--border);
-            border-radius: 16px; background: var(--white);
-            color: var(--text-light); font-size: 0.75rem; font-weight: 500;
+            padding: 6px 14px; border: 1.5px solid var(--border);
+            border-radius: 20px; background: var(--white);
+            color: var(--text-light); font-size: 0.82rem; font-weight: 500;
             font-family: inherit; cursor: pointer; white-space: nowrap;
             min-height: 44px; transition: all 0.15s;
         }
@@ -1698,10 +1698,10 @@
         }
 
         /* ========== 新体力テスト (pf) ========== */
-        .pf-subnav{display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;background:white;border-bottom:2px solid var(--border);}
-        .pf-subnav-btn{padding:10px 14px;font-size:13px;color:var(--text-light);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;border-top:none;border-left:none;border-right:none;background:none;font-family:inherit;transition:all .15s;margin-bottom:-2px;}
-        .pf-subnav-btn.active{color:#1a6b4a;border-bottom-color:#1a6b4a;font-weight:600;}
-        .pf-subnav-btn:hover:not(.active){background:rgba(0,0,0,.04);}
+        .pf-subnav{display:flex;gap:4px;padding:8px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--white);border-bottom:1px solid var(--border);}
+        .pf-subnav-btn{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);color:var(--text-light);font-size:0.82rem;font-family:inherit;cursor:pointer;white-space:nowrap;min-height:44px;transition:all .15s;}
+        .pf-subnav-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600;}
+        .pf-subnav-btn:hover:not(.active){border-color:#1a6b4a;color:#1a6b4a;}
         .pf-sub{display:none;}
         .pf-sub.active{display:block;}
         .pf-card{background:white;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;}

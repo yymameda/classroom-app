@@ -1874,7 +1874,7 @@
         <div id="view-quickmemo" class="view">
             <div class="view-header"><h2>💬 クイックメモ</h2></div>
             <div style="padding:0 0.5rem;">
-                <div id="qmGrid" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.8rem;"></div>
+                <div id="qmGrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.3rem;margin-bottom:0.6rem;"></div>
                 <div id="qmDetail"></div>
             </div>
         </div>
@@ -7987,7 +7987,7 @@
                 var name = s.name.length > 5 ? s.name.substring(0, 5) : s.name;
                 var hasParent = karteGetStudentParent(i).length > 0;
                 var active = (i === qmSelIdx);
-                var style = 'padding:0.45rem 0.6rem;border-radius:8px;font-size:0.85rem;cursor:pointer;border:1.5px solid ';
+                var style = 'padding:0.28rem 0.3rem;border-radius:8px;font-size:0.8rem;cursor:pointer;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:center;border:1.5px solid ';
                 style += active ? 'var(--accent);background:var(--accent);color:#fff;'
                        : (hasParent ? '#9c6ade;background:#f3ecfb;color:#5e35b1;' : 'var(--border);background:var(--white);color:var(--text);');
                 html += '<button onclick="qmSelect(' + i + ')" style="' + style + '">' + (i+1) + ' ' + escapeHtml(name) + '</button>';

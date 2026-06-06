@@ -2636,11 +2636,9 @@
             <div class="sub-subnav" style="background:#1a1a2e;overflow-x:auto;-webkit-overflow-scrolling:touch;">
                 <button class="sub-subnav-btn active" data-sub="overview" style="color:#ccc;border-color:#444;white-space:nowrap;">📋 計算式</button>
                 <button class="sub-subnav-btn" data-sub="grade"    style="color:#ccc;border-color:#444;white-space:nowrap;">📊 成績一覧</button>
-                <button class="sub-subnav-btn" data-sub="karte"    style="color:#ccc;border-color:#444;white-space:nowrap;">👤 個人カルテ</button>
                 <button class="sub-subnav-btn" data-sub="stats"    style="color:#ccc;border-color:#444;white-space:nowrap;">📈 統計</button>
                 <button class="sub-subnav-btn" data-sub="settings" style="color:#ccc;border-color:#444;white-space:nowrap;">⚙️ 閾値</button>
                 <button class="sub-subnav-btn" data-sub="weights"  style="color:#ccc;border-color:#444;white-space:nowrap;">⚖️ 配点</button>
-                <button class="sub-subnav-btn" data-sub="kartecenter" style="color:#ccc;border-color:#444;white-space:nowrap;">📋 カルテ出力センター</button>
             </div>
             <div class="view-content">
 
@@ -2664,15 +2662,6 @@
                         <button id="grdExcelBtn" class="btn-primary" style="padding:6px 12px;font-size:0.82rem;background:#1565C0;">📊 Excel（根拠）</button>
                     </div>
                     <div id="grdGradeContainer"></div>
-                </div>
-
-                <!-- 個人カルテタブ -->
-                <div id="grd-sub-karte" class="sub-sub">
-                    <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <select id="grdKarteStu" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);flex:1;"></select>
-                        <select id="grdKarteSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
-                    </div>
-                    <div id="grdKarteContent"></div>
                 </div>
 
                 <!-- 統計タブ -->
@@ -2712,40 +2701,6 @@
                         <button id="grdResetWeightsBtn" class="btn-outline" style="padding:7px 14px;">↺ 均等</button>
                     </div>
                     <div id="grdWeightsContent"></div>
-                </div>
-
-                <!-- カルテ出力センタータブ -->
-                <div id="grd-sub-kartecenter" class="sub-sub">
-                    <div style="padding:6px 0 12px;">
-                        <div class="card" style="margin-bottom:12px;">
-                            <h3 style="font-size:0.92rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--secondary);">👥 出力対象の児童</h3>
-                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-                                <button id="kcSelectAll" class="btn-outline" style="padding:5px 12px;font-size:0.82rem;">全員選択</button>
-                                <button id="kcDeselectAll" class="btn-outline" style="padding:5px 12px;font-size:0.82rem;">全て解除</button>
-                                <span id="kcStatusText" style="font-size:0.8rem;color:var(--text-light);margin-left:4px;"></span>
-                            </div>
-                            <div id="kcStudentList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-                        </div>
-                        <div class="card" style="margin-bottom:12px;">
-                            <h3 style="font-size:0.92rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--secondary);">📋 出力するセクション</h3>
-                            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_grades" checked> 📈 成績（観点別・評定）</label>
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_attendance" checked> 📅 出欠席</label>
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_life" checked> 📔 生活記録</label>
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_parent"> 👨‍👩‍👧 保護者対応</label>
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_health"> 🏥 身体・配慮</label>
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_learning"> 📖 学習面配慮</label>
-                                <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kcSec_kanji"> ✍️ 漢字チェック</label>
-                            </div>
-                            <div style="padding-top:8px;border-top:1px solid var(--border);">
-                                <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text);">📚 提出物（教科を選択）</div>
-                                <div id="kcSubjectChecks" style="display:flex;flex-wrap:wrap;gap:6px;min-height:24px;"></div>
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                            <button id="kcPrintBtn" class="btn-primary" style="padding:10px 24px;font-size:0.95rem;background:#1a1a2e;border:none;">🖨️ カルテ出力（PDF）</button>
-                        </div>
-                    </div>
                 </div>
 
             </div>

@@ -92,7 +92,7 @@
             :root { --sidebar-w: 76px; }
             .nav-btn {
                 width: 68px;
-                height: 44px;
+                height: 40px;
                 flex-direction: column;
                 gap: 0px;
                 font-size: 17px;
@@ -131,7 +131,7 @@
             font-weight: 700;
             letter-spacing: 0.02em;
             border-top: 1px solid rgba(255,255,255,0.2);
-            margin-top: 12px;
+            margin-top: 5px;
             flex-shrink: 0;
             line-height: 1;
         }
@@ -683,16 +683,16 @@
             flex-shrink: 0;
         }
         .rec-list {
-            display: grid; grid-template-columns: repeat(4, 1fr);
+            display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 5px; padding: 6px; border: 1px solid var(--border);
-            border-radius: 8px; overflow-y: auto; flex: 1; min-height: 0;
+            border-radius: 8px; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0;
             -webkit-overflow-scrolling: touch;
         }
         @media (orientation: landscape) and (min-width: 900px) {
-            .rec-list { grid-template-columns: repeat(7, 1fr); }
+            .rec-list { grid-template-columns: repeat(7, minmax(0, 1fr)); }
         }
         @media (orientation: landscape) and (min-width: 1000px) {
-            .rec-list { grid-template-columns: repeat(6, 1fr) !important; }
+            .rec-list { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
         }
         .rec-row {
             display: flex; flex-direction: column; align-items: center;
@@ -725,7 +725,7 @@
             gap: 2px; width: 100%; justify-content: center;
         }
         .rec-row-score-area input[type="number"] {
-            width: 100%; max-width: 44px; padding: 3px 2px;
+            width: 100%; max-width: 44px; min-width: 0; padding: 3px 2px;
             border: 2px solid var(--border); border-radius: 6px;
             font-size: 0.95rem; font-weight: 700; text-align: center;
             font-family: inherit; -moz-appearance: textfield;
@@ -1254,7 +1254,7 @@
         /* 欠席フラグ */
         .sub-input-row.absent { background: #F0F0F0 !important; border-color: #9E9E9E !important; }
         .sub-absent-tag { font-size: 0.5rem; font-weight: 700; background: #757575; color: white; border-radius: 3px; padding: 1px 4px; line-height: 1.4; flex-shrink: 0; }
-        .sub-absent-btn { font-size: 0.6rem; font-weight: 700; border: 1.5px solid #9E9E9E; border-radius: 4px; background: white; color: #757575; cursor: pointer; padding: 0 5px; font-family: inherit; height: 44px; flex: none; white-space: nowrap; transition: all 0.15s; }
+        .sub-absent-btn { font-size: 0.6rem; font-weight: 700; border: 1.5px solid #9E9E9E; border-radius: 4px; background: white; color: #757575; cursor: pointer; padding: 0 2px; font-family: inherit; height: 44px; width: 40px; flex: none; overflow: hidden; white-space: nowrap; transition: all 0.15s; }
         .sub-absent-btn.absent-on { background: #757575; color: white; border-color: #616161; }
         .sub-late-label {
           display: inline-flex; align-items: center; gap: 4px;
@@ -5602,7 +5602,7 @@
                             var sel = curAbc === v ? ' sel-' + v.toLowerCase() : '';
                             return '<button class="rec-abc-btn' + sel + '"' + (isAbsent ? ' disabled' : '') + ' onclick="recSelectABC(' + idx + ',\'' + v + '\')">' + v + '</button>';
                         }).join('')
-                        + '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
+                        + '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                         + '</div>'
                         + '</div>';
                 } else {
@@ -5624,7 +5624,7 @@
                         +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
                         +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
-                        +   '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
+                        +   '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                         + '</div>'
                         + '</div>';
                 }
@@ -9311,7 +9311,7 @@
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'
                     +   '<button class="sub-status-btn' + (st === 'resubmit' ? ' sel-resubmit' : '') + '" data-idx="' + i + '" data-status="resubmit">△</button>'
                     +   '<button class="sub-status-btn' + (st === 'missing' ? ' sel-missing' : '') + '" data-idx="' + i + '" data-status="missing">×</button>'
-                    +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '🏠欠席中' : '欠席') + '</button>'
+                    +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                     + '</div>'
                     + '</div>';
             });
@@ -9425,7 +9425,7 @@
             var absentBtn = row.querySelector('.sub-absent-btn');
             if (absentBtn) {
                 absentBtn.classList.toggle('absent-on', willBeAbsent);
-                absentBtn.textContent = willBeAbsent ? '🏠欠席中' : '欠席';
+                absentBtn.textContent = willBeAbsent ? '欠席中' : '欠席';
             }
             subScheduleAutoSave();
             subUpdateProgress();

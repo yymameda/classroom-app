@@ -1059,8 +1059,8 @@
 
         /* ===== 個人カルテ CSS ===== */
         .karte-container { background: var(--white); border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 92px 1fr; grid-template-rows: auto auto minmax(0,1fr); height: 100%; }
-        .karte-container > div:first-child { grid-column: 1 / -1; grid-row: 1; }
-        .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, #fff 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-column: 1 / -1; grid-row: 2; max-height: 116px; }
+        #kvViewPane { height: calc(100vh - 100px); padding: 8px; box-sizing: border-box; }
+        .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, #fff 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-column: 1 / -1; grid-row: 1; max-height: 116px; }
         .karte-student-bar-inner { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
         .karte-student-btn { padding: 0.35rem 0.15rem; border: 1.5px solid var(--border); background: var(--white); color: var(--text); font-size: 0.65rem; font-family: inherit; cursor: pointer; border-radius: 6px; white-space: nowrap; min-height: 44px; transition: all 0.15s; text-align: center; line-height: 1.2; }
         .karte-student-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 600; }
@@ -1409,12 +1409,8 @@
 
             /* 個人カルテ：左=児童一覧 中=タブ 右=詳細 */
             .karte-container {
-                grid-template-columns: 150px 96px 1fr;
+                grid-template-columns: 104px 96px 1fr;
                 grid-template-rows: auto minmax(0,1fr);
-            }
-            .karte-container > div:first-child {
-                grid-column: 1 / -1;
-                grid-row: 1;
             }
             .karte-student-bar {
                 grid-column: 1;
@@ -2795,7 +2791,7 @@
                 </div>
             </div>
             <!-- 見るモード（次ステップで詳細カルテをここへ移設） -->
-            <div id="kvViewPane" class="view-content" style="max-width:760px;display:none;">
+            <div id="kvViewPane" style="display:none;">
                 <div class="karte-container">
                     <div class="karte-student-bar">
                         <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>

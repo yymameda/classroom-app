@@ -3218,6 +3218,12 @@
         try { return JSON.parse(raw); } catch (e) { return fallback; }
     }
 
+    // --- getLocalDateStr: ローカル日付をYYYY-MM-DD形式で返す（UTC基準のtoISOStringと違いJST朝でも当日になる） ---
+    function getLocalDateStr() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
     // --- escapeHtml ---
     function escapeHtml(str) {
         if (str === null || str === undefined) return '';
@@ -7978,7 +7984,7 @@
             if (!text) { showToast('内容を入力してください', 'warning'); return; }
             var all = karteGetLifeRecords();
             var list = Array.isArray(all[String(qmSelIdx)]) ? all[String(qmSelIdx)] : [];
-            var now = new Date().toISOString(), today = now.slice(0, 10);
+            var now = new Date().toISOString(), today = getLocalDateStr();
             list.push({ id: Date.now(), date: today, categories: [], summary: text, fact: '', response: '', impression: '', templates: [], createdAt: now, updatedAt: now });
             all[String(qmSelIdx)] = list;
             if (karteSafeSet(KK.life, all)) { showToast('👦 児童メモを保存しました', 'success'); qmOpenForm = null; qmRenderDetail(); }
@@ -8686,7 +8692,7 @@
             if (karteLifeSelectedCats.length === 0 && !summary && !fact && !response && !impression) { showToast('カテゴリを選択するか、テキストを入力してください', 'warning'); return; }
             var all = karteGetLifeRecords();
             var list = Array.isArray(all[String(idx)]) ? all[String(idx)] : [];
-            var now = new Date().toISOString(), today = now.slice(0, 10);
+            var now = new Date().toISOString(), today = getLocalDateStr();
             if (karteLifeEditingId !== null) {
                 var ri = list.findIndex(function(r) { return r.id === karteLifeEditingId; });
                 if (ri >= 0) list[ri] = Object.assign({}, list[ri], { categories: karteLifeSelectedCats.slice(), summary: summary, fact: fact, response: response, impression: impression, updatedAt: now });
@@ -9027,7 +9033,10 @@
         // ================================================================
         function subInitAssignDate() {
             var el = document.getElementById('subAssignDate');
-            if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+            if (!el) return;
+            if (subEditingAssignId !== null) return;
+            var today = getLocalDateStr();
+            if (!el.value || el.value < today) el.value = today;
         }
         // --- ソート ---
         var subSortKey = 'id';
@@ -9591,7 +9600,7 @@
         // ================================================================
         function subInitDiary() {
             var el = document.getElementById('subDiaryDate');
-            if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+            if (el && !el.value) el.value = getLocalDateStr();
             var tEl = document.getElementById('subDiaryTarget');
             if (tEl) tEl.value = subGetDiaryTarget();
         }
@@ -9820,7 +9829,7 @@
             if (prevBtn) prevBtn.addEventListener('click', function() { moveDiaryDay(-1); });
             if (nextBtn) nextBtn.addEventListener('click', function() { moveDiaryDay(1); });
             if (todayBtn) todayBtn.addEventListener('click', function() {
-                diaryDate.value = new Date().toISOString().split('T')[0]; subRenderDiary();
+                diaryDate.value = getLocalDateStr(); subRenderDiary();
             });
             if (diaryDate) diaryDate.addEventListener('change', subRenderDiary);
             if (diaryTarget) diaryTarget.addEventListener('change', function() { subDiarySaveTarget(); subRenderDiary(); });
@@ -9843,6 +9852,11 @@
                     else subShowSub('input');
                 }
             };
+        });
+
+        // バックグラウンド復帰時、課題登録日を当日に更新（編集中は触らない）
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') subInitAssignDate();
         });
     })();
     // ▲▲▲ MODULE:SUBMISSIONS ▲▲▲

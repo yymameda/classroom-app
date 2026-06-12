@@ -888,6 +888,10 @@
         .btn-rec-small.edit:hover { border-color: var(--primary); color: var(--primary); }
         .btn-rec-small.del:hover { border-color: var(--danger); color: var(--danger); }
         .btn-rec-small.goto { border-color: var(--primary); color: var(--primary); background: var(--secondary); }
+        .btn-rec-small.active { border-color: var(--primary); color: var(--primary); background: var(--secondary); font-weight: 700; }
+
+        /* UI設計基準書v2 基準1: タップ最小値の共通クラス */
+        .tappable { min-height: var(--tap-min); min-width: var(--tap-min); }
 
         /* なわとびカード */
         .rec-nawatobi-card {
@@ -1203,6 +1207,49 @@
         .sub-input-progress { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0.75rem; background: var(--secondary); border-radius: 8px; margin: 0 0.75rem 0.3rem; font-weight: 500; font-size: 0.85rem; color: var(--primary); }
         .sub-progress-stats { display: flex; gap: 0.75rem; font-size: 0.8rem; }
         .sub-stat-ok { color: var(--success); } .sub-stat-re { color: #B7950B; } .sub-stat-ng { color: var(--danger); }
+
+        /* 連続入力モード（UI設計基準書v2 基準3/4/5） */
+        .sub-cont-layout { display: flex; gap: 8px; padding: 6px 0.75rem 0.75rem; align-items: flex-start; }
+        .sub-cont-grid {
+            flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 6px; align-content: start;
+        }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .sub-cont-grid { grid-template-columns: repeat(7, 1fr); }
+        }
+        .sub-cont-cell {
+            min-height: 56px; border: 1.5px solid var(--st-none-bd); border-radius: 8px;
+            background: var(--st-none-bg); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 2px; padding: 4px;
+            cursor: pointer; font-family: inherit; transition: background 0.1s, border-color 0.1s;
+        }
+        .sub-cont-cell .sub-cont-num { font-size: var(--fs-caption); color: var(--text-light); }
+        .sub-cont-cell .sub-cont-name { font-size: var(--fs-body); font-weight: 700; color: var(--text); }
+        .sub-cont-cell .sub-cont-mark { font-size: var(--fs-title); font-weight: 700; line-height: 1; min-height: 1em; }
+        .sub-cont-cell.st-submitted { background: var(--st-ok-bg); border-color: var(--st-ok-bd); }
+        .sub-cont-cell.st-submitted .sub-cont-mark { color: var(--st-ok-fg); }
+        .sub-cont-cell.st-resubmit { background: var(--st-warn-bg); border-color: var(--st-warn-bd); }
+        .sub-cont-cell.st-resubmit .sub-cont-mark { color: var(--st-warn-fg); }
+        .sub-cont-cell.st-missing { background: var(--st-ng-bg); border-color: var(--st-ng-bd); }
+        .sub-cont-cell.st-missing .sub-cont-mark { color: var(--st-ng-fg); }
+        .sub-cont-cell.st-absent { background: #F0F0F0; border-color: #9E9E9E; }
+        .sub-cont-cell.st-absent .sub-cont-mark { color: #616161; }
+        .sub-cont-cell.current { border-color: var(--st-cur-bd); border-width: 2px; box-shadow: inset 0 0 0 1px var(--st-cur-bd); }
+        .sub-cont-palette { width: 150px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+        .sub-cont-current {
+            font-size: var(--fs-title); font-weight: 700; text-align: center; color: var(--text);
+            background: var(--secondary); border-radius: 8px; padding: 6px 4px;
+            min-height: var(--tap-min); display: flex; align-items: center; justify-content: center;
+        }
+        .sub-cont-btn { border: 2px solid; border-radius: 8px; font-size: var(--fs-body); font-weight: 700; cursor: pointer; min-height: 52px; }
+        .sub-cont-btn.ok { background: var(--st-ok-bg); color: var(--st-ok-fg); border-color: var(--st-ok-bd); }
+        .sub-cont-btn.warn { background: var(--st-warn-bg); color: var(--st-warn-fg); border-color: var(--st-warn-bd); }
+        .sub-cont-btn.ng { background: var(--st-ng-bg); color: var(--st-ng-fg); border-color: var(--st-ng-bd); }
+        .sub-cont-btn.absent { min-height: var(--tap-min); background: #F0F0F0; color: #616161; border-color: #9E9E9E; }
+        .sub-cont-progress {
+            text-align: center; font-size: var(--fs-display); font-weight: 700; color: var(--primary);
+            padding: 4px 0; min-height: var(--tap-min); display: flex; align-items: center; justify-content: center;
+        }
         .sub-input-list {
             display: grid; grid-template-columns: repeat(4, 1fr) !important;
             gap: 6px; padding: 8px; border: 1px solid var(--border);
@@ -2448,7 +2495,8 @@
                     <select id="subInputAssignSel">
                         <option value="">── 課題を選択してください ──</option>
                     </select>
-                    <button class="btn-rec-small goto" id="subViewListBtn" style="white-space:nowrap;">☰ リスト</button>
+                    <button class="btn-rec-small active" id="subViewContBtn" style="white-space:nowrap;">⚡ 連続入力</button>
+                    <button class="btn-rec-small" id="subViewListBtn" style="white-space:nowrap;">☰ リスト</button>
                     <button class="btn-rec-small" id="subViewSeatBtn" style="white-space:nowrap;">⊞ 座席</button>
                 </div>
                 <div class="sub-input-progress" id="subProgressWrap">
@@ -2461,8 +2509,20 @@
                     </div>
                     <button class="btn-rec-small goto" id="subAllOkBtn" style="font-size:0.75rem;margin-left:8px;">全員○</button>
                 </div>
+                <!-- 連続入力モード -->
+                <div id="subContinuousWrap" class="sub-cont-layout">
+                    <div class="sub-cont-grid" id="subContGrid"></div>
+                    <div class="sub-cont-palette">
+                        <div class="sub-cont-current" id="subContCurrent">—</div>
+                        <button class="sub-cont-btn ok tappable" data-cstatus="submitted">○ 提出</button>
+                        <button class="sub-cont-btn warn tappable" data-cstatus="resubmit">△ 再提出</button>
+                        <button class="sub-cont-btn ng tappable" data-cstatus="missing">× 未提出</button>
+                        <button class="sub-cont-btn absent tappable" data-cstatus="absent">欠 欠席</button>
+                        <div class="sub-cont-progress" id="subContProgress">0 / 0</div>
+                    </div>
+                </div>
                 <!-- リスト表示（グリッド4列） -->
-                <div id="subListWrap" class="sub-input-list"></div>
+                <div id="subListWrap" class="sub-input-list" style="display:none;"></div>
                 <!-- 座席表示 -->
                 <div id="subSeatWrap" style="display:none;">
                     <div class="sub-seat-grid" id="subSeatGrid"></div>
@@ -9000,7 +9060,8 @@
 
         // --- 状態 ---
         var subCurrentAssign = null;
-        var subViewMode = 'list'; // 'list' | 'seat'
+        var subViewMode = 'continuous'; // 'continuous' | 'list' | 'seat'
+        var subContCurrentIdx = null; // 連続入力モード：入力中の児童index
         var subAutoSaveTimer = null;
         var subFilterSubject = ''; // 教科フィルター
 
@@ -9269,8 +9330,13 @@
         function subRenderInputArea() {
             var sel = document.getElementById('subInputAssignSel');
             subCurrentAssign = sel && sel.value ? parseInt(sel.value) : null;
-            if (subViewMode === 'list') subRenderInputList();
-            else subRenderSeatView();
+            // 連続入力モードも既存の保存ロジック（DOM行の状態）に依存するため、常にリストを描画する
+            subRenderInputList();
+            if (subViewMode === 'seat') subRenderSeatView();
+            else if (subViewMode === 'continuous') {
+                subContInit();
+                subRenderContinuous();
+            }
             subUpdateProgress();
         }
         function subRenderInputList() {
@@ -9525,6 +9591,100 @@
                 }
             }
             grid.innerHTML = html;
+        }
+
+        // ================================================================
+        // 連続入力モード（UI設計基準書v2 基準3・4・5）
+        // 状態の記録自体は subSelectStatus / subToggleAbsent（#subListWrap の行）に委譲し、
+        // 保存データ形式・保存処理（subScheduleAutoSave/subAutoSave）は変更しない。
+        // ================================================================
+        function subContIsFilled(idx) {
+            var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
+            if (!row) return false;
+            return row.classList.contains('has-status') || row.classList.contains('absent');
+        }
+        function subContFindFirstUnfilled() {
+            var students = subGetStudents();
+            for (var i = 0; i < students.length; i++) {
+                if (!subContIsFilled(i)) return i;
+            }
+            return null;
+        }
+        function subContFindNextUnfilled(fromIdx) {
+            var n = subGetStudents().length;
+            for (var step = 1; step <= n; step++) {
+                var idx = (fromIdx + step) % n;
+                if (!subContIsFilled(idx)) return idx;
+            }
+            return null;
+        }
+        function subContInit() {
+            subContCurrentIdx = subContFindFirstUnfilled();
+        }
+        function subContCellHtml(stu, i) {
+            var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + i + '"]');
+            var isAbsent = row ? row.classList.contains('absent') : false;
+            var st = '';
+            if (row) {
+                var cls = row.className;
+                if (cls.indexOf('status-submitted') >= 0) st = 'submitted';
+                else if (cls.indexOf('status-resubmit') >= 0) st = 'resubmit';
+                else if (cls.indexOf('status-missing') >= 0) st = 'missing';
+            }
+            var cellCls = isAbsent ? 'st-absent' : (st ? 'st-' + st : '');
+            var mark = isAbsent ? '欠' : (st === 'submitted' ? '○' : st === 'resubmit' ? '△' : st === 'missing' ? '×' : '');
+            var dispName = stu.name.length > 5 ? stu.name.substring(0, 5) : stu.name;
+            var curCls = (i === subContCurrentIdx) ? ' current' : '';
+            return '<div class="sub-cont-cell ' + cellCls + curCls + '" data-cidx="' + i + '">'
+                + '<div class="sub-cont-num">' + (i + 1) + '</div>'
+                + '<div class="sub-cont-name">' + escapeHtml(dispName) + '</div>'
+                + '<div class="sub-cont-mark">' + mark + '</div>'
+                + '</div>';
+        }
+        function subRenderContinuous() {
+            var grid = document.getElementById('subContGrid');
+            var curLabel = document.getElementById('subContCurrent');
+            var progLabel = document.getElementById('subContProgress');
+            if (!grid) return;
+            var students = subGetStudents();
+            if (!students.length) {
+                grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-light);grid-column:1/-1;">名簿が未設定です</div>';
+                if (curLabel) curLabel.textContent = '—';
+                if (progLabel) progLabel.textContent = '0 / 0';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < students.length; i++) {
+                html += subContCellHtml(students[i], i);
+            }
+            grid.innerHTML = html;
+            grid.querySelectorAll('.sub-cont-cell').forEach(function(cell) {
+                cell.addEventListener('click', function() {
+                    subContCurrentIdx = parseInt(cell.dataset.cidx);
+                    subRenderContinuous();
+                });
+            });
+            var filled = 0;
+            for (var j = 0; j < students.length; j++) { if (subContIsFilled(j)) filled++; }
+            if (progLabel) progLabel.textContent = filled + ' / ' + students.length;
+            if (curLabel) {
+                if (subContCurrentIdx === null) curLabel.textContent = '✅ 全員入力完了';
+                else curLabel.textContent = '入力中: ' + (subContCurrentIdx + 1) + '番 ' + students[subContCurrentIdx].name;
+            }
+        }
+        function subContApplyStatus(status) {
+            if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
+            if (subContCurrentIdx === null) return;
+            var idx = subContCurrentIdx;
+            if (status === 'absent') subToggleAbsent(idx);
+            else subSelectStatus(idx, status);
+            var next = subContFindNextUnfilled(idx);
+            subContCurrentIdx = next;
+            subRenderContinuous();
+            if (next === null) {
+                var total = subGetStudents().length;
+                showToast('🎉 全員入力完了 ' + total + ' / ' + total, 'success');
+            }
         }
 
         // ================================================================
@@ -9824,21 +9984,42 @@
             var allOkBtn = document.getElementById('subAllOkBtn');
             if (allOkBtn) allOkBtn.addEventListener('click', subSetAllOk);
             // 表示切替
+            var contBtn = document.getElementById('subViewContBtn');
             var listBtn = document.getElementById('subViewListBtn');
             var seatBtn = document.getElementById('subViewSeatBtn');
+            function subSetViewActive(activeBtn) {
+                [contBtn, listBtn, seatBtn].forEach(function(b) {
+                    if (b) b.classList.toggle('active', b === activeBtn);
+                });
+            }
+            if (contBtn) contBtn.addEventListener('click', function() {
+                subViewMode = 'continuous';
+                subSetViewActive(contBtn);
+                document.getElementById('subContinuousWrap').style.display = '';
+                document.getElementById('subListWrap').style.display = 'none';
+                document.getElementById('subSeatWrap').style.display = 'none';
+                subContInit();
+                subRenderContinuous();
+            });
             if (listBtn) listBtn.addEventListener('click', function() {
                 subViewMode = 'list';
-                listBtn.classList.add('active'); seatBtn.classList.remove('active');
+                subSetViewActive(listBtn);
+                document.getElementById('subContinuousWrap').style.display = 'none';
                 document.getElementById('subListWrap').style.display = '';
                 document.getElementById('subSeatWrap').style.display = 'none';
                 subRenderInputList();
             });
             if (seatBtn) seatBtn.addEventListener('click', function() {
                 subViewMode = 'seat';
-                seatBtn.classList.add('active'); listBtn.classList.remove('active');
+                subSetViewActive(seatBtn);
+                document.getElementById('subContinuousWrap').style.display = 'none';
                 document.getElementById('subListWrap').style.display = 'none';
                 document.getElementById('subSeatWrap').style.display = '';
                 subRenderSeatView();
+            });
+            // 連続入力モード：状態パレット
+            document.querySelectorAll('#subContinuousWrap .sub-cont-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() { subContApplyStatus(btn.dataset.cstatus); });
             });
             // 日記帳
             var prevBtn = document.getElementById('subDiaryPrevBtn');

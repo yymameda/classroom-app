@@ -2649,6 +2649,8 @@
                 <div id="grd-sub-overview" class="sub-sub active">
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdOverviewSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
+                        <button id="grdPrintBasisBtn" class="btn btn-primary" style="padding:8px 14px;font-size:0.82rem;">🖨️ 算出根拠シート印刷</button>
+                        <button id="grdEditNotesBtn" class="btn btn-outline" style="padding:8px 14px;font-size:0.82rem;">📝 注記を編集</button>
                     </div>
                     <div id="grdOverviewContent"></div>
                     <div class="card" style="margin-top:12px;">
@@ -3122,6 +3124,21 @@
         </div>
     </div>
 
+    <!-- 成績算出根拠シート：注記欄編集モーダル -->
+    <div class="modal-overlay" id="gradeNotesModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📝 算出根拠シートの注記</h3>
+                <button class="modal-close" id="gradeNotesCloseBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 10px;">印刷時の共通ルールシートに、そのまま印字されます。</p>
+                <textarea id="gradeNotesTextarea" style="width:100%; min-height:200px; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:0.9rem; resize:vertical;"></textarea>
+                <button class="btn btn-primary" id="gradeNotesSaveBtn" style="width: 100%; margin-top: 12px;">保存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 新体力テスト 手動入力モーダル -->
     <div class="pf-modal-overlay" id="pf-manualModal">
         <div class="pf-modal">
@@ -3569,6 +3586,7 @@
         matome_questions: 'spa_matome_questions',
         grade_thresholds: 'spa_grade_thresholds',
         grade_weights:    'spa_grade_weights',
+        grade_basis_notes: 'spa_grade_basis_notes',
         karte_life:     'spa_karte_life',
         karte_parent:   'spa_karte_parent',
         karte_health:   'spa_karte_health',
@@ -9930,6 +9948,21 @@
             return 1;
         }
 
+        // 算出根拠シートの注記欄（編集可能メモ）
+        var GRD_BASIS_NOTES_DEFAULT =
+            '【補足事項】\n' +
+            'このシートの計算式・しきい値だけでは判断しきれない、学級独自の運用ルールがあればここに記入してください。\n\n' +
+            '記入例：\n' +
+            '・長期欠席や提出データが極端に少ない児童の評定をどう扱うか\n' +
+            '・転入生など一部のテスト・提出物データが欠けている場合の扱い\n' +
+            '・特別な配慮が必要な児童への対応方針\n';
+        function grdGetBasisNotes() {
+            return StorageManager.get(KEYS.grade_basis_notes, GRD_BASIS_NOTES_DEFAULT);
+        }
+        function grdSaveBasisNotes(text) {
+            StorageManager.set(KEYS.grade_basis_notes, JSON.stringify(text));
+        }
+
         // ================================================================
         // 換算ロジック（元アプリそのまま）
         // ================================================================
@@ -10676,6 +10709,43 @@
             return cats;
         }
 
+        // ================================================================
+        // 🖨️ 算出根拠シート印刷用ヘルパー（実際の換算関数・定数から動的に説明文を生成）
+        // ================================================================
+        function grdConversionRulesText() {
+            return 'A=' + abcTo10('A') + '点 / B=' + abcTo10('B') + '点 / C=' + abcTo10('C') + '点（10点満点）';
+        }
+        function grdSubmissionCreditText() {
+            return '提出済み=' + Math.round(SUBMISSION_CREDIT_FULL*100) + '% / 再提出=' + Math.round(SUBMISSION_CREDIT_RESUBMIT*100) + '% / 未提出=0%';
+        }
+        function grdLateSubmitText() {
+            return '期限後提出（遅れ提出）は得点を' + Math.round(LATE_SUBMIT_FACTOR*100) + '%として換算';
+        }
+        // itemKeyからテスト本体を逆引き（k_/t_/a_/mk_/mt_/ma_ プレフィックス）
+        function grdFindTestByItemKey(subject, itemKey) {
+            var m = /^(mk|mt|ma|k|t|a)_(.+)$/.exec(itemKey || '');
+            if (!m) return null;
+            var testId = m[2];
+            return grdGetTests().find(function(t) { return t.subject === subject && String(t.id) === testId; }) || null;
+        }
+        // 項目1件の「換算方法」列テキスト
+        function grdItemConversionDesc(subject, item) {
+            if (item.type === 'まとめテスト') return '得点÷' + item.max + '×10（まとめテストの該当観点分）';
+            if (item.type === '机間巡視') return '○評価率×10（机間巡視記録から算出）';
+            if (item.type === '提出物') return '提出率(%)÷10。' + grdSubmissionCreditText();
+            if (item.type === '実技記録') {
+                var test = grdFindTestByItemKey(subject, item.itemKey);
+                if (test && kenteiGetConfig(test)) return '検定段階→10点換算（別表の変換表を参照）';
+                return '実技記録を正規化して10点満点に換算';
+            }
+            if (typeof item.max === 'number' && item.max > 0) return '得点÷' + item.max + '×10（' + grdLateSubmitText() + '）';
+            return 'ABC評価 → ' + grdConversionRulesText();
+        }
+        // その教科で検定（なわとび・泳力カード等）を使うテスト一覧
+        function grdSubjectUsesKentei(subject) {
+            return grdGetTests().filter(function(t) { return t.subject === subject && kenteiGetConfig(t); });
+        }
+
         function grdRenderWeights() {
             var subject = (document.getElementById('grdWeightsSubj')||{}).value || '';
             var container = document.getElementById('grdWeightsContent');
@@ -10757,6 +10827,211 @@
             _grdCacheWeights = null;
             showToast('✅ 均等配分に戻しました');
             grdRenderWeights();
+        }
+
+        // ================================================================
+        // 🖨️ 成績算出根拠シート印刷
+        // ================================================================
+        var GRD_BASIS_EXAMPLE_SCORES = [8,6,9,7,10,5,8,9,6,7,9,8];
+        var GRD_BASIS_TH  = 'padding:3pt 6pt;border:0.5pt solid #999;background:#f0f0f0;font-size:7.5pt;text-align:left;';
+        var GRD_BASIS_TD  = 'padding:3pt 6pt;border:0.5pt solid #ccc;font-size:7.5pt;';
+
+        // 教科シート：実際の重み・閾値・換算関数から動的に生成
+        function grdBuildSubjectSheetHtml(subject) {
+            var ci = master.classInfo || {};
+            var th = grdGetThresholds(); var cfg = th[subject] || th.default;
+            var defs = grdGetCategoryItemDefs(subject);
+            var TH = GRD_BASIS_TH, TD = GRD_BASIS_TD;
+
+            var cats = [
+                { key:'knowledge', label:'📘 知識・技能',                 bg:'#E3F2FD', color:'#1565C0', th: cfg.knowledge },
+                { key:'thinking',  label:'📙 思考・判断・表現',           bg:'#FFF3E0', color:'#E65100', th: cfg.thinking },
+                { key:'attitude',  label:'📗 主体的に学習に取り組む態度', bg:'#E8F5E9', color:'#2E7D32', th: cfg.attitude }
+            ];
+
+            var html = '<div style="page-break-after:always;padding:15mm;box-sizing:border-box;font-size:9pt;line-height:1.5;">';
+            html += '<div style="border-bottom:3pt solid #1a1a2e;padding-bottom:5pt;margin-bottom:10pt;">';
+            html += '<div style="font-size:15pt;font-weight:900;">成績算出根拠シート（教科別）</div>';
+            html += '<div style="font-size:8pt;color:#555;margin-top:2pt;">' + escapeHtml(String(ci.grade||'')) + '年' + escapeHtml(String(ci.class||'')) + '組　教科：' + escapeHtml(subject) + '　作成日：' + getLocalDateStr() + '</div>';
+            html += '</div>';
+
+            var catAbc = {};
+            cats.forEach(function(cat) {
+                var items = defs[cat.key];
+                html += '<div style="margin-bottom:10pt;">';
+                html += '<div style="background:'+cat.bg+';color:'+cat.color+';font-weight:700;padding:4pt 8pt;border-radius:4pt;margin-bottom:4pt;">'
+                      + cat.label + '（評定A: '+cat.th.aThreshold+'%以上 / B: '+cat.th.bThreshold+'%以上、それ未満はC）</div>';
+                if (!items.length) {
+                    html += '<div style="font-size:8pt;color:#999;padding:4pt 0 8pt;">対象項目なし</div></div>';
+                    catAbc[cat.key] = '';
+                    return;
+                }
+                var totalW = items.reduce(function(s,it){ return s + (it.weight||0); }, 0);
+                html += '<table style="width:100%;border-collapse:collapse;margin-bottom:4pt;"><thead><tr>'
+                      + '<th style="'+TH+'">項目名</th><th style="'+TH+'">種別</th><th style="'+TH+'">満点</th>'
+                      + '<th style="'+TH+'">重み</th><th style="'+TH+'">換算方法</th></tr></thead><tbody>';
+                var exItems = [];
+                items.forEach(function(it, i) {
+                    var pct = totalW > 0 ? Math.round(it.weight/totalW*1000)/10 : Math.round(100/items.length*10)/10;
+                    html += '<tr><td style="'+TD+'">'+escapeHtml(it.name)+'</td>'
+                          + '<td style="'+TD+'">'+escapeHtml(it.type||'—')+'</td>'
+                          + '<td style="'+TD+'">'+(typeof it.max==='number'?it.max:'—')+'</td>'
+                          + '<td style="'+TD+'">'+pct+'%</td>'
+                          + '<td style="'+TD+'">'+grdItemConversionDesc(subject, it)+'</td></tr>';
+                    exItems.push({ name: it.name, pct: pct, weight: pct/100, score10: GRD_BASIS_EXAMPLE_SCORES[i % GRD_BASIS_EXAMPLE_SCORES.length] });
+                });
+                html += '</tbody></table>';
+
+                var avg = calcWeightedScore(exItems);
+                avg = avg !== null ? Math.round(avg*10)/10 : null;
+                var abc = score10ToABC(avg, cat.th.aThreshold, cat.th.bThreshold);
+                catAbc[cat.key] = abc;
+
+                html += '<div style="background:#FAFAFA;border:0.5pt solid #ddd;border-radius:4pt;padding:6pt 8pt;font-size:8pt;">';
+                html += '<b>📐 計算例（架空の点数で再現）</b>';
+                html += '<table style="width:100%;border-collapse:collapse;margin-top:4pt;"><thead><tr>'
+                      + '<th style="'+TH+'">項目名</th><th style="'+TH+'">仮の得点(10点満点)</th><th style="'+TH+'">重み%</th><th style="'+TH+'">得点×重み</th></tr></thead><tbody>';
+                exItems.forEach(function(e) {
+                    html += '<tr><td style="'+TD+'">'+escapeHtml(e.name)+'</td><td style="'+TD+'">'+e.score10+'</td><td style="'+TD+'">'+e.pct+'%</td><td style="'+TD+'">'+(Math.round(e.score10*e.weight*10)/10)+'</td></tr>';
+                });
+                html += '</tbody></table>';
+                html += '<div style="margin-top:4pt;">加重平均 = Σ(得点×重み) ÷ Σ(重み) = <b>'+(avg!==null?avg:'—')+'</b>（10点満点） → 観点別評定 <b>'+(abc||'—')+'</b></div>';
+                html += '</div></div>';
+            });
+
+            // 検定段階→10点 変換表（その教科で使われている場合のみ）
+            var kenteiTests = grdSubjectUsesKentei(subject);
+            if (kenteiTests.length) {
+                html += '<div style="margin-bottom:10pt;">';
+                html += '<div style="background:#F3E5F5;color:#6A1B9A;font-weight:700;padding:4pt 8pt;border-radius:4pt;margin-bottom:4pt;">🏅 検定段階→10点 変換表</div>';
+                kenteiTests.forEach(function(t) {
+                    var kc = kenteiGetConfig(t);
+                    html += '<div style="font-size:8pt;font-weight:700;margin:4pt 0 2pt;">'+escapeHtml(t.name)+'</div>';
+                    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:4pt;"><thead><tr>'
+                          + '<th style="'+TH+'">段階</th><th style="'+TH+'">ラベル</th><th style="'+TH+'">10点換算</th></tr></thead><tbody>';
+                    (kc.conversionTable||[]).forEach(function(row) {
+                        html += '<tr><td style="'+TD+'">'+row.stage+'</td><td style="'+TD+'">'+escapeHtml(row.label)+'</td><td style="'+TD+'">'+row.score10+'</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                });
+                html += '</div>';
+            }
+
+            // 最終評定（架空例の続き）
+            var kAbc = catAbc.knowledge, tAbc = catAbc.thinking, aAbc = catAbc.attitude;
+            var hasAll = kAbc && tAbc && aAbc;
+            var totalNum = hasAll ? (abcToNum(kAbc)+abcToNum(tAbc)+abcToNum(aAbc)) : null;
+            var hyoutei = hasAll ? (totalNum >= cfg.final.grade3 ? 3 : totalNum >= cfg.final.grade2 ? 2 : 1) : null;
+            html += '<div style="background:#F5F5F5;border:0.5pt solid #ccc;border-radius:4pt;padding:6pt 8pt;font-size:8pt;">';
+            html += '<b>🏆 最終評定（3段階）の算出（架空例の続き）</b><br>';
+            html += '知識・技能：'+(kAbc||'—')+'（'+(kAbc?abcToNum(kAbc):'—')+'点） + 思考・判断・表現：'+(tAbc||'—')+'（'+(tAbc?abcToNum(tAbc):'—')+'点） + 主体的に学習に取り組む態度：'+(aAbc||'—')+'（'+(aAbc?abcToNum(aAbc):'—')+'点） = 合計 '+(totalNum!==null?totalNum:'—')+'点<br>';
+            html += '判定基準：合計'+cfg.final.grade3+'以上→評定3 / 合計'+cfg.final.grade2+'以上→評定2 / それ未満→評定1<br>';
+            html += '→ この架空例の評定：<b>'+(hyoutei!==null?hyoutei:'—')+'</b>';
+            html += '</div>';
+
+            html += '</div>';
+            return html;
+        }
+
+        // 共通ルールシート：換算関数・定数から動的に説明文を生成（二重管理禁止）
+        function grdBuildCommonSheetHtml() {
+            var html = '<div style="page-break-after:avoid;padding:15mm;box-sizing:border-box;font-size:9pt;line-height:1.7;">';
+            html += '<div style="border-bottom:3pt solid #1a1a2e;padding-bottom:5pt;margin-bottom:10pt;"><div style="font-size:15pt;font-weight:900;">成績算出 共通ルール</div></div>';
+
+            html += '<div style="margin-bottom:8pt;"><b>① 観点別評価（A/B/C）の判定</b><br>'
+                  + '各観点の項目を10点満点に換算し、重み付き平均（加重平均）で観点別の合計得点（10点満点）を求める。'
+                  + 'これを百分率（÷10×100）に変換し、教科ごとのしきい値と比較する：A＝しきい値（A）以上 / B＝しきい値（B）以上 / それ未満はC。'
+                  + '（しきい値・重みは教科ごとに異なるため、各教科シートを参照）</div>';
+
+            html += '<div style="margin-bottom:8pt;"><b>② 項目ごとの10点満点への換算ルール</b><br>'
+                  + '・得点のある項目：得点÷満点×10<br>'
+                  + '・ABC評価：' + grdConversionRulesText() + '<br>'
+                  + '・' + grdLateSubmitText() + '<br>'
+                  + '・実技記録（検定カード以外）：実技の達成度を正規化して10点満点に換算<br>'
+                  + '・検定カード（なわとび・泳力等）：合格段階を10点満点に変換（変換表は使用教科のシートを参照）</div>';
+
+            html += '<div style="margin-bottom:8pt;"><b>③ 提出物（主体的に学習に取り組む態度の一部）</b><br>'
+                  + grdSubmissionCreditText() + '。これらの合計を提出対象件数で割った提出率(%)を10で割り、10点満点に換算する。</div>';
+
+            html += '<div style="margin-bottom:8pt;"><b>④ 机間巡視の評価</b><br>'
+                  + '机間巡視記録における「○」評価の割合（○率）を10倍し、10点満点に換算する。</div>';
+
+            html += '<div style="margin-bottom:8pt;"><b>⑤ 最終評定（3段階）</b><br>'
+                  + '知識・技能／思考・判断・表現／主体的に学習に取り組む態度の各観点のABC評価を、A=3点 / B=2点 / C=1点として合計する。'
+                  + '合計点が教科ごとの「評定3」しきい値以上なら評定3、「評定2」しきい値以上なら評定2、それ未満は評定1。'
+                  + '（しきい値は教科ごとに異なるため、各教科シートを参照）</div>';
+
+            html += '<div style="margin-bottom:8pt;"><b>⑥ データ欠落時の扱い</b><br>'
+                  + '対象データが存在しない項目は「データなし」として加重平均の対象から除外する（0点扱いにはしない）。すべての項目でデータがない観点はABC評価不可となる。</div>';
+
+            html += '<div style="margin-top:12pt;border:1pt dashed #999;border-radius:4pt;padding:8pt;font-size:8pt;white-space:pre-wrap;">'
+                  + '<b>📝 補足事項（教員メモ）</b><br>' + escapeHtml(grdGetBasisNotes()) + '</div>';
+
+            html += '</div>';
+            return html;
+        }
+
+        // 印刷ダイアログ（printSeating / grdPrintKarteCenter と同じ blob+iframe パターン）
+        function grdPrintBasisSheet() {
+            var subject = (document.getElementById('grdOverviewSubj')||{}).value || '';
+            if (!subject) { showToast('教科を選択してください', 'warning'); return; }
+            var defs = grdGetCategoryItemDefs(subject);
+            if (!defs.knowledge.length && !defs.thinking.length && !defs.attitude.length) {
+                showToast('この教科の採点項目がまだありません', 'warning'); return;
+            }
+            var pages = grdBuildSubjectSheetHtml(subject) + grdBuildCommonSheetHtml();
+            var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
+                + '@page{size:A4 portrait;margin:15mm;}'
+                + '*{box-sizing:border-box;margin:0;padding:0;}'
+                + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
+                + 'table{width:100%;border-collapse:collapse;}'
+                + '</style></head><body>' + pages + '</body></html>';
+            var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
+            var blobUrl = URL.createObjectURL(blob);
+
+            var overlay = document.createElement('div');
+            overlay.id = 'gbs-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
+            var iframe = document.createElement('iframe');
+            iframe.src = blobUrl;
+            iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
+            var printBtn = document.createElement('button');
+            printBtn.textContent = '🖨️ 印刷 / PDF保存';
+            printBtn.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+            var backBtn = document.createElement('button');
+            backBtn.textContent = '✕ 元の画面に戻る';
+            backBtn.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+            btnRow.appendChild(printBtn); btnRow.appendChild(backBtn);
+            overlay.appendChild(iframe); overlay.appendChild(btnRow);
+            document.body.appendChild(overlay);
+
+            function gbsCleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('gbs-overlay'); if (ov) ov.remove(); }
+            printBtn.addEventListener('click', function() {
+                try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+                catch(e) { window.open(blobUrl, '_blank'); }
+            });
+            backBtn.addEventListener('click', gbsCleanup);
+            iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', gbsCleanup); } catch(e) {} });
+        }
+
+        // 注記欄編集モーダル
+        function grdOpenNotesModal() {
+            var ta = document.getElementById('gradeNotesTextarea');
+            if (ta) ta.value = grdGetBasisNotes();
+            var modal = document.getElementById('gradeNotesModal');
+            if (modal) modal.classList.add('active');
+        }
+        function grdCloseNotesModal() {
+            var modal = document.getElementById('gradeNotesModal');
+            if (modal) modal.classList.remove('active');
+        }
+        function grdSaveNotesModal() {
+            var ta = document.getElementById('gradeNotesTextarea');
+            grdSaveBasisNotes(ta ? ta.value : '');
+            showToast('✅ 注記を保存しました');
+            grdCloseNotesModal();
         }
 
         // ================================================================
@@ -11294,6 +11569,12 @@
             btn('kcSelectAll',   function() { grdKarteCenterSelectAll(true); });
             btn('kcDeselectAll', function() { grdKarteCenterSelectAll(false); });
             btn('kcPrintBtn',    grdPrintKarteCenter);
+            btn('grdPrintBasisBtn', grdPrintBasisSheet);
+            btn('grdEditNotesBtn',  grdOpenNotesModal);
+            btn('gradeNotesCloseBtn', grdCloseNotesModal);
+            btn('gradeNotesSaveBtn',  grdSaveNotesModal);
+            var notesModal = document.getElementById('gradeNotesModal');
+            if (notesModal) notesModal.addEventListener('click', function(e) { if (e.target === notesModal) grdCloseNotesModal(); });
         }
 
         // ================================================================

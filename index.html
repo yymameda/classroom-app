@@ -9935,6 +9935,11 @@
         // ================================================================
         var GRD_SUBJ_ORDER = ['国語','社会','算数','理科','音楽','図工','家庭','体育','英語','道徳','総合'];
 
+        // 採点ルールの定数（算出根拠シートの説明文と計算ロジックで共有・二重管理を防ぐ）
+        var LATE_SUBMIT_FACTOR = 0.8;          // 期限後提出時のペナルティ係数
+        var SUBMISSION_CREDIT_FULL = 1.0;      // 提出済み
+        var SUBMISSION_CREDIT_RESUBMIT = 0.8;  // 再提出
+
         function nawatobiToScore10(grade) {
             if (grade === undefined || grade === null) return null;
             if (grade <= 0) return 10;
@@ -10056,8 +10061,8 @@
                     return (s.assignmentId === a.id || s.assignmentId === String(a.id)) &&
                            (s.studentIndex === studentIndex || s.studentIndex === String(studentIndex));
                 });
-                if (sub && (sub.status === 'submitted' || sub.status === '○' || sub.status === 'A' || sub.status === '◎' || sub.status === 'late')) submitted++;
-                else if (sub && (sub.status === 'resubmit' || sub.status === '△')) submitted += 0.8;
+                if (sub && (sub.status === 'submitted' || sub.status === '○' || sub.status === 'A' || sub.status === '◎' || sub.status === 'late')) submitted += SUBMISSION_CREDIT_FULL;
+                else if (sub && (sub.status === 'resubmit' || sub.status === '△')) submitted += SUBMISSION_CREDIT_RESUBMIT;
             });
             var rate = submitted / assignments.length;
             return { score10: Math.round(rate * 100) / 10, detail: Math.floor(submitted)+'/'+assignments.length+'件（'+Math.round(rate*100)+'%）', submitted: submitted, total: assignments.length };
@@ -10118,7 +10123,7 @@
                     if (!sr) { kItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, itemKey: ik, weight: w }); return; }
                     var s10 = null, raw = null;
                     if (test.testType === '実技記録') { s10 = peRecordToScore10(sr, test); raw = sr.score; }
-                    else if (typeof sr.score === 'number') { s10 = scoreTo10(sr.score, test.maxScore || 100); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * 0.8 * 10) / 10; raw = sr.score; }
+                    else if (typeof sr.score === 'number') { s10 = scoreTo10(sr.score, test.maxScore || 100); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * LATE_SUBMIT_FACTOR * 10) / 10; raw = sr.score; }
                     else if (typeof sr.score === 'string') { s10 = abcTo10(sr.score); raw = sr.score; }
                     kItems.push({ name: test.name, type: test.testType||'', score10: s10 !== null ? Math.round(s10*10)/10 : null, raw: raw, max: test.maxScore, itemKey: ik, weight: w });
                 });
@@ -10138,7 +10143,7 @@
                     var isPeR = peReflections.some(function(r) { return r.id === test.id; });
                     if (!sr) { tItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, isPeReflection: isPeR, itemKey: ik, weight: w }); return; }
                     var s10 = null;
-                    if (typeof sr.score === 'number' && test.maxScore > 0) { s10 = scoreTo10(sr.score, test.maxScore); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * 0.8 * 10) / 10; }
+                    if (typeof sr.score === 'number' && test.maxScore > 0) { s10 = scoreTo10(sr.score, test.maxScore); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * LATE_SUBMIT_FACTOR * 10) / 10; }
                     else if (typeof sr.score === 'string') s10 = abcTo10(sr.score);
                     tItems.push({ name: test.name, type: test.testType||'', score10: s10 !== null ? Math.round(s10*10)/10 : null, raw: sr.score, max: test.maxScore, isPeReflection: isPeR, itemKey: ik, weight: w });
                 });
@@ -10653,6 +10658,24 @@
         var _TYPE_ORDER = ['まとめテスト','単元テスト','小テスト','授業課題','実技記録','作文','授業態度','提出物','机間巡視',''];
         function _typeRank(t) { var i = _TYPE_ORDER.indexOf(t); return i >= 0 ? i : _TYPE_ORDER.length; }
 
+        // 観点別の項目一覧（重複排除・種別順ソート済み）を返す。grdCalculateの結果から導出するため二重管理にならない。
+        function grdGetCategoryItemDefs(subject) {
+            var results = grdCalculate(subject);
+            var maps = { knowledge: new Map(), thinking: new Map(), attitude: new Map() };
+            results.forEach(function(r) {
+                r.knowledge.items.forEach(function(it) { if (it.itemKey && !maps.knowledge.has(it.itemKey)) maps.knowledge.set(it.itemKey, it); });
+                r.thinking.items.forEach(function(it)  { if (it.itemKey && !maps.thinking.has(it.itemKey))  maps.thinking.set(it.itemKey, it); });
+                r.attitude.items.forEach(function(it)  { if (it.itemKey && !maps.attitude.has(it.itemKey))  maps.attitude.set(it.itemKey, it); });
+            });
+            var cats = {
+                knowledge: [...maps.knowledge.values()],
+                thinking:  [...maps.thinking.values()],
+                attitude:  [...maps.attitude.values()]
+            };
+            Object.keys(cats).forEach(function(k) { cats[k].sort(function(a,b) { return _typeRank(a.type) - _typeRank(b.type); }); });
+            return cats;
+        }
+
         function grdRenderWeights() {
             var subject = (document.getElementById('grdWeightsSubj')||{}).value || '';
             var container = document.getElementById('grdWeightsContent');
@@ -10660,21 +10683,15 @@
             if (!subject) { container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;"><div style="font-size:2rem;">⚖️</div><p>教科を選択してください</p><p style="font-size:0.8rem;">未設定＝均等配分</p></div>'; return; }
             var results = grdCalculate(subject);
             if (!results.length) { container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;">データなし</div>'; return; }
-            var maps = { knowledge: new Map(), thinking: new Map(), attitude: new Map() };
-            results.forEach(function(r) {
-                r.knowledge.items.forEach(function(it) { if (it.itemKey && !maps.knowledge.has(it.itemKey)) maps.knowledge.set(it.itemKey, it); });
-                r.thinking.items.forEach(function(it)  { if (it.itemKey && !maps.thinking.has(it.itemKey))  maps.thinking.set(it.itemKey, it); });
-                r.attitude.items.forEach(function(it)  { if (it.itemKey && !maps.attitude.has(it.itemKey))  maps.attitude.set(it.itemKey, it); });
-            });
+            var defs = grdGetCategoryItemDefs(subject);
             var cats = [
-                { key: 'knowledge', label: '📘 知識・技能', items: [...maps.knowledge.values()], color: '#1565C0', bg: '#E3F2FD' },
-                { key: 'thinking',  label: '📙 思考・判断・表現', items: [...maps.thinking.values()],  color: '#E65100', bg: '#FFF3E0' },
-                { key: 'attitude',  label: '📗 主体性', items: [...maps.attitude.values()],  color: '#2E7D32', bg: '#E8F5E9' }
+                { key: 'knowledge', label: '📘 知識・技能', items: defs.knowledge, color: '#1565C0', bg: '#E3F2FD' },
+                { key: 'thinking',  label: '📙 思考・判断・表現', items: defs.thinking,  color: '#E65100', bg: '#FFF3E0' },
+                { key: 'attitude',  label: '📗 主体性', items: defs.attitude,  color: '#2E7D32', bg: '#E8F5E9' }
             ];
             var html = '';
             cats.forEach(function(cat) {
                 if (!cat.items.length) return;
-                cat.items.sort(function(a,b) { return _typeRank(a.type) - _typeRank(b.type); });
                 var eq = Math.round(100 / cat.items.length * 10) / 10;
                 html += '<div style="margin-bottom:16px;">';
                 html += '<div style="padding:7px 10px;border-radius:6px;background:'+cat.bg+';color:'+cat.color+';font-size:0.88rem;font-weight:700;margin-bottom:6px;">'+cat.label+'（'+cat.items.length+'項目 / 均等'+eq+'%）</div>';

@@ -9492,6 +9492,14 @@
             if (subAutoSaveTimer) clearTimeout(subAutoSaveTimer);
             subAutoSaveTimer = setTimeout(subAutoSave, 800);
         }
+        // 表示モード切替時、デバウンス中の保存があれば即時反映（#subListWrap再描画によるロスト防止）
+        function subFlushAutoSave() {
+            if (subAutoSaveTimer) {
+                clearTimeout(subAutoSaveTimer);
+                subAutoSaveTimer = null;
+                subAutoSave();
+            }
+        }
         function subAutoSave() {
             if (!subCurrentAssign) return;
             var students = subGetStudents();
@@ -9993,6 +10001,7 @@
                 });
             }
             if (contBtn) contBtn.addEventListener('click', function() {
+                subFlushAutoSave();
                 subViewMode = 'continuous';
                 subSetViewActive(contBtn);
                 document.getElementById('subContinuousWrap').style.display = '';
@@ -10002,6 +10011,7 @@
                 subRenderContinuous();
             });
             if (listBtn) listBtn.addEventListener('click', function() {
+                subFlushAutoSave();
                 subViewMode = 'list';
                 subSetViewActive(listBtn);
                 document.getElementById('subContinuousWrap').style.display = 'none';
@@ -10010,6 +10020,7 @@
                 subRenderInputList();
             });
             if (seatBtn) seatBtn.addEventListener('click', function() {
+                subFlushAutoSave();
                 subViewMode = 'seat';
                 subSetViewActive(seatBtn);
                 document.getElementById('subContinuousWrap').style.display = 'none';

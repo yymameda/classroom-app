@@ -1218,6 +1218,7 @@
             .sub-cont-grid { grid-template-columns: repeat(7, 1fr); }
         }
         .sub-cont-cell {
+            position: relative;
             min-height: 56px; border: 1.5px solid var(--st-none-bd); border-radius: 8px;
             background: var(--st-none-bg); display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 2px; padding: 4px;
@@ -1234,22 +1235,48 @@
         .sub-cont-cell.st-missing .sub-cont-mark { color: var(--st-ng-fg); }
         .sub-cont-cell.st-absent { background: #F0F0F0; border-color: #9E9E9E; }
         .sub-cont-cell.st-absent .sub-cont-mark { color: #616161; }
-        .sub-cont-cell.current { border-color: var(--st-cur-bd); border-width: 2px; box-shadow: inset 0 0 0 1px var(--st-cur-bd); }
-        .sub-cont-palette { width: 150px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
-        .sub-cont-current {
-            font-size: var(--fs-title); font-weight: 700; text-align: center; color: var(--text);
-            background: var(--secondary); border-radius: 8px; padding: 6px 4px;
-            min-height: var(--tap-min); display: flex; align-items: center; justify-content: center;
+        .sub-cont-late {
+            position: absolute; top: 2px; right: 2px; font-size: var(--fs-caption); font-weight: 700;
+            line-height: 1.3; padding: 0 3px; border-radius: 4px;
+            background: var(--st-warn-bg); color: var(--st-warn-fg); border: 1px solid var(--st-warn-bd);
         }
-        .sub-cont-btn { border: 2px solid; border-radius: 8px; font-size: var(--fs-body); font-weight: 700; cursor: pointer; min-height: 52px; }
-        .sub-cont-btn.ok { background: var(--st-ok-bg); color: var(--st-ok-fg); border-color: var(--st-ok-bd); }
-        .sub-cont-btn.warn { background: var(--st-warn-bg); color: var(--st-warn-fg); border-color: var(--st-warn-bd); }
-        .sub-cont-btn.ng { background: var(--st-ng-bg); color: var(--st-ng-fg); border-color: var(--st-ng-bd); }
-        .sub-cont-btn.absent { min-height: var(--tap-min); background: #F0F0F0; color: #616161; border-color: #9E9E9E; }
+        .sub-cont-side { width: 150px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
         .sub-cont-progress {
             text-align: center; font-size: var(--fs-display); font-weight: 700; color: var(--primary);
             padding: 4px 0; min-height: var(--tap-min); display: flex; align-items: center; justify-content: center;
+            background: var(--secondary); border-radius: 8px;
         }
+        .sub-cont-legend { display: flex; flex-direction: column; gap: 6px; }
+        .sub-cont-legend-item {
+            display: flex; align-items: center; gap: 8px; border: 1.5px solid; border-radius: 8px;
+            padding: 4px 8px; min-height: 36px; font-size: var(--fs-body); font-weight: 700;
+        }
+        .sub-cont-legend-item .sub-cont-legend-mark { font-size: var(--fs-title); line-height: 1; }
+        .sub-cont-legend-item .sub-cont-legend-lbl { font-size: var(--fs-caption); font-weight: 400; color: var(--text-light); }
+        .sub-cont-legend-item.st-submitted { background: var(--st-ok-bg); border-color: var(--st-ok-bd); color: var(--st-ok-fg); }
+        .sub-cont-legend-item.st-resubmit  { background: var(--st-warn-bg); border-color: var(--st-warn-bd); color: var(--st-warn-fg); }
+        .sub-cont-legend-item.st-missing   { background: var(--st-ng-bg); border-color: var(--st-ng-bd); color: var(--st-ng-fg); }
+        .sub-cont-legend-item.st-absent    { background: #F0F0F0; border-color: #9E9E9E; color: #616161; }
+        .sub-cont-legend-item.st-late      { background: var(--st-warn-bg); border-color: var(--st-warn-bd); color: var(--st-warn-fg); }
+        #subStatusModal .att-status-opt[data-s="submitted"] { border-color: var(--st-ok-bd); background: var(--st-ok-bg); }
+        #subStatusModal .att-status-opt[data-s="submitted"] .sym { color: var(--st-ok-fg); }
+        #subStatusModal .att-status-opt[data-s="resubmit"] { border-color: var(--st-warn-bd); background: var(--st-warn-bg); }
+        #subStatusModal .att-status-opt[data-s="resubmit"] .sym { color: var(--st-warn-fg); }
+        #subStatusModal .att-status-opt[data-s="missing"] { border-color: var(--st-ng-bd); background: var(--st-ng-bg); }
+        #subStatusModal .att-status-opt[data-s="missing"] .sym { color: var(--st-ng-fg); }
+        #subStatusModal .att-status-opt[data-s="absent"] { border-color: #9E9E9E; background: #F0F0F0; }
+        #subStatusModal .att-status-opt[data-s="absent"] .sym { color: #616161; }
+        #subStatusModal .att-status-opt[data-s=""] { border-color: var(--st-none-bd); background: var(--st-none-bg); }
+        #subStatusModal .att-status-opt[data-s=""] .sym { color: var(--text-light); }
+        .sub-modal-late-toggle {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin: 10px 0; padding: 8px; border-radius: 8px; min-height: var(--tap-min);
+            font-size: var(--fs-body); font-weight: 700; cursor: pointer;
+            background: var(--st-warn-bg); color: var(--st-warn-fg); border: 1.5px solid var(--st-warn-bd);
+            transition: opacity 0.1s;
+        }
+        .sub-modal-late-toggle input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--st-warn-fg); }
+        .sub-modal-late-toggle.dim { opacity: 0.45; }
         .sub-input-list {
             display: grid; grid-template-columns: repeat(4, 1fr) !important;
             gap: 6px; padding: 8px; border: 1px solid var(--border);
@@ -2130,6 +2157,29 @@
             </div>
         </div>
 
+        <!-- 提出物 状態選択モーダル（連続入力モード・入力済みセル再タップ用） -->
+        <div class="att-modal-overlay" id="subStatusModal">
+            <div class="att-modal">
+                <h3>提出状況入力</h3>
+                <div class="att-modal-info">
+                    <span class="num" id="subModalNum">1</span>番
+                    <span id="subModalName">---</span>
+                </div>
+                <div class="att-status-grid" id="subStatusGrid">
+                    <div class="att-status-opt" data-s="submitted"><span class="sym">○</span><span class="lbl">提出</span></div>
+                    <div class="att-status-opt" data-s="resubmit"><span class="sym">△</span><span class="lbl">再提出</span></div>
+                    <div class="att-status-opt" data-s="missing"><span class="sym">×</span><span class="lbl">未提出</span></div>
+                    <div class="att-status-opt" data-s="absent"><span class="sym">欠</span><span class="lbl">欠席</span></div>
+                    <div class="att-status-opt" data-s=""><span class="sym">－</span><span class="lbl">空欄に戻す</span></div>
+                </div>
+                <label class="sub-modal-late-toggle" id="subModalLateWrap">
+                    <input type="checkbox" id="subModalLateToggle">
+                    <span>⏰ 提出遅れ</span>
+                </label>
+                <button class="att-modal-close" id="subStatusModalClose">閉じる</button>
+            </div>
+        </div>
+
         <!-- ===== 座席表 (Phase 1 骨格) ===== -->
         <div id="view-seating" class="view">
             <div class="view-header"><h2>🪑 座席表</h2></div>
@@ -2512,13 +2562,15 @@
                 <!-- 連続入力モード -->
                 <div id="subContinuousWrap" class="sub-cont-layout">
                     <div class="sub-cont-grid" id="subContGrid"></div>
-                    <div class="sub-cont-palette">
-                        <div class="sub-cont-current" id="subContCurrent">—</div>
-                        <button class="sub-cont-btn ok tappable" data-cstatus="submitted">○ 提出</button>
-                        <button class="sub-cont-btn warn tappable" data-cstatus="resubmit">△ 再提出</button>
-                        <button class="sub-cont-btn ng tappable" data-cstatus="missing">× 未提出</button>
-                        <button class="sub-cont-btn absent tappable" data-cstatus="absent">欠 欠席</button>
+                    <div class="sub-cont-side">
                         <div class="sub-cont-progress" id="subContProgress">0 / 0</div>
+                        <div class="sub-cont-legend">
+                            <div class="sub-cont-legend-item st-submitted"><span class="sub-cont-legend-mark">○</span><span class="sub-cont-legend-lbl">提出</span></div>
+                            <div class="sub-cont-legend-item st-resubmit"><span class="sub-cont-legend-mark">△</span><span class="sub-cont-legend-lbl">再提出</span></div>
+                            <div class="sub-cont-legend-item st-missing"><span class="sub-cont-legend-mark">×</span><span class="sub-cont-legend-lbl">未提出</span></div>
+                            <div class="sub-cont-legend-item st-absent"><span class="sub-cont-legend-mark">欠</span><span class="sub-cont-legend-lbl">欠席</span></div>
+                            <div class="sub-cont-legend-item st-late"><span class="sub-cont-legend-mark">遅</span><span class="sub-cont-legend-lbl">提出遅れ</span></div>
+                        </div>
                     </div>
                 </div>
                 <!-- リスト表示（グリッド4列） -->
@@ -9061,7 +9113,7 @@
         // --- 状態 ---
         var subCurrentAssign = null;
         var subViewMode = 'continuous'; // 'continuous' | 'list' | 'seat'
-        var subContCurrentIdx = null; // 連続入力モード：入力中の児童index
+        var subModalIdx = null; // 状態選択モーダル：対象児童index
         var subAutoSaveTimer = null;
         var subFilterSubject = ''; // 教科フィルター
 
@@ -9334,7 +9386,6 @@
             subRenderInputList();
             if (subViewMode === 'seat') subRenderSeatView();
             else if (subViewMode === 'continuous') {
-                subContInit();
                 subRenderContinuous();
             }
             subUpdateProgress();
@@ -9406,12 +9457,14 @@
                 });
             });
         }
-        function subSelectStatus(idx, status) {
+        function subSelectStatus(idx, status, lateOverride) {
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
             if (!row) return;
-            var isAbsent = row.classList.contains('absent');
-            row.className = 'sub-input-row has-status status-' + status + (isAbsent ? ' absent' : '');
+            var wasAbsent = row.classList.contains('absent');
+            var wasSubmitted = row.classList.contains('status-submitted');
+            // 状態選択は欠席と排他（モーダル/出席簿準拠）：absentクラスは引き継がない
+            row.className = 'sub-input-row has-status status-' + status;
             row.querySelectorAll('.sub-status-btn').forEach(function(b) {
                 b.className = 'sub-status-btn' + (b.dataset.status === status ? ' sel-' + status : '');
             });
@@ -9420,15 +9473,39 @@
             var chk = row.querySelector('.sub-correction-check');
             if (chk) {
                 if (status === 'submitted') { chk.checked = true; chk.disabled = true; }
-                else { chk.disabled = false; }
+                else {
+                    chk.disabled = false;
+                    // 「提出」から切り替わる場合、強制チェックされていた状態を解除する
+                    if (wasSubmitted) chk.checked = false;
+                }
             }
+            // 欠席バッジ・ボタンをクリア
+            var absentTag = row.querySelector('.sub-absent-tag');
+            if (absentTag) absentTag.remove();
+            var absentBtn = row.querySelector('.sub-absent-btn');
+            if (absentBtn) { absentBtn.classList.remove('absent-on'); absentBtn.textContent = '欠席'; }
             var numBtn = row.querySelector('.sub-row-num');
-            if (numBtn && status === 'submitted') {
-                numBtn.classList.remove('late-on');
-                numBtn.textContent = idx + 1;
+            if (numBtn) {
+                if (status === 'submitted' || status === 'resubmit') {
+                    var late = (typeof lateOverride === 'boolean') ? lateOverride : subComputeLateOnDue(wasAbsent);
+                    numBtn.classList.toggle('late-on', late);
+                    numBtn.textContent = late ? '遅' : (idx + 1);
+                } else {
+                    numBtn.classList.remove('late-on');
+                    numBtn.textContent = idx + 1;
+                }
             }
             subScheduleAutoSave();
             subUpdateProgress();
+        }
+        // 提出遅れ判定：タップ日 > 課題提出日 なら true（提出日未設定の課題は常にfalse）
+        // 直前の状態が欠席だった場合は、欠席による翌日提出として遅れにしない
+        function subComputeLateOnDue(wasAbsent) {
+            if (wasAbsent) return false;
+            if (!subCurrentAssign) return false;
+            var assign = subGetAssignments().find(function(a) { return a.id === subCurrentAssign; });
+            if (!assign || !assign.date) return false;
+            return getLocalDateStr() > assign.date;
         }
         function subClearStatus(idx) {
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
@@ -9618,32 +9695,25 @@
             }
             return null;
         }
-        function subContFindNextUnfilled(fromIdx) {
-            var n = subGetStudents().length;
-            for (var step = 1; step <= n; step++) {
-                var idx = (fromIdx + step) % n;
-                if (!subContIsFilled(idx)) return idx;
-            }
-            return null;
-        }
-        function subContInit() {
-            subContCurrentIdx = subContFindFirstUnfilled();
-        }
         function subContCellHtml(stu, i) {
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + i + '"]');
             var isAbsent = row ? row.classList.contains('absent') : false;
             var st = '';
+            var isLate = false;
             if (row) {
                 var cls = row.className;
                 if (cls.indexOf('status-submitted') >= 0) st = 'submitted';
                 else if (cls.indexOf('status-resubmit') >= 0) st = 'resubmit';
                 else if (cls.indexOf('status-missing') >= 0) st = 'missing';
+                var numBtn = row.querySelector('.sub-row-num');
+                isLate = numBtn ? numBtn.classList.contains('late-on') : false;
             }
             var cellCls = isAbsent ? 'st-absent' : (st ? 'st-' + st : '');
             var mark = isAbsent ? '欠' : (st === 'submitted' ? '○' : st === 'resubmit' ? '△' : st === 'missing' ? '×' : '');
             var dispName = stu.name.length > 5 ? stu.name.substring(0, 5) : stu.name;
-            var curCls = (i === subContCurrentIdx) ? ' current' : '';
-            return '<div class="sub-cont-cell ' + cellCls + curCls + '" data-cidx="' + i + '">'
+            var lateBadge = (isLate && (st === 'submitted' || st === 'resubmit')) ? '<span class="sub-cont-late">遅</span>' : '';
+            return '<div class="sub-cont-cell ' + cellCls + '" data-cidx="' + i + '">'
+                + lateBadge
                 + '<div class="sub-cont-num">' + (i + 1) + '</div>'
                 + '<div class="sub-cont-name">' + escapeHtml(dispName) + '</div>'
                 + '<div class="sub-cont-mark">' + mark + '</div>'
@@ -9651,13 +9721,11 @@
         }
         function subRenderContinuous() {
             var grid = document.getElementById('subContGrid');
-            var curLabel = document.getElementById('subContCurrent');
             var progLabel = document.getElementById('subContProgress');
             if (!grid) return;
             var students = subGetStudents();
             if (!students.length) {
                 grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-light);grid-column:1/-1;">名簿が未設定です</div>';
-                if (curLabel) curLabel.textContent = '—';
                 if (progLabel) progLabel.textContent = '0 / 0';
                 return;
             }
@@ -9668,31 +9736,83 @@
             grid.innerHTML = html;
             grid.querySelectorAll('.sub-cont-cell').forEach(function(cell) {
                 cell.addEventListener('click', function() {
-                    subContCurrentIdx = parseInt(cell.dataset.cidx);
-                    subRenderContinuous();
+                    subContCellTap(parseInt(cell.dataset.cidx));
                 });
             });
             var filled = 0;
             for (var j = 0; j < students.length; j++) { if (subContIsFilled(j)) filled++; }
             if (progLabel) progLabel.textContent = filled + ' / ' + students.length;
-            if (curLabel) {
-                if (subContCurrentIdx === null) curLabel.textContent = '✅ 全員入力完了';
-                else curLabel.textContent = '入力中: ' + (subContCurrentIdx + 1) + '番 ' + students[subContCurrentIdx].name;
-            }
         }
-        function subContApplyStatus(status) {
+        // 空セルタップ=即「○提出」記録。入力済みセルの再タップ=状態選択モーダル
+        function subContCellTap(idx) {
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
-            if (subContCurrentIdx === null) return;
-            var idx = subContCurrentIdx;
-            if (status === 'absent') subToggleAbsent(idx);
-            else subSelectStatus(idx, status);
-            var next = subContFindNextUnfilled(idx);
-            subContCurrentIdx = next;
+            if (subContIsFilled(idx)) {
+                subOpenStatusModal(idx);
+                return;
+            }
+            subSelectStatus(idx, 'submitted');
             subRenderContinuous();
-            if (next === null) {
+            if (subContFindFirstUnfilled() === null) {
                 var total = subGetStudents().length;
                 showToast('🎉 全員入力完了 ' + total + ' / ' + total, 'success');
             }
+        }
+        // ---- 状態選択モーダル（出席簿準拠） ----
+        function subOpenStatusModal(idx) {
+            subModalIdx = idx;
+            var students = subGetStudents();
+            var numEl = document.getElementById('subModalNum');
+            var nameEl = document.getElementById('subModalName');
+            if (numEl) numEl.textContent = idx + 1;
+            if (nameEl) nameEl.textContent = students[idx] ? (students[idx].name || '---') : '---';
+            var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
+            var curStatus = '';
+            if (row) {
+                if (row.classList.contains('absent')) curStatus = 'absent';
+                else if (row.classList.contains('status-submitted')) curStatus = 'submitted';
+                else if (row.classList.contains('status-resubmit')) curStatus = 'resubmit';
+                else if (row.classList.contains('status-missing')) curStatus = 'missing';
+            }
+            document.querySelectorAll('#subStatusModal .att-status-opt').forEach(function(opt) {
+                opt.classList.toggle('selected', opt.dataset.s === curStatus);
+            });
+            var lateToggle = document.getElementById('subModalLateToggle');
+            var lateWrap = document.getElementById('subModalLateWrap');
+            if (lateToggle) {
+                if (curStatus === 'submitted' || curStatus === 'resubmit') {
+                    // 保存済みの遅れ状態を維持（再計算による上書きを防ぐ）
+                    var numBtn = row ? row.querySelector('.sub-row-num') : null;
+                    lateToggle.checked = numBtn ? numBtn.classList.contains('late-on') : false;
+                } else {
+                    lateToggle.checked = subComputeLateOnDue(curStatus === 'absent');
+                }
+            }
+            if (lateWrap) lateWrap.classList.toggle('dim', curStatus !== 'submitted' && curStatus !== 'resubmit');
+            var modal = document.getElementById('subStatusModal');
+            if (modal) modal.classList.add('active');
+        }
+        function subCloseStatusModal() {
+            var modal = document.getElementById('subStatusModal');
+            if (modal) modal.classList.remove('active');
+            subModalIdx = null;
+        }
+        function subModalSelectStatus(status) {
+            if (subModalIdx === null) return;
+            var idx = subModalIdx;
+            if (status === '') {
+                subClearStatus(idx);
+            } else if (status === 'absent') {
+                // subSelectStatusはabsentクラスを必ず除去するため、その後は常にON側へトグルする
+                subSelectStatus(idx, 'missing');
+                subToggleAbsent(idx);
+            } else if (status === 'submitted' || status === 'resubmit') {
+                var lateToggle = document.getElementById('subModalLateToggle');
+                subSelectStatus(idx, status, lateToggle ? lateToggle.checked : undefined);
+            } else {
+                subSelectStatus(idx, status);
+            }
+            subCloseStatusModal();
+            subRenderContinuous();
         }
 
         // ================================================================
@@ -10007,7 +10127,6 @@
                 document.getElementById('subContinuousWrap').style.display = '';
                 document.getElementById('subListWrap').style.display = 'none';
                 document.getElementById('subSeatWrap').style.display = 'none';
-                subContInit();
                 subRenderContinuous();
             });
             if (listBtn) listBtn.addEventListener('click', function() {
@@ -10028,10 +10147,12 @@
                 document.getElementById('subSeatWrap').style.display = '';
                 subRenderSeatView();
             });
-            // 連続入力モード：状態パレット
-            document.querySelectorAll('#subContinuousWrap .sub-cont-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() { subContApplyStatus(btn.dataset.cstatus); });
+            // 連続入力モード：状態選択モーダル（入力済みセル再タップ）
+            document.querySelectorAll('#subStatusModal .att-status-opt').forEach(function(opt) {
+                opt.addEventListener('click', function() { subModalSelectStatus(opt.dataset.s); });
             });
+            var subModalCloseBtn = document.getElementById('subStatusModalClose');
+            if (subModalCloseBtn) subModalCloseBtn.addEventListener('click', subCloseStatusModal);
             // 日記帳
             var prevBtn = document.getElementById('subDiaryPrevBtn');
             var nextBtn = document.getElementById('subDiaryNextBtn');

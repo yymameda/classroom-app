@@ -3847,9 +3847,88 @@
         localStorage.setItem(MIGRATE_KEY, '1');
     }
 
+    // --- 漢字チェック：units構造→フラット構造への移行（v1.8.51、起動時1回） ---
+    // 旧形式 { units: [{name, chars, checks}, ...] } を
+    // 新形式 { chars: [...], checks: { stuIdx: { charIdx: 'o'|'d' } } } へ変換する。
+    // 冪等性は「units キーの有無」で判定（新形式には units キーが存在しない）。
+    function migrateKanjiToFlat() {
+        var raw = StorageManager.getRaw(KEYS.kanji);
+        if (!raw) return; // データなし：何もしない（新形式デフォルトは利用側で対応）
+
+        var data;
+        try { data = JSON.parse(raw); } catch(e) { console.error('migrateKanjiToFlat: parse error', e); return; }
+        if (!data || !data.units) return; // 新形式（または不正値）：移行済み
+
+        var units = data.units || [];
+
+        // 旧表示順（v1.8.50 kjBuildFlatItems と同じ：units末尾→先頭、各単元内は0→末尾）
+        var oldItems = [];
+        for (var ui = units.length - 1; ui >= 0; ui--) {
+            var chars = (units[ui] && units[ui].chars) || [];
+            for (var ci = 0; ci < chars.length; ci++) {
+                oldItems.push({ unit: units[ui], charIdx: ci, char: chars[ci] });
+            }
+        }
+        var n = oldItems.length;
+
+        // 新形式構築：旧表示順を逆順にして格納する
+        // （描画時に chars を逆順読みすれば、元の「最新が上」の表示順に戻る）
+        var newChars = new Array(n);
+        var newChecks = {};
+        for (var i = 0; i < n; i++) {
+            var item = oldItems[i];
+            var newIdx = n - 1 - i;
+            newChars[newIdx] = item.char;
+            var checksForUnit = item.unit.checks || {};
+            Object.keys(checksForUnit).forEach(function(stuKey) {
+                var val = (checksForUnit[stuKey] || {})[String(item.charIdx)];
+                if (val) {
+                    if (!newChecks[stuKey]) newChecks[stuKey] = {};
+                    newChecks[stuKey][String(newIdx)] = val;
+                }
+            });
+        }
+
+        // 条件A：無損失照合（移行前後で全児童×全文字のチェック値が一致するか）
+        var studentKeys = {};
+        units.forEach(function(u) {
+            Object.keys((u && u.checks) || {}).forEach(function(k) { studentKeys[k] = true; });
+        });
+        Object.keys(newChecks).forEach(function(k) { studentKeys[k] = true; });
+
+        var ok = true;
+        for (var j = 0; j < n; j++) {
+            var item2 = oldItems[j];
+            var newIdx2 = n - 1 - j;
+            if (newChars[newIdx2] !== item2.char) { ok = false; }
+            var checksForUnit2 = item2.unit.checks || {};
+            Object.keys(studentKeys).forEach(function(stuKey) {
+                var oldVal = (checksForUnit2[stuKey] || {})[String(item2.charIdx)] || '';
+                var newVal = ((newChecks[stuKey] || {})[String(newIdx2)]) || '';
+                if (oldVal !== newVal) ok = false;
+            });
+        }
+        if (!ok) {
+            console.error('migrateKanjiToFlat: 移行前後の照合に失敗。旧データを保持し、移行を中止します。');
+            return;
+        }
+
+        // 条件B：バックアップ（保存・読み返し確認が取れなければ移行しない）
+        StorageManager.setImmediate('spa_kanji_backup_v1851', raw);
+        if (StorageManager.getRaw('spa_kanji_backup_v1851') !== raw) {
+            console.error('migrateKanjiToFlat: バックアップの保存に失敗。移行を中止します。');
+            return;
+        }
+
+        // 新形式を保存
+        StorageManager.setImmediate(KEYS.kanji, JSON.stringify({ chars: newChars, checks: newChecks }));
+        console.log('[migrate] kanji v1.8.51: フラット化完了（' + n + '文字）');
+    }
+
     let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
         migrateScoreData();
+        migrateKanjiToFlat();
         loadMaster();
         updateSettingsUI();
         updateDashboard();

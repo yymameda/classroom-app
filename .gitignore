@@ -1,2 +1,3 @@
 test-results/
 *_verified.py
+tests/node_modules/

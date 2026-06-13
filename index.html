@@ -12954,7 +12954,7 @@
                     if (v === 'd') retry++;
                     else if (!v) unchecked++;
                 });
-                var cls = retry > 0 ? 'st-resubmit' : (unchecked === 0 ? 'st-done' : '');
+                var cls = unchecked > 0 ? '' : (retry > 0 ? 'st-resubmit' : 'st-done');
                 var dispName = (st.name || '').length > 5 ? (st.name || '').substring(0, 5) : (st.name || '');
                 html += '<div class="kanji-tile-cell ' + cls + '" onclick="kanjiOpenStudent(' + si + ')">'
                     + '<div class="kanji-tile-num">' + (si + 1) + '</div>'

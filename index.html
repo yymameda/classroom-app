@@ -3502,16 +3502,20 @@
     }
 
     // --- getStorageUsage ---
+    // _storageItemBytes: 1キーあたりのバイト数（UTF-16換算）。監査診断のlocalStorage内訳でも同じ関数を使う。
+    function _storageItemBytes(key, val) {
+        return (key.length + val.length) * 2;
+    }
     function getStorageUsage() {
         var total = 0;
         var keys = StorageManager.getAllKeys();
         keys.forEach(function(key) {
             var val = StorageManager.getRaw(key);
-            if (val !== null) total += key.length + val.length;
+            if (val !== null) total += _storageItemBytes(key, val);
         });
-        var totalKB = (total * 2 / 1024).toFixed(1);
+        var totalKB = (total / 1024).toFixed(1);
         var maxKB = 5120;
-        var percent = (total * 2 / 1024 / maxKB * 100).toFixed(1);
+        var percent = (total / 1024 / maxKB * 100).toFixed(1);
         return { totalKB: totalKB, maxKB: maxKB, percent: percent };
     }
     function updateStorageDisplay() {
@@ -13792,6 +13796,62 @@
             return { flags: flags };
         }
 
+        // --- localStorage使用量の内訳（同一オリジン全体を走査） ---
+        var STORAGE_GROUP_LABELS = {
+            classroom: 'classroom系（このアプリ）',
+            task:      'task系',
+            docindex:  'doc-index系 (doc-index-v1)',
+            other:     'その他（要確認）'
+        };
+        var STORAGE_GROUP_ORDER = ['classroom', 'task', 'docindex', 'other'];
+        var STORAGE_ACTIVE_GROUPS = { classroom: true, task: true };
+        // 既知の旧バックアップキー（移行作業で残った退避データ）
+        var LEGACY_BACKUP_PATTERNS = [/^spa_kanji_backup_/, /^scoreDataBackup_/];
+
+        function _classifyStorageKey(key) {
+            if (key === 'doc-index-v1') return 'docindex';
+            if (/^task/i.test(key)) return 'task';
+            if (/^(spa_|pf_|migration_|scoreData|gradeIntegration|gradeItemWeights)/.test(key) || key === '_hb') return 'classroom';
+            return 'other';
+        }
+
+        function _isLegacyBackupKey(key) {
+            return LEGACY_BACKUP_PATTERNS.some(function(re) { return re.test(key); });
+        }
+
+        function collectStorageBreakdown() {
+            var keys = StorageManager.getAllKeys ? StorageManager.getAllKeys() :
+                       Object.keys(localStorage);
+            var items = [];
+            var totalBytes = 0;
+            keys.forEach(function(key) {
+                var val = StorageManager.getRaw ? StorageManager.getRaw(key) : localStorage.getItem(key);
+                if (val === null) return;
+                var bytes = _storageItemBytes(key, val);
+                totalBytes += bytes;
+                items.push({
+                    key: key,
+                    kb: bytes / 1024,
+                    group: _classifyStorageKey(key),
+                    legacyBackup: _isLegacyBackupKey(key)
+                });
+            });
+            var totalKB = totalBytes / 1024;
+            items.forEach(function(it) {
+                it.percent = totalKB > 0 ? (it.kb / totalKB * 100) : 0;
+            });
+            items.sort(function(a, b) { return b.kb - a.kb; });
+
+            var groups = {};
+            STORAGE_GROUP_ORDER.forEach(function(g) { groups[g] = { kb: 0, count: 0 }; });
+            items.forEach(function(it) {
+                groups[it.group].kb += it.kb;
+                groups[it.group].count += 1;
+            });
+
+            return { items: items, totalKB: totalKB, groups: groups };
+        }
+
         function checkKenteiIntegrity() {
             var kGetConfig   = window.kenteiGetConfig;
             var kTotalSkills = window.kenteiTotalSkills;
@@ -14299,6 +14359,11 @@
             }
             html += '</div>';
 
+            // 11. localStorage使用量の内訳
+            html += '<div class="audit-result-subsection" id="audit-storage-breakdown">';
+            html += renderStorageBreakdownHtml(result.storageBreakdown);
+            html += '</div>';
+
             // コピーボタン
             html += '<div class="audit-copy-buttons">';
             html += '<button class="btn-primary" onclick="copyAuditResultAsJSON()" style="padding:8px 16px;">📋 全結果を JSON でコピー</button>';
@@ -14310,6 +14375,86 @@
 
         function _aRow(label, value) {
             return '<tr><td>' + label + '</td><td>' + value + '</td></tr>';
+        }
+
+        // ----------------------------------------------------------------
+        // localStorage使用量の内訳：表示・削除
+        // ----------------------------------------------------------------
+
+        function _jsEscapeKey(key) {
+            return String(key).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function renderStorageBreakdownHtml(sb) {
+            var html = '';
+            html += '<h4>11. localStorage使用量の内訳</h4>';
+            html += '<p class="audit-description" style="margin:4px 0;">同一オリジン (yymameda.github.io) の localStorage を全走査した結果です。classroom-app 以外のアプリのデータも含みます。</p>';
+
+            // アプリ別グループ集計
+            html += '<table class="audit-table">';
+            html += '<tr><th>グループ</th><th>件数</th><th>KB</th><th>状態</th><th>操作</th></tr>';
+            STORAGE_GROUP_ORDER.forEach(function(g) {
+                var info = sb.groups[g];
+                var statusLabel = STORAGE_ACTIVE_GROUPS[g]
+                    ? '<span class="audit-status-ok">●現役</span>'
+                    : '<span class="audit-status-warn">○引退</span>';
+                var actionCell = '';
+                if (!STORAGE_ACTIVE_GROUPS[g] && info.count > 0) {
+                    actionCell = '<button style="background:var(--danger);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:0.85em;cursor:pointer;" onclick="auditDeleteStorageGroup(\'' + g + '\')">🗑 一括削除</button>';
+                }
+                html += '<tr><td>' + escapeHtml(STORAGE_GROUP_LABELS[g]) + '</td><td>' + info.count + '件</td><td>' + info.kb.toFixed(1) + ' KB</td><td>' + statusLabel + '</td><td>' + actionCell + '</td></tr>';
+            });
+            html += '</table>';
+
+            // キー別一覧（サイズ降順）
+            html += '<details class="audit-detail-block" open><summary>キー別一覧（サイズ降順、全' + sb.items.length + 'キー）</summary>';
+            html += '<div class="audit-detail-body">';
+            html += '<table class="audit-table">';
+            html += '<tr><th>キー名</th><th>グループ</th><th>KB</th><th>全体%</th><th></th></tr>';
+            sb.items.forEach(function(it) {
+                var rowClass = STORAGE_ACTIVE_GROUPS[it.group] ? '' : ' class="audit-status-warn"';
+                var legacyMark = it.legacyBackup ? ' <span class="audit-status-error">⚠️旧バックアップ残存</span>' : '';
+                html += '<tr' + rowClass + '>';
+                html += '<td>' + escapeHtml(it.key) + legacyMark + '</td>';
+                html += '<td>' + escapeHtml(STORAGE_GROUP_LABELS[it.group]) + '</td>';
+                html += '<td>' + it.kb.toFixed(2) + '</td>';
+                html += '<td>' + it.percent.toFixed(1) + '%</td>';
+                html += '<td><button style="background:var(--danger);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:0.8em;cursor:pointer;" onclick="auditDeleteStorageKey(\'' + _jsEscapeKey(it.key) + '\')">🗑</button></td>';
+                html += '</tr>';
+            });
+            html += '</table></div></details>';
+
+            html += '<p style="margin-top:8px;"><b>合計: ' + sb.totalKB.toFixed(1) + ' KB</b>（ダッシュボードのストレージ使用量表示と一致するはずです）</p>';
+
+            return html;
+        }
+
+        function refreshStorageBreakdown() {
+            var sb = collectStorageBreakdown();
+            if (window._auditDiagnosisLastResult) window._auditDiagnosisLastResult.storageBreakdown = sb;
+            var container = document.getElementById('audit-storage-breakdown');
+            if (container) container.innerHTML = renderStorageBreakdownHtml(sb);
+            updateStorageDisplay();
+        }
+
+        function auditDeleteStorageKey(key) {
+            if (!confirm('「' + key + '」を削除しますか？\n\nこの操作は元に戻せません。')) return;
+            StorageManager.remove(key);
+            showToast('「' + key + '」を削除しました');
+            refreshStorageBreakdown();
+        }
+
+        function auditDeleteStorageGroup(group) {
+            var sb = collectStorageBreakdown();
+            var targetKeys = sb.items.filter(function(it) { return it.group === group; }).map(function(it) { return it.key; });
+            if (targetKeys.length === 0) return;
+            var label = STORAGE_GROUP_LABELS[group] || group;
+            var preview = targetKeys.slice(0, 15).join('\n');
+            if (targetKeys.length > 15) preview += '\n...他' + (targetKeys.length - 15) + '件';
+            if (!confirm('「' + label + '」の ' + targetKeys.length + '件を削除しますか？\n\n対象キー:\n' + preview + '\n\nこの操作は元に戻せません。')) return;
+            targetKeys.forEach(function(k) { StorageManager.remove(k); });
+            showToast(label + ' を削除しました（' + targetKeys.length + '件）');
+            refreshStorageBreakdown();
         }
 
         // ----------------------------------------------------------------
@@ -14487,7 +14632,8 @@
                         submissionStatus:    analyzeSubmissionStatus(),
                         answersFormat:       analyzeAnswersFormat(),
                         migrationFlags:      collectMigrationFlags(),
-                        kenteiIntegrity:     checkKenteiIntegrity()
+                        kenteiIntegrity:     checkKenteiIntegrity(),
+                        storageBreakdown:    collectStorageBreakdown()
                     };
                     result.anomalies = collectAnomalies(result);
                     renderAuditResult(result);
@@ -14503,9 +14649,11 @@
         // ----------------------------------------------------------------
         // グローバル公開
         // ----------------------------------------------------------------
-        window.runAuditDiagnosis     = runAuditDiagnosis;
-        window.copyAuditResultAsJSON = copyAuditResultAsJSON;
-        window.copyAuditResultAsText = copyAuditResultAsText;
+        window.runAuditDiagnosis        = runAuditDiagnosis;
+        window.copyAuditResultAsJSON    = copyAuditResultAsJSON;
+        window.copyAuditResultAsText    = copyAuditResultAsText;
+        window.auditDeleteStorageKey    = auditDeleteStorageKey;
+        window.auditDeleteStorageGroup  = auditDeleteStorageGroup;
 
     })();
     // ▲▲▲ MODULE:AUDIT_DIAGNOSIS ▲▲▲

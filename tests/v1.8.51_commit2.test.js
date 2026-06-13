@@ -94,8 +94,8 @@ async function backToList(page) {
     let listState = await page.evaluate(() => ({
         hasUnitSel: !!document.getElementById('kanjiUnitSel'),
         addBtnText: document.querySelector('#kanjiListHeader button') ? document.querySelector('#kanjiListHeader button').textContent : '',
-        rowCount: document.querySelectorAll('#kanjiListWrap .kanji-list-row').length,
-        badges: Array.from(document.querySelectorAll('#kanjiListWrap .kanji-list-row')).map(r => r.querySelector('td:nth-child(3) span').textContent.trim())
+        rowCount: document.querySelectorAll('#kanjiListWrap .kanji-tile-cell').length,
+        badges: Array.from(document.querySelectorAll('#kanjiListWrap .kanji-tile-cell')).map(r => r.querySelectorAll('.kanji-tile-marks span')[0].textContent.replace('未', ''))
     }));
     check('検証: kanjiUnitSel(単元セレクト)が存在しない', !listState.hasUnitSel, JSON.stringify(listState.hasUnitSel));
     check('検証: ヘッダーボタンが「＋漢字を追加」', listState.addBtnText.indexOf('漢字を追加') >= 0, listState.addBtnText);
@@ -156,7 +156,7 @@ async function backToList(page) {
     // 一覧へ戻る → 児童0の未チェック数が変化していないこと（循環で元に戻したため）
     // ================================================================
     await backToList(page);
-    let badges1 = await page.evaluate(() => Array.from(document.querySelectorAll('#kanjiListWrap .kanji-list-row')).map(r => r.querySelector('td:nth-child(3) span').textContent.trim()));
+    let badges1 = await page.evaluate(() => Array.from(document.querySelectorAll('#kanjiListWrap .kanji-tile-cell')).map(r => r.querySelectorAll('.kanji-tile-marks span')[0].textContent.replace('未', '')));
     check('検証: 動線(入力層→一覧へ戻る)後、未チェック数は変化なし', badges1[0] === String(TOTAL_CHARS - 4), JSON.stringify(badges1));
 
     // ================================================================

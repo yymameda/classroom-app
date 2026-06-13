@@ -1743,33 +1743,64 @@
         }
         .mp-btn { display: none; } /* 左縦バー(.grid-cell-mp-strip)に移行 */
 
-        /* ========== 漢字チェック：一覧層（児童ごとの累計未チェック数） ========== */
-        #view-kanji .kanji-list-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
+        /* ========== 漢字チェック：一覧層（児童タイルグリッド：未チェック数＋△再提出数） ========== */
+        #view-kanji .kanji-tile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 6px;
+            padding: 6px 0.75rem 0.75rem;
+            align-content: start;
         }
-        #view-kanji .kanji-list-table th,
-        #view-kanji .kanji-list-table td {
-            border: 1px solid #ddd;
-            height: 44px;
-            min-height: 44px;
-            padding: 0 8px;
-            text-align: center;
+        @media (orientation: landscape) and (min-width: 1000px) {
+            #view-kanji .kanji-tile-grid { grid-template-columns: repeat(8, 1fr); }
+        }
+        #view-kanji .kanji-tile-cell {
+            min-height: 56px;
+            border: 1.5px solid var(--st-none-bd);
+            border-radius: 8px;
+            background: var(--st-none-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 4px;
+            cursor: pointer;
+            font-family: inherit;
             box-sizing: border-box;
         }
-        #view-kanji .kanji-list-table thead th {
-            background: #e8f5e9;
-            color: #2E7D32;
-            font-size: 0.8rem;
-            position: sticky;
-            top: 0;
-            z-index: 1;
+        #view-kanji .kanji-tile-cell .kanji-tile-num {
+            font-size: var(--fs-caption);
+            color: var(--text-light);
         }
-        #view-kanji .kanji-list-row {
-            cursor: pointer;
+        #view-kanji .kanji-tile-cell .kanji-tile-name {
+            font-size: var(--fs-body);
+            font-weight: 700;
+            color: var(--text);
         }
-        #view-kanji .kanji-list-row:active {
+        #view-kanji .kanji-tile-cell .kanji-tile-marks {
+            display: flex;
+            gap: 6px;
+            font-size: var(--fs-body);
+            font-weight: 700;
+            line-height: 1;
+            color: var(--text-light);
+        }
+        #view-kanji .kanji-tile-cell.st-resubmit {
+            background: var(--st-warn-bg);
+            border-color: var(--st-warn-bd);
+        }
+        #view-kanji .kanji-tile-cell.st-resubmit .kanji-tile-marks {
+            color: var(--st-warn-fg);
+        }
+        #view-kanji .kanji-tile-cell.st-done {
+            background: var(--st-ok-bg);
+            border-color: var(--st-ok-bd);
+        }
+        #view-kanji .kanji-tile-cell.st-done .kanji-tile-marks {
+            color: var(--st-ok-fg);
+        }
+        #view-kanji .kanji-tile-cell:active {
             background: #E3F2FD;
         }
 
@@ -12726,7 +12757,7 @@
             document.getElementById('kanjiStudentWrap').style.display = 'block';
         }
 
-        // ---- 一覧層描画：児童ごとの累計未チェック数 ----
+        // ---- 一覧層描画：児童タイルグリッド（未チェック数＋△再提出数） ----
         function kjRenderListLayer(data) {
             var wrap = document.getElementById('kanjiListWrap');
             if (!wrap) return;
@@ -12741,27 +12772,24 @@
                 return;
             }
 
-            var html = '<table class="kanji-list-table"><thead><tr>'
-                + '<th style="width:48px;">#</th>'
-                + '<th>氏名</th>'
-                + '<th style="width:120px;">未チェック</th>'
-                + '</tr></thead><tbody>';
+            var html = '<div class="kanji-tile-grid" id="kanjiTileGrid">';
             students.forEach(function(st, si) {
                 var stuChecks = (data.checks || {})[String(si)] || {};
-                var unchecked = 0;
+                var unchecked = 0, retry = 0;
                 chars.forEach(function(_, ci) {
-                    if (!stuChecks[String(ci)]) unchecked++;
+                    var v = stuChecks[String(ci)];
+                    if (v === 'd') retry++;
+                    else if (!v) unchecked++;
                 });
-                var badgeBg = unchecked === 0 ? 'var(--st-ok-bg)' : 'var(--st-warn-bg)';
-                var badgeFg = unchecked === 0 ? 'var(--st-ok-fg)' : 'var(--st-warn-fg)';
-                var badgeBd = unchecked === 0 ? 'var(--st-ok-bd)' : 'var(--st-warn-bd)';
-                html += '<tr class="kanji-list-row" onclick="kanjiOpenStudent(' + si + ')">'
-                    + '<td>' + (si + 1) + '</td>'
-                    + '<td style="text-align:left;">' + escapeHtml(st.name || '') + '</td>'
-                    + '<td><span style="display:inline-block;min-width:36px;padding:2px 10px;border-radius:12px;font-weight:700;background:' + badgeBg + ';color:' + badgeFg + ';border:1.5px solid ' + badgeBd + ';">' + unchecked + '</span></td>'
-                    + '</tr>';
+                var cls = retry > 0 ? 'st-resubmit' : (unchecked === 0 ? 'st-done' : '');
+                var dispName = (st.name || '').length > 5 ? (st.name || '').substring(0, 5) : (st.name || '');
+                html += '<div class="kanji-tile-cell ' + cls + '" onclick="kanjiOpenStudent(' + si + ')">'
+                    + '<div class="kanji-tile-num">' + (si + 1) + '</div>'
+                    + '<div class="kanji-tile-name">' + escapeHtml(dispName) + '</div>'
+                    + '<div class="kanji-tile-marks"><span>未' + unchecked + '</span><span>△' + retry + '</span></div>'
+                    + '</div>';
             });
-            html += '</tbody></table>';
+            html += '</div>';
             wrap.innerHTML = html;
         }
 

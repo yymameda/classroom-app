@@ -15,7 +15,7 @@ function check(name, cond, detail) {
 }
 
 // ---- 新形式（フラット）テストデータ ----
-// chars配列のインデックス0が最古、末尾が最新。表示は逆順（末尾が先頭）。
+// chars配列のインデックス0が最古、末尾が最新。表示は追加順（昇順、先頭=最古、末尾=最新、v1.8.52）。
 const NEW_KANJI_DATA = {
     chars: ['一','二','三','四','五','六','七','八','九','十','百','千','万','億','円','銭','分','厘','毛','糸','忽','微'],
     checks: {
@@ -109,7 +109,7 @@ async function backToList(page) {
         JSON.stringify({ actual: listState.badges, expected: expectedBadges }));
 
     // ================================================================
-    // 入力層：グリッドはchars逆順（末尾=最新が先頭セル）
+    // 入力層：グリッドはchars昇順（先頭セル=最古、末尾セル=最新、v1.8.52）
     // ================================================================
     await openStudent(page, 0);
     let studentState = await page.evaluate(() => ({
@@ -120,35 +120,35 @@ async function backToList(page) {
     }));
     check('検証: 入力層タイトルに生徒01', studentState.title.indexOf('生徒01') >= 0, studentState.title);
     check('検証: グリッドセル数=全文字数' + TOTAL_CHARS, studentState.cellCount === TOTAL_CHARS, String(studentState.cellCount));
-    check('検証: 先頭セルはchars末尾(最新)の文字「微」', studentState.firstChar === '微', studentState.firstChar);
-    check('検証: 末尾セルはchars先頭(最古)の文字「一」', studentState.lastChar === '一', studentState.lastChar);
+    check('検証: 先頭セルはchars先頭(最古)の文字「一」', studentState.firstChar === '一', studentState.firstChar);
+    check('検証: 末尾セルはchars末尾(最新)の文字「微」', studentState.lastChar === '微', studentState.lastChar);
 
     // 既存チェックの表示確認: 児童0は charIdx0='o', charIdx1='d', charIdx9='o', charIdx21='d'
-    // 表示位置 = TOTAL_CHARS-1-charIdx
-    let marks0 = await page.evaluate((total) => {
+    // 表示位置 = charIdx（v1.8.52: 昇順表示）
+    let marks0 = await page.evaluate(() => {
         const grid = document.getElementById('kanjiGrid');
-        const get = (charIdx) => grid.children[total - 1 - charIdx].querySelector('.kgc-mark').textContent;
+        const get = (charIdx) => grid.children[charIdx].querySelector('.kgc-mark').textContent;
         return { c0: get(0), c1: get(1), c9: get(9), c21: get(21) };
-    }, TOTAL_CHARS);
+    });
     check('検証: 児童0の既存チェック(○/△)が正しい位置に表示', marks0.c0 === '○' && marks0.c1 === '△' && marks0.c9 === '○' && marks0.c21 === '△', JSON.stringify(marks0));
 
     // ================================================================
     // 循環入力: 空→△→○→空 が新形式checksにバイト一致で保存される
     // ================================================================
-    // 表示位置0(charIdx=21)は児童0で既に'd'。代わりに表示位置1(charIdx=20, 未チェック)を使う
+    // 表示位置0,1,9,21(charIdx=0,1,9,21)は児童0で既にチェック済み。表示位置2(charIdx=2, 未チェック)を使う
     let { data: before1 } = await readKanjiData(page);
-    let expected1 = applyToggle(JSON.parse(JSON.stringify(before1)), 0, 20);
-    await tapGridCell(page, 1);
+    let expected1 = applyToggle(JSON.parse(JSON.stringify(before1)), 0, 2);
+    await tapGridCell(page, 2);
     let { raw: raw1 } = await readKanjiData(page);
     check('検証: 空→△タップ後の保存値がバイト一致', raw1 === JSON.stringify(expected1), raw1 + ' vs ' + JSON.stringify(expected1));
 
-    let expected2 = applyToggle(JSON.parse(JSON.stringify(expected1)), 0, 20);
-    await tapGridCell(page, 1);
+    let expected2 = applyToggle(JSON.parse(JSON.stringify(expected1)), 0, 2);
+    await tapGridCell(page, 2);
     let { raw: raw2 } = await readKanjiData(page);
     check('検証: △→○タップ後の保存値がバイト一致', raw2 === JSON.stringify(expected2), raw2 + ' vs ' + JSON.stringify(expected2));
 
-    let expected3 = applyToggle(JSON.parse(JSON.stringify(expected2)), 0, 20);
-    await tapGridCell(page, 1);
+    let expected3 = applyToggle(JSON.parse(JSON.stringify(expected2)), 0, 2);
+    await tapGridCell(page, 2);
     let { raw: raw3 } = await readKanjiData(page);
     check('検証: ○→空タップ後の保存値がバイト一致', raw3 === JSON.stringify(expected3), raw3 + ' vs ' + JSON.stringify(expected3));
 
@@ -185,10 +185,13 @@ async function backToList(page) {
     let checksUnchanged = JSON.stringify(afterAdd.checks) === JSON.stringify(beforeAdd.checks);
     check('検証: checksは追加操作で一切変更されない', checksUnchanged, JSON.stringify({ before: beforeAdd.checks, after: afterAdd.checks }));
 
-    // 追加後、入力層の先頭セルは新しい最新文字「情」になっている
+    // 追加後、入力層の末尾セルは新しい最新文字「情」になっている（v1.8.52: 末尾=最新）
     await openStudent(page, 0);
-    let firstCharAfterAdd = await page.evaluate(() => document.getElementById('kanjiGrid').children[0].querySelector('.kgc-char').textContent);
-    check('検証: 追加後、入力層の先頭セルは新しい最新文字「情」', firstCharAfterAdd === '情', firstCharAfterAdd);
+    let lastCharAfterAdd = await page.evaluate(() => {
+        const grid = document.getElementById('kanjiGrid');
+        return grid.children[grid.children.length - 1].querySelector('.kgc-char').textContent;
+    });
+    check('検証: 追加後、入力層の末尾セルは新しい最新文字「情」', lastCharAfterAdd === '情', lastCharAfterAdd);
     await backToList(page);
 
     // ================================================================

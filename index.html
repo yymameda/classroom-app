@@ -12647,7 +12647,7 @@
         function kjBuildFlatItems(data) {
             var chars = data.chars || [];
             var items = [];
-            for (var ci = chars.length - 1; ci >= 0; ci--) {
+            for (var ci = 0; ci < chars.length; ci++) {
                 items.push({ charIdx: ci, char: chars[ci] });
             }
             return items;
@@ -14718,7 +14718,7 @@
         var chars = kanjiData.chars || [];
         if (!chars.length) { showToast('漢字データがありません', 'warning'); return; }
 
-        var displayChars = chars.slice().reverse(); // 最新追加分が先頭
+        var displayChars = chars; // 入力層と同じ並び（最古が先頭）
 
         var pageHtmls = [];
         students.forEach(function(s, idx) {
@@ -14727,7 +14727,7 @@
             var doneCount = 0, retryCount = 0;
             var cellsHtml = '';
             displayChars.forEach(function(c, displayIdx) {
-                var charIdx = chars.length - 1 - displayIdx;
+                var charIdx = displayIdx;
                 var val = checks[String(charIdx)];
                 var bg, color, mark;
                 if (val === 'o') {

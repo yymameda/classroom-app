@@ -4073,10 +4073,56 @@
         console.log('[migrateKanjiOrder] 並べ替え完了（' + n + '文字、正しい62字順序に変換）。spa_kanji_backup_v1853_order に旧データを保存しました。');
     }
 
+    // --- 漢字チェック：旧バックアップキーの削除（v1.8.54、起動時1回） ---
+    // v1.8.51フラット化移行時の退避(spa_kanji_backup_v1851)と
+    // v1.8.53並べ替え移行時の退避(spa_kanji_backup_v1853_order)を削除し、
+    // ストレージ使用量を削減する。spa_kanji本体や他のキーには一切触れない。
+    // 冪等性：対象キーが両方とも存在しなければ何もしない。
+    // 呼び出し順序の注意：DOMContentLoadedでmigrateKanjiOrder()より先に呼ぶこと。
+    // migrateKanjiOrder()が今回の起動で並べ替えを実行するとspa_kanji_backup_v1853_orderを
+    // 新規作成するが、cleanupを先に走らせておくことで、その新規バックアップは
+    // 今回の削除対象に含まれず、最低1回の起動ぶんは保険として残る。
+    var KANJI_OLD_BACKUP_KEYS_V1854 = ['spa_kanji_backup_v1851', 'spa_kanji_backup_v1853_order'];
+
+    function cleanupOldKanjiBackups() {
+        var beforeKanji = StorageManager.getRaw(KEYS.kanji);
+
+        var presentKeys = [];
+        KANJI_OLD_BACKUP_KEYS_V1854.forEach(function(k) {
+            var v = StorageManager.getRaw(k);
+            if (v !== null) {
+                console.log('[cleanupOldKanjiBackups] ' + k + ' 存在(' + v.length + 'バイト)');
+                presentKeys.push(k);
+            } else {
+                console.log('[cleanupOldKanjiBackups] ' + k + ' は存在しません。');
+            }
+        });
+
+        if (presentKeys.length === 0) {
+            console.log('[cleanupOldKanjiBackups] 削除対象なし。何もしません。');
+            return;
+        }
+
+        if (beforeKanji === null) {
+            console.warn('[cleanupOldKanjiBackups] spa_kanji本体が存在しないため、安全のため削除を中止します。');
+            return;
+        }
+
+        presentKeys.forEach(function(k) { StorageManager.remove(k); });
+
+        var afterKanji = StorageManager.getRaw(KEYS.kanji);
+        if (afterKanji !== beforeKanji) {
+            console.error('[cleanupOldKanjiBackups] spa_kanji本体が変化しています！想定外のため確認してください。');
+            return;
+        }
+        console.log('[cleanupOldKanjiBackups] 削除完了（' + presentKeys.join(', ') + '）。spa_kanji本体は変化していません(' + (afterKanji ? afterKanji.length : 0) + 'バイト)。');
+    }
+
     let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
         migrateScoreData();
         migrateKanjiToFlat();
+        cleanupOldKanjiBackups();
         migrateKanjiOrder();
         loadMaster();
         updateSettingsUI();

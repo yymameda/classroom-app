@@ -189,7 +189,8 @@ async function setKanjiAndReload(page, kanjiData) {
     let { raw: rawC } = await getKanji(page);
     let backupC = await getBackup(page);
     check('検証C1: 正しい順序になった後、再リロードでspa_kanjiが変化しない(冪等性)', rawC === rawB, rawC);
-    check('検証C2: 正しい順序になった後、再リロードでバックアップが変化しない(冪等性)', backupC === backupB, backupC);
+    // 並べ替えバックアップは次回起動でcleanupされる(作成後、最低1回は保険として残る)
+    check('検証C2: 正しい順序になった後の再リロードで、前回作成されたバックアップはcleanupにより削除される', backupC === null, 'backupC=' + String(backupC));
 
     // ================================================================
     // ケースD: 文字集合が一致しないデータ（62字だが知らない文字を含む）→ 何もしない

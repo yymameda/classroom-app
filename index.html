@@ -2883,10 +2883,7 @@
         <div id="view-kanji" class="view">
             <div class="view-header" id="kanjiListHeader" style="background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:8px;height:50px;flex-shrink:0;">
                 <h2 style="font-size:1rem;color:#fff;margin:0;">✍️ 漢字チェック</h2>
-                <select id="kanjiUnitSel" onchange="kanjiSelectUnit(this.value)" style="padding:4px 8px;border-radius:6px;border:none;font-size:0.85rem;background:#fff;color:#333;max-width:180px;"></select>
-                <button onclick="kanjiOpenUnitModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋単元追加</button>
-                <button onclick="kanjiEditUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">✏️編集</button>
-                <button onclick="kanjiDeleteUnit()" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:#ffcdd2;font-size:0.82rem;cursor:pointer;">🗑️</button>
+                <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
                 <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">🖨️ 一括印刷</button></div>
             </div>
             <div class="view-header" id="kanjiStudentHeader" style="display:none;background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:10px;height:50px;flex-shrink:0;">
@@ -2897,18 +2894,16 @@
                 <div id="kanjiListWrap" style="height:100%;overflow:auto;"></div>
                 <div id="kanjiStudentWrap" style="height:100%;overflow:auto;display:none;"></div>
             </div>
-            <!-- 単元追加・編集モーダル -->
+            <!-- 漢字追加モーダル -->
             <div id="kanjiModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
                 <div style="background:#fff;border-radius:12px;padding:20px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-                    <h3 id="kanjiModalTitle" style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">単元追加</h3>
-                    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">単元名</label>
-                    <input id="kanjiModalName" type="text" placeholder="例: 5年1学期①" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:0.9rem;margin-bottom:12px;">
+                    <h3 style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">漢字を追加</h3>
                     <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">漢字（1行1文字 またはスペース・読点区切り）</label>
                     <textarea id="kanjiModalChars" rows="5" placeholder="例:&#10;美&#10;術&#10;競&#10;争&#10;または：美 術 競 争" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:1.1rem;font-family:inherit;resize:vertical;margin-bottom:14px;"></textarea>
                     <div id="kanjiModalPreview" style="font-size:0.8rem;color:#555;margin-bottom:14px;min-height:20px;"></div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
-                        <button onclick="kanjiCloseUnitModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">キャンセル</button>
-                        <button onclick="kanjiSaveUnit()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">保存</button>
+                        <button onclick="kanjiCloseAddModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">キャンセル</button>
+                        <button onclick="kanjiAddChars()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">追加</button>
                     </div>
                 </div>
             </div>
@@ -7657,7 +7652,7 @@
             var parentAll   = secParent      ? StorageManager.get(KEYS.karte_parent, {})            : {};
             var healthAll   = secHealth      ? StorageManager.get(KEYS.karte_health, {})            : {};
             var learningAll = secLearning    ? StorageManager.get(KEYS.karte_learning, {})          : {};
-            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { units: [] })        : { units: [] };
+            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { chars: [], checks: {} }) : { chars: [], checks: {} };
             var subjects    = secGrades && typeof grdGetAvailableSubjects === 'function' ? grdGetAvailableSubjects() : [];
 
             var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
@@ -7825,33 +7820,27 @@
 
             // ── 漢字チェック ──────────────────────────────────────
             if (sec.secKanji) {
-                var kjUnits = data.kanjiData.units || [];
-                if (kjUnits.length) {
+                var kjChars = data.kanjiData.chars || [];
+                if (kjChars.length) {
+                    var kjStuChecks = (data.kanjiData.checks || {})[String(idx)] || {};
+                    var kjDone = 0;
+                    kjChars.forEach(function(_, ci2) { if (kjStuChecks[String(ci2)] === 'o') kjDone++; });
+                    var kjRate = Math.round(kjDone / kjChars.length * 100);
+                    var kjStarFull = Math.floor(kjRate / 20);
+                    var kjStars = '★'.repeat(kjStarFull) + '☆'.repeat(5 - kjStarFull);
+                    var kjBarColor = kjRate >= 100 ? '#27AE60' : kjRate >= 80 ? '#1565C0' : kjRate >= 60 ? '#F9A825' : '#E67E22';
                     html += '<div style="margin-bottom:5pt;">'
                         + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2E7D32;">✍️ 漢字チェック</div>'
-                        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90pt,1fr));gap:4pt;">';
-                    kjUnits.forEach(function(unit) {
-                        var chars = unit.chars || [];
-                        var stuChecks = (unit.checks || {})[String(idx)] || {};
-                        var done = 0;
-                        chars.forEach(function(_, ci2) { if (stuChecks[String(ci2)] === 'o') done++; });
-                        var rate = chars.length > 0 ? Math.round(done / chars.length * 100) : 0;
-                        var starFull = Math.floor(rate / 20);
-                        var stars = '★'.repeat(starFull) + '☆'.repeat(5 - starFull);
-                        var barColor = rate >= 100 ? '#27AE60' : rate >= 80 ? '#1565C0' : rate >= 60 ? '#F9A825' : '#E67E22';
-                        html += '<div style="background:#F9FFF9;border:1pt solid #C8E6C9;border-radius:8pt;padding:5pt 7pt;">'
-                            + '<div style="font-size:7pt;font-weight:700;color:#2E7D32;margin-bottom:2pt;">' + escapeHtml(unit.name || '') + '</div>'
-                            + '<div style="background:#e0e0e0;border-radius:10pt;height:5pt;overflow:hidden;margin-bottom:2pt;">'
-                            + '<div style="background:' + barColor + ';height:100%;width:' + rate + '%;border-radius:10pt;"></div>'
-                            + '</div>'
-                            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-                            + '<span style="font-size:7pt;color:' + barColor + ';font-weight:700;">' + rate + '%</span>'
-                            + '<span style="font-size:7.5pt;color:#F9A825;">' + stars + '</span>'
-                            + '</div>'
-                            + '<div style="font-size:6.5pt;color:#888;margin-top:1pt;">' + done + '/' + chars.length + '字</div>'
-                            + '</div>';
-                    });
-                    html += '</div></div>';
+                        + '<div style="background:#F9FFF9;border:1pt solid #C8E6C9;border-radius:8pt;padding:5pt 7pt;max-width:160pt;">'
+                        + '<div style="background:#e0e0e0;border-radius:10pt;height:5pt;overflow:hidden;margin-bottom:2pt;">'
+                        + '<div style="background:' + kjBarColor + ';height:100%;width:' + kjRate + '%;border-radius:10pt;"></div>'
+                        + '</div>'
+                        + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                        + '<span style="font-size:7pt;color:' + kjBarColor + ';font-weight:700;">' + kjRate + '%</span>'
+                        + '<span style="font-size:7.5pt;color:#F9A825;">' + kjStars + '</span>'
+                        + '</div>'
+                        + '<div style="font-size:6.5pt;color:#888;margin-top:1pt;">' + kjDone + '/' + kjChars.length + '字</div>'
+                        + '</div></div>';
                 }
             }
 
@@ -8064,20 +8053,17 @@
             }
 
             if (sec.secKanji) {
-                var kjUnits=data.kanjiData.units||[];
+                var kjChars2=data.kanjiData.chars||[];
                 body+='<div style="'+CARD+'"><div style="'+TITLE+'">✍️ 漢字チェック</div>';
-                if(kjUnits.length){
-                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;"><thead><tr style="background:#e8f5e9;"><th style="padding:2pt 5pt;text-align:left;color:#2E7D32;">単元</th><th style="padding:2pt 5pt;text-align:right;">文字数</th><th style="padding:2pt 5pt;text-align:right;color:#27AE60;">○完了</th><th style="padding:2pt 5pt;text-align:right;color:#1565C0;">達成率</th></tr></thead><tbody>';
-                    kjUnits.forEach(function(unit){
-                        var chars=unit.chars||[];
-                        var sc=(unit.checks||{})[String(idx)]||{};
-                        var done=0;
-                        chars.forEach(function(_,ci2){if(sc[String(ci2)]==='o')done++;});
-                        var rate=chars.length>0?Math.round(done/chars.length*100):0;
-                        var rc=rate>=100?'#27AE60':rate>=80?'#1565C0':'#E67E22';
-                        body+='<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;font-weight:600;">'+escapeHtml(unit.name||'')+'</td><td style="padding:2pt 5pt;text-align:right;">'+chars.length+'字</td><td style="padding:2pt 5pt;text-align:right;color:#27AE60;">'+done+'</td><td style="padding:2pt 5pt;text-align:right;font-weight:700;color:'+rc+';">'+rate+'%</td></tr>';
-                    });
-                    body+='</tbody></table>';
+                if(kjChars2.length){
+                    var sc=(data.kanjiData.checks||{})[String(idx)]||{};
+                    var done=0;
+                    kjChars2.forEach(function(_,ci2){if(sc[String(ci2)]==='o')done++;});
+                    var rate=Math.round(done/kjChars2.length*100);
+                    var rc=rate>=100?'#27AE60':rate>=80?'#1565C0':'#E67E22';
+                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;"><thead><tr style="background:#e8f5e9;"><th style="padding:2pt 5pt;text-align:right;">文字数</th><th style="padding:2pt 5pt;text-align:right;color:#27AE60;">○完了</th><th style="padding:2pt 5pt;text-align:right;color:#1565C0;">達成率</th></tr></thead><tbody>'
+                        +'<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;text-align:right;">'+kjChars2.length+'字</td><td style="padding:2pt 5pt;text-align:right;color:#27AE60;">'+done+'</td><td style="padding:2pt 5pt;text-align:right;font-weight:700;color:'+rc+';">'+rate+'%</td></tr>'
+                        +'</tbody></table>';
                 } else { body+='<div style="font-size:7.5pt;color:#aaa;padding:4pt;">データなし</div>'; }
                 body+='</div>';
             }
@@ -11716,7 +11702,7 @@
             var parentAll   = secParent      ? StorageManager.get(KEYS.karte_parent, {})            : {};
             var healthAll   = secHealth      ? StorageManager.get(KEYS.karte_health, {})            : {};
             var learningAll = secLearning    ? StorageManager.get(KEYS.karte_learning, {})          : {};
-            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { units: [] })        : { units: [] };
+            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { chars: [], checks: {} }) : { chars: [], checks: {} };
             var subjects    = secGrades      ? grdGetAvailableSubjects()                            : [];
 
             var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
@@ -11915,39 +11901,34 @@
 
                 // 漢字チェックセクション
                 if (secKanji) {
-                    var kjUnits = kanjiData.units || [];
+                    var kjChars = kanjiData.chars || [];
                     var kanjiSec = '<div style="' + CARD + '">';
                     kanjiSec += '<div style="' + TITLE + '">✍️ 漢字チェック</div>';
-                    if (kjUnits.length) {
+                    if (kjChars.length) {
+                        var stuChecks = (kanjiData.checks || {})[String(idx)] || {};
+                        var done = 0, retry = 0;
+                        kjChars.forEach(function(_, ci) {
+                            var v = stuChecks[String(ci)];
+                            if (v === 'o') done++;
+                            else if (v === 'd') retry++;
+                        });
+                        var total = kjChars.length;
+                        var rate = Math.round(done / total * 100);
+                        var rateColor = rate >= 100 ? '#27AE60' : rate >= 80 ? '#1565C0' : '#E67E22';
                         kanjiSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">'
                             + '<thead><tr style="background:#e8f5e9;">'
-                            + '<th style="padding:2pt 5pt;text-align:left;font-weight:700;color:#2E7D32;">単元</th>'
                             + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#2E7D32;">文字数</th>'
                             + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#27AE60;">○完了</th>'
                             + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#F57F17;">△再提出</th>'
                             + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#1565C0;">達成率</th>'
-                            + '</tr></thead><tbody>';
-                        kjUnits.forEach(function(unit) {
-                            var chars = unit.chars || [];
-                            var stuChecks = (unit.checks || {})[String(idx)] || {};
-                            var done = 0, retry = 0;
-                            chars.forEach(function(_, ci) {
-                                var v = stuChecks[String(ci)];
-                                if (v === 'o') done++;
-                                else if (v === 'd') retry++;
-                            });
-                            var total = chars.length;
-                            var rate = total > 0 ? Math.round(done / total * 100) : 0;
-                            var rateColor = rate >= 100 ? '#27AE60' : rate >= 80 ? '#1565C0' : '#E67E22';
-                            kanjiSec += '<tr style="border-bottom:1pt solid #eee;">'
-                                + '<td style="padding:2pt 5pt;font-weight:600;">' + escapeHtml(unit.name || '') + '</td>'
-                                + '<td style="padding:2pt 5pt;text-align:right;">' + total + '字</td>'
-                                + '<td style="padding:2pt 5pt;text-align:right;color:#27AE60;font-weight:700;">' + done + '</td>'
-                                + '<td style="padding:2pt 5pt;text-align:right;color:#F57F17;">' + retry + '</td>'
-                                + '<td style="padding:2pt 5pt;text-align:right;font-weight:700;color:' + rateColor + ';">' + rate + '%</td>'
-                                + '</tr>';
-                        });
-                        kanjiSec += '</tbody></table>';
+                            + '</tr></thead><tbody>'
+                            + '<tr style="border-bottom:1pt solid #eee;">'
+                            + '<td style="padding:2pt 5pt;text-align:right;">' + total + '字</td>'
+                            + '<td style="padding:2pt 5pt;text-align:right;color:#27AE60;font-weight:700;">' + done + '</td>'
+                            + '<td style="padding:2pt 5pt;text-align:right;color:#F57F17;">' + retry + '</td>'
+                            + '<td style="padding:2pt 5pt;text-align:right;font-weight:700;color:' + rateColor + ';">' + rate + '%</td>'
+                            + '</tr>'
+                            + '</tbody></table>';
                     } else {
                         kanjiSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">データなし</div>';
                     }
@@ -12603,14 +12584,13 @@
 
         // ---- データアクセス ----
         function kanjiGetData() {
-            return StorageManager.get(KEYS.kanji, { units: [] });
+            return StorageManager.get(KEYS.kanji, { chars: [], checks: {} });
         }
         function kjSave(data) {
             StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
         }
 
         // ---- 状態 ----
-        var kjCurrentUnit = 0; // 単元追加・編集・削除の対象インデックス
         var kjCurrentStudent = -1; // -1: 一覧層 / 0以上: 入力層（対象児童インデックス）
         var kanjiCurRow = 0;
         var kanjiCurCol = 0;
@@ -12632,15 +12612,12 @@
             return result;
         }
 
-        // ---- 単元をまたいだ漢字一覧（新しい単元→古い単元の順）を構築 ----
+        // ---- 漢字一覧を構築（chars配列を逆順に読み、最新追加分を先頭にする） ----
         function kjBuildFlatItems(data) {
-            var units = data.units || [];
+            var chars = data.chars || [];
             var items = [];
-            for (var ui = units.length - 1; ui >= 0; ui--) {
-                var chars = units[ui].chars || [];
-                for (var ci = 0; ci < chars.length; ci++) {
-                    items.push({ unitIdx: ui, charIdx: ci, char: chars[ci] });
-                }
+            for (var ci = chars.length - 1; ci >= 0; ci--) {
+                items.push({ charIdx: ci, char: chars[ci] });
             }
             return items;
         }
@@ -12706,7 +12683,7 @@
                             var idx = kanjiCurRow * KANJI_COLS + kanjiCurCol;
                             if (idx > maxIdx) return;
                             var item = items[idx];
-                            kanjiToggle(item.unitIdx, kjCurrentStudent, item.charIdx);
+                            kanjiToggle(kjCurrentStudent, item.charIdx);
                             break;
                         case 'Escape':
                             kanjiKeyboardActive = false;
@@ -12722,12 +12699,8 @@
         // ---- 統合再描画 ----
         function kanjiRender() {
             var data = kanjiGetData();
-            var units = data.units || [];
             var students = master.students || [];
-            if (kjCurrentUnit >= units.length) kjCurrentUnit = 0;
             if (kjCurrentStudent >= students.length) kjCurrentStudent = -1;
-
-            kjRenderUnitSel(data);
 
             if (kjCurrentStudent < 0) {
                 kjShowListLayer();
@@ -12753,36 +12726,14 @@
             document.getElementById('kanjiStudentWrap').style.display = 'block';
         }
 
-        // ---- 単元セレクト描画 ----
-        function kjRenderUnitSel(data) {
-            var sel = document.getElementById('kanjiUnitSel');
-            if (!sel) return;
-            var units = data.units || [];
-            sel.innerHTML = '';
-            if (units.length === 0) {
-                var opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = '（単元なし）';
-                sel.appendChild(opt);
-                return;
-            }
-            units.forEach(function(u, i) {
-                var opt = document.createElement('option');
-                opt.value = String(i);
-                opt.textContent = u.name;
-                if (i === kjCurrentUnit) opt.selected = true;
-                sel.appendChild(opt);
-            });
-        }
-
         // ---- 一覧層描画：児童ごとの累計未チェック数 ----
         function kjRenderListLayer(data) {
             var wrap = document.getElementById('kanjiListWrap');
             if (!wrap) return;
-            var units = data.units || [];
+            var chars = data.chars || [];
             var students = master.students || [];
-            if (units.length === 0) {
-                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">単元がありません。「＋単元追加」から追加してください。</div>';
+            if (chars.length === 0) {
+                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">漢字が登録されていません。「＋漢字を追加」から追加してください。</div>';
                 return;
             }
             if (students.length === 0) {
@@ -12796,13 +12747,10 @@
                 + '<th style="width:120px;">未チェック</th>'
                 + '</tr></thead><tbody>';
             students.forEach(function(st, si) {
+                var stuChecks = (data.checks || {})[String(si)] || {};
                 var unchecked = 0;
-                units.forEach(function(unit) {
-                    var chars = unit.chars || [];
-                    var stuChecks = (unit.checks || {})[String(si)] || {};
-                    chars.forEach(function(_, ci) {
-                        if (!stuChecks[String(ci)]) unchecked++;
-                    });
+                chars.forEach(function(_, ci) {
+                    if (!stuChecks[String(ci)]) unchecked++;
                 });
                 var badgeBg = unchecked === 0 ? 'var(--st-ok-bg)' : 'var(--st-warn-bg)';
                 var badgeFg = unchecked === 0 ? 'var(--st-ok-fg)' : 'var(--st-warn-fg)';
@@ -12817,7 +12765,7 @@
             wrap.innerHTML = html;
         }
 
-        // ---- 入力層描画：児童1人分の横8列グリッド（新しい単元の漢字が上） ----
+        // ---- 入力層描画：児童1人分の横8列グリッド（最新追加分が上） ----
         function kjRenderStudentLayer(data, si) {
             var wrap = document.getElementById('kanjiStudentWrap');
             var titleEl = document.getElementById('kanjiStudentTitle');
@@ -12828,18 +12776,17 @@
 
             var items = kjBuildFlatItems(data);
             if (items.length === 0) {
-                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">単元がありません。</div>';
+                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">漢字が登録されていません。</div>';
                 return;
             }
 
+            var stuChecks = (data.checks || {})[String(si)] || {};
             var html = '<div class="kanji-grid" id="kanjiGrid">';
             items.forEach(function(item) {
-                var unit = data.units[item.unitIdx];
-                var stuChecks = (unit.checks || {})[String(si)] || {};
                 var val = stuChecks[String(item.charIdx)];
                 var cls = val === 'o' ? 'st-o' : val === 'd' ? 'st-d' : '';
                 var mark = val === 'o' ? '○' : val === 'd' ? '△' : '';
-                html += '<div class="kanji-grid-cell ' + cls + '" onclick="kanjiToggle(' + item.unitIdx + ',' + si + ',' + item.charIdx + ')">'
+                html += '<div class="kanji-grid-cell ' + cls + '" onclick="kanjiToggle(' + si + ',' + item.charIdx + ')">'
                     + '<span class="kgc-char">' + escapeHtml(item.char) + '</span>'
                     + '<span class="kgc-mark">' + mark + '</span>'
                     + '</div>';
@@ -12878,28 +12825,21 @@
         }
 
         // ---- セルトグル（3段階：未→△→○→未） ----
-        function kanjiToggle(unitIdx, stuIdx, charIdx) {
+        function kanjiToggle(stuIdx, charIdx) {
             var data = kanjiGetData();
-            var unit = data.units[unitIdx];
-            if (!unit) return;
-            if (!unit.checks[String(stuIdx)]) unit.checks[String(stuIdx)] = {};
-            var cur = unit.checks[String(stuIdx)][String(charIdx)];
+            if (!data.checks) data.checks = {};
+            if (!data.checks[String(stuIdx)]) data.checks[String(stuIdx)] = {};
+            var cur = data.checks[String(stuIdx)][String(charIdx)];
             if (!cur) {
-                unit.checks[String(stuIdx)][String(charIdx)] = 'd';
+                data.checks[String(stuIdx)][String(charIdx)] = 'd';
             } else if (cur === 'd') {
-                unit.checks[String(stuIdx)][String(charIdx)] = 'o';
+                data.checks[String(stuIdx)][String(charIdx)] = 'o';
             } else {
-                delete unit.checks[String(stuIdx)][String(charIdx)];
+                delete data.checks[String(stuIdx)][String(charIdx)];
             }
             StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
 
             kanjiRender();
-        }
-
-        // ---- 単元セレクト変更（編集・削除の対象を切替えるのみ） ----
-        function kanjiSelectUnit(val) {
-            if (val === '' || val === null || val === undefined) return;
-            kjCurrentUnit = parseInt(val, 10) || 0;
         }
 
         // ---- 入力層を開く ----
@@ -12918,34 +12858,16 @@
             kanjiRender();
         }
 
-        // ---- 単元追加モーダルを開く ----
-        function kanjiOpenUnitModal() {
-            document.getElementById('kanjiModalTitle').textContent = '単元追加';
-            document.getElementById('kanjiModalName').value = '';
+        // ---- 漢字追加モーダルを開く ----
+        function kanjiOpenAddModal() {
             document.getElementById('kanjiModalChars').value = '';
             document.getElementById('kanjiModalPreview').textContent = '';
-            document.getElementById('kanjiModal')._editIndex = null;
             document.getElementById('kanjiModal').style.display = 'flex';
-            document.getElementById('kanjiModalName').focus();
-        }
-
-        // ---- 単元編集モーダルを開く ----
-        function kanjiEditUnit() {
-            var data = kanjiGetData();
-            var units = data.units || [];
-            if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
-            var unit = units[kjCurrentUnit];
-            document.getElementById('kanjiModalTitle').textContent = '単元編集';
-            document.getElementById('kanjiModalName').value = unit.name || '';
-            document.getElementById('kanjiModalChars').value = (unit.chars || []).join('\n');
-            kjUpdatePreview();
-            document.getElementById('kanjiModal')._editIndex = kjCurrentUnit;
-            document.getElementById('kanjiModal').style.display = 'flex';
-            document.getElementById('kanjiModalName').focus();
+            document.getElementById('kanjiModalChars').focus();
         }
 
         // ---- モーダルを閉じる ----
-        function kanjiCloseUnitModal() {
+        function kanjiCloseAddModal() {
             document.getElementById('kanjiModal').style.display = 'none';
         }
 
@@ -12955,78 +12877,35 @@
             var prev = document.getElementById('kanjiModalPreview');
             if (!ta || !prev) return;
             var chars = kjParseChars(ta.value);
-            prev.textContent = chars.length > 0 ? '認識した漢字（' + chars.length + '文字）: ' + chars.join(' ') : '';
+            prev.textContent = chars.length > 0 ? '追加する漢字（' + chars.length + '文字）: ' + chars.join(' ') : '';
         }
 
-        // ---- 単元保存（編集時は'o'/'d'値を引き継ぐ） ----
-        function kanjiSaveUnit() {
-            var name = (document.getElementById('kanjiModalName').value || '').trim();
+        // ---- 漢字を追加（chars末尾へpushのみ。既存charIdx・checksは不変） ----
+        function kanjiAddChars() {
             var charsStr = document.getElementById('kanjiModalChars').value || '';
             var chars = kjParseChars(charsStr);
-            if (!name) { showToast('単元名を入力してください', 'warning'); return; }
             if (chars.length === 0) { showToast('漢字を1文字以上入力してください', 'warning'); return; }
 
             var data = kanjiGetData();
-            if (!data.units) data.units = [];
-            var editIdx = document.getElementById('kanjiModal')._editIndex;
-
-            if (editIdx !== null && editIdx !== undefined) {
-                var oldUnit = data.units[editIdx];
-                var oldChars = oldUnit.chars || [];
-                var oldChecks = oldUnit.checks || {};
-                var newChecks = {};
-                chars.forEach(function(c, newCi) {
-                    var oldCi = oldChars.indexOf(c);
-                    if (oldCi >= 0) {
-                        Object.keys(oldChecks).forEach(function(siKey) {
-                            var oldVal = oldChecks[siKey][String(oldCi)];
-                            if (oldVal) {
-                                if (!newChecks[siKey]) newChecks[siKey] = {};
-                                newChecks[siKey][String(newCi)] = oldVal;
-                            }
-                        });
-                    }
-                });
-                data.units[editIdx] = { name: name, chars: chars, checks: newChecks };
-                kjCurrentUnit = editIdx;
-            } else {
-                data.units.push({ name: name, chars: chars, checks: {} });
-                kjCurrentUnit = data.units.length - 1;
-            }
+            if (!data.chars) data.chars = [];
+            if (!data.checks) data.checks = {};
+            chars.forEach(function(c) { data.chars.push(c); });
 
             kjSave(data);
-            kanjiCloseUnitModal();
+            kanjiCloseAddModal();
             kanjiRender();
-            showToast('保存しました', 'success');
-        }
-
-        // ---- 単元削除 ----
-        function kanjiDeleteUnit() {
-            var data = kanjiGetData();
-            var units = data.units || [];
-            if (units.length === 0) { showToast('単元がありません', 'warning'); return; }
-            var unitName = units[kjCurrentUnit].name;
-            if (!confirm('「' + unitName + '」を削除しますか？')) return;
-            units.splice(kjCurrentUnit, 1);
-            data.units = units;
-            if (kjCurrentUnit >= units.length) kjCurrentUnit = Math.max(0, units.length - 1);
-            kjSave(data);
-            kanjiRender();
-            showToast('削除しました', 'success');
+            showToast(chars.length + '文字を追加しました', 'success');
         }
 
         // ---- グローバル公開 ----
-        window.kanjiInit           = kanjiInit;
-        window.kanjiRender         = kanjiRender;
-        window.kanjiToggle         = kanjiToggle;
-        window.kanjiSelectUnit     = kanjiSelectUnit;
-        window.kanjiOpenStudent    = kanjiOpenStudent;
-        window.kanjiBackToList     = kanjiBackToList;
-        window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
-        window.kanjiEditUnit       = kanjiEditUnit;
-        window.kanjiCloseUnitModal = kanjiCloseUnitModal;
-        window.kanjiSaveUnit       = kanjiSaveUnit;
-        window.kanjiDeleteUnit     = kanjiDeleteUnit;
+        window.kanjiInit          = kanjiInit;
+        window.kanjiRender        = kanjiRender;
+        window.kanjiToggle        = kanjiToggle;
+        window.kanjiOpenStudent   = kanjiOpenStudent;
+        window.kanjiBackToList    = kanjiBackToList;
+        window.kanjiOpenAddModal  = kanjiOpenAddModal;
+        window.kanjiCloseAddModal = kanjiCloseAddModal;
+        window.kanjiAddChars      = kanjiAddChars;
 
         // ---- DOMContentLoaded フック ----
         document.addEventListener('DOMContentLoaded', function() {
@@ -13035,7 +12914,7 @@
             var modal = document.getElementById('kanjiModal');
             if (modal) {
                 modal.addEventListener('click', function(e) {
-                    if (e.target === modal) kanjiCloseUnitModal();
+                    if (e.target === modal) kanjiCloseAddModal();
                 });
             }
         });
@@ -13366,7 +13245,7 @@
             var karteRecs   = StorageManager.get(KEYS.karte_recs, []);
             var karteLife   = StorageManager.get(KEYS.karte_life, {});
             var att         = StorageManager.get(KEYS.attendance, {});
-            var kanjiData   = StorageManager.get(KEYS.kanji, { units: [] });
+            var kanjiData   = StorageManager.get(KEYS.kanji, { chars: [], checks: {} });
             var fgtHistory  = StorageManager.get(KEYS.forgotten_history, []);
 
             var matomeCount = tests.filter(function(t) { return t.type === 'matome'; }).length;
@@ -13411,7 +13290,7 @@
                 karteRecCount:   Array.isArray(karteRecs) ? karteRecs.length : 0,
                 karteLifeCount:  karteLifeCount,
                 attendanceDays:  Object.keys(att).length,
-                kanjiUnits:      (kanjiData.units && Array.isArray(kanjiData.units)) ? kanjiData.units.length : 0,
+                kanjiChars:      (kanjiData.chars && Array.isArray(kanjiData.chars)) ? kanjiData.chars.length : 0,
                 forgottenHistory: Array.isArray(fgtHistory) ? fgtHistory.length : 0
             };
         }
@@ -13998,7 +13877,7 @@
             html += _aRow('児童記録(カルテ)数',    d.karteRecCount + '件');
             html += _aRow('生活記録数',             d.karteLifeCount + '件');
             html += _aRow('出席記録日数',           d.attendanceDays + '日');
-            html += _aRow('漢字単元数',             d.kanjiUnits + '件');
+            html += _aRow('漢字登録数',             d.kanjiChars + '字');
             html += _aRow('忘れ物履歴数',           d.forgottenHistory + '件');
             html += '</table></div>';
 
@@ -14288,7 +14167,7 @@
             lines.push('児童記録(カルテ)数: ' + d.karteRecCount + '件');
             lines.push('生活記録数: ' + d.karteLifeCount + '件');
             lines.push('出席記録日数: ' + d.attendanceDays + '日');
-            lines.push('漢字単元数: ' + d.kanjiUnits + '件');
+            lines.push('漢字登録数: ' + d.kanjiChars + '字');
             lines.push('忘れ物履歴数: ' + d.forgottenHistory + '件');
             lines.push('');
 
@@ -14501,12 +14380,9 @@
     window.renderPatrolHistory = renderPatrolHistory;
     window.kanjiInit           = kanjiInit;
     window.kanjiToggle         = kanjiToggle;
-    window.kanjiSelectUnit     = kanjiSelectUnit;
-    window.kanjiOpenUnitModal  = kanjiOpenUnitModal;
-    window.kanjiEditUnit       = kanjiEditUnit;
-    window.kanjiCloseUnitModal = kanjiCloseUnitModal;
-    window.kanjiSaveUnit       = kanjiSaveUnit;
-    window.kanjiDeleteUnit     = kanjiDeleteUnit;
+    window.kanjiOpenAddModal   = kanjiOpenAddModal;
+    window.kanjiCloseAddModal  = kanjiCloseAddModal;
+    window.kanjiAddChars       = kanjiAddChars;
 
     // ===== カルテ遷移ヘルパー =====
     window.openKarteFromAtt = openKarteFromAtt;
@@ -14810,50 +14686,47 @@
         var students = masterData.students || [];
         if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
         var ci = masterData.classInfo || {};
-        var kanjiData = StorageManager.get(KEYS.kanji, { units: [] });
-        var units = kanjiData.units || [];
-        if (!units.length) { showToast('漢字データがありません', 'warning'); return; }
+        var kanjiData = StorageManager.get(KEYS.kanji, { chars: [], checks: {} });
+        var chars = kanjiData.chars || [];
+        if (!chars.length) { showToast('漢字データがありません', 'warning'); return; }
+
+        var displayChars = chars.slice().reverse(); // 最新追加分が先頭
 
         var pageHtmls = [];
         students.forEach(function(s, idx) {
             if (!s || !s.name) return;
-            var unitsHtml = '';
-            units.forEach(function(unit) {
-                var chars = unit.chars || [];
-                var checks = unit.checks || {};
-                if (!chars.length) return;
-                var doneCount = 0, retryCount = 0;
-                var cellsHtml = '';
-                chars.forEach(function(c, charIdx) {
-                    var val = (checks[String(idx)] || {})[String(charIdx)];
-                    var bg, color, mark;
-                    if (val === 'o') {
-                        bg = '#C8E6C9'; color = '#9E9E9E'; mark = '○';
-                        doneCount++;
-                    } else if (val === 'd') {
-                        bg = '#FFF8E1'; color = '#F57F17'; mark = '△';
-                        retryCount++;
-                    } else {
-                        bg = '#fff'; color = '#1a1a2e'; mark = '';
-                    }
-                    cellsHtml += '<div style="width:36px;text-align:center;border:1px solid #ddd;'
-                        + 'background:' + bg + ';padding:2px 0;border-radius:3px;">'
-                        + '<div style="font-size:14px;font-weight:700;color:' + color + ';">' + escapeHtml(c) + '</div>'
-                        + '<div style="font-size:10px;color:' + color + ';font-weight:700;min-height:14px;">' + mark + '</div>'
-                        + '</div>';
-                });
-                var remaining = chars.length - doneCount;
-                var summaryColor = remaining === 0 ? '#27AE60' : '#555';
-                var summaryText = '完了 ' + doneCount + '/' + chars.length + '字　のこり ' + remaining + '字'
-                    + (retryCount > 0 ? '　△' + retryCount + '字' : '');
-                unitsHtml += '<div style="border:1.5px solid #ddd;border-radius:6px;padding:8px;margin-bottom:8px;">'
-                    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-                    + '<div style="font-size:11px;font-weight:700;color:#555;">📝 ' + escapeHtml(unit.name || '') + '</div>'
-                    + '<div style="font-size:10px;font-weight:700;color:' + summaryColor + ';">' + summaryText + '</div>'
-                    + '</div>'
-                    + '<div style="display:flex;flex-wrap:wrap;gap:3px;">' + cellsHtml + '</div>'
+            var checks = (kanjiData.checks || {})[String(idx)] || {};
+            var doneCount = 0, retryCount = 0;
+            var cellsHtml = '';
+            displayChars.forEach(function(c, displayIdx) {
+                var charIdx = chars.length - 1 - displayIdx;
+                var val = checks[String(charIdx)];
+                var bg, color, mark;
+                if (val === 'o') {
+                    bg = '#C8E6C9'; color = '#9E9E9E'; mark = '○';
+                    doneCount++;
+                } else if (val === 'd') {
+                    bg = '#FFF8E1'; color = '#F57F17'; mark = '△';
+                    retryCount++;
+                } else {
+                    bg = '#fff'; color = '#1a1a2e'; mark = '';
+                }
+                cellsHtml += '<div style="width:36px;text-align:center;border:1px solid #ddd;'
+                    + 'background:' + bg + ';padding:2px 0;border-radius:3px;">'
+                    + '<div style="font-size:14px;font-weight:700;color:' + color + ';">' + escapeHtml(c) + '</div>'
+                    + '<div style="font-size:10px;color:' + color + ';font-weight:700;min-height:14px;">' + mark + '</div>'
                     + '</div>';
             });
+            var remaining = chars.length - doneCount;
+            var summaryColor = remaining === 0 ? '#27AE60' : '#555';
+            var summaryText = '完了 ' + doneCount + '/' + chars.length + '字　のこり ' + remaining + '字'
+                + (retryCount > 0 ? '　△' + retryCount + '字' : '');
+            var gridHtml = '<div style="border:1.5px solid #ddd;border-radius:6px;padding:8px;margin-bottom:8px;">'
+                + '<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:6px;">'
+                + '<div style="font-size:10px;font-weight:700;color:' + summaryColor + ';">' + summaryText + '</div>'
+                + '</div>'
+                + '<div style="display:flex;flex-wrap:wrap;gap:3px;">' + cellsHtml + '</div>'
+                + '</div>';
             var pageHtml = '<div style="padding:12mm 14mm;box-sizing:border-box;">'
                 + '<div style="border-bottom:3px solid #1a1a2e;padding-bottom:6pt;margin-bottom:10pt;'
                 + 'display:flex;justify-content:space-between;align-items:flex-end;">'
@@ -14868,7 +14741,7 @@
                 + '<span style="font-size:9pt;color:#555;font-weight:700;">氏名</span>'
                 + '<span style="font-size:16pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
                 + '</div>'
-                + unitsHtml
+                + gridHtml
                 + '</div>';
             pageHtmls.push(pageHtml);
         });

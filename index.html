@@ -10806,7 +10806,7 @@
                 allMatomeTests.forEach(function(test) {
                     var sr = ss.find(function(s) { return s.testId === test.id; });
                     var r = _matomeExtract(test, sr, '知');
-                    if (r.max > 0) { var ik = 'mk_'+test.id; kItems.push({ name: test.name+'（知識）', type: 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'knowledge',ik) }); }
+                    if (r.max > 0) { var ik = 'mk_'+test.id; kItems.push({ name: test.name+'（知識）', type: test.testType || 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'knowledge',ik) }); }
                 });
                 var kAvg = calcWeightedScore(kItems);
                 var kABC = score10ToABC(kAvg !== null ? Math.round(kAvg*10)/10 : null, cfg.knowledge.aThreshold, cfg.knowledge.bThreshold);
@@ -10826,7 +10826,7 @@
                 allMatomeTests.forEach(function(test) {
                     var sr = ss.find(function(s) { return s.testId === test.id; });
                     var r = _matomeExtract(test, sr, '思');
-                    if (r.max > 0) { var ik = 'mt_'+test.id; tItems.push({ name: test.name+'（思考）', type: 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'thinking',ik) }); }
+                    if (r.max > 0) { var ik = 'mt_'+test.id; tItems.push({ name: test.name+'（思考）', type: test.testType || 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'thinking',ik) }); }
                 });
                 var pt = grdGetPatrolScore10(i, subject, 'thinking');
                 tItems.push({ name: '机間巡視（思考）', type: '机間巡視', score10: pt.score10 !== null ? Math.round(pt.score10*10)/10 : null, raw: null, max: null, detail: pt.detail, itemKey: 'patrol_thinking', weight: grdGetItemWeight(subject,'thinking','patrol_thinking') });
@@ -10847,7 +10847,7 @@
                 allMatomeTests.forEach(function(test) {
                     var sr = ss.find(function(s) { return s.testId === test.id; });
                     var r = _matomeExtract(test, sr, '主');
-                    if (r.max > 0) { var ik = 'ma_'+test.id; aItems.push({ name: test.name+'（主体性）', type: 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'attitude',ik) }); }
+                    if (r.max > 0) { var ik = 'ma_'+test.id; aItems.push({ name: test.name+'（主体性）', type: test.testType || 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'attitude',ik) }); }
                 });
                 var sub = grdGetSubmissionScore10(i, subject);
                 aItems.push({ name: '提出物（'+subject+'）', type: '提出物', score10: (sub.score10 !== null && sub.total > 0) ? Math.round(sub.score10*10)/10 : null, raw: null, max: null, detail: sub.detail, itemKey: 'submission', weight: grdGetItemWeight(subject,'attitude','submission') });
@@ -11373,7 +11373,7 @@
         }
         // 項目1件の「換算方法」列テキスト
         function grdItemConversionDesc(subject, item) {
-            if (item.type === 'まとめテスト') return '得点÷' + item.max + '×10（まとめテストの該当観点分）';
+            if (item.type === 'まとめテスト' || item.type === '単元テスト') return '得点÷' + item.max + '×10（' + item.type + 'の該当観点分）';
             if (item.type === '机間巡視') return '○評価率×10（机間巡視記録から算出）';
             if (item.type === '提出物') return '提出率(%)÷10。' + grdSubmissionCreditText();
             if (item.type === '実技記録') {

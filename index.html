@@ -11906,7 +11906,7 @@
             var ws = {};
             function put(r, c, v, f, t) {
                 var cell = {};
-                if (f) { cell.f = f; cell.t = t || 'n'; if (cell.t === 's') cell.v = ''; else cell.v = 0; }
+                if (f) { cell.f = f; cell.t = t || 'n'; }
                 else { cell.v = v; cell.t = (typeof v === 'number') ? 'n' : 's'; }
                 ws[AD({ r: r, c: c })] = cell;
             }
@@ -12026,13 +12026,15 @@
                 else cols.push({ wch: 8 });
             }
             ws['!cols'] = cols;
-            // 観点グループ見出し（結合）
+            // 観点グループ見出し（各観点の入力列のみ結合・重複防止）
             var merges = [];
+            var GJ = { knowledge: '知識・技能', thinking: '思考・判断・表現', attitude: '主体性' };
             order.forEach(function(p) {
-                var s = items[p].length ? items[p][0].inCol : outCol[p].pct;
-                var e = outCol[p].pt;
-                merges.push({ s: { r: rGroup, c: s }, e: { r: rGroup, c: e } });
-                ws[AD({ r: rGroup, c: s })] = { v: { knowledge: '知識・技能', thinking: '思考・判断・表現', attitude: '主体性' }[p], t: 's' };
+                if (!items[p].length) return;
+                var s = items[p][0].inCol;
+                var e = items[p][items[p].length - 1].inCol;
+                if (e > s) merges.push({ s: { r: rGroup, c: s }, e: { r: rGroup, c: e } });
+                ws[AD({ r: rGroup, c: s })] = { v: GJ[p], t: 's' };
             });
             ws['!merges'] = merges;
 

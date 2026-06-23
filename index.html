@@ -6786,7 +6786,7 @@
                 return '<div class="rec-mq-cell">' +
                     '<span class="rec-mq-cell-label">Q' + (i+1) + '</span>' +
                     '<span class="rec-mq-cell-type ' + typeClass + '">' + (types[i]||'知') + '</span>' +
-                    '<input type="number" min="0" max="' + pt + '" value="' + (hasAns ? ans : '') + '"' +
+                    '<input type="number" min="0" max="' + pt + '" step="0.1" value="' + (hasAns ? ans : '') + '"' +
                     ' placeholder="/' + pt + '" class="' + (hasAns ? 'has-val' : '') + '"' +
                     ' id="rec-mq-' + i + '"' +
                     ' oninput="recUpdateMatomeTotal()" style="width:52px;">' +
@@ -6808,16 +6808,17 @@
                 if (t === '知') kanMax += pt; else if (t === '思') shiMax += pt; else if (t === '主') shuMax += pt;
                 var input = document.getElementById('rec-mq-' + i);
                 if (input && input.value !== '') {
-                    var v = parseInt(input.value) || 0;
+                    var v = parseFloat(input.value) || 0;
                     total += v;
                     if (t === '知') kan += v; else if (t === '思') shi += v; else if (t === '主') shu += v;
                 }
             });
             var s = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
-            s('recMqTotal', total); s('recMqMax', test.maxScore);
-            s('recMqKan', kan);  s('recMqKanMax', kanMax);
-            s('recMqShi', shi);  s('recMqShiMax', shiMax);
-            s('recMqShu', shu);  s('recMqShuMax', shuMax);
+            var r1 = function(x) { return Math.round(x * 10) / 10; };
+            s('recMqTotal', r1(total)); s('recMqMax', test.maxScore);
+            s('recMqKan', r1(kan));  s('recMqKanMax', kanMax);
+            s('recMqShi', r1(shi));  s('recMqShiMax', shiMax);
+            s('recMqShu', r1(shu));  s('recMqShuMax', shuMax);
         };
 
         window.recMatomeModalSave = function() {
@@ -6828,7 +6829,7 @@
             var answers = points.map(function(pt, i) {
                 var input = document.getElementById('rec-mq-' + i);
                 if (!input || input.value === '') return undefined;
-                var v = parseInt(input.value);
+                var v = parseFloat(input.value);
                 if (isNaN(v)) return undefined;
                 return Math.min(Math.max(0, v), pt);
             });
@@ -6836,6 +6837,7 @@
             answers.forEach(function(ans) {
                 if (typeof ans === 'number') total += ans;
             });
+            total = Math.round(total * 10) / 10;
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) {
                 return s.studentIndex === recMatomeStudentIndex && s.testId === test.id;

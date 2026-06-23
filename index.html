@@ -2372,6 +2372,7 @@
                             <h4 style="margin-bottom:10px;color:var(--text-light);font-size:0.85rem;">分布</h4>
                             <div id="recStatsBar" style="display:flex;align-items:flex-end;gap:6px;height:160px;padding:8px 0;"></div>
                         </div>
+                        <div id="recStatsDeviation" style="display:none;"></div>
                     </div>
                 </div>
                 <div id="rec-sub-tests" class="rec-sub">
@@ -6133,11 +6134,62 @@
                 }).join('');
         }
 
+        // ============================================================
+        // クラス内偏差値
+        // ============================================================
+        function recDeviationStats(testId) {
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === testId; });
+            if (!test) return null;
+            if (test.category === '主体性' || test.testType === 'ルーブリック' || test.testType === '実技記録') return null;
+            var rows = recGetScores().filter(function(s) {
+                return s.testId === testId && !s.absent && typeof s.score === 'number';
+            });
+            if (rows.length < 2) return null;
+            var n = rows.length;
+            var mean = rows.reduce(function(a, s) { return a + s.score; }, 0) / n;
+            var variance = rows.reduce(function(a, s) { return a + (s.score - mean) * (s.score - mean); }, 0) / n;
+            var sd = Math.sqrt(variance);
+            var students = recGetStudents();
+            var list = rows.map(function(s) {
+                var dev = sd === 0 ? 50 : 50 + 10 * (s.score - mean) / sd;
+                return {
+                    studentIndex: s.studentIndex,
+                    name: (students[s.studentIndex] && students[s.studentIndex].name) || ('No.' + (s.studentIndex + 1)),
+                    score: s.score,
+                    dev: Math.round(dev * 10) / 10
+                };
+            });
+            list.sort(function(a, b) { return a.studentIndex - b.studentIndex; });
+            return { test: test, mean: Math.round(mean * 10) / 10, sd: Math.round(sd * 10) / 10, n: n, list: list };
+        }
+
+        function recDevColor(d) { return d >= 60 ? '#27AE60' : d >= 50 ? '#3498DB' : d >= 40 ? 'var(--text)' : '#E67E22'; }
+
+        function recRenderDeviationList(ds) {
+            if (!ds) return '<div style="margin-top:16px;color:var(--text-light);padding:10px;font-size:0.8rem;">偏差値は数値テストで2人以上のデータがあるときに表示されます</div>';
+            var rows = ds.list.map(function(r) {
+                return '<tr>'
+                    + '<td style="padding:5px 8px;text-align:center;color:var(--text-light);font-size:0.78rem;">' + (r.studentIndex + 1) + '</td>'
+                    + '<td style="padding:5px 8px;">' + escapeHtml(r.name) + '</td>'
+                    + '<td style="padding:5px 8px;text-align:right;">' + r.score + (ds.test.maxScore ? ('<span style="color:var(--text-light);font-size:0.72rem;">/' + ds.test.maxScore + '</span>') : '') + '</td>'
+                    + '<td style="padding:5px 8px;text-align:right;font-weight:700;color:' + recDevColor(r.dev) + ';">' + r.dev.toFixed(1) + '</td>'
+                    + '</tr>';
+            }).join('');
+            return '<div style="margin-top:16px;padding:12px;background:#F7FAFC;border-radius:12px;">'
+                + '<h4 style="margin-bottom:8px;color:var(--text-light);font-size:0.85rem;">クラス内偏差値（平均 ' + ds.mean + ' ／ 標準偏差 ' + ds.sd + ' ／ ' + ds.n + '人）</h4>'
+                + '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">'
+                + '<thead><tr style="color:var(--text-light);font-size:0.74rem;"><th style="padding:4px 8px;">No.</th><th style="padding:4px 8px;text-align:left;">氏名</th><th style="padding:4px 8px;text-align:right;">得点</th><th style="padding:4px 8px;text-align:right;">偏差値</th></tr></thead>'
+                + '<tbody>' + rows + '</tbody></table></div>';
+        }
+
         window.recRenderStats = function() {
             var sel = document.getElementById('recStatsTestSel');
             var grid = document.getElementById('recStatsGrid');
             var chartWrap = document.getElementById('recStatsChart');
             var bar = document.getElementById('recStatsBar');
+            var devWrap = document.getElementById('recStatsDeviation');
+            if (devWrap) devWrap.style.display = 'none';
             if (!sel || !grid) return;
 
             var testId = sel.value ? parseInt(sel.value) : null;
@@ -6246,6 +6298,10 @@
                 var maxBar = Math.max.apply(null, dist.map(function(d){return d.count;}).concat([1]));
                 bar.innerHTML = dist.map(function(d){return barItem(d.count,d.label,maxBar);}).join('');
                 chartWrap.style.display = '';
+                if (devWrap) {
+                    devWrap.innerHTML = recRenderDeviationList(recDeviationStats(testId));
+                    devWrap.style.display = '';
+                }
             }
         };
 
@@ -8639,6 +8695,32 @@
             }
         }
 
+        // ===== カルテ: 成績・偏差値セクション =====
+        function karteRenderDeviationSection(idx) {
+            var tests = recGetTests();
+            var rows = [];
+            tests.forEach(function(t) {
+                var ds = recDeviationStats(t.id);
+                if (!ds) return;
+                var mine = ds.list.find(function(r) { return r.studentIndex === idx; });
+                if (!mine) return;
+                rows.push({ name: (t.subject || '') + ' ' + (t.name || ''), score: mine.score, max: t.maxScore, dev: mine.dev, n: ds.n });
+            });
+            var html = '<div class="ks-hub-section" data-ks="all"><div class="ks-hub-header"><span class="ks-hub-title">📊 成績・クラス内偏差値</span></div><div class="ks-hub-body">';
+            if (rows.length === 0) {
+                html += '<span class="ks-hub-empty">対象データなし</span>';
+            } else {
+                rows.slice().reverse().forEach(function(r) {
+                    html += '<div class="ks-hub-row">'
+                        + '<span class="ks-hub-label">' + escapeHtml(r.name) + '：</span>'
+                        + '<span class="ks-hub-val">' + r.score + (r.max ? ('/' + r.max) : '') + '点　偏差値 <b style="color:' + recDevColor(r.dev) + ';">' + r.dev.toFixed(1) + '</b><span style="color:var(--text-light);font-size:0.7rem;">（' + r.n + '人中）</span></span>'
+                        + '</div>';
+                });
+            }
+            html += '</div></div>';
+            return html;
+        }
+
         // ===== タブ: サマリー =====
         function renderKarteSummary() {
             var idx = karteSelectedStudent;
@@ -8888,7 +8970,7 @@
                 '<div class="ks-card" style="border-left:4px solid #E67E22;" data-ks="all"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:#E67E22;">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '</div>' +
                 attDetailHtml + subDetailHtml +
-                '<div data-ks="all">' + recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml + '</div>';
+                '<div data-ks="all">' + karteRenderDeviationSection(idx) + recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml + '</div>';
             container.querySelectorAll('[data-jumptab]').forEach(function(btn) {
                 btn.addEventListener('click', function() { switchKarteTab(btn.dataset.jumptab); });
             });

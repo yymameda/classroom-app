@@ -2864,6 +2864,7 @@
                         <select id="grdGradeSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);flex:1;"></select>
                         <button id="grdCSVBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">📥 CSV</button>
                         <button id="grdExcelBtn" class="btn-primary" style="padding:6px 12px;font-size:0.82rem;background:#1565C0;">📊 Excel（根拠）</button>
+                        <button id="grdTemplateBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">📤 同僚用テンプレート</button>
                     </div>
                     <div id="grdGradeContainer"></div>
                 </div>
@@ -11825,6 +11826,247 @@
         }
 
         // ================================================================
+        // 同僚用テンプレート出力（数式入り・選択教科のみ・元基準を反映）
+        // ================================================================
+        async function grdExportTemplate() {
+            var subject = (document.getElementById('grdGradeSubj') || {}).value;
+            if (!subject) { showToast('教科を選択してください', 'error'); return; }
+            if (typeof XLSX === 'undefined') {
+                showToast('📦 SheetJSを読み込み中...', 'warning');
+                try {
+                    await new Promise(function(resolve, reject) {
+                        var s = document.createElement('script');
+                        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                        s.onload = resolve; s.onerror = reject;
+                        document.head.appendChild(s);
+                        setTimeout(reject, 8000);
+                    });
+                } catch (e) {
+                    showToast('⚠️ SheetJSの読み込みに失敗しました（オフライン時は利用不可）', 'error');
+                    return;
+                }
+            }
+
+            var th = grdGetThresholds();
+            var cfg = th[subject] || th.default;
+            var tests = grdGetTests().filter(function(t) { return t.subject === subject; });
+            var PJ = { knowledge: '知識', thinking: '思考', attitude: '主体性' };
+            var items = { knowledge: [], thinking: [], attitude: [] };
+
+            // --- 通常テスト（grdCalculate と同じ分類・重み0は除外）---
+            function pushTest(persp, test, itemKey) {
+                var w = grdGetItemWeight(subject, persp, itemKey);
+                if (w === 0) return;
+                var kc = (test.testType === '実技記録') ? kenteiGetConfig(test) : null;
+                if (kc) {
+                    items[persp].push({ label: test.name, weight: w, kind: 'kentei', table: (kc.conversionTable || []) });
+                } else if (persp === 'attitude' || test.testType === '授業態度' || test.testType === 'ルーブリック' || !test.maxScore) {
+                    items[persp].push({ label: test.name, weight: w, kind: 'abc' });
+                } else {
+                    items[persp].push({ label: test.name, weight: w, kind: 'num', max: test.maxScore });
+                }
+            }
+            tests.filter(function(t) { return t.type !== 'matome' && t.category === '知識・技能'; })
+                 .forEach(function(t) { pushTest('knowledge', t, 'k_' + t.id); });
+            tests.filter(function(t) { return t.type !== 'matome' && t.category === '思考・判断・表現'; })
+                 .forEach(function(t) { pushTest('thinking', t, 't_' + t.id); });
+            tests.filter(function(t) { return t.type !== 'matome' && t.category === '主体性'; })
+                 .forEach(function(t) { pushTest('attitude', t, 'a_' + t.id); });
+
+            // --- まとめテスト（観点分割。_matomeExtract の max 計算を移植）---
+            function matomeMax(test, targetType) {
+                var all = StorageManager.get(KEYS.matome_questions, {});
+                var _mq = all[test.id] || null;
+                var pts = (_mq ? _mq.map(function(q) { return q.points; }) : null) || test.matomePoints || [];
+                var qTypes = (_mq ? _mq.map(function(q) { return q.type; }) : null) || test.matomeQuestionTypes || [];
+                var hasQT = qTypes.length > 0 && qTypes.some(function(q) { return q; });
+                var max = 0;
+                if (hasQT) {
+                    pts.forEach(function(pt, qi) { if ((qTypes[qi] || '知') === targetType) max += pt; });
+                } else {
+                    if (targetType === '知' && (test.category === '思考・判断・表現' || test.category === '主体性')) return 0;
+                    if (targetType === '思' && test.category !== '思考・判断・表現') return 0;
+                    if (targetType === '主' && test.category !== '主体性') return 0;
+                    pts.forEach(function(pt) { max += pt; });
+                }
+                return max;
+            }
+            tests.filter(function(t) { return t.type === 'matome' && t.matomePoints; }).forEach(function(t) {
+                [['knowledge', '知', 'mk_'], ['thinking', '思', 'mt_'], ['attitude', '主', 'ma_']].forEach(function(m) {
+                    var mx = matomeMax(t, m[1]);
+                    if (mx <= 0) return;
+                    var w = grdGetItemWeight(subject, m[0], m[2] + t.id);
+                    if (w === 0) return;
+                    items[m[0]].push({ label: t.name + '（' + PJ[m[0]] + '）', weight: w, kind: 'num', max: mx });
+                });
+            });
+
+            // --- 列割当 ---
+            var COL = XLSX.utils.encode_col, AD = XLSX.utils.encode_cell;
+            var ws = {};
+            function put(r, c, v, f, t) {
+                var cell = {};
+                if (f) { cell.f = f; cell.t = t || 'n'; if (cell.t === 's') cell.v = ''; else cell.v = 0; }
+                else { cell.v = v; cell.t = (typeof v === 'number') ? 'n' : 's'; }
+                ws[AD({ r: r, c: c })] = cell;
+            }
+            // 設定ブロック（しきい値）: 行1タイトル、行2-5 観点しきい値、行5 評定
+            put(0, 0, subject + '　成績計算（同僚用）');
+            put(1, 0, '観点別しきい値（変更可）');
+            put(2, 0, '知識  A%≧ / B%≧'); put(2, 1, cfg.knowledge.aThreshold); put(2, 2, cfg.knowledge.bThreshold);
+            put(3, 0, '思考  A%≧ / B%≧'); put(3, 1, cfg.thinking.aThreshold); put(3, 2, cfg.thinking.bThreshold);
+            put(4, 0, '主体  A%≧ / B%≧'); put(4, 1, cfg.attitude.aThreshold); put(4, 2, cfg.attitude.bThreshold);
+            put(5, 0, '評定  3≧ / 2≧');   put(5, 1, cfg.final.grade3);        put(5, 2, cfg.final.grade2);
+            var TH = {
+                knowledge: { a: '$B$3', b: '$C$3' }, thinking: { a: '$B$4', b: '$C$4' },
+                attitude: { a: '$B$5', b: '$C$5' }, g3: '$B$6', g2: '$C$6'
+            };
+
+            // 行: 8=観点見出し, 9=満点, 10=ヘッダ, 11..=児童
+            var rGroup = 7, rMax = 8, rHead = 9, rFirst = 10, N = 40;
+            put(rMax, 0, '満点→');
+            put(rHead, 0, '番号'); put(rHead, 1, '氏名');
+
+            var c = 2; // C列から入力列
+            var order = ['knowledge', 'thinking', 'attitude'];
+            order.forEach(function(p) {
+                items[p].forEach(function(it) {
+                    it.inCol = c;
+                    put(rHead, c, it.label);
+                    if (it.kind === 'num') put(rMax, c, it.max);
+                    else if (it.kind === 'kentei') put(rMax, c, '段位');
+                    else put(rMax, c, 'A/B/C');
+                    c++;
+                });
+            });
+            var inEnd = c; // 入力列の右端
+            // 観点出力列（%/ABC/点）
+            var outCol = {};
+            order.forEach(function(p) {
+                outCol[p] = { pct: c, abc: c + 1, pt: c + 2 };
+                put(rHead, c, PJ[p] + '%'); put(rHead, c + 1, PJ[p] + 'ABC'); put(rHead, c + 2, PJ[p] + '点');
+                c += 3;
+            });
+            var sumCol = c, hyoCol = c + 1;
+            put(rHead, sumCol, '合計'); put(rHead, hyoCol, '評定');
+            c += 2;
+            // 補助 score10 列（隠し）
+            var helpStart = c;
+            order.forEach(function(p) { items[p].forEach(function(it) { it.hCol = c; c++; }); });
+            var lastCol = Math.max(c - 1, hyoCol);
+
+            // 検定換算表（別シート _換算）
+            var convAOA = [];
+            var convRanges = {};
+            order.forEach(function(p) {
+                items[p].forEach(function(it) {
+                    if (it.kind !== 'kentei') return;
+                    var startRow = convAOA.length;
+                    (it.table || []).forEach(function(row) { convAOA.push([row.stage, row.score10]); });
+                    convRanges[it.hCol] = { s: startRow, e: convAOA.length - 1 };
+                });
+            });
+
+            // 児童行
+            for (var i = 0; i < N; i++) {
+                var r = rFirst + i;
+                put(r, 0, i + 1);
+                // 補助 score10
+                order.forEach(function(p) {
+                    items[p].forEach(function(it) {
+                        var inA = COL(it.inCol) + (r + 1);
+                        var f;
+                        if (it.kind === 'num') {
+                            var mxA = COL(it.inCol) + '$' + (rMax + 1);
+                            f = 'IF(' + inA + '="","",ROUND(MIN(' + inA + '/' + mxA + '*10,10),1))';
+                        } else if (it.kind === 'abc') {
+                            f = 'IF(' + inA + '="","",IF(UPPER(' + inA + ')="A",10,IF(UPPER(' + inA + ')="B",7,IF(UPPER(' + inA + ')="C",3,""))))';
+                        } else { // kentei
+                            var rg = convRanges[it.hCol];
+                            var range = "'_換算'!$A$" + (rg.s + 1) + ':$B$' + (rg.e + 1);
+                            f = 'IF(' + inA + '="","",IFERROR(VLOOKUP(' + inA + ',' + range + ',2,FALSE),""))';
+                        }
+                        put(r, it.hCol, null, f, 'n');
+                    });
+                });
+                // 観点 %/ABC/点
+                order.forEach(function(p) {
+                    var oc = outCol[p];
+                    var num = [], den = [];
+                    items[p].forEach(function(it) {
+                        var hA = COL(it.hCol) + (r + 1);
+                        num.push('IF(' + hA + '="",0,' + hA + '*' + it.weight + ')');
+                        den.push('IF(' + hA + '="",0,' + it.weight + ')');
+                    });
+                    var pctA = COL(oc.pct) + (r + 1), abcA = COL(oc.abc) + (r + 1), ptA = COL(oc.pt) + (r + 1);
+                    if (!items[p].length) {
+                        put(r, oc.pct, null, '""', 's');
+                        put(r, oc.abc, null, '""', 's');
+                        put(r, oc.pt, null, '""', 's');
+                    } else {
+                        var numf = '(' + num.join('+') + ')', denf = '(' + den.join('+') + ')';
+                        put(r, oc.pct, null, 'IF(' + denf + '=0,"",ROUND(' + numf + '/' + denf + ',1)*10)', 'n');
+                        put(r, oc.abc, null, 'IF(' + pctA + '="","",IF(' + pctA + '>=' + TH[p].a + ',"A",IF(' + pctA + '>=' + TH[p].b + ',"B","C")))', 's');
+                        put(r, oc.pt, null, 'IF(' + abcA + '="","",IF(' + abcA + '="A",3,IF(' + abcA + '="B",2,1)))', 'n');
+                    }
+                });
+                var kA = COL(outCol.knowledge.abc) + (r + 1), tA = COL(outCol.thinking.abc) + (r + 1), aA = COL(outCol.attitude.abc) + (r + 1);
+                var kP = COL(outCol.knowledge.pt) + (r + 1), tP = COL(outCol.thinking.pt) + (r + 1), aP = COL(outCol.attitude.pt) + (r + 1);
+                var sumA = COL(sumCol) + (r + 1);
+                put(r, sumCol, null, 'IF(OR(' + kA + '="",' + tA + '="",' + aA + '=""),"",' + kP + '+' + tP + '+' + aP + ')', 'n');
+                put(r, hyoCol, null, 'IF(' + sumA + '="","",IF(' + sumA + '>=' + TH.g3 + ',3,IF(' + sumA + '>=' + TH.g2 + ',2,1)))', 'n');
+            }
+
+            ws['!ref'] = 'A1:' + COL(lastCol) + (rFirst + N);
+            // 列幅・隠し列
+            var cols = [];
+            for (var ci = 0; ci <= lastCol; ci++) {
+                if (ci === 1) cols.push({ wch: 12 });
+                else if (ci >= helpStart) cols.push({ hidden: true, wch: 6 });
+                else cols.push({ wch: 8 });
+            }
+            ws['!cols'] = cols;
+            // 観点グループ見出し（結合）
+            var merges = [];
+            order.forEach(function(p) {
+                var s = items[p].length ? items[p][0].inCol : outCol[p].pct;
+                var e = outCol[p].pt;
+                merges.push({ s: { r: rGroup, c: s }, e: { r: rGroup, c: e } });
+                ws[AD({ r: rGroup, c: s })] = { v: { knowledge: '知識・技能', thinking: '思考・判断・表現', attitude: '主体性' }[p], t: 's' };
+            });
+            ws['!merges'] = merges;
+
+            var wb = XLSX.utils.book_new();
+            wb.Workbook = { CalcPr: { fullCalcOnLoad: true } };
+            XLSX.utils.book_append_sheet(wb, ws, subject);
+            if (convAOA.length) {
+                var cws = XLSX.utils.aoa_to_sheet(convAOA);
+                XLSX.utils.book_append_sheet(wb, cws, '_換算');
+            }
+            // 使い方シート
+            var guide = XLSX.utils.aoa_to_sheet([
+                ['同僚用 成績計算テンプレート'],
+                [subject + ' の現在の設定（しきい値・テスト項目・満点・重み）を反映しています。'],
+                [''],
+                ['■ 入力するのは「' + subject + '」シートの番号下のセルだけ'],
+                ['　・氏名と、各テストの素点（または A/B/C）を入力'],
+                ['　・満点はテスト名の上の行（変更可）'],
+                ['■ 自動で出るもの：観点%・観点ABC・点・合計・評定'],
+                ['■ 基準：素点÷満点×10（上限10）→観点ごとに重み付き平均'],
+                ['　A/B/C はしきい値（上部）で判定、A=3 B=2 C=1 で合計→評定'],
+                ['■ 検定（段位入力）は _換算 シートの表で換算します'],
+                ['■ 3観点すべてそろうと評定が出ます（1つでも空なら空欄）']
+            ]);
+            guide['!cols'] = [{ wch: 70 }];
+            XLSX.utils.book_append_sheet(wb, guide, '使い方');
+
+            var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            var blob = new Blob([wbout], { type: 'application/octet-stream' });
+            await universalShare(blob, subject + '_同僚用テンプレート_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+            showToast('同僚用テンプレートを出力しました');
+        }
+
+        // ================================================================
         // 📋 カルテ出力センター
         // ================================================================
         function grdRenderKarteCenter() {
@@ -12204,6 +12446,7 @@
             btn('grdResetWeightsBtn', grdResetWeights);
             btn('grdCSVBtn', grdExportCSV);
             btn('grdExcelBtn', grdExportExcel);
+            btn('grdTemplateBtn', grdExportTemplate);
             btn('kcSelectAll',   function() { grdKarteCenterSelectAll(true); });
             btn('kcDeselectAll', function() { grdKarteCenterSelectAll(false); });
             btn('kcPrintBtn',    grdPrintKarteCenter);

@@ -2244,7 +2244,6 @@
                 <div class="att-status-grid" id="subStatusGrid">
                     <div class="att-status-opt" data-s="submitted"><span class="sym">○</span><span class="lbl">提出</span></div>
                     <div class="att-status-opt" data-s="resubmit"><span class="sym">△</span><span class="lbl">再提出</span></div>
-                    <div class="att-status-opt" data-s="missing"><span class="sym">×</span><span class="lbl">未提出</span></div>
                     <div class="att-status-opt" data-s="absent"><span class="sym">欠</span><span class="lbl">欠席</span></div>
                     <div class="att-status-opt" data-s=""><span class="sym">－</span><span class="lbl">空欄に戻す</span></div>
                 </div>
@@ -4124,12 +4123,53 @@
         console.log('[cleanupOldKanjiBackups] 削除完了（' + presentKeys.join(', ') + '）。spa_kanji本体は変化していません(' + (afterKanji ? afterKanji.length : 0) + 'バイト)。');
     }
 
+    // --- 提出物：手動「×（未提出）」レコードの掃除（v1.8.63、起動時1回） ---
+    // A案（空欄＝未提出）への統一に伴い、過去に手動で付けた未提出マーカー
+    // （status が 'missing' / '×' かつ 欠席でないレコード）を削除する。
+    // 集計・成績では「総数−○−△」の派生値として既に未提出に数えられており、
+    // 削除しても件数・提出率・10点換算・PDF・カルテは変化しない（情報損失なし）。
+    // 欠席レコード（absent:true）と ○/△ は対象外。冪等：対象がなければ何もしない。
+    var SUB_MISSING_MARKERS_V1863 = ['missing', '×'];
+    function cleanupSubmissionMissingV1863() {
+        var raw = StorageManager.getRaw(KEYS.submissions_data);
+        if (raw === null) { console.log('[cleanupSubMissing] submissions_data なし。何もしません。'); return; }
+        var arr;
+        try { arr = JSON.parse(raw); } catch(e) { console.error('[cleanupSubMissing] parse error。中止します。', e); return; }
+        if (!Array.isArray(arr)) { console.warn('[cleanupSubMissing] 配列ではないため中止します。'); return; }
+
+        var removed = [];
+        var kept = arr.filter(function(r) {
+            if (r && !r.absent && SUB_MISSING_MARKERS_V1863.indexOf(r.status) >= 0) { removed.push(r); return false; }
+            return true;
+        });
+
+        if (removed.length === 0) {
+            console.log('[cleanupSubMissing] 対象なし（手動×レコード0件）。何もしません。');
+            return;
+        }
+
+        try {
+            StorageManager.set('spa_submissions_removed_v1863', JSON.stringify(removed));
+        } catch(e) {
+            console.error('[cleanupSubMissing] バックアップ保存に失敗。安全のため削除を中止します。', e);
+            return;
+        }
+        if (StorageManager.getRaw('spa_submissions_removed_v1863') === null) {
+            console.error('[cleanupSubMissing] バックアップ確認に失敗。削除を中止します。');
+            return;
+        }
+
+        StorageManager.set(KEYS.submissions_data, JSON.stringify(kept));
+        console.log('[cleanupSubMissing] 手動×レコード ' + removed.length + '件を削除（' + arr.length + '→' + kept.length + '件）。バックアップ: spa_submissions_removed_v1863');
+    }
+
     let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
         migrateScoreData();
         migrateKanjiToFlat();
         cleanupOldKanjiBackups();
         migrateKanjiOrder();
+        cleanupSubmissionMissingV1863();
         loadMaster();
         updateSettingsUI();
         updateDashboard();
@@ -9823,7 +9863,6 @@
                     + '<div class="sub-status-btns">'
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'
                     +   '<button class="sub-status-btn' + (st === 'resubmit' ? ' sel-resubmit' : '') + '" data-idx="' + i + '" data-status="resubmit">△</button>'
-                    +   '<button class="sub-status-btn' + (st === 'missing' ? ' sel-missing' : '') + '" data-idx="' + i + '" data-status="missing">×</button>'
                     +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                     + '</div>'
                     + '</div>';

@@ -1,7 +1,6 @@
 // Service Worker for 教室管理アプリ PWA
 // キャッシュファースト + バージョン管理
-
-const CACHE_VERSION = 'v1.8.66';
+const CACHE_VERSION = 'v1.8.66-dbg';
 const CACHE_NAME = 'classroom-app-' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -9,16 +8,15 @@ const ASSETS = [
   './pf.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './debug-error.js'
 ];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll(ASSETS);
-    }).then(function() {
-      return self.skipWaiting();
-    })
+    }).then(function() { return self.skipWaiting(); })
   );
 });
 
@@ -29,9 +27,7 @@ self.addEventListener('activate', function(e) {
         keys.filter(function(k) { return k !== CACHE_NAME; })
             .map(function(k) { return caches.delete(k); })
       );
-    }).then(function() {
-      return self.clients.claim();
-    })
+    }).then(function() { return self.clients.claim(); })
   );
 });
 
@@ -49,9 +45,7 @@ self.addEventListener('fetch', function(e) {
 });
 
 self.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if (e.data && e.data.type === 'SKIP_WAITING') { self.skipWaiting(); }
   if (e.data && e.data.type === 'GET_VERSION') {
     e.source.postMessage({ type: 'VERSION', version: CACHE_VERSION });
   }

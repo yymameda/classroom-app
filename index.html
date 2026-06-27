@@ -5782,7 +5782,7 @@
         function _invalidate() { _testsCache = null; _scoresCache = null; }
 
         function recGetTests() {
-            if (_testsCache === null || _testsCache.length === 0) _testsCache = StorageManager.get(REC_KEYS.tests, []);
+            if (_testsCache === null) _testsCache = StorageManager.get(REC_KEYS.tests, []);
             return _testsCache;
         }
         function recSaveTests(arr) {
@@ -5791,7 +5791,7 @@
             _testsCache = null;
         }
         function recGetScores() {
-            if (_scoresCache === null || _scoresCache.length === 0) _scoresCache = StorageManager.get(REC_KEYS.scores, []);
+            if (_scoresCache === null) _scoresCache = StorageManager.get(REC_KEYS.scores, []);
             return _scoresCache;
         }
         function recSaveScores(arr) {
@@ -10898,11 +10898,11 @@
 
         function grdGetStudents() { return master.students || []; }
         function grdGetTests() {
-            if (!_grdCacheTests || _grdCacheTests.length === 0) _grdCacheTests = StorageManager.get(KEYS.tests, []);
+            if (!_grdCacheTests) _grdCacheTests = StorageManager.get(KEYS.tests, []);
             return _grdCacheTests;
         }
         function grdGetScores() {
-            if (!_grdCacheScores || _grdCacheScores.length === 0) _grdCacheScores = StorageManager.get(KEYS.scores, []);
+            if (!_grdCacheScores) _grdCacheScores = StorageManager.get(KEYS.scores, []);
             return _grdCacheScores;
         }
         function grdGetPatrol() {

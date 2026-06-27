@@ -7567,6 +7567,14 @@
         }
         document.addEventListener('DOMContentLoaded', migrateKenteiCardScores);
 
+        // 外部（カルテ・面談テキスト等）から呼べるように公開
+        window.recGetTests = recGetTests;
+        window.recGetScores = recGetScores;
+        window.recDeviationStats = recDeviationStats;
+        window.recDevColor = recDevColor;
+        window.kenteiGetConfig = kenteiGetConfig;
+        window.kenteiCalcStage = kenteiCalcStage;
+
     })();
 
         // ===== 机間巡視 JS =====

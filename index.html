@@ -3027,6 +3027,11 @@
                         </label>
                     </div>
                 </div>
+                <div class="card">
+                    <h3>🗣️ 面談用テキスト出力</h3>
+                    <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">選択中の児童の<strong>全項目</strong>（成績・出欠・提出・漢字・生活記録・児童記録・保護者対応・身体配慮・学習配慮）をテキスト化してコピーします。WebのClaudeに貼り付けて面談準備にお使いください。<br>※上の「出力するセクション」のチェックはPDF用です。テキストは常に全項目を出力します。</p>
+                    <button id="kvCopyTextBtn" class="btn btn-primary" style="padding:12px 24px;font-size:0.95rem;background:linear-gradient(135deg,#27AE60,#1E8449);border:none;border-radius:10px;min-height:48px;">📋 面談用テキストをコピー</button>
+                </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:24px;">
                     <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,#2D7D9A,#1E5A70);border:none;border-radius:10px;min-height:48px;">🖨️ カルテ出力（PDF）</button>
                     <span style="font-size:0.8rem;color:var(--text-light);">選択した児童・セクションをA4縦でまとめて出力します</span>
@@ -7912,6 +7917,8 @@
                 updateStatus();
             };
             if (printBtn) printBtn.onclick = kvPrint;
+            var copyTextBtn = document.getElementById('kvCopyTextBtn');
+            if (copyTextBtn) copyTextBtn.onclick = kvCopyTextForConference;
         }
 
         function kvGetSelectedIdxs() {
@@ -8380,6 +8387,193 @@
                 + '<span style="font-size:8pt;color:#555;font-weight:700;">氏名</span>'
                 + '<span style="font-size:15pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
                 + '</div>' + body + '</div>';
+        }
+
+        // ----------------------------------------------------------------
+        // 面談用テキスト出力（選択児童の全項目をテキスト化してコピー）
+        // ----------------------------------------------------------------
+        function kvBuildConferenceText(idxs) {
+            var master      = StorageManager.get(KEYS.master, {});
+            var students    = master.students || [];
+            var ci          = master.classInfo || {};
+            var classLabel  = (ci.grade || '') + '年' + (ci.class || '') + '組　担任：' + (ci.teacher || '');
+
+            var subjects    = (typeof grdGetAvailableSubjects === 'function') ? grdGetAvailableSubjects() : [];
+            var attAll      = StorageManager.get(KEYS.attendance, {});
+            var allAssigns  = StorageManager.get(KEYS.submissions_assignments, []);
+            var subsData    = StorageManager.get(KEYS.submissions_data, []);
+            var lifeAll     = StorageManager.get(KEYS.karte_life, {});
+            var parentAll   = StorageManager.get(KEYS.karte_parent, {});
+            var healthAll   = StorageManager.get(KEYS.karte_health, {});
+            var learningAll = StorageManager.get(KEYS.karte_learning, {});
+            var kanji       = StorageManager.get(KEYS.kanji, { chars: [], checks: {} });
+            var recsAll     = StorageManager.get(KK.recs, []);
+            var mpAll       = StorageManager.get(KEYS.morning_prep, {});
+            var methodLabels = { phone: '電話', meeting: '面談', note: '連絡帳', other: 'その他' };
+
+            var gradeResults = {};
+            subjects.forEach(function(subj) {
+                try { gradeResults[subj] = grdCalculate(subj); } catch (e) { gradeResults[subj] = null; }
+            });
+
+            var blocks = [];
+            idxs.forEach(function(idx) {
+                var s = students[idx];
+                if (!s || !s.name) return;
+                var L = [];
+                L.push('━━━━━━━━━━━━━━━━━━━━');
+                L.push('■ 個人カルテ（面談用）');
+                L.push(classLabel);
+                L.push('番号 ' + (idx + 1) + '　氏名：' + s.name + (s.gender ? '（' + s.gender + '）' : ''));
+                L.push('━━━━━━━━━━━━━━━━━━━━');
+
+                L.push('');
+                L.push('【成績（観点別・評定）】');
+                var gradeRows = [];
+                subjects.forEach(function(subj) {
+                    var res = gradeResults[subj]; if (!res) return;
+                    var sr = res.find(function(r) { return r.index === idx; }); if (!sr) return;
+                    gradeRows.push(subj + '：知 ' + (sr.knowledge.abc || '—') + '／思 ' + (sr.thinking.abc || '—') + '／主 ' + (sr.attitude.abc || '—') + '／評定 ' + (sr.hyoutei || '—'));
+                });
+                L.push(gradeRows.length ? gradeRows.join('\n') : '（データなし）');
+
+                var present = 0, absent = 0, late = 0, early = 0;
+                Object.keys(attAll).forEach(function(dk) {
+                    var st = (attAll[dk] || {})[String(idx)]; if (!st) return;
+                    if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') present++;
+                    if (st === '×' || st === '／') absent++;
+                    if (st === 'チ' || st === 'チソ') late++;
+                    if (st === 'ソ' || st === 'チソ') early++;
+                });
+                L.push('');
+                L.push('【出欠席】');
+                L.push('出席 ' + present + '日／欠席 ' + absent + '日／遅刻 ' + late + '回／早退 ' + early + '回');
+
+                var subOk = 0, subRe = 0, subMiss = 0, missList = [];
+                allAssigns.forEach(function(a) {
+                    var r = subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
+                    if (r && r.status === 'submitted') subOk++;
+                    else if (r && r.status === 'resubmit') { subRe++; missList.push(a.name + '（再提出）'); }
+                    else { subMiss++; missList.push(a.name + '（未提出）'); }
+                });
+                var subT = allAssigns.length;
+                L.push('');
+                L.push('【提出物' + (subT > 0 ? ('（' + Math.round((subOk + subRe) / subT * 100) + '%）') : '') + '】');
+                if (subT > 0) {
+                    L.push('提出済 ' + subOk + '件／再提出 ' + subRe + '件／未提出 ' + subMiss + '件');
+                    if (missList.length) L.push('未提出・再提出：' + missList.join('、'));
+                } else { L.push('（課題なし）'); }
+
+                var kjChars = kanji.chars || [];
+                L.push('');
+                L.push('【漢字チェック】');
+                if (kjChars.length) {
+                    var sc = (kanji.checks || {})[String(idx)] || {};
+                    var done = 0;
+                    kjChars.forEach(function(_, ci2) { if (sc[String(ci2)] === 'o') done++; });
+                    L.push(kjChars.length + '字中 ' + done + '字完了（' + Math.round(done / kjChars.length * 100) + '%）');
+                } else { L.push('（データなし）'); }
+
+                var mpCount = 0;
+                Object.keys(mpAll).forEach(function(dk) { if ((mpAll[dk] || {})[String(idx)] === true) mpCount++; });
+                if (mpCount > 0) {
+                    L.push('');
+                    L.push('【朝の準備】間に合わなかった回数（累計）：' + mpCount + '回');
+                }
+
+                var lifeRecs = (Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : []).slice().sort(function(a, b) { return (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''); });
+                L.push('');
+                L.push('【生活記録（' + lifeRecs.length + '件）】');
+                if (lifeRecs.length) {
+                    lifeRecs.forEach(function(r) {
+                        var cats = (r.categories || []).map(function(c) { var x = KARTE_LIFE_CATEGORIES.find(function(k) { return k.id === c; }); return x ? x.label : c; }).join('・');
+                        L.push('・' + (r.date || '') + (cats ? (' [' + cats + ']') : '') + '　' + (r.summary || r.memo || ''));
+                    });
+                } else { L.push('（記録なし）'); }
+
+                var recs = recsAll.filter(function(r) { return r.studentIndex === idx; }).slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+                L.push('');
+                L.push('【児童の記録（' + recs.length + '件）】');
+                if (recs.length) {
+                    recs.forEach(function(r) {
+                        var em = KARTE_RATINGS[r.rating] || '';
+                        L.push('・' + (r.date || '') + '　' + em + (r.category ? ('[' + r.category + ']') : '') + '　' + (r.memo || ''));
+                    });
+                } else { L.push('（記録なし）'); }
+
+                var parentRecs = (Array.isArray(parentAll[String(idx)]) ? parentAll[String(idx)] : []).slice().sort(function(a, b) { return (b.datetime || b.date || '').localeCompare(a.datetime || a.date || ''); });
+                L.push('');
+                L.push('【保護者対応（' + parentRecs.length + '件）】');
+                if (parentRecs.length) {
+                    parentRecs.forEach(function(r) {
+                        var m = methodLabels[r.method] || r.method || '';
+                        var d = r.datetime ? new Date(r.datetime).toLocaleDateString('ja-JP') : (r.date || '');
+                        L.push('・' + d + '　' + m + '　' + (r.content || ''));
+                    });
+                } else { L.push('（記録なし）'); }
+
+                var hd = healthAll[String(idx)] || { allergies: [], medication: '', exerciseLimit: '', familyMemo: '' };
+                L.push('');
+                L.push('【身体・配慮】');
+                var hLines = [];
+                if ((hd.allergies || []).length) hLines.push('アレルギー：' + hd.allergies.join('、'));
+                if (hd.medication) hLines.push('服薬：' + hd.medication);
+                if (hd.exerciseLimit) hLines.push('運動制限：' + hd.exerciseLimit);
+                if (hd.familyMemo) hLines.push('家庭メモ：' + hd.familyMemo);
+                L.push(hLines.length ? hLines.join('\n') : '（記録なし）');
+
+                var ld = learningAll[String(idx)] || { characteristics: '', readingWriting: '', classroomSupport: '', communication: '', assessment: '', supportKeywords: [] };
+                L.push('');
+                L.push('【学習面配慮】');
+                var lLines = [];
+                if ((ld.supportKeywords || []).length) lLines.push('支援キーワード：' + ld.supportKeywords.join(' / '));
+                if (ld.characteristics) lLines.push('特性：' + ld.characteristics);
+                if (ld.readingWriting) lLines.push('読み書き：' + ld.readingWriting);
+                if (ld.classroomSupport) lLines.push('授業配慮：' + ld.classroomSupport);
+                if (ld.communication) lLines.push('コミュニケーション：' + ld.communication);
+                if (ld.assessment) lLines.push('見立て：' + ld.assessment);
+                L.push(lLines.length ? lLines.join('\n') : '（記録なし）');
+
+                L.push('');
+                blocks.push(L.join('\n'));
+            });
+            return blocks.join('\n\n');
+        }
+
+        function kvCopyTextForConference() {
+            var idxs = kvGetSelectedIdxs();
+            if (!idxs.length) { showToast('対象の児童を選択してください', 'warning'); return; }
+            var text = kvBuildConferenceText(idxs);
+            if (!text) { showToast('出力できるデータがありません', 'warning'); return; }
+            var label = (idxs.length > 1 ? idxs.length + '名の' : '') + '面談用テキストをコピーしました';
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showToast(label, 'success');
+                }).catch(function() {
+                    kvShowTextFallback(text);
+                });
+            } else {
+                kvShowTextFallback(text);
+            }
+        }
+
+        function kvShowTextFallback(text) {
+            var ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:85vh;display:flex;flex-direction:column;padding:14px;box-sizing:border-box;';
+            box.innerHTML = '<div style="font-weight:700;margin-bottom:8px;">面談用テキスト（長押しで全選択 → コピー）</div>';
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'flex:1;min-height:300px;width:100%;box-sizing:border-box;font-size:13px;line-height:1.5;border:1.5px solid #ccc;border-radius:8px;padding:8px;font-family:inherit;-webkit-user-select:text;user-select:text;';
+            var btn = document.createElement('button');
+            btn.textContent = '閉じる';
+            btn.style.cssText = 'margin-top:10px;padding:10px;border:none;border-radius:8px;background:#2D7D9A;color:#fff;font-size:0.95rem;min-height:44px;';
+            btn.onclick = function() { if (document.body.contains(ov)) document.body.removeChild(ov); };
+            box.appendChild(ta); box.appendChild(btn); ov.appendChild(box);
+            ov.addEventListener('click', function(e) { if (e.target === ov) document.body.removeChild(ov); });
+            document.body.appendChild(ov);
+            ta.focus(); ta.select();
         }
 
 

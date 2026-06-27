@@ -8411,6 +8411,15 @@
             var mpAll       = StorageManager.get(KEYS.morning_prep, {});
             var methodLabels = { phone: '電話', meeting: '面談', note: '連絡帳', other: 'その他' };
 
+            // テスト個票用（学習データ）
+            var recTests  = (typeof recGetTests === 'function')  ? recGetTests()  : [];
+            var recScores = (typeof recGetScores === 'function') ? recGetScores() : [];
+            var devByTest = {};
+            if (typeof recDeviationStats === 'function') {
+                recTests.forEach(function(t) { var ds = recDeviationStats(t.id); if (ds) devByTest[t.id] = ds; });
+            }
+
+            // 成績は教科ごとに1回だけ計算
             var gradeResults = {};
             subjects.forEach(function(subj) {
                 try { gradeResults[subj] = grdCalculate(subj); } catch (e) { gradeResults[subj] = null; }
@@ -8427,6 +8436,7 @@
                 L.push('番号 ' + (idx + 1) + '　氏名：' + s.name + (s.gender ? '（' + s.gender + '）' : ''));
                 L.push('━━━━━━━━━━━━━━━━━━━━');
 
+                // 成績
                 L.push('');
                 L.push('【成績（観点別・評定）】');
                 var gradeRows = [];
@@ -8437,6 +8447,26 @@
                 });
                 L.push(gradeRows.length ? gradeRows.join('\n') : '（データなし）');
 
+                // テスト個票（観点・点数・クラス内偏差値・提出遅れ）
+                var myTests = [];
+                recTests.forEach(function(t) {
+                    var rec = recScores.find(function(sc) { return sc.testId === t.id && String(sc.studentIndex) === String(idx); });
+                    if (!rec) return;
+                    var devStr = '';
+                    var ds = devByTest[t.id];
+                    if (ds) { var mine = ds.list.find(function(r) { return r.studentIndex === idx; }); if (mine) devStr = '　偏差値' + mine.dev.toFixed(1) + '（' + ds.n + '人中）'; }
+                    var scoreStr = rec.absent ? '欠席' : (typeof rec.score === 'number' ? (rec.score + (t.maxScore ? ('/' + t.maxScore) : '') + '点') : (rec.score || '—'));
+                    var line = '・' + (t.date || '') + '　' + (t.subject || '') + '「' + (t.name || '') + '」'
+                        + (t.category ? ('［' + t.category + '］') : '') + (t.testType ? ('（' + t.testType + '）') : '')
+                        + '　' + scoreStr + devStr + (rec.lateSubmit ? '　※提出遅れ' : '');
+                    myTests.push({ date: (t.date || ''), line: line });
+                });
+                myTests.sort(function(a, b) { return a.date.localeCompare(b.date); });
+                L.push('');
+                L.push('【テスト個票（' + myTests.length + '件・観点／点数／クラス内偏差値）】');
+                L.push(myTests.length ? myTests.map(function(x) { return x.line; }).join('\n') : '（データなし）');
+
+                // 出欠席
                 var present = 0, absent = 0, late = 0, early = 0;
                 Object.keys(attAll).forEach(function(dk) {
                     var st = (attAll[dk] || {})[String(idx)]; if (!st) return;
@@ -8449,6 +8479,7 @@
                 L.push('【出欠席】');
                 L.push('出席 ' + present + '日／欠席 ' + absent + '日／遅刻 ' + late + '回／早退 ' + early + '回');
 
+                // 提出物（全教科）
                 var subOk = 0, subRe = 0, subMiss = 0, missList = [];
                 allAssigns.forEach(function(a) {
                     var r = subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
@@ -8464,6 +8495,7 @@
                     if (missList.length) L.push('未提出・再提出：' + missList.join('、'));
                 } else { L.push('（課題なし）'); }
 
+                // 漢字チェック
                 var kjChars = kanji.chars || [];
                 L.push('');
                 L.push('【漢字チェック】');
@@ -8474,6 +8506,7 @@
                     L.push(kjChars.length + '字中 ' + done + '字完了（' + Math.round(done / kjChars.length * 100) + '%）');
                 } else { L.push('（データなし）'); }
 
+                // 朝の準備
                 var mpCount = 0;
                 Object.keys(mpAll).forEach(function(dk) { if ((mpAll[dk] || {})[String(idx)] === true) mpCount++; });
                 if (mpCount > 0) {
@@ -8481,6 +8514,7 @@
                     L.push('【朝の準備】間に合わなかった回数（累計）：' + mpCount + '回');
                 }
 
+                // 生活記録
                 var lifeRecs = (Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : []).slice().sort(function(a, b) { return (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''); });
                 L.push('');
                 L.push('【生活記録（' + lifeRecs.length + '件）】');
@@ -8491,6 +8525,7 @@
                     });
                 } else { L.push('（記録なし）'); }
 
+                // 児童の記録
                 var recs = recsAll.filter(function(r) { return r.studentIndex === idx; }).slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
                 L.push('');
                 L.push('【児童の記録（' + recs.length + '件）】');
@@ -8501,6 +8536,7 @@
                     });
                 } else { L.push('（記録なし）'); }
 
+                // 保護者対応
                 var parentRecs = (Array.isArray(parentAll[String(idx)]) ? parentAll[String(idx)] : []).slice().sort(function(a, b) { return (b.datetime || b.date || '').localeCompare(a.datetime || a.date || ''); });
                 L.push('');
                 L.push('【保護者対応（' + parentRecs.length + '件）】');
@@ -8512,6 +8548,7 @@
                     });
                 } else { L.push('（記録なし）'); }
 
+                // 身体・配慮
                 var hd = healthAll[String(idx)] || { allergies: [], medication: '', exerciseLimit: '', familyMemo: '' };
                 L.push('');
                 L.push('【身体・配慮】');
@@ -8522,6 +8559,7 @@
                 if (hd.familyMemo) hLines.push('家庭メモ：' + hd.familyMemo);
                 L.push(hLines.length ? hLines.join('\n') : '（記録なし）');
 
+                // 学習面配慮
                 var ld = learningAll[String(idx)] || { characteristics: '', readingWriting: '', classroomSupport: '', communication: '', assessment: '', supportKeywords: [] };
                 L.push('');
                 L.push('【学習面配慮】');
@@ -8537,7 +8575,8 @@
                 L.push('');
                 blocks.push(L.join('\n'));
             });
-            return blocks.join('\n\n');
+            var head = '【依頼】以下は担任が記録した児童データです。学習面を中心に、この児童の強み（よく取り組めている点）とつまずき・課題を、テスト個票の点数の推移や観点（知識・技能／思考・判断・表現／主体性）も踏まえて分析し、面談で保護者に前向きに伝える材料として整理してください。\n\n';
+            return head + blocks.join('\n\n');
         }
 
         function kvCopyTextForConference() {

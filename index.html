@@ -12614,8 +12614,8 @@
                     assigns.forEach(function(a) {
                         var r = subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
                         if (r && r.status === 'submitted') { subOk++; }
-                        else if (r && r.status === 'resubmit') { subRe++; missList.push({ name: a.name, subject: a.subject || '', resub: true, checkedAt: (r && r.createdAt) || '' }); }
-                        else { subMiss++; missList.push({ name: a.name, subject: a.subject || '', resub: false, checkedAt: (r && r.createdAt) || '' }); }
+                        else if (r && r.status === 'resubmit') { subRe++; missList.push({ name: a.name, subject: a.subject || '', resub: true, checkedAt: a.date || '' }); }
+                        else { subMiss++; missList.push({ name: a.name, subject: a.subject || '', resub: false, checkedAt: a.date || '' }); }
                     });
                     var total = assigns.length;
                     var rate = total > 0 ? Math.round((subOk + subRe) / total * 100) : 0;
@@ -12637,7 +12637,7 @@
                             var subjChip = '<span style="display:inline-block;min-width:34pt;text-align:center;font-size:7pt;font-weight:700;color:#1a2332;background:#eef2f7;border:0.6pt solid #ccd6e0;border-radius:4pt;padding:0.5pt 3pt;margin-right:5pt;">' + escapeHtml(it.subject || '') + '</span>';
                             var dateStr = it.checkedAt ? new Date(it.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric' }) : '';
                             var reTag = it.resub ? '<span style="font-size:7pt;color:#B7950B;font-weight:700;margin-left:3pt;">（再）</span>' : '';
-                            subSec += '<div style="display:flex;align-items:center;font-size:8.5pt;padding:2.5pt 0;border-bottom:0.5pt solid #f0f0f0;">' + subjChip + '<span style="flex:1;color:#333;">' + escapeHtml(it.name) + reTag + '</span>' + (dateStr ? '<span style="font-size:7pt;color:#888;white-space:nowrap;">🕑' + dateStr + '</span>' : '') + '</div>';
+                            subSec += '<div style="display:flex;align-items:center;font-size:8.5pt;padding:2.5pt 0;border-bottom:0.5pt solid #f0f0f0;">' + subjChip + '<span style="flex:1;color:#333;">' + escapeHtml(it.name) + reTag + '</span>' + (dateStr ? '<span style="font-size:7pt;color:#888;white-space:nowrap;">🗓' + dateStr + '</span>' : '') + '</div>';
                         });
                         subSec += '</div>';
                     }

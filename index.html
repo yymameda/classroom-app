@@ -8170,8 +8170,8 @@
                 data.assigns.forEach(function(a) {
                     var r = data.subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
                     if (r && r.status === 'submitted') subOk++;
-                    else if (r && r.status === 'resubmit') { subRe++; subPendingList.push({ name: a.name || a.title || '', status: '再提出' }); }
-                    else { subMiss++; subPendingList.push({ name: a.name || a.title || '', status: '未提出' }); }
+                    else if (r && r.status === 'resubmit') { subRe++; subPendingList.push({ name: a.name || a.title || '', status: '再提出', subject: a.subject || '', checkedAt: a.date || '' }); }
+                    else { subMiss++; subPendingList.push({ name: a.name || a.title || '', status: '未提出', subject: a.subject || '', checkedAt: a.date || '' }); }
                 });
                 var subTotal = data.assigns.length;
                 var subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) : 100;
@@ -8198,9 +8198,12 @@
                         + '<div style="font-size:7pt;font-weight:700;color:#555;margin-bottom:3pt;">未提出・再提出の課題</div>'
                         + subPendingList.map(function(item) {
                             var color = item.status === '未提出' ? '#E74C3C' : '#F39C12';
+                            var subjChip = item.subject ? '<span style="display:inline-block;min-width:34pt;text-align:center;font-size:7pt;font-weight:700;color:#1a2332;background:#eef2f7;border:0.6pt solid #ccd6e0;border-radius:4pt;padding:0.5pt 3pt;margin-right:3pt;">' + escapeHtml(item.subject) + '</span>' : '';
+                            var dateStr = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric' }) : '';
                             return '<div style="display:flex;align-items:center;gap:6pt;padding:3pt 0;border-bottom:0.5pt solid #e0e0e0;">'
-                                + '<span style="display:inline-block;width:10pt;height:10pt;border:1.5pt solid #888;border-radius:2pt;flex-shrink:0;"></span>'
+                                + subjChip
                                 + '<span style="font-size:7.5pt;flex:1;">' + escapeHtml(item.name) + '</span>'
+                                + (dateStr ? '<span style="font-size:6.5pt;color:#888;white-space:nowrap;">🗓' + dateStr + '</span>' : '')
                                 + '<span style="font-size:6.5pt;font-weight:700;color:' + color + ';flex-shrink:0;">' + item.status + '</span>'
                                 + '</div>';
                         }).join('')

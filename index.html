@@ -1114,6 +1114,8 @@
         .ks-missing-row:last-child { border-bottom:none; }
         .ks-missing-name { flex:1; font-size:0.8rem; color:var(--text); }
         .ks-missing-status { flex:none; font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; color:#fff; white-space:nowrap; }
+        .ks-missing-subj { flex:none; font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:4px; background:var(--secondary); color:var(--primary); white-space:nowrap; }
+        .ks-missing-checked { flex:none; font-size:0.64rem; color:var(--text-light); white-space:nowrap; }
         .ks-recent { margin-top: 0.5rem; }
         .ks-recent-title { font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 0.4rem; }
         /* 生活記録 */
@@ -9041,9 +9043,9 @@
                         return String(s2.assignmentId) === String(a.id) && String(s2.studentIndex) === String(idx);
                     });
                     if (sub && sub.status === 'submitted') { subOk++; }
-                    else if (sub && sub.status === 'resubmit') { subRe++; subMissList.push({ name: a.name, status: '再提出' }); }
-                    else { subMiss++; subMissList.push({ name: a.name, status: '未提出' }); }
-                    if (sub && sub.lateOnDue === true) { subLate++; subLateList.push({ name: a.name }); }
+                    else if (sub && sub.status === 'resubmit') { subRe++; subMissList.push({ name: a.name, status: '再提出', subject: a.subject || '', checkedAt: sub.createdAt || '' }); }
+                    else { subMiss++; subMissList.push({ name: a.name, status: '未提出', subject: a.subject || '', checkedAt: (sub && sub.createdAt) || '' }); }
+                    if (sub && sub.lateOnDue === true) { subLate++; subLateList.push({ name: a.name, subject: a.subject || '', checkedAt: sub.createdAt || '' }); }
                 });
                 subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) + '%' : '-';
                 var recAllScores = karteSafeGet(KEYS.scores, []);
@@ -9226,7 +9228,10 @@
                     subDetailHtml += '<div style="margin-top:4px;">';
                     subMissList.slice(0, 5).forEach(function(item) {
                         var col = item.status === '未提出' ? 'var(--danger)' : '#B7950B';
-                        subDetailHtml += '<div class="ks-missing-row"><span class="ks-missing-name">' + escapeHtml(item.name) + '</span><span class="ks-missing-status" style="background:' + col + ';">' + item.status + '</span></div>';
+                        var subjTag = item.subject ? '<span class="ks-missing-subj">' + escapeHtml(item.subject) + '</span>' : '';
+                        var chk = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+                        var chkTag = chk ? '<span class="ks-missing-checked">🕑' + chk + '</span>' : '';
+                        subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + chkTag + '<span class="ks-missing-status" style="background:' + col + ';">' + item.status + '</span></div>';
                     });
                     if (subMissList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subMissList.length - 5) + ' 件</div>';
                     subDetailHtml += '</div>';
@@ -9234,7 +9239,10 @@
                 if (subLateList.length > 0) {
                     subDetailHtml += '<div style="margin-top:4px;">';
                     subLateList.slice(0, 5).forEach(function(item) {
-                        subDetailHtml += '<div class="ks-missing-row"><span class="ks-missing-name">' + escapeHtml(item.name) + '</span><span class="ks-missing-status" style="background:#E67E22;">提出遅れ</span></div>';
+                        var subjTag = item.subject ? '<span class="ks-missing-subj">' + escapeHtml(item.subject) + '</span>' : '';
+                        var chk = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+                        var chkTag = chk ? '<span class="ks-missing-checked">🕑' + chk + '</span>' : '';
+                        subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + chkTag + '<span class="ks-missing-status" style="background:#E67E22;">提出遅れ</span></div>';
                     });
                     if (subLateList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subLateList.length - 5) + ' 件</div>';
                     subDetailHtml += '</div>';

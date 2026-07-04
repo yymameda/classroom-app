@@ -362,11 +362,19 @@
             font-size: 0.9rem; z-index: 9999;
             transition: transform 0.3s; white-space: nowrap;
             max-width: 90%;
+            display: flex; align-items: center; gap: 12px;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
         .toast.warning { background: var(--accent); }
+        .toast-undo-btn {
+            background: rgba(255,255,255,0.25); border: none; color: #fff;
+            border-radius: 8px; padding: 0 10px; font-size: 0.85rem;
+            font-weight: 600; cursor: pointer; flex-shrink: 0;
+            min-height: var(--tap-min);
+        }
+        .toast-undo-btn:active { background: rgba(255,255,255,0.4); }
 
         /* 座席表 */
         .seating-grid {
@@ -3391,7 +3399,7 @@
     </div>
 
     <!-- トースト -->
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="toastUndoBtn" class="toast-undo-btn" style="display:none;">元に戻す</button></div>
 
     <!-- 復元案内オーバーレイ（起動時にデータが空の場合） -->
     <div class="modal-overlay" id="restoreGuideOverlay">
@@ -3487,11 +3495,44 @@
     }
 
     // --- showToast ---
+    var _toastUndoTimer = null;
+    var _toastHideTimer = null;
+    function _toastUndoReset() {
+        if (_toastUndoTimer) { clearTimeout(_toastUndoTimer); _toastUndoTimer = null; }
+        const btn = document.getElementById('toastUndoBtn');
+        if (btn) { btn.style.display = 'none'; btn.onclick = null; }
+    }
     function showToast(message, type) {
         const t = document.getElementById('toast');
-        t.textContent = message;
+        const msgEl = document.getElementById('toastMsg');
+        _toastUndoReset();
+        if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+        if (msgEl) msgEl.textContent = message; else t.textContent = message;
         t.className = 'toast ' + (type || '') + ' show';
-        setTimeout(function() { t.classList.remove('show'); }, 2500);
+        _toastHideTimer = setTimeout(function() { t.classList.remove('show'); _toastHideTimer = null; }, 2500);
+    }
+
+    // --- showUndoToast: 削除等を5秒間だけUndo可能にするトースト ---
+    function showUndoToast(message, onUndo) {
+        const t = document.getElementById('toast');
+        const msgEl = document.getElementById('toastMsg');
+        const btn = document.getElementById('toastUndoBtn');
+        _toastUndoReset();
+        if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+        if (msgEl) msgEl.textContent = message; else t.textContent = message;
+        t.className = 'toast warning show';
+        if (btn) {
+            btn.style.display = 'inline-block';
+            btn.onclick = function() {
+                _toastUndoReset();
+                t.classList.remove('show');
+                if (typeof onUndo === 'function') onUndo();
+            };
+        }
+        _toastUndoTimer = setTimeout(function() {
+            t.classList.remove('show');
+            _toastUndoReset();
+        }, 5000);
     }
 
     // --- universalShare: Web Share API + Blobフォールバック ---
@@ -6789,7 +6830,32 @@
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
             if (!test || test.type === 'matome') return;
             var v = parseFloat(input.value);
-            if (isNaN(v)) return;
+            if (isNaN(v)) {
+                if (input.value !== '') return;
+                var scoresEmpty = recGetScores();
+                var eiEmpty = scoresEmpty.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
+                if (eiEmpty < 0 || scoresEmpty[eiEmpty].absent === true) return;
+                var removedRec = scoresEmpty[eiEmpty];
+                scoresEmpty.splice(eiEmpty, 1);
+                recSaveScores(scoresEmpty);
+                recUpdateProgressByCount();
+                showUndoToast('点数を削除しました', function() {
+                    var restoredScores = recGetScores();
+                    var restoreIdx = restoredScores.findIndex(function(s) { return s.studentIndex === removedRec.studentIndex && s.testId === removedRec.testId; });
+                    if (restoreIdx >= 0) restoredScores[restoreIdx] = removedRec; else restoredScores.push(removedRec);
+                    recSaveScores(restoredScores);
+                    if (recCurrentTestId === removedRec.testId) {
+                        var restoredInput = document.getElementById('rec-sc-' + idx);
+                        if (restoredInput) { restoredInput.value = removedRec.score; restoredInput.classList.add('has-val'); }
+                        var restoredRow = document.getElementById('rec-row-' + idx);
+                        var restoredDot = document.getElementById('rec-dot-' + idx);
+                        if (restoredRow) restoredRow.classList.add('has-score');
+                        if (restoredDot) restoredDot.classList.add('done');
+                    }
+                    recUpdateProgressByCount();
+                });
+                return;
+            }
             var clamped = false;
             if (v < 0) { v = 0; clamped = true; }
             if (test.maxScore > 0 && v > test.maxScore) { v = test.maxScore; clamped = true; }

@@ -11378,7 +11378,7 @@
             ov.id = 'grdExtProgressOverlay';
             ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
             ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 32px;min-width:280px;text-align:center;font-family:sans-serif;">'
-                + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;">📄 面談資料を作成中… <span id="grdExtProgressCount">0 / '+total+'</span>人</div>'
+                + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;">📄 面談資料を作成中… <span id="grdExtProgressCount">0 / '+total+'</span>ページ</div>'
                 + '<div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px;"><div id="grdExtProgressBar" style="background:#1a6b4a;height:100%;width:0%;transition:width .2s;"></div></div>'
                 + '<div id="grdExtProgressName" style="font-size:13px;color:#666;"></div>'
                 + '</div>';
@@ -11391,7 +11391,7 @@
             var nameEl = document.getElementById('grdExtProgressName');
             if (countEl) countEl.textContent = done+' / '+total;
             if (barEl) barEl.style.width = Math.round(done/total*100)+'%';
-            if (nameEl) nameEl.textContent = name || '';
+            if (nameEl) nameEl.textContent = name ? ('（'+name+'）') : '';
         }
         function grdExtRemoveProgress() {
             var ov = document.getElementById('grdExtProgressOverlay');
@@ -11408,7 +11408,32 @@
             var cache = {};
             subjects.forEach(function(s){ try { cache[s] = grdCalculate(s); } catch(e){ cache[s] = null; } });
             var comments = grdExtGetComments();
-            var targetStudents = students.filter(function(stu){ return stu && stu.name; });
+
+            // 教科別詳細ページ(2ページ目以降)用データ準備。児童ループの外で1回だけ構築(devByTest含む)。
+            var recTests = (typeof recGetTests === 'function') ? recGetTests() : [];
+            var recScores = (typeof recGetScores === 'function') ? recGetScores() : [];
+            var devByTest = {};
+            if (typeof recDeviationStats === 'function') {
+                recTests.forEach(function(t) { var ds = recDeviationStats(t.id); if (ds) devByTest[t.id] = ds; });
+            }
+            var subjTestsMap = {};
+            subjects.forEach(function(subj) { subjTestsMap[subj] = grdExtSubjectNumericTests(subj, recTests); });
+
+            var studentPages = students.map(function(stu, i) {
+                if (!stu || !stu.name) return null;
+                var cardsHtml = [];
+                subjects.forEach(function(subj) {
+                    var res = cache[subj]; if (!res) return;
+                    var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
+                    var html = grdExtBuildSubjectCardHtml(i, subj, sr, subjTestsMap[subj], recTests, recScores, devByTest);
+                    if (html) cardsHtml.push(html);
+                });
+                var chunks = grdExtChunk(cardsHtml, 6);
+                return { chunks: chunks };
+            });
+            var totalPages = 0;
+            studentPages.forEach(function(sp) { if (sp) totalPages += 1 + sp.chunks.length; });
+
             var pdfBtn = null, stage = null;
             var first = true;
             var done = 0;
@@ -11418,11 +11443,11 @@
                 stage = document.createElement('div');
                 stage.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
                 document.body.appendChild(stage);
-                grdExtShowProgress(targetStudents.length);
+                grdExtShowProgress(totalPages);
                 for (var i=0;i<students.length;i++) {
                     var stu = students[i]; if (!stu || !stu.name) continue;
                     done++;
-                    grdExtUpdateProgress(done, targetStudents.length, stu.name);
+                    grdExtUpdateProgress(done, totalPages, stu.name);
                     await new Promise(function(r){ requestAnimationFrame(r); });
 
                     var labels=[], vals=[], rows=[];
@@ -11501,10 +11526,32 @@
                         + '</div>';
                     grd_drawRadar('grdRadarStage', labels, vals);
                     var shot = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
-                    var img = shot.toDataURL('image/png');
+                    var img = shot.toDataURL('image/jpeg', 0.85);
                     var pw = 210, iw = pw - 20, ih = shot.height * (iw / shot.width);
                     if (!first) pdf.addPage(); first = false;
-                    pdf.addImage(img, 'PNG', 10, 10, iw, ih);
+                    pdf.addImage(img, 'JPEG', 10, 10, iw, ih);
+
+                    // ---- 2ページ目以降: 教科別のくわしい記録 ----
+                    var sp = studentPages[i];
+                    for (var ci2 = 0; ci2 < sp.chunks.length; ci2++) {
+                        var chunk = sp.chunks[ci2];
+                        done++;
+                        grdExtUpdateProgress(done, totalPages, stu.name);
+                        await new Promise(function(r){ requestAnimationFrame(r); });
+                        var pageLabel = sp.chunks.length > 1 ? '（'+(ci2+1)+'/'+sp.chunks.length+'）' : '';
+                        var gridHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' + chunk.join('') + '</div>';
+                        stage.innerHTML = '<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:10px;">'
+                            + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
+                            + '<h2 style="margin:2px 0 12px;font-size:17px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　教科別のくわしい記録'+pageLabel+'</h2>'
+                            + gridHtml
+                            + '<div style="font-size:9px;color:#999;margin-top:14px;">※ 偏差値は各テストをクラス内で受験した児童の中での位置を示す参考値です。</div>'
+                            + '</div>';
+                        var shot2 = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
+                        var img2 = shot2.toDataURL('image/jpeg', 0.85);
+                        var ih2 = shot2.height * (iw / shot2.width);
+                        pdf.addPage();
+                        pdf.addImage(img2, 'JPEG', 10, 10, iw, ih2);
+                    }
                 }
                 pdf.save('成績レーダー面談シート_全員.pdf');
                 grdExtFlash('PDFを保存しました');
@@ -11515,6 +11562,116 @@
                 grdExtRemoveProgress();
                 if (pdfBtn) pdfBtn.disabled = false;
             }
+        }
+        // ===== 面談用PDF 2ページ目: 教科別のくわしい記録 =====
+        function grdExtChunk(arr, size) {
+            var out = [];
+            for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+            return out;
+        }
+        // 教科の「数値テスト」一覧(recDeviationStatsと同じ除外条件: 主体性/ルーブリック/実技記録を除く)
+        function grdExtSubjectNumericTests(subj, recTests) {
+            return recTests.filter(function(t) {
+                return t.subject === subj && t.category !== '主体性' && t.testType !== 'ルーブリック' && t.testType !== '実技記録';
+            });
+        }
+        function grdExtKenteiLabel(test, sr) {
+            var config = kenteiGetConfig(test);
+            if (!config || !sr) return null;
+            var stage;
+            if (typeof sr.stage === 'number') stage = sr.stage;
+            else {
+                var pd = sr.passData || sr.nawatobiData || null;
+                stage = pd ? kenteiCalcStage(config, pd) : (typeof sr.score === 'number' ? sr.score : 0);
+            }
+            var label = kenteiStageToLabel(config, stage);
+            var pid = kenteiGetPresetId(test.peUnit) || config._presetId || '';
+            var prefix = pid === 'nawatobi' ? 'なわとび' : pid === 'swimming' ? '泳力' : (test.name || '実技記録');
+            return prefix + '：' + label;
+        }
+        function grdExtBuildSubjectCardHtml(i, subj, sr, subjTests, recTests, recScores, devByTest) {
+            var myTests = [];
+            subjTests.forEach(function(t) {
+                var s = recScores.find(function(sc) { return sc.testId === t.id && Number(sc.studentIndex) === i; });
+                if (!s || s.absent || typeof s.score !== 'number') return;
+                var s10 = scoreTo10(s.score, t.maxScore);
+                if (s10 === null) return;
+                myTests.push({ test: t, sr: s, score10: Math.round(s10 * 10) / 10, date: t.date || '' });
+            });
+            myTests.sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+            var subInfo = grdGetSubmissionScore10(i, subj);
+
+            var kjChars = null, kjDone = 0;
+            if (subj === '国語') {
+                var kanji = StorageManager.get(KEYS.kanji, { chars: [], checks: {} });
+                kjChars = kanji.chars || [];
+                if (kjChars.length) {
+                    var checks = (kanji.checks || {})[String(i)] || {};
+                    kjChars.forEach(function(_, ci) { if (checks[String(ci)] === 'o') kjDone++; });
+                }
+            }
+            var peLines = [];
+            if (subj === '体育') {
+                recTests.filter(function(t) { return t.subject === '体育' && t.testType === '実技記録'; }).forEach(function(t) {
+                    var s = recScores.find(function(sc) { return sc.testId === t.id && Number(sc.studentIndex) === i; });
+                    if (!s) return;
+                    var label = grdExtKenteiLabel(t, s);
+                    if (label) peLines.push(label);
+                });
+            }
+
+            var hasData = myTests.length > 0 || subInfo.total > 0 || (kjChars && kjChars.length > 0) || peLines.length > 0 || !!sr.hyoutei || !!sr.knowledge.abc;
+            if (!hasData) return null;
+
+            var rows = [];
+
+            if (myTests.length) {
+                var avg = myTests.reduce(function(a, x) { return a + x.score10; }, 0) / myTests.length;
+                var line = 'テスト平均 ' + (Math.round(avg * 100) / 10) + '点(換算)';
+                if (myTests.length >= 2) {
+                    var half = Math.floor(myTests.length / 2);
+                    var front = myTests.slice(0, half), back = myTests.slice(half);
+                    var favg = front.reduce(function(a, x) { return a + x.score10; }, 0) / front.length;
+                    var bavg = back.reduce(function(a, x) { return a + x.score10; }, 0) / back.length;
+                    var diff = bavg - favg;
+                    var trend = diff >= 1.0 ? '↗ 上向き' : diff <= -1.0 ? '↘ ここから' : '→ 安定';
+                    line += '　傾向 ' + trend;
+                }
+                rows.push(line);
+
+                var recent = myTests.slice().sort(function(a, b) { return b.date.localeCompare(a.date); }).slice(0, 3);
+                recent.forEach(function(x) {
+                    var devStr = '';
+                    var ds = devByTest[x.test.id];
+                    if (ds) { var mine = ds.list.find(function(r) { return r.studentIndex === i; }); if (mine) devStr = '　偏差値' + mine.dev.toFixed(1); }
+                    rows.push((x.date || '') + ' ' + (x.test.name || '') + ' ' + x.sr.score + '/' + (x.test.maxScore || '—') + devStr);
+                });
+            }
+
+            var items = [].concat((sr.knowledge && sr.knowledge.items) || [], (sr.thinking && sr.thinking.items) || [])
+                .filter(function(it) { return it.type !== '机間巡視' && it.score10 !== null && it.score10 !== undefined; });
+            if (items.length) {
+                var best = items.reduce(function(a, b) { return b.score10 > a.score10 ? b : a; });
+                var worst = items.reduce(function(a, b) { return b.score10 < a.score10 ? b : a; });
+                if (best.score10 >= 8.0) rows.push('得意な単元: ' + best.name);
+                if (worst.score10 < 5.0) rows.push('がんばりたい単元: ' + worst.name);
+            }
+
+            if (subInfo.total > 0) {
+                var rate = subInfo.submitted / subInfo.total;
+                rows.push('提出率 ' + Math.round(rate * 100) + '%(' + Math.floor(subInfo.submitted) + '/' + subInfo.total + ')');
+            }
+            if (kjChars && kjChars.length) {
+                rows.push('✍️ 漢字: ' + kjChars.length + '字中 ' + kjDone + '字定着(' + Math.round(kjDone / kjChars.length * 100) + '%)');
+            }
+            peLines.forEach(function(l) { rows.push(l); });
+
+            var header = '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #999;padding-bottom:2px;margin-bottom:3px;">'
+                + '<div style="font-weight:700;">' + escapeHtml(subj) + '</div>'
+                + '<div style="font-weight:700;">評定 ' + (sr.hyoutei || '—') + '</div></div>';
+            var body = rows.map(function(r) { return '<div style="margin-bottom:2px;">' + escapeHtml(r) + '</div>'; }).join('');
+            return '<div style="border:1px solid #ccc;border-radius:6px;padding:6px 8px;font-size:10px;line-height:1.4;">' + header + body + '</div>';
         }
         window.grdExtSetABC = grdExtSetABC;
         window.grdExtSetHyoutei = grdExtSetHyoutei;

@@ -1,6 +1,6 @@
 // Service Worker for 教室管理アプリ PWA
 // キャッシュファースト + バージョン管理
-const CACHE_VERSION = 'v1.8.77';
+const CACHE_VERSION = 'v1.8.78';
 const CACHE_NAME = 'classroom-app-' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -8,7 +8,9 @@ const ASSETS = [
   './pf.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './libs/html2canvas.min.js',
+  './libs/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', function(e) {
@@ -38,6 +40,7 @@ self.addEventListener('fetch', function(e) {
         if (e.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
+        return new Response('', { status: 504, statusText: 'Gateway Timeout (offline)' });
       });
     })
   );

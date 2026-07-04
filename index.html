@@ -2839,6 +2839,7 @@
             <div class="sub-subnav" style="background:#1a1a2e;overflow-x:auto;-webkit-overflow-scrolling:touch;">
                 <button class="sub-subnav-btn active" data-sub="overview" style="color:#ccc;border-color:#444;white-space:nowrap;">📋 計算式</button>
                 <button class="sub-subnav-btn" data-sub="grade"    style="color:#ccc;border-color:#444;white-space:nowrap;">📊 成績一覧</button>
+                <button class="sub-subnav-btn" data-sub="external" style="color:#ccc;border-color:#444;white-space:nowrap;">🎓 専科入力</button>
                 <button class="sub-subnav-btn" data-sub="stats"    style="color:#ccc;border-color:#444;white-space:nowrap;">📈 統計</button>
                 <button class="sub-subnav-btn" data-sub="settings" style="color:#ccc;border-color:#444;white-space:nowrap;">⚙️ 閾値</button>
                 <button class="sub-subnav-btn" data-sub="weights"  style="color:#ccc;border-color:#444;white-space:nowrap;">⚖️ 配点</button>
@@ -2896,6 +2897,21 @@
                                 <tr><td style="padding:5px 8px;border:1px solid var(--border);">実技記録（なわとび）</td><td style="padding:5px 8px;border:1px solid var(--border);">級→ABC区分換算</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- 専科入力タブ -->
+                <div id="grd-sub-external" class="sub-sub">
+                    <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select id="grdExtSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
+                        <button id="grdExtRegisterBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">＋ この教科を専科登録</button>
+                        <button id="grdExtSuggestBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">評定をABCから一括提案</button>
+                        <span id="grdExtSavedMsg" style="font-size:0.78rem;color:var(--primary);"></span>
+                    </div>
+                    <div id="grdExtGridWrap"></div>
+                    <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;">
+                        <button id="grdExtRadarPdfBtn" class="btn-primary" style="padding:10px 16px;font-size:0.9rem;background:#1a6b4a;">📄 面談用レーダーPDF（全員連続）</button>
+                        <div style="font-size:0.75rem;color:#666;margin-top:6px;">※ 専科込みの全教科×評定でクラス全員分（1人1ページ）を出力します。</div>
                     </div>
                 </div>
 
@@ -3790,6 +3806,7 @@
         forgotten_daily:         'spa_forgotten_daily',
         forgotten_items:         'spa_forgotten_items',
         grades:      'spa_grades',
+        grades_external: 'spa_grades_external',
         seating:     'spa_seating',
         seating_groups: 'spa_seating_groups',
         patrol:      'spa_patrol',
@@ -11045,6 +11062,206 @@
             return 'C';
         }
         function abcToNum(abc) { return abc === 'A' ? 3 : abc === 'B' ? 2 : abc === 'C' ? 1 : 0; }
+        // ===== 専科（外部確定）成績 =====
+        function grdExtGet() {
+            var d = StorageManager.get(KEYS.grades_external, null);
+            if (!d || typeof d !== 'object') d = { subjects: [], data: {} };
+            if (!Array.isArray(d.subjects)) d.subjects = [];
+            if (!d.data || typeof d.data !== 'object') d.data = {};
+            return d;
+        }
+        function grdExtSave(d) { StorageManager.set(KEYS.grades_external, d); }
+        function grdIsExternalSubject(subject) { return grdExtGet().subjects.indexOf(subject) >= 0; }
+        function grdExtSuggestHyoutei(k, t, a) {
+            var total = abcToNum(k) + abcToNum(t) + abcToNum(a);
+            if (!k || !t || !a) return '';
+            return total >= 8 ? 3 : total >= 5 ? 2 : 1;
+        }
+        function grdExtCalculate(subject) {
+            var students = grdGetStudents();
+            var rec = (grdExtGet().data[subject]) || {};
+            var results = [];
+            students.forEach(function(stu, i) {
+                var r = rec[String(i)] || {};
+                var kABC = r.k || '', tABC = r.t || '', aABC = r.a || '';
+                var hy = (r.h === 3 || r.h === 2 || r.h === 1) ? r.h : '';
+                results.push({
+                    index: i, name: stu.name || (i+1)+'番',
+                    knowledge: { items: [], avg: null, abc: kABC },
+                    thinking:  { items: [], avg: null, abc: tABC },
+                    attitude:  { items: [], avg: null, abc: aABC },
+                    hyoutei: hy,
+                    totalNum: (kABC && tABC && aABC) ? (abcToNum(kABC)+abcToNum(tABC)+abcToNum(aABC)) : null,
+                    external: true
+                });
+            });
+            return results;
+        }
+        var GRD_EXT_ABC = ['A','B','C'];
+        // 専科教科（担任が預かる専科のみ列挙。担任持ち教科は入れない）
+        var GRD_EXT_SUBJECTS = ['音楽','図工','家庭','英語','理科'];
+        function grdExtRenderTab() {
+            var sel = document.getElementById('grdExtSubj'); if (!sel) return;
+            var reg = grdExtGet().subjects;
+            sel.innerHTML = GRD_EXT_SUBJECTS.map(function(s) {
+                var mark = reg.indexOf(s) >= 0 ? '　🎓' : '';
+                return '<option value="'+s+'">'+s+mark+'</option>';
+            }).join('');
+            grdExtRenderGrid();
+        }
+        function grdExtRenderGrid() {
+            var subj = (document.getElementById('grdExtSubj')||{}).value || '';
+            var wrap = document.getElementById('grdExtGridWrap'); if (!wrap) return;
+            if (!subj) { wrap.innerHTML = ''; return; }
+            var students = grdGetStudents();
+            var rec = (grdExtGet().data[subj]) || {};
+            var cellBtn = function(i, field, cur) {
+                return GRD_EXT_ABC.map(function(v) {
+                    var on = cur === v;
+                    return '<button type="button" onclick="grdExtSetABC('+i+',\''+field+'\',\''+v+'\')" '
+                        + 'style="min-width:34px;min-height:34px;margin:1px;border-radius:7px;border:1.5px solid '+(on?'#1a6b4a':'var(--border)')+';'
+                        + 'background:'+(on?'#1a6b4a':'var(--white)')+';color:'+(on?'#fff':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
+                }).join('');
+            };
+            var hySel = function(i, cur) {
+                return '<select onchange="grdExtSetHyoutei('+i+',this.value)" style="min-height:34px;border:1.5px solid var(--border);border-radius:7px;padding:2px 6px;font-weight:700;">'
+                    + '<option value="">—</option>'
+                    + [3,2,1].map(function(n){return '<option value="'+n+'"'+(String(cur)===String(n)?' selected':'')+'>'+n+'</option>';}).join('')
+                    + '</select>';
+            };
+            var rows = students.map(function(stu, i) {
+                if (!stu || !stu.name) return '';
+                var r = rec[String(i)] || {};
+                return '<tr>'
+                    + '<td style="padding:4px 8px;white-space:nowrap;">'+(i+1)+'. '+escapeHtml(stu.name)+'</td>'
+                    + '<td style="text-align:center;">'+cellBtn(i,'k',r.k||'')+'</td>'
+                    + '<td style="text-align:center;">'+cellBtn(i,'t',r.t||'')+'</td>'
+                    + '<td style="text-align:center;">'+cellBtn(i,'a',r.a||'')+'</td>'
+                    + '<td style="text-align:center;">'+hySel(i, r.h||'')+'</td>'
+                    + '</tr>';
+            }).join('');
+            wrap.innerHTML = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:0.85rem;">'
+                + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:6px 8px;text-align:left;">児童</th>'
+                + '<th style="padding:6px;">知</th><th style="padding:6px;">思</th><th style="padding:6px;">主</th><th style="padding:6px;">評定</th></tr></thead>'
+                + '<tbody>'+rows+'</tbody></table></div>';
+        }
+        function grdExtSetABC(i, field, v) {
+            var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
+            var d = grdExtGet();
+            if (d.subjects.indexOf(subj) < 0) d.subjects.push(subj);
+            if (!d.data[subj]) d.data[subj] = {};
+            if (!d.data[subj][String(i)]) d.data[subj][String(i)] = {};
+            d.data[subj][String(i)][field] = v;
+            grdExtSave(d);
+            grdExtRenderGrid();
+            grdExtFlash('保存しました');
+        }
+        function grdExtSetHyoutei(i, v) {
+            var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
+            var d = grdExtGet();
+            if (d.subjects.indexOf(subj) < 0) d.subjects.push(subj);
+            if (!d.data[subj]) d.data[subj] = {};
+            if (!d.data[subj][String(i)]) d.data[subj][String(i)] = {};
+            d.data[subj][String(i)].h = v ? Number(v) : '';
+            grdExtSave(d);
+            grdExtFlash('保存しました');
+        }
+        function grdExtRegisterCurrent() {
+            var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
+            var d = grdExtGet();
+            if (d.subjects.indexOf(subj) < 0) { d.subjects.push(subj); grdExtSave(d); }
+            grdExtRenderTab(); grdExtFlash(subj+' を専科登録しました');
+        }
+        function grdExtSuggestAll() {
+            var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
+            var d = grdExtGet(); var rec = d.data[subj] || {};
+            Object.keys(rec).forEach(function(idx) {
+                var r = rec[idx];
+                var sug = grdExtSuggestHyoutei(r.k, r.t, r.a);
+                if (sug !== '') r.h = sug;
+            });
+            d.data[subj] = rec; grdExtSave(d);
+            grdExtRenderGrid(); grdExtFlash('評定を提案で埋めました（要確認・上書き可）');
+        }
+        function grdExtFlash(msg) {
+            var el = document.getElementById('grdExtSavedMsg'); if (!el) return;
+            el.textContent = msg; clearTimeout(el._t);
+            el._t = setTimeout(function(){ el.textContent = ''; }, 1600);
+        }
+        // 全教科×評定(1〜3) のレーダー描画
+        function grd_drawRadar(canvasId, labels, values) {
+            var canvas = document.getElementById(canvasId); if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var W = canvas.width, H = canvas.height, cx = W/2, cy = H/2, r = Math.min(W,H)/2 - 48, n = labels.length, MAX = 3;
+            ctx.clearRect(0,0,W,H);
+            if (n < 3) { ctx.font='13px sans-serif'; ctx.fillStyle='#888'; ctx.textAlign='center'; ctx.fillText('教科が3つ未満です', cx, cy); return; }
+            var angle = function(i){ return (-Math.PI/2) + (2*Math.PI/n)*i; };
+            var pt = function(i,val){ var a=angle(i), d=r*(val/MAX); return { x:cx+d*Math.cos(a), y:cy+d*Math.sin(a) }; };
+            for (var lv=1; lv<=MAX; lv++) {
+                ctx.beginPath();
+                for (var i=0;i<n;i++){ var p=pt(i,lv); if(i===0){ctx.moveTo(p.x,p.y);}else{ctx.lineTo(p.x,p.y);} }
+                ctx.closePath(); ctx.strokeStyle='rgba(0,0,0,'+(lv===MAX?0.2:0.08)+')'; ctx.lineWidth=lv===MAX?1.5:0.8; ctx.stroke();
+            }
+            for (var i2=0;i2<n;i2++){ var p2=pt(i2,MAX); ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p2.x,p2.y); ctx.strokeStyle='rgba(0,0,0,.1)'; ctx.lineWidth=0.8; ctx.stroke(); }
+            ctx.beginPath();
+            for (var i3=0;i3<n;i3++){ var v3=values[i3]||0; var p3=pt(i3, v3>0?v3:0.02); if(i3===0){ctx.moveTo(p3.x,p3.y);}else{ctx.lineTo(p3.x,p3.y);} }
+            ctx.closePath(); ctx.fillStyle='rgba(26,107,74,.22)'; ctx.fill(); ctx.strokeStyle='rgba(26,107,74,.9)'; ctx.lineWidth=2; ctx.stroke();
+            values.forEach(function(v,i){ if(!v) return; var p=pt(i,v); ctx.beginPath(); ctx.arc(p.x,p.y,4,0,2*Math.PI); ctx.fillStyle='#1a6b4a'; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); });
+            ctx.font='bold 13px sans-serif'; ctx.fillStyle='#333'; ctx.textAlign='center';
+            for (var i4=0;i4<n;i4++){ var a4=angle(i4); ctx.fillText(labels[i4], cx+(r+24)*Math.cos(a4), cy+(r+24)*Math.sin(a4)+4); }
+        }
+        // クラス全員を1人1ページで連続PDF出力
+        async function grdExtExportRadarPDF() {
+            if (typeof html2canvas === 'undefined' || !window.jspdf) { alert('PDFライブラリが読み込まれていません'); return; }
+            var jsPDF = window.jspdf.jsPDF;
+            var pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+            var students = grdGetStudents();
+            var subjects = grdGetAvailableSubjects();
+            var ci = (master && master.classInfo) || {};
+            var classLabel = (ci.year||'') + '年度　' + (ci.grade||'') + '年' + (ci.className||'') + '組';
+            var cache = {};
+            subjects.forEach(function(s){ try { cache[s] = grdCalculate(s); } catch(e){ cache[s] = null; } });
+            var stage = document.createElement('div');
+            stage.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
+            document.body.appendChild(stage);
+            var first = true;
+            for (var i=0;i<students.length;i++) {
+                var stu = students[i]; if (!stu || !stu.name) continue;
+                var labels=[], vals=[], rows=[];
+                subjects.forEach(function(subj){
+                    var res = cache[subj]; if (!res) return;
+                    var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
+                    if (!sr.hyoutei && !sr.knowledge.abc) return;
+                    labels.push(subj); vals.push(Number(sr.hyoutei)||0);
+                    rows.push('<tr><td style="padding:4px 10px;">'+subj+'</td>'
+                        + '<td style="text-align:center;">'+(sr.knowledge.abc||'—')+'</td>'
+                        + '<td style="text-align:center;">'+(sr.thinking.abc||'—')+'</td>'
+                        + '<td style="text-align:center;">'+(sr.attitude.abc||'—')+'</td>'
+                        + '<td style="text-align:center;font-weight:700;">'+(sr.hyoutei||'—')+'</td></tr>');
+                });
+                stage.innerHTML = '<div style="padding:28px 32px;font-family:sans-serif;color:#222;">'
+                    + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
+                    + '<h2 style="margin:2px 0 16px;font-size:20px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　成績レーダー</h2>'
+                    + '<div style="display:flex;gap:24px;align-items:flex-start;">'
+                    + '<canvas id="grdRadarStage" width="440" height="440"></canvas>'
+                    + '<table style="border-collapse:collapse;font-size:13px;border:1px solid #ccc;">'
+                    + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:6px 10px;">教科</th><th style="padding:6px;">知</th><th style="padding:6px;">思</th><th style="padding:6px;">主</th><th style="padding:6px;">評定</th></tr></thead>'
+                    + '<tbody>'+rows.join('')+'</tbody></table>'
+                    + '</div>'
+                    + '<div style="margin-top:14px;font-size:11px;color:#888;">※ レーダーは各教科の評定（3=よくできる／2=できる／1=もう少し）を表しています。</div>'
+                    + '</div>';
+                grd_drawRadar('grdRadarStage', labels, vals);
+                var shot = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
+                var img = shot.toDataURL('image/png');
+                var pw = 210, iw = pw - 20, ih = shot.height * (iw / shot.width);
+                if (!first) pdf.addPage(); first = false;
+                pdf.addImage(img, 'PNG', 10, 10, iw, ih);
+            }
+            document.body.removeChild(stage);
+            pdf.save('成績レーダー面談シート_全員.pdf');
+        }
+        window.grdExtSetABC = grdExtSetABC;
+        window.grdExtSetHyoutei = grdExtSetHyoutei;
         function calcWeightedScore(items) {
             if (!items || !items.length) return null;
             var valid = items.filter(function(it) { return it.score10 !== null && it.score10 !== undefined; });
@@ -11150,6 +11367,7 @@
         // 成績計算コア（元アプリの calculateGrades をそのまま移植）
         // ================================================================
         function grdCalculate(subject) {
+            if (grdIsExternalSubject(subject)) return grdExtCalculate(subject);
             var students = grdGetStudents();
             var tests = grdGetTests().filter(function(t) { return t.subject === subject; });
             var scores = grdGetScores();
@@ -11258,6 +11476,7 @@
             tests.forEach(function(t) { if (!seen[t.subject]) seen[t.subject] = 1; });
             var assigns = grdGetAssignments();
             assigns.forEach(function(a) { if (!seen[a.subject]) seen[a.subject] = 1; });
+            grdExtGet().subjects.forEach(function(s) { if (!seen[s]) seen[s] = 1; });
             return Object.keys(seen);
         }
 
@@ -11419,7 +11638,7 @@
         function grdShowSub(name) {
             var root = grdGetRoot(); if (!root) return;
             root.querySelectorAll('.sub-subnav-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.sub === name); });
-            ['overview','grade','karte','stats','settings','weights','kartecenter'].forEach(function(n) {
+            ['overview','grade','karte','stats','settings','weights','kartecenter','external'].forEach(function(n) {
                 var el = document.getElementById('grd-sub-'+n); if (el) el.classList.toggle('active', n === name);
             });
             if (name === 'overview')    { grdUpdateSubjectSelects(); grdRenderOverview(); grdRenderDataStatus(); }
@@ -11429,6 +11648,7 @@
             if (name === 'settings')    { grdRenderSettings(); }
             if (name === 'weights')     { grdUpdateSubjectSelects(); }
             if (name === 'kartecenter') { grdRenderKarteCenter(); }
+            if (name === 'external')    { grdExtRenderTab(); }
         }
 
         // ================================================================
@@ -12825,6 +13045,10 @@
             e('grdStatsSubj', grdRenderStats);
             e('grdWeightsSubj', grdRenderWeights);
             var btn = function(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+            e('grdExtSubj', grdExtRenderGrid);
+            btn('grdExtRegisterBtn', grdExtRegisterCurrent);
+            btn('grdExtSuggestBtn', grdExtSuggestAll);
+            btn('grdExtRadarPdfBtn', grdExtExportRadarPDF);
             btn('grdSaveThreshBtn', grdSaveAllThresholds);
             btn('grdSaveWeightsBtn', grdSaveWeights);
             btn('grdResetWeightsBtn', grdResetWeights);

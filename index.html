@@ -11098,12 +11098,10 @@
             return results;
         }
         var GRD_EXT_ABC = ['A','B','C'];
-        // 専科教科（担任が預かる専科のみ列挙。担任持ち教科は入れない）
-        var GRD_EXT_SUBJECTS = ['音楽','図工','家庭','英語','理科'];
         function grdExtRenderTab() {
             var sel = document.getElementById('grdExtSubj'); if (!sel) return;
             var reg = grdExtGet().subjects;
-            sel.innerHTML = GRD_EXT_SUBJECTS.map(function(s) {
+            sel.innerHTML = GRD_SUBJ_ORDER.map(function(s) {
                 var mark = reg.indexOf(s) >= 0 ? '　🎓' : '';
                 return '<option value="'+s+'">'+s+mark+'</option>';
             }).join('');
@@ -11188,7 +11186,6 @@
             el.textContent = msg; clearTimeout(el._t);
             el._t = setTimeout(function(){ el.textContent = ''; }, 1600);
         }
-        // 全教科×評定(1〜3) のレーダー描画
         function grd_drawRadar(canvasId, labels, values) {
             var canvas = document.getElementById(canvasId); if (!canvas) return;
             var ctx = canvas.getContext('2d');
@@ -11199,18 +11196,17 @@
             var pt = function(i,val){ var a=angle(i), d=r*(val/MAX); return { x:cx+d*Math.cos(a), y:cy+d*Math.sin(a) }; };
             for (var lv=1; lv<=MAX; lv++) {
                 ctx.beginPath();
-                for (var i=0;i<n;i++){ var p=pt(i,lv); if(i===0){ctx.moveTo(p.x,p.y);}else{ctx.lineTo(p.x,p.y);} }
+                for (var i=0;i<n;i++){ var p=pt(i,lv); i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y); }
                 ctx.closePath(); ctx.strokeStyle='rgba(0,0,0,'+(lv===MAX?0.2:0.08)+')'; ctx.lineWidth=lv===MAX?1.5:0.8; ctx.stroke();
             }
-            for (var i2=0;i2<n;i2++){ var p2=pt(i2,MAX); ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p2.x,p2.y); ctx.strokeStyle='rgba(0,0,0,.1)'; ctx.lineWidth=0.8; ctx.stroke(); }
+            for (var i=0;i<n;i++){ var p=pt(i,MAX); ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p.x,p.y); ctx.strokeStyle='rgba(0,0,0,.1)'; ctx.lineWidth=0.8; ctx.stroke(); }
             ctx.beginPath();
-            for (var i3=0;i3<n;i3++){ var v3=values[i3]||0; var p3=pt(i3, v3>0?v3:0.02); if(i3===0){ctx.moveTo(p3.x,p3.y);}else{ctx.lineTo(p3.x,p3.y);} }
+            for (var i=0;i<n;i++){ var v=values[i]||0; var p=pt(i, v>0?v:0.02); i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y); }
             ctx.closePath(); ctx.fillStyle='rgba(26,107,74,.22)'; ctx.fill(); ctx.strokeStyle='rgba(26,107,74,.9)'; ctx.lineWidth=2; ctx.stroke();
             values.forEach(function(v,i){ if(!v) return; var p=pt(i,v); ctx.beginPath(); ctx.arc(p.x,p.y,4,0,2*Math.PI); ctx.fillStyle='#1a6b4a'; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); });
             ctx.font='bold 13px sans-serif'; ctx.fillStyle='#333'; ctx.textAlign='center';
-            for (var i4=0;i4<n;i4++){ var a4=angle(i4); ctx.fillText(labels[i4], cx+(r+24)*Math.cos(a4), cy+(r+24)*Math.sin(a4)+4); }
+            for (var i=0;i<n;i++){ var a=angle(i); ctx.fillText(labels[i], cx+(r+24)*Math.cos(a), cy+(r+24)*Math.sin(a)+4); }
         }
-        // クラス全員を1人1ページで連続PDF出力
         async function grdExtExportRadarPDF() {
             if (typeof html2canvas === 'undefined' || !window.jspdf) { alert('PDFライブラリが読み込まれていません'); return; }
             var jsPDF = window.jspdf.jsPDF;
@@ -13044,11 +13040,8 @@
             e('grdKarteSubj', grdRenderKarte);
             e('grdStatsSubj', grdRenderStats);
             e('grdWeightsSubj', grdRenderWeights);
-            var btn = function(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
             e('grdExtSubj', grdExtRenderGrid);
-            btn('grdExtRegisterBtn', grdExtRegisterCurrent);
-            btn('grdExtSuggestBtn', grdExtSuggestAll);
-            btn('grdExtRadarPdfBtn', grdExtExportRadarPDF);
+            var btn = function(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
             btn('grdSaveThreshBtn', grdSaveAllThresholds);
             btn('grdSaveWeightsBtn', grdSaveWeights);
             btn('grdResetWeightsBtn', grdResetWeights);
@@ -13060,6 +13053,9 @@
             btn('kcPrintBtn',    grdPrintKarteCenter);
             btn('grdPrintBasisBtn', grdPrintBasisSheet);
             btn('grdEditNotesBtn',  grdOpenNotesModal);
+            btn('grdExtRegisterBtn', grdExtRegisterCurrent);
+            btn('grdExtSuggestBtn',  grdExtSuggestAll);
+            btn('grdExtRadarPdfBtn', grdExtExportRadarPDF);
             btn('gradeNotesCloseBtn', grdCloseNotesModal);
             btn('gradeNotesSaveBtn',  grdSaveNotesModal);
             var notesModal = document.getElementById('gradeNotesModal');

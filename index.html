@@ -11493,7 +11493,7 @@
                     var html = grdExtBuildSubjectCardHtml(i, subj, sr, subjTestsMap[subj], recTests, recScores, devByTest);
                     if (html) cardsHtml.push(html);
                 });
-                var chunks = grdExtChunk(cardsHtml, 6);
+                var chunks = cardsHtml.length ? [cardsHtml] : [];
                 return { chunks: chunks };
             });
             var totalPages = 0;
@@ -11594,7 +11594,9 @@
                     var img = shot.toDataURL('image/jpeg', 0.85);
                     var pw = 210, iw = pw - 20, ih = shot.height * (iw / shot.width);
                     if (!first) pdf.addPage(); first = false;
-                    pdf.addImage(img, 'JPEG', 10, 10, iw, ih);
+                    var imgW1 = iw, imgH1 = ih, imgX1 = 10;
+                    if (imgH1 > 277) { var scale1 = 277 / imgH1; imgW1 = imgW1 * scale1; imgH1 = 277; imgX1 = (pw - imgW1) / 2; }
+                    pdf.addImage(img, 'JPEG', imgX1, 10, imgW1, imgH1);
 
                     // ---- 2ページ目以降: 教科別のくわしい記録 ----
                     var sp = studentPages[i];
@@ -11604,7 +11606,7 @@
                         grdExtUpdateProgress(done, totalPages, stu.name);
                         await new Promise(function(r){ requestAnimationFrame(r); });
                         var pageLabel = sp.chunks.length > 1 ? '（'+(ci2+1)+'/'+sp.chunks.length+'）' : '';
-                        var gridHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' + chunk.join('') + '</div>';
+                        var gridHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' + chunk.join('') + '</div>';
                         stage.innerHTML = '<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:10px;">'
                             + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
                             + '<h2 style="margin:2px 0 12px;font-size:17px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　教科別のくわしい記録'+pageLabel+'</h2>'
@@ -11615,7 +11617,9 @@
                         var img2 = shot2.toDataURL('image/jpeg', 0.85);
                         var ih2 = shot2.height * (iw / shot2.width);
                         pdf.addPage();
-                        pdf.addImage(img2, 'JPEG', 10, 10, iw, ih2);
+                        var imgW2 = iw, imgH2 = ih2, imgX2 = 10;
+                        if (imgH2 > 277) { var scale2 = 277 / imgH2; imgW2 = imgW2 * scale2; imgH2 = 277; imgX2 = (pw - imgW2) / 2; }
+                        pdf.addImage(img2, 'JPEG', imgX2, 10, imgW2, imgH2);
                     }
                 }
                 pdf.save('成績レーダー面談シート_全員.pdf');
@@ -11629,11 +11633,6 @@
             }
         }
         // ===== 面談用PDF 2ページ目: 教科別のくわしい記録 =====
-        function grdExtChunk(arr, size) {
-            var out = [];
-            for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-            return out;
-        }
         // 教科の「数値テスト」一覧(recDeviationStatsと同じ除外条件: 主体性/ルーブリック/実技記録を除く)
         function grdExtSubjectNumericTests(subj, recTests) {
             return recTests.filter(function(t) {

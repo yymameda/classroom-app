@@ -2906,11 +2906,13 @@
                         <select id="grdExtSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
                         <button id="grdExtRegisterBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">＋ この教科を専科登録</button>
                         <button id="grdExtSuggestBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">評定をABCから一括提案</button>
+                        <button id="grdExtClearSubjBtn" style="display:none;padding:6px 12px;font-size:0.82rem;border:1.5px solid #c0392b;color:#c0392b;background:var(--white);border-radius:8px;cursor:pointer;">🗑 この教科の専科データを削除</button>
                         <span id="grdExtSavedMsg" style="font-size:0.78rem;color:var(--primary);"></span>
                     </div>
                     <div id="grdExtGridWrap"></div>
                     <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;">
                         <button id="grdExtRadarPdfBtn" class="btn-primary" style="padding:10px 16px;font-size:0.9rem;background:#1a6b4a;">📄 面談用レーダーPDF（全員連続）</button>
+                        <button id="grdExtEditCommentsBtn" class="btn-outline" style="padding:10px 16px;font-size:0.9rem;margin-left:8px;">✏️ 個別コメント編集</button>
                         <div style="font-size:0.75rem;color:#666;margin-top:6px;">※ 専科込みの全教科×評定でクラス全員分（1人1ページ）を出力します。</div>
                     </div>
                 </div>
@@ -3361,6 +3363,21 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="grdExtCommentModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>✏️ 面談用PDF 個別コメント</h3>
+                <button class="modal-close" id="grdExtCommentCloseBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <select id="grdExtCommentStu" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:10px;"></select>
+                <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:10px;">入力するとPDFの「⑤中学受験・今後に向けて」の自動文の代わりに、この内容が表示されます。空欄なら自動文のままです。</p>
+                <textarea id="grdExtCommentTextarea" style="width:100%;min-height:160px;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;resize:vertical;"></textarea>
+                <button class="btn btn-primary" id="grdExtCommentSaveBtn" style="width:100%;margin-top:12px;">保存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 新体力テスト 手動入力モーダル -->
     <div class="pf-modal-overlay" id="pf-manualModal">
         <div class="pf-modal">
@@ -3807,6 +3824,7 @@
         forgotten_items:         'spa_forgotten_items',
         grades:      'spa_grades',
         grades_external: 'spa_grades_external',
+        grades_ext_pdf_comments: 'spa_grades_ext_pdf_comments',
         seating:     'spa_seating',
         seating_groups: 'spa_seating_groups',
         patrol:      'spa_patrol',
@@ -11100,69 +11118,126 @@
         var GRD_EXT_ABC = ['A','B','C'];
         function grdExtRenderTab() {
             var sel = document.getElementById('grdExtSubj'); if (!sel) return;
+            var prevVal = sel.value;
             var reg = grdExtGet().subjects;
             sel.innerHTML = GRD_SUBJ_ORDER.map(function(s) {
                 var mark = reg.indexOf(s) >= 0 ? '　🎓' : '';
                 return '<option value="'+s+'">'+s+mark+'</option>';
             }).join('');
+            if (prevVal && GRD_SUBJ_ORDER.indexOf(prevVal) >= 0) sel.value = prevVal;
             grdExtRenderGrid();
         }
         function grdExtRenderGrid() {
             var subj = (document.getElementById('grdExtSubj')||{}).value || '';
             var wrap = document.getElementById('grdExtGridWrap'); if (!wrap) return;
+            var registered = subj ? grdIsExternalSubject(subj) : false;
+            var regBtn = document.getElementById('grdExtRegisterBtn');
+            var clearSubjBtn = document.getElementById('grdExtClearSubjBtn');
+            if (regBtn) regBtn.style.display = (subj && !registered) ? '' : 'none';
+            if (clearSubjBtn) clearSubjBtn.style.display = (subj && registered) ? '' : 'none';
             if (!subj) { wrap.innerHTML = ''; return; }
             var students = grdGetStudents();
             var rec = (grdExtGet().data[subj]) || {};
-            var cellBtn = function(i, field, cur) {
-                return GRD_EXT_ABC.map(function(v) {
+            var abcGroup = function(i, field, cur, label) {
+                var btns = GRD_EXT_ABC.map(function(v) {
                     var on = cur === v;
                     return '<button type="button" onclick="grdExtSetABC('+i+',\''+field+'\',\''+v+'\')" '
-                        + 'style="min-width:34px;min-height:34px;margin:1px;border-radius:7px;border:1.5px solid '+(on?'#1a6b4a':'var(--border)')+';'
+                        + 'style="min-width:40px;min-height:44px;border-radius:7px;border:1.5px solid '+(on?'#1a6b4a':'var(--border)')+';'
                         + 'background:'+(on?'#1a6b4a':'var(--white)')+';color:'+(on?'#fff':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
                 }).join('');
+                return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
+                    + '<div style="display:flex;gap:2px;">'+btns+'</div>'
+                    + '<div style="font-size:0.6rem;color:#888;">'+label+'</div></div>';
             };
-            var hySel = function(i, cur) {
-                return '<select onchange="grdExtSetHyoutei('+i+',this.value)" style="min-height:34px;border:1.5px solid var(--border);border-radius:7px;padding:2px 6px;font-weight:700;">'
-                    + '<option value="">—</option>'
-                    + [3,2,1].map(function(n){return '<option value="'+n+'"'+(String(cur)===String(n)?' selected':'')+'>'+n+'</option>';}).join('')
-                    + '</select>';
+            var hyGroup = function(i, cur) {
+                var btns = [3,2,1].map(function(v) {
+                    var on = String(cur) === String(v);
+                    return '<button type="button" onclick="grdExtSetHyoutei('+i+','+v+')" '
+                        + 'style="min-width:40px;min-height:44px;border-radius:7px;border:1.5px solid '+(on?'#2d5aa0':'var(--border)')+';'
+                        + 'background:'+(on?'#2d5aa0':'var(--white)')+';color:'+(on?'#fff':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
+                }).join('');
+                return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
+                    + '<div style="display:flex;gap:2px;">'+btns+'</div>'
+                    + '<div style="font-size:0.6rem;color:#888;">評定</div></div>';
             };
             var rows = students.map(function(stu, i) {
                 if (!stu || !stu.name) return '';
                 var r = rec[String(i)] || {};
-                return '<tr>'
-                    + '<td style="padding:4px 8px;white-space:nowrap;">'+(i+1)+'. '+escapeHtml(stu.name)+'</td>'
-                    + '<td style="text-align:center;">'+cellBtn(i,'k',r.k||'')+'</td>'
-                    + '<td style="text-align:center;">'+cellBtn(i,'t',r.t||'')+'</td>'
-                    + '<td style="text-align:center;">'+cellBtn(i,'a',r.a||'')+'</td>'
-                    + '<td style="text-align:center;">'+hySel(i, r.h||'')+'</td>'
+                return '<tr style="border-bottom:1px solid var(--border);">'
+                    + '<td style="padding:4px 8px;white-space:nowrap;position:sticky;left:0;background:var(--white);">'+(i+1)+'. '+escapeHtml(stu.name)+'</td>'
+                    + '<td style="padding:6px 4px;"><div style="display:flex;gap:6px;align-items:flex-start;">'
+                    + abcGroup(i,'k',r.k||'','知') + abcGroup(i,'t',r.t||'','思') + abcGroup(i,'a',r.a||'','主') + hyGroup(i, r.h||'')
+                    + '</div></td>'
+                    + '<td style="text-align:center;"><button type="button" onclick="grdExtClearRow('+i+')" style="opacity:0.5;border:none;background:none;font-size:1.1rem;cursor:pointer;padding:6px 10px;" title="この行をクリア">✕</button></td>'
                     + '</tr>';
             }).join('');
             wrap.innerHTML = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:0.85rem;">'
-                + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:6px 8px;text-align:left;">児童</th>'
-                + '<th style="padding:6px;">知</th><th style="padding:6px;">思</th><th style="padding:6px;">主</th><th style="padding:6px;">評定</th></tr></thead>'
+                + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:6px 8px;text-align:left;position:sticky;left:0;background:#1a1a2e;">児童</th>'
+                + '<th style="padding:6px;text-align:left;">入力（知・思・主・評定）</th><th style="padding:6px;"></th></tr></thead>'
                 + '<tbody>'+rows+'</tbody></table></div>';
+        }
+        function grdExtDropRowIfEmpty(d, subj, i) {
+            var row = d.data[subj][String(i)];
+            if (row && !row.k && !row.t && !row.a && !row.h) delete d.data[subj][String(i)];
         }
         function grdExtSetABC(i, field, v) {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
             var d = grdExtGet();
-            if (d.subjects.indexOf(subj) < 0) d.subjects.push(subj);
+            var justRegistered = false;
+            if (d.subjects.indexOf(subj) < 0) {
+                if (!confirm('「'+subj+'」はまだ専科登録されていません。専科教科として登録して入力を続けますか?')) return;
+                d.subjects.push(subj);
+                justRegistered = true;
+            }
             if (!d.data[subj]) d.data[subj] = {};
             if (!d.data[subj][String(i)]) d.data[subj][String(i)] = {};
-            d.data[subj][String(i)][field] = v;
+            var cur = d.data[subj][String(i)][field] || '';
+            d.data[subj][String(i)][field] = (cur === v) ? '' : v;
+            grdExtDropRowIfEmpty(d, subj, i);
             grdExtSave(d);
-            grdExtRenderGrid();
+            if (justRegistered) grdExtRenderTab(); else grdExtRenderGrid();
             grdExtFlash('保存しました');
         }
         function grdExtSetHyoutei(i, v) {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
             var d = grdExtGet();
-            if (d.subjects.indexOf(subj) < 0) d.subjects.push(subj);
+            var justRegistered = false;
+            if (d.subjects.indexOf(subj) < 0) {
+                if (!confirm('「'+subj+'」はまだ専科登録されていません。専科教科として登録して入力を続けますか?')) return;
+                d.subjects.push(subj);
+                justRegistered = true;
+            }
             if (!d.data[subj]) d.data[subj] = {};
             if (!d.data[subj][String(i)]) d.data[subj][String(i)] = {};
-            d.data[subj][String(i)].h = v ? Number(v) : '';
+            var cur = d.data[subj][String(i)].h;
+            var nv = v ? Number(v) : '';
+            d.data[subj][String(i)].h = (String(cur) === String(nv) && nv !== '') ? '' : nv;
+            grdExtDropRowIfEmpty(d, subj, i);
             grdExtSave(d);
+            if (justRegistered) grdExtRenderTab(); else grdExtRenderGrid();
             grdExtFlash('保存しました');
+        }
+        function grdExtClearRow(i) {
+            var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
+            var d = grdExtGet();
+            if (d.data[subj]) delete d.data[subj][String(i)];
+            grdExtSave(d);
+            grdExtRenderGrid();
+            grdExtFlash('1行分をクリアしました');
+        }
+        function grdExtClearSubject() {
+            var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
+            var d = grdExtGet();
+            var rec = d.data[subj] || {};
+            var cnt = Object.keys(rec).filter(function(k) {
+                var r = rec[k]; return !!(r && (r.k || r.t || r.a || r.h));
+            }).length;
+            if (!confirm('「'+subj+'」の専科データ('+cnt+'名分)をすべて削除し、専科登録を解除します。\n通常の成績計算(テスト等)に戻ります。よろしいですか?')) return;
+            delete d.data[subj];
+            var ix = d.subjects.indexOf(subj);
+            if (ix >= 0) d.subjects.splice(ix, 1);
+            grdExtSave(d);
+            grdExtRenderTab(); grdExtFlash(subj+' の専科データを削除しました');
         }
         function grdExtRegisterCurrent() {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
@@ -11207,6 +11282,121 @@
             ctx.font='bold 13px sans-serif'; ctx.fillStyle='#333'; ctx.textAlign='center';
             for (var i=0;i<n;i++){ var a=angle(i); ctx.fillText(labels[i], cx+(r+24)*Math.cos(a), cy+(r+24)*Math.sin(a)+4); }
         }
+        // ===== 面談用PDF: 自動分析 =====
+        var GRD_EXT_DOMAIN_LABEL = { knowledge:'知識・技能', thinking:'思考・判断・表現', attitude:'主体的に学習に取り組む態度' };
+        var GRD_EXT_DOMAIN_ADVICE = {
+            knowledge: '基礎問題の反復と、テスト前の見直し習慣が効果的です',
+            thinking:  '「なぜそうなるか」を言葉で説明する練習（音読・要約・記述問題）がおすすめです',
+            attitude:  '提出物の期限管理と、授業での発言・ふり返りへの意識づけを続けましょう'
+        };
+        function grdExtAnalyzeStudent(i, subjects, cache) {
+            var domains = ['knowledge','thinking','attitude'];
+            var srList = [];
+            subjects.forEach(function(subj) {
+                var res = cache[subj]; if (!res) return;
+                var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
+                if (!sr.hyoutei && !sr.knowledge.abc) return;
+                srList.push({ subject: subj, sr: sr });
+            });
+            var strongSubjects = srList.filter(function(x){ return Number(x.sr.hyoutei) === 3; }).map(function(x){ return x.subject; });
+            var domainCounts = {};
+            domains.forEach(function(dm){ domainCounts[dm] = { A:0, B:0, C:0 }; });
+            srList.forEach(function(x) {
+                domains.forEach(function(dm) {
+                    var abc = x.sr[dm].abc;
+                    if (abc === 'A' || abc === 'B' || abc === 'C') domainCounts[dm][abc]++;
+                });
+            });
+            var bestDomain = null, bestA = 0;
+            domains.forEach(function(dm) { if (domainCounts[dm].A > bestA) { bestA = domainCounts[dm].A; bestDomain = dm; } });
+            var strongLines = [];
+            if (strongSubjects.length) strongLines.push('評定3（よくできる）の教科：'+strongSubjects.join('・'));
+            if (bestDomain && bestA > 0) strongLines.push(GRD_EXT_DOMAIN_LABEL[bestDomain]+'に強みがあります。');
+            if (!strongLines.length) strongLines.push('全体的にバランスよく取り組めています。');
+            var weakSubjects = srList.filter(function(x){ return Number(x.sr.hyoutei) === 1; }).map(function(x){ return x.subject; });
+            var weakDomains = [];
+            domains.forEach(function(dm) { if (domainCounts[dm].C > 0) weakDomains.push(dm); });
+            var growLines = [];
+            if (weakSubjects.length) growLines.push('もう少し力を伸ばしたい教科：'+weakSubjects.join('・'));
+            weakDomains.forEach(function(dm) { growLines.push(GRD_EXT_DOMAIN_LABEL[dm]+'：'+GRD_EXT_DOMAIN_ADVICE[dm]); });
+            if (!growLines.length) growLines.push('大きな課題は見られません。今のペースで学習を続けましょう。');
+            return {
+                strongLines: strongLines,
+                growLines: growLines,
+                weakDomains: weakDomains,
+                allHyoutei3: srList.length > 0 && srList.every(function(x){ return Number(x.sr.hyoutei) === 3; })
+            };
+        }
+        // ===== 面談用PDF: 個別コメント保存 =====
+        function grdExtGetComments() { return StorageManager.get(KEYS.grades_ext_pdf_comments, {}) || {}; }
+        function grdExtSaveComments(obj) { StorageManager.set(KEYS.grades_ext_pdf_comments, obj); }
+        var grdExtCommentCurrentIdx = null;
+        function grdExtOpenCommentModal() {
+            var sel = document.getElementById('grdExtCommentStu'); if (!sel) return;
+            var students = grdGetStudents();
+            sel.innerHTML = students.map(function(stu, i) {
+                return (stu && stu.name) ? '<option value="'+i+'">'+(i+1)+'. '+escapeHtml(stu.name)+'</option>' : '';
+            }).join('');
+            grdExtCommentCurrentIdx = null;
+            grdExtLoadCommentForStudent();
+            var modal = document.getElementById('grdExtCommentModal');
+            if (modal) modal.classList.add('active');
+        }
+        function grdExtCloseCommentModal() {
+            var modal = document.getElementById('grdExtCommentModal');
+            if (modal) modal.classList.remove('active');
+        }
+        function grdExtLoadCommentForStudent() {
+            var sel = document.getElementById('grdExtCommentStu'); if (!sel) return;
+            var ta = document.getElementById('grdExtCommentTextarea');
+            var comments = grdExtGetComments();
+            if (ta && grdExtCommentCurrentIdx !== null && grdExtCommentCurrentIdx !== sel.value) {
+                var savedText = comments[grdExtCommentCurrentIdx] || '';
+                if (ta.value !== savedText) {
+                    if (!confirm('未保存の変更があります。破棄して切り替えますか?')) {
+                        sel.value = grdExtCommentCurrentIdx;
+                        return;
+                    }
+                }
+            }
+            grdExtCommentCurrentIdx = sel.value;
+            if (ta) ta.value = comments[sel.value] || '';
+        }
+        function grdExtSaveComment() {
+            var sel = document.getElementById('grdExtCommentStu'); if (!sel) return;
+            var ta = document.getElementById('grdExtCommentTextarea');
+            var comments = grdExtGetComments();
+            var text = ta ? ta.value.trim() : '';
+            if (text) comments[sel.value] = text; else delete comments[sel.value];
+            grdExtSaveComments(comments);
+            showToast('✅ コメントを保存しました');
+            grdExtCloseCommentModal();
+        }
+        // ===== 面談用PDF: 進捗オーバーレイ =====
+        function grdExtShowProgress(total) {
+            var ov = document.createElement('div');
+            ov.id = 'grdExtProgressOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 32px;min-width:280px;text-align:center;font-family:sans-serif;">'
+                + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;">📄 面談資料を作成中… <span id="grdExtProgressCount">0 / '+total+'</span>人</div>'
+                + '<div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px;"><div id="grdExtProgressBar" style="background:#1a6b4a;height:100%;width:0%;transition:width .2s;"></div></div>'
+                + '<div id="grdExtProgressName" style="font-size:13px;color:#666;"></div>'
+                + '</div>';
+            document.body.appendChild(ov);
+            return ov;
+        }
+        function grdExtUpdateProgress(done, total, name) {
+            var countEl = document.getElementById('grdExtProgressCount');
+            var barEl = document.getElementById('grdExtProgressBar');
+            var nameEl = document.getElementById('grdExtProgressName');
+            if (countEl) countEl.textContent = done+' / '+total;
+            if (barEl) barEl.style.width = Math.round(done/total*100)+'%';
+            if (nameEl) nameEl.textContent = name || '';
+        }
+        function grdExtRemoveProgress() {
+            var ov = document.getElementById('grdExtProgressOverlay');
+            if (ov) ov.remove();
+        }
         async function grdExtExportRadarPDF() {
             if (typeof html2canvas === 'undefined' || !window.jspdf) { alert('PDFライブラリが読み込まれていません'); return; }
             var jsPDF = window.jspdf.jsPDF;
@@ -11217,47 +11407,118 @@
             var classLabel = (ci.year||'') + '年度　' + (ci.grade||'') + '年' + (ci.className||'') + '組';
             var cache = {};
             subjects.forEach(function(s){ try { cache[s] = grdCalculate(s); } catch(e){ cache[s] = null; } });
-            var stage = document.createElement('div');
-            stage.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
-            document.body.appendChild(stage);
+            var comments = grdExtGetComments();
+            var targetStudents = students.filter(function(stu){ return stu && stu.name; });
+            var pdfBtn = null, stage = null;
             var first = true;
-            for (var i=0;i<students.length;i++) {
-                var stu = students[i]; if (!stu || !stu.name) continue;
-                var labels=[], vals=[], rows=[];
-                subjects.forEach(function(subj){
-                    var res = cache[subj]; if (!res) return;
-                    var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
-                    if (!sr.hyoutei && !sr.knowledge.abc) return;
-                    labels.push(subj); vals.push(Number(sr.hyoutei)||0);
-                    rows.push('<tr><td style="padding:4px 10px;">'+subj+'</td>'
-                        + '<td style="text-align:center;">'+(sr.knowledge.abc||'—')+'</td>'
-                        + '<td style="text-align:center;">'+(sr.thinking.abc||'—')+'</td>'
-                        + '<td style="text-align:center;">'+(sr.attitude.abc||'—')+'</td>'
-                        + '<td style="text-align:center;font-weight:700;">'+(sr.hyoutei||'—')+'</td></tr>');
-                });
-                stage.innerHTML = '<div style="padding:28px 32px;font-family:sans-serif;color:#222;">'
-                    + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
-                    + '<h2 style="margin:2px 0 16px;font-size:20px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　成績レーダー</h2>'
-                    + '<div style="display:flex;gap:24px;align-items:flex-start;">'
-                    + '<canvas id="grdRadarStage" width="440" height="440"></canvas>'
-                    + '<table style="border-collapse:collapse;font-size:13px;border:1px solid #ccc;">'
-                    + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:6px 10px;">教科</th><th style="padding:6px;">知</th><th style="padding:6px;">思</th><th style="padding:6px;">主</th><th style="padding:6px;">評定</th></tr></thead>'
-                    + '<tbody>'+rows.join('')+'</tbody></table>'
-                    + '</div>'
-                    + '<div style="margin-top:14px;font-size:11px;color:#888;">※ レーダーは各教科の評定（3=よくできる／2=できる／1=もう少し）を表しています。</div>'
-                    + '</div>';
-                grd_drawRadar('grdRadarStage', labels, vals);
-                var shot = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
-                var img = shot.toDataURL('image/png');
-                var pw = 210, iw = pw - 20, ih = shot.height * (iw / shot.width);
-                if (!first) pdf.addPage(); first = false;
-                pdf.addImage(img, 'PNG', 10, 10, iw, ih);
+            var done = 0;
+            try {
+                pdfBtn = document.getElementById('grdExtRadarPdfBtn');
+                if (pdfBtn) pdfBtn.disabled = true;
+                stage = document.createElement('div');
+                stage.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
+                document.body.appendChild(stage);
+                grdExtShowProgress(targetStudents.length);
+                for (var i=0;i<students.length;i++) {
+                    var stu = students[i]; if (!stu || !stu.name) continue;
+                    done++;
+                    grdExtUpdateProgress(done, targetStudents.length, stu.name);
+                    await new Promise(function(r){ requestAnimationFrame(r); });
+
+                    var labels=[], vals=[], rows=[];
+                    subjects.forEach(function(subj){
+                        var res = cache[subj]; if (!res) return;
+                        var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
+                        if (!sr.hyoutei && !sr.knowledge.abc) return;
+                        labels.push(subj); vals.push(Number(sr.hyoutei)||0);
+                        rows.push('<tr><td style="padding:3px 8px;">'+subj+'</td>'
+                            + '<td style="text-align:center;">'+(sr.knowledge.abc||'—')+'</td>'
+                            + '<td style="text-align:center;">'+(sr.thinking.abc||'—')+'</td>'
+                            + '<td style="text-align:center;">'+(sr.attitude.abc||'—')+'</td>'
+                            + '<td style="text-align:center;font-weight:700;">'+(sr.hyoutei||'—')+'</td></tr>');
+                    });
+
+                    var analysis = grdExtAnalyzeStudent(i, subjects, cache);
+
+                    var subCount = 0, subTotal = 0;
+                    subjects.forEach(function(subj){ var s = grdGetSubmissionScore10(i, subj); if (s.total > 0) { subCount += s.submitted; subTotal += s.total; } });
+                    var subRate = subTotal > 0 ? subCount/subTotal : null;
+                    var subLine = '';
+                    if (subRate !== null) {
+                        var subComment = subRate >= 0.9 ? '大変よく提出できています' : subRate >= 0.7 ? 'おおむね提出できています。出し忘れの声かけを' : '提出習慣づくりを家庭と学校で連携して';
+                        subLine = '提出物：提出率 '+Math.round(subRate*100)+'%（'+Math.floor(subCount)+'/'+subTotal+'件）　'+subComment;
+                    }
+
+                    var goodSum = 0, concernSum = 0, anyPatrol = false;
+                    subjects.forEach(function(subj){
+                        var p = grdGetPatrolScore10(i, subj, 'attitude');
+                        if ((p.good||0) + (p.concern||0) > 0) { goodSum += p.good; concernSum += p.concern; anyPatrol = true; }
+                    });
+                    var attLine = '';
+                    if (anyPatrol) {
+                        var attRate = goodSum / (goodSum + concernSum);
+                        var attComment = attRate >= 0.9 ? '大変良好です' : attRate >= 0.7 ? 'おおむね良好です。授業での発言やふり返りへの意識づけを' : '授業への参加や声かけを工夫していきましょう';
+                        attLine = '学習に臨む姿勢：○'+goodSum+'／△'+concernSum+'（○率 '+Math.round(attRate*100)+'%）　'+attComment;
+                    }
+                    var section4Lines = [subLine, attLine].filter(function(s){ return s; });
+                    var section4Html = section4Lines.length
+                        ? section4Lines.map(function(s){ return '<div style="margin-bottom:4px;">・'+s+'</div>'; }).join('')
+                        : '<div>記録がまだありません。</div>';
+
+                    var examAdvice = [];
+                    if (analysis.allHyoutei3) {
+                        examAdvice.push('現在の学習習慣を維持しつつ、応用問題へ挑戦する時期です。');
+                    } else {
+                        var examAdviceMap = {
+                            thinking:  '受験では記述力が問われます。思考・判断・表現の底上げが得点に直結します。',
+                            knowledge: '基礎の定着を土台に、応用問題への挑戦を進めていきましょう。',
+                            attitude:  '日々の学習姿勢の積み重ねが、入試本番の粘り強さにつながります。'
+                        };
+                        analysis.weakDomains.forEach(function(dm){ if (examAdviceMap[dm]) examAdvice.push(examAdviceMap[dm]); });
+                        if (!examAdvice.length) examAdvice.push('基礎を大切にしながら、興味の幅を広げていく時期です。');
+                    }
+                    var manualComment = comments[String(i)] || '';
+                    var section5Html = manualComment ? escapeHtml(manualComment).replace(/\n/g,'<br>') : examAdvice.slice(0,2).join('');
+
+                    stage.innerHTML = '<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:12px;">'
+                        + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
+                        + '<h2 style="margin:2px 0 12px;font-size:19px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　学習のようす（面談資料）</h2>'
+                        + '<div style="display:flex;gap:20px;align-items:flex-start;">'
+                        + '<canvas id="grdRadarStage" width="360" height="360"></canvas>'
+                        + '<table style="border-collapse:collapse;font-size:12px;border:1px solid #ccc;">'
+                        + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:5px 8px;">教科</th><th style="padding:5px;">知</th><th style="padding:5px;">思</th><th style="padding:5px;">主</th><th style="padding:5px;">評定</th></tr></thead>'
+                        + '<tbody>'+rows.join('')+'</tbody></table>'
+                        + '</div>'
+                        + '<div style="font-size:10px;color:#888;margin-top:4px;">※ レーダーは各教科の評定（3=よくできる／2=できる／1=もう少し）を表しています。</div>'
+                        + '<div style="font-size:13px;font-weight:700;border-left:4px solid #1a6b4a;padding-left:8px;margin:14px 0 6px;">得意なこと・伸ばしたいこと</div>'
+                        + analysis.strongLines.map(function(s){ return '<div style="margin-bottom:3px;">・'+s+'</div>'; }).join('')
+                        + analysis.growLines.map(function(s){ return '<div style="margin-bottom:3px;">・'+s+'</div>'; }).join('')
+                        + '<div style="font-size:13px;font-weight:700;border-left:4px solid #1a6b4a;padding-left:8px;margin:14px 0 6px;">提出物・学習に臨む姿勢</div>'
+                        + section4Html
+                        + '<div style="font-size:13px;font-weight:700;border-left:4px solid #1a6b4a;padding-left:8px;margin:14px 0 6px;">中学受験・今後に向けて</div>'
+                        + '<div>'+section5Html+'</div>'
+                        + '<div style="margin-top:18px;font-size:9px;color:#999;">※ 本資料は担任の記録に基づく参考情報です。評定は3＝よくできる／2＝できる／1＝もう少し、を表します。</div>'
+                        + '</div>';
+                    grd_drawRadar('grdRadarStage', labels, vals);
+                    var shot = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
+                    var img = shot.toDataURL('image/png');
+                    var pw = 210, iw = pw - 20, ih = shot.height * (iw / shot.width);
+                    if (!first) pdf.addPage(); first = false;
+                    pdf.addImage(img, 'PNG', 10, 10, iw, ih);
+                }
+                pdf.save('成績レーダー面談シート_全員.pdf');
+                grdExtFlash('PDFを保存しました');
+            } catch (err) {
+                alert('PDF作成中にエラーが発生しました: ' + (err && err.message ? err.message : err));
+            } finally {
+                if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
+                grdExtRemoveProgress();
+                if (pdfBtn) pdfBtn.disabled = false;
             }
-            document.body.removeChild(stage);
-            pdf.save('成績レーダー面談シート_全員.pdf');
         }
         window.grdExtSetABC = grdExtSetABC;
         window.grdExtSetHyoutei = grdExtSetHyoutei;
+        window.grdExtClearRow = grdExtClearRow;
         function calcWeightedScore(items) {
             if (!items || !items.length) return null;
             var valid = items.filter(function(it) { return it.score10 !== null && it.score10 !== undefined; });
@@ -13055,7 +13316,14 @@
             btn('grdEditNotesBtn',  grdOpenNotesModal);
             btn('grdExtRegisterBtn', grdExtRegisterCurrent);
             btn('grdExtSuggestBtn',  grdExtSuggestAll);
+            btn('grdExtClearSubjBtn', grdExtClearSubject);
             btn('grdExtRadarPdfBtn', grdExtExportRadarPDF);
+            btn('grdExtEditCommentsBtn', grdExtOpenCommentModal);
+            btn('grdExtCommentCloseBtn', grdExtCloseCommentModal);
+            btn('grdExtCommentSaveBtn', grdExtSaveComment);
+            e('grdExtCommentStu', grdExtLoadCommentForStudent);
+            var extCommentModal = document.getElementById('grdExtCommentModal');
+            if (extCommentModal) extCommentModal.addEventListener('click', function(ev) { if (ev.target === extCommentModal) grdExtCloseCommentModal(); });
             btn('gradeNotesCloseBtn', grdCloseNotesModal);
             btn('gradeNotesSaveBtn',  grdSaveNotesModal);
             var notesModal = document.getElementById('gradeNotesModal');

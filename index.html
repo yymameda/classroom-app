@@ -2029,6 +2029,7 @@
                 <div id="dashStudentKarte" style="display:none;"></div>
                 <!-- ストレージ使用量 -->
                 <div class="card" style="margin-top: 8px;">
+                    <div id="statLastBackup" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;"></div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 0.8rem; font-weight: 600;">💾 ストレージ使用量</span>
                         <span id="storageText" style="font-size: 0.8rem; color: var(--text-light);"></span>
@@ -3310,6 +3311,8 @@
                 <button class="modal-close" onclick="closeBackupModal()">×</button>
             </div>
             <div class="modal-body">
+                <div id="bkupPersistStatus" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;"></div>
+                <div id="bkupLastBackupStatus" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 12px;"></div>
                 <div style="background: #E8F5E9; border: 2px solid var(--success); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
                     <h4 style="color: var(--success); margin-bottom: 8px;">📦 保存されるデータ</h4>
                     <ul style="font-size: 0.85rem; margin-left: 16px; line-height: 1.6;">
@@ -3879,7 +3882,8 @@
         karte_archive:  'spa_karte_archive',
         karte_recs:     'spa_karte_recs',
         morning_prep:   'spa_morning_prep',
-        kanji:          'spa_kanji'
+        kanji:          'spa_kanji',
+        backup_meta:    'spa_backup_meta'
     };
 
     // マスターデータ
@@ -4562,6 +4566,11 @@
             });
         }
         updateStorageDisplay();
+        try {
+            var lb = formatBackupMetaDisplay();
+            var lbEl = document.getElementById('statLastBackup');
+            if (lbEl) { lbEl.textContent = lb.text; lbEl.style.color = lb.color; }
+        } catch(e) {}
     }
 
     function selectDashStudent(idx) {
@@ -5207,6 +5216,22 @@
     // ================================================================
     function openBackupModal() {
         document.getElementById('backupModal').classList.add('active');
+        try {
+            var persisted = localStorage.getItem('spa_storage_persisted');
+            var pEl = document.getElementById('bkupPersistStatus');
+            if (pEl) {
+                if (persisted === '1') {
+                    pEl.textContent = '🔒 永続ストレージ: 有効';
+                    pEl.style.color = 'var(--success)';
+                } else {
+                    pEl.textContent = '⚠️ 永続ストレージ: 未許可（Safariがデータを自動削除する可能性があります）';
+                    pEl.style.color = 'var(--warning)';
+                }
+            }
+            var lb = formatBackupMetaDisplay();
+            var lEl = document.getElementById('bkupLastBackupStatus');
+            if (lEl) { lEl.textContent = lb.text; lEl.style.color = lb.color; }
+        } catch(e) {}
     }
     function closeBackupModal() {
         document.getElementById('backupModal').classList.remove('active');
@@ -5214,6 +5239,38 @@
     document.getElementById('backupModal').addEventListener('click', function(e) {
         if (e.target === this) closeBackupModal();
     });
+
+    // --- 最終バックアップ日時の記録・表示（タスクB） ---
+    // 経過日数で色分け: 0-6日=通常色 / 7-13日=warning / 14日以上・記録なし=danger
+    function formatBackupMetaDisplay() {
+        var meta = StorageManager.get(KEYS.backup_meta, null);
+        if (!meta || !meta.lastExportAt) {
+            return { text: '💾 最終バックアップ: 記録なし ⚠️ バックアップしてください', color: 'var(--danger)' };
+        }
+        var last = new Date(meta.lastExportAt);
+        var diffDays = Math.floor((new Date() - last) / (1000 * 60 * 60 * 24));
+        var dayLabel = diffDays <= 0 ? '今日' : diffDays + '日前';
+        var dateLabel = (last.getMonth() + 1) + '/' + last.getDate();
+        var color = 'var(--text-light)';
+        var suffix = '';
+        if (diffDays >= 14) { color = 'var(--danger)'; suffix = ' ⚠️ バックアップしてください'; }
+        else if (diffDays >= 7) { color = 'var(--warning)'; }
+        return { text: '💾 最終バックアップ: ' + dayLabel + '（' + dateLabel + '）' + suffix, color: color };
+    }
+    // 注意: universalShare は共有シートのキャンセル（AbortError）でも true を返すため、
+    // 「共有シートを開いた時点」を最終バックアップとみなす仕様とする。
+    function recordBackupMeta(encrypted) {
+        try {
+            StorageManager.set(KEYS.backup_meta, { lastExportAt: new Date().toISOString(), encrypted: !!encrypted });
+        } catch(e) {}
+        try {
+            var lb = formatBackupMetaDisplay();
+            var lbEl = document.getElementById('statLastBackup');
+            if (lbEl) { lbEl.textContent = lb.text; lbEl.style.color = lb.color; }
+            var mEl = document.getElementById('bkupLastBackupStatus');
+            if (mEl) { mEl.textContent = lb.text; mEl.style.color = lb.color; }
+        } catch(e) {}
+    }
 
     // AES-GCM 暗号化
     async function deriveEncKey(password, salt) {
@@ -5285,6 +5342,7 @@
                 var ci = master.classInfo;
                 var fileName = ci.year + '年度' + ci.grade + '年' + ci.class + '組_SPA_backup_encrypted.enc';
                 await universalShare(blob, fileName);
+                recordBackupMeta(true);
             } catch (e) {
                 showToast('暗号化に失敗しました: ' + e.message, 'error');
             }
@@ -5295,6 +5353,7 @@
             var dateStr = String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
             var fileName = 'classroom_backup_' + dateStr + '.json';
             await universalShare(blob, fileName);
+            recordBackupMeta(false);
         }
     }
 
@@ -17077,6 +17136,13 @@
 
     <!-- PWA: Service Worker 登録 + 更新通知 -->
     <script>
+    // 永続ストレージの要求（タスクA）: Safari ITPの7日間未訪問データ削除対策
+    if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(function(granted) {
+            console.log('[PWA] persistent storage:', granted ? 'granted' : 'denied');
+            try { localStorage.setItem('spa_storage_persisted', granted ? '1' : '0'); } catch(e) {}
+        });
+    }
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').then(function(reg) {
             console.log('[PWA] Service Worker registered');

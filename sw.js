@@ -1,6 +1,6 @@
 // Service Worker for 教室管理アプリ PWA
 // キャッシュファースト + バージョン管理
-const CACHE_VERSION = 'v1.8.85';
+const CACHE_VERSION = 'v1.8.86';
 const CACHE_NAME = 'classroom-app-' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -16,7 +16,12 @@ const ASSETS = [
 self.addEventListener('install', function(e) {
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(ASSETS);
+      return Promise.all(ASSETS.map(function(url) {
+        return fetch(url, { cache: 'reload' }).then(function(response) {
+          if (!response.ok) throw new Error('fetch failed: ' + url + ' ' + response.status);
+          return cache.put(url, response);
+        });
+      }));
     }).then(function() { return self.skipWaiting(); })
   );
 });

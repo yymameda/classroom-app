@@ -1983,8 +1983,6 @@
         <button class="nav-btn" data-view="grades" data-tooltip="成績処理統合" id="nav-grades">📈</button>
         <button class="nav-btn" data-view="karte" data-tooltip="個人カルテ" id="nav-karte">👤</button>
         <button class="nav-btn" data-view="quickmemo" data-tooltip="クイックメモ" id="nav-quickmemo">💬</button>
-        <div class="nav-group-label">【体育】</div>
-        <button class="nav-btn" data-view="pf" data-tooltip="新体力テスト" id="nav-pf">🏃</button>
         <div class="nav-group-label">【データ】</div>
         <button class="nav-btn" data-view="export" data-tooltip="データ出力" id="nav-export">📤</button>
         <button class="nav-btn" data-action="backup" data-tooltip="バックアップ" id="nav-backup">💾</button>
@@ -2322,7 +2320,7 @@
                     <button class="rec-subnav-btn" onclick="recShowSub('tests')">📋 課題管理</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
-
+                    <button class="rec-subnav-btn" onclick="showView('pf')">🏃 新体力</button>
                 </div>
             </div>
             <div class="view-content" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
@@ -2440,13 +2438,14 @@
                                 <div style="font-size:0.82rem;font-weight:700;color:#2E7D32;margin-bottom:6px;">🏃 実技記録の設定</div>
                                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                                     <label style="font-size:0.78rem;">単位:</label>
-                                    <select id="recTestPeUnit" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
+                                    <select id="recTestPeUnit" onchange="recOnPeUnitChange()" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
                                         <option value="秒">タイム（秒）</option><option value="分秒">タイム（分:秒）</option>
                                         <option value="回">回数（回）</option><option value="m">距離（m）</option>
                                         <option value="cm">距離（cm）</option><option value="点">得点（点）</option>
                                         <option value="なわとびカード">🪢 なわとびカード（級判定）</option>
                                         <option value="検定:swimming">🏊 泳力検定カード（級判定）</option>
                                     </select>
+                                    <span id="recPeDirTrialWrap" style="display:contents;">
                                     <label style="font-size:0.78rem;">方向:</label>
                                     <select id="recTestPeDirection" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
                                         <option value="lower">少ないほど良い</option>
@@ -2456,6 +2455,8 @@
                                     <input type="number" id="recTestPeTrials" value="1" min="1" max="10"
                                         style="width:44px;padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;text-align:center;font-size:0.82rem;">
                                     <span style="font-size:0.78rem;">回</span>
+                                    </span>
+                                    <span id="recPeKenteiHint" style="display:none;font-size:0.74rem;color:#2E7D32;">📋 技をタップで級判定→10点換算。観点は「知識・技能」に自動設定されます</span>
                                 </div>
                             </div>
                             <!-- ルーブリック入力フィールド -->
@@ -3162,6 +3163,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;">
                     <h2>🏃 新体力テスト <span id="pf-headerSub" style="font-size:0.72rem;opacity:0.75;font-weight:400;margin-left:8px;"></span></h2>
                     <div class="hdr-actions">
+                        <button class="hdr-btn" onclick="showView('records')">← 記録へ</button>
                         <button class="hdr-btn" onclick="pf_exportCSV()">📥 CSV</button>
                         <button class="hdr-btn" onclick="pf_saveAll()">💾 保存</button>
                     </div>
@@ -4458,6 +4460,8 @@
         if (target) target.classList.add('active');
         document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.remove('active'); });
         var navBtn = document.getElementById('nav-' + viewName);
+        // nav-pf は撤去済み: 新体力テスト表示中は「児童の記録」をハイライト
+        if (viewName === 'pf' && !navBtn) navBtn = document.getElementById('nav-records');
         if (navBtn) navBtn.classList.add('active');
         // 画面固有の更新
         if (viewName === 'dashboard') { updateDashboard(); }
@@ -6588,39 +6592,39 @@
                 id: 'swimming',
                 name: '泳力検定カード',
                 emoji: '🏊',
-                // PDF(R8 泳力検定カード)に基づく。総24技。
+                // 配布_泳力検定カード.xlsx(実カード)に基づく。総24技。
                 categories: [
                     { id: 'hop',  name: 'ホップ',       color: '#4CAF50', skills: [
-                        { id: 'sh1', short: '走水',   desc: '水中を10m走る' },
-                        { id: 'sh2', short: '潜易',   desc: '水中にもぐる' },
-                        { id: 'sh3', short: '潜難',   desc: '水中に5秒もぐる' },
-                        { id: 'sh4', short: 'バブ', desc: '水中で息をはく(細く長く、3秒)' },
-                        { id: 'sh5', short: 'ボビ',   desc: '水中で息をはき、とびあがって空気中で息を吸う' },
-                        { id: 'sh6', short: '伏易', desc: 'かべにつかまって伏し浮き' }
+                        { id: 'sh1', short: '走水',   desc: 'かけっこ: 水中を10m走る' },
+                        { id: 'sh2', short: '潜易',   desc: 'もぐる(やさしい): 水中にもぐる' },
+                        { id: 'sh3', short: '潜難',   desc: 'もぐる(むずかしい): 水中に5秒もぐる' },
+                        { id: 'sh4', short: 'バブ', desc: 'バブリング: 水中で息をはく(細く長く、3秒)' },
+                        { id: 'sh5', short: 'ボビ',   desc: 'ボビング: 水中で息をはき、とびあがって空気中で息を吸う' },
+                        { id: 'sh6', short: '伏易', desc: 'ふしうき(やさしい): かべにつかまって伏し浮き' }
                     ]},
                     { id: 'step', name: 'ステップ',     color: '#2196F3', skills: [
-                        { id: 'ss1', short: '伏難', desc: '伏し浮きを5秒' },
-                        { id: 'ss2', short: '背浮',     desc: '背浮きを5秒' },
-                        { id: 'ss3', short: '蹴伸',     desc: 'かべをけって、体を一直線にする' },
-                        { id: 'ss4', short: '面ク',   desc: '呼吸をしないクロールをする' },
-                        { id: 'ss5', short: '面平',    desc: '呼吸をしない平泳をする' },
-                        { id: 'ss6', short: '楽泳', desc: '呼吸をしながら25m泳ぐ(背泳ぎ・ドル平も可)' }
+                        { id: 'ss1', short: '伏難', desc: 'ふしうき(むずかしい): 伏し浮きを5秒' },
+                        { id: 'ss2', short: '背浮',     desc: 'せうき: 背浮きを5秒' },
+                        { id: 'ss3', short: '蹴伸',     desc: 'け伸び: かべをけって、体を一直線にする' },
+                        { id: 'ss4', short: '面ク',   desc: '面かぶりクロール: 呼吸をしないクロールをする' },
+                        { id: 'ss5', short: '面平',    desc: '面かぶり平泳ぎ: 呼吸をしない平泳ぎをする' },
+                        { id: 'ss6', short: '楽泳', desc: 'かんたん泳ぎ: 呼吸をしながら25m泳ぐ(背泳ぎ・ドル平も可)' }
                     ]},
                     { id: 'jump', name: 'ジャンプ',     color: '#FF9800', skills: [
-                        { id: 'sj1', short: 'クロ',     desc: 'クロールで25m泳ぐ' },
-                        { id: 'sj2', short: '平泳',     desc: '平泳で25m泳ぐ' },
-                        { id: 'sj3', short: 'ク長',   desc: 'クロールで50m泳ぐ' },
-                        { id: 'sj4', short: '平長',     desc: '平泳で50m泳ぐ' },
-                        { id: 'sj5', short: 'ク速',   desc: '25mを30秒以内' },
-                        { id: 'sj6', short: '平速',     desc: '25mを40秒以内' }
+                        { id: 'sj1', short: 'クロ',     desc: 'クロール: クロールで25m泳ぐ' },
+                        { id: 'sj2', short: '平泳',     desc: '平泳ぎ: 平泳ぎで25m泳ぐ' },
+                        { id: 'sj3', short: 'ク長',   desc: 'クロール(長く): クロールで50m泳ぐ' },
+                        { id: 'sj4', short: '平長',     desc: '平泳ぎ(長く): 平泳ぎで50m泳ぐ' },
+                        { id: 'sj5', short: 'ク速',   desc: 'クロール(はやく): 25mを30秒以内' },
+                        { id: 'sj6', short: '平75',     desc: '平泳ぎ(長く): 平泳ぎで75m泳ぐ' }
                     ]},
                     { id: 'high', name: 'ハイジャンプ', color: '#E91E63', isMaster: true, skills: [
-                        { id: 'sx1', short: 'M6', desc: 'マスター6: クロールで100m泳ぐ' },
-                        { id: 'sx2', short: 'M5', desc: 'マスター5: 平泳で100m泳ぐ' },
-                        { id: 'sx3', short: 'M4', desc: 'マスター4: 25mを25秒以内' },
-                        { id: 'sx4', short: 'M3', desc: 'マスター3: 25mを35秒以内' },
-                        { id: 'sx5', short: 'M2', desc: 'マスター2: クロールで50m泳ぐ' },
-                        { id: 'sx6', short: 'M1', desc: 'マスター1: 平泳で50m泳ぐ(究極)' }
+                        { id: 'sx1', short: 'M6', desc: 'マスター6: クロール(もっと長く) クロールで100m泳ぐ' },
+                        { id: 'sx2', short: 'M5', desc: 'マスター5: 平泳ぎ(もっと長く) 平泳ぎで100m泳ぐ' },
+                        { id: 'sx3', short: 'M4', desc: 'マスター4: クロール(もっとはやく) 25mを25秒以内' },
+                        { id: 'sx4', short: 'M3', desc: 'マスター3: 平泳ぎ(はやく) 25mを40秒以内' },
+                        { id: 'sx5', short: 'M2', desc: 'マスター2: 平泳ぎ(もっとはやく) 25mを35秒以内' },
+                        { id: 'sx6', short: 'M1', desc: 'マスター1: 長く泳ぐ どんな泳ぎでもよい200m泳ぐ' }
                     ]}
                 ],
                 // stage(=合格累計技数) → ラベル。総24技。stage19-24がマスター6-1。
@@ -6792,17 +6796,17 @@
                 cat.skills.forEach(function(skill) {
                     var passed = passData[skill.id] === 1;
                     var uncounted = kenteiIsLocked(config, cat.id, passData);
-                    var btnClass = 'rec-nw-skill-btn' + (config.id === 'swimming' ? ' sw-skill-btn' : '') + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
+                    var btnClass = 'rec-nw-skill-btn' + ((config.presetId || config._presetId) === 'swimming' ? ' sw-skill-btn' : '') + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
                     skillsHtml += '<button class="' + btnClass + '"' +
                         ' id="rec-nw-' + idx + '-' + skill.id + '"' +
-                        ' title="' + skill.short + '"' +
+                        ' title="' + (skill.desc || skill.short) + '"' +
                         ' onclick="recNwToggle(' + idx + ',\x27' + skill.id + '\x27)">' +
                         '<div class="rec-nw-skill-lbl">' + skill.short + '</div>' +
                         '</button>';
                 });
             });
 
-            return '<div class="rec-nawatobi-card' + (config.id === 'swimming' ? ' swimming-card' : '') + (hasRecord ? ' has-record' : '') + '" id="rec-row-' + idx + '">' +
+            return '<div class="rec-nawatobi-card' + ((config.presetId || config._presetId) === 'swimming' ? ' swimming-card' : '') + (hasRecord ? ' has-record' : '') + '" id="rec-row-' + idx + '">' +
                 '<div class="rec-nw-hd">' +
                 '<div class="rec-nw-num' + (hasRecord ? ' has' : '') + '">' + (idx+1) + '</div>' +
                 '<span style="font-size:0.75rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">' + escapeHtml(stu.name || '') + '</span>' +
@@ -6862,7 +6866,7 @@
                     if (!btn) return;
                     var passed = passData[skill.id] === 1;
                     var uncounted = kenteiIsLocked(config, cat.id, passData);
-                    btn.className = 'rec-nw-skill-btn' + (config.id === 'swimming' ? ' sw-skill-btn' : '') + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
+                    btn.className = 'rec-nw-skill-btn' + ((config.presetId || config._presetId) === 'swimming' ? ' sw-skill-btn' : '') + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
                     btn.innerHTML = '<div class="rec-nw-skill-lbl">' + skill.short + '</div>';
                 });
             });
@@ -7158,6 +7162,7 @@
             } else if (type === '実技記録') {
                 peF.style.display = 'grid';
                 maxEl.disabled = true; maxEl.placeholder = '自動'; maxEl.value = '';
+                recOnPeUnitChange();
             } else if (type === '授業態度') {
                 maxEl.value = '10'; maxEl.disabled = true;
             } else if (type === 'ルーブリック') {
@@ -7172,6 +7177,27 @@
             }
             // 課題名プレフィックス自動挿入
             recAutoPrefix();
+        };
+
+        // 単位変更時: 検定カード(なわとび・泳力)なら 方向・計測 を隠し、観点を「知識・技能」に自動固定
+        window.recOnPeUnitChange = function() {
+            var unitEl = document.getElementById('recTestPeUnit');
+            if (!unitEl) return;
+            var isKentei = kenteiGetPresetId(unitEl.value) !== null;
+            var wrap = document.getElementById('recPeDirTrialWrap');
+            var hint = document.getElementById('recPeKenteiHint');
+            if (wrap) wrap.style.display = isKentei ? 'none' : 'contents';
+            if (hint) hint.style.display = isKentei ? 'block' : 'none';
+            var catEl = document.getElementById('recTestCategory');
+            if (catEl && document.getElementById('recTestType').value === '実技記録') {
+                if (isKentei) {
+                    catEl.value = '知識・技能';
+                    catEl.disabled = true;
+                    catEl.title = '検定カードは知識・技能に自動設定されます';
+                } else {
+                    catEl.disabled = false; catEl.title = '';
+                }
+            }
         };
 
         window.recOnCategoryChange = function() {
@@ -7401,11 +7427,23 @@
             }
             if (isPE) {
                 test.peUnit = document.getElementById('recTestPeUnit').value;
-                test.peDirection = document.getElementById('recTestPeDirection').value;
-                test.peTrials = parseInt(document.getElementById('recTestPeTrials').value) || 1;
                 var _pid = kenteiGetPresetId(test.peUnit);
-                if (_pid && !test.kenteiConfig) {
-                    test.kenteiConfig = kenteiBuildFromPreset(_pid);
+                if (_pid) {
+                    // 検定カード: 方向・計測は不要のため固定値。観点は知識・技能に統一。
+                    test.peDirection = 'higher';
+                    test.peTrials = 1;
+                    test.category = '知識・技能';
+                    // 編集時: 単位が同じ検定なら既存 kenteiConfig(カスタム換算表含む)を引き継ぐ
+                    if (recEditingTestId !== null) {
+                        var _old = tests.find(function(t) { return t.id === recEditingTestId; });
+                        if (_old && _old.kenteiConfig && kenteiGetPresetId(_old.peUnit) === _pid) {
+                            test.kenteiConfig = _old.kenteiConfig;
+                        }
+                    }
+                    if (!test.kenteiConfig) test.kenteiConfig = kenteiBuildFromPreset(_pid);
+                } else {
+                    test.peDirection = document.getElementById('recTestPeDirection').value;
+                    test.peTrials = parseInt(document.getElementById('recTestPeTrials').value) || 1;
                 }
             }
 
@@ -7439,6 +7477,11 @@
             if (ms) { ms.value = ''; ms.disabled = false; ms.placeholder = '満点（例：100）'; }
             document.getElementById('recMatomeFields').style.display = 'none';
             document.getElementById('recPeFields').style.display = 'none';
+            // 検定カード選択で変更されたフォーム状態を初期化
+            var _ce = document.getElementById('recTestCategory'); if (_ce) { _ce.disabled = false; _ce.title = ''; }
+            var _ue = document.getElementById('recTestPeUnit');   if (_ue) _ue.value = '秒';
+            var _dw = document.getElementById('recPeDirTrialWrap'); if (_dw) _dw.style.display = 'contents';
+            var _kh = document.getElementById('recPeKenteiHint');   if (_kh) _kh.style.display = 'none';
             document.getElementById('recTestFormTitle').textContent = '📝 新しい課題を追加';
             document.getElementById('recAddTestBtn').textContent = '課題を追加';
             var cancel = document.getElementById('recCancelEditBtn');
@@ -7467,6 +7510,13 @@
             else if (test.testType === 'まとめテスト' || test.testType === '単元テスト') { ms.value = ''; ms.disabled = true; ms.placeholder = '配点合計で自動計算'; }
             else { ms.value = test.maxScore || ''; ms.disabled = false; }
             recOnTestTypeChange();
+            if (test.testType === '実技記録') {
+                // バグ修正: 編集時に単位・方向・計測が復元されず「秒」に戻っていた
+                var _uEl = document.getElementById('recTestPeUnit');      if (_uEl) _uEl.value = test.peUnit || '秒';
+                var _dEl = document.getElementById('recTestPeDirection'); if (_dEl) _dEl.value = test.peDirection || 'lower';
+                var _tEl = document.getElementById('recTestPeTrials');    if (_tEl) _tEl.value = test.peTrials || 1;
+                recOnPeUnitChange();
+            }
             if ((test.testType === 'まとめテスト' || test.testType === '単元テスト') && test.matomePoints) {
                 document.getElementById('recMatomeQCount').value = test.matomePoints.length;
                 recRenderMatomePreview();
@@ -8844,6 +8894,42 @@
             }
         }
 
+        // カルテ上で届出（欠席・遅刻等の届け）の提出済/未提出を切替。出席簿と同一データを更新する。
+        window.karteToggleNotice = function(idx, dateKey) {
+            var nd = karteSafeGet('spa_attendance_notice', {});
+            if (!nd || typeof nd !== 'object') nd = {};
+            if (!nd[dateKey]) nd[dateKey] = {};
+            var wasOn = nd[dateKey][String(idx)] === true;
+            if (wasOn) {
+                delete nd[dateKey][String(idx)];
+                if (!Object.keys(nd[dateKey]).length) delete nd[dateKey];
+            } else {
+                nd[dateKey][String(idx)] = true;
+            }
+            if (!karteSafeSet('spa_attendance_notice', nd)) return;
+            // ボタン表示を即時更新（再描画せずスクロール位置を維持）
+            var btn = document.getElementById('karte-nt-' + idx + '-' + dateKey);
+            if (btn) {
+                var on = !wasOn;
+                btn.textContent = on ? '✓届出' : '未提出';
+                btn.style.background  = on ? '#E8F5E9' : '#FDEDEC';
+                btn.style.color       = on ? '#27AE60' : '#E74C3C';
+                btn.style.borderColor = on ? '#27AE60' : '#E74C3C';
+            }
+            // 未届件数を再計算
+            var att = karteSafeGet('spa_attendance', {});
+            var needSet = ['×', '／', 'チ', 'ソ', 'チソ', '停'];
+            var missing = 0;
+            Object.keys(att).forEach(function(dk) {
+                var st = (att[dk] || {})[String(idx)];
+                if (!st || needSet.indexOf(st) === -1) return;
+                if ((nd[dk] || {})[String(idx)] !== true) missing++;
+            });
+            var cnt = document.getElementById('karte-nt-missing-' + idx);
+            if (cnt) { cnt.textContent = missing + '件'; cnt.style.color = missing > 0 ? 'var(--danger)' : '#27AE60'; }
+            showToast(wasOn ? '届出を未提出に戻しました' : '届出ありに設定しました', 'success');
+        };
+
         // --- 名簿取得ヘルパー ---
         function karteGetStudents() {
             return (StorageManager.get(KEYS.master, {}).students || []);
@@ -9357,22 +9443,24 @@
                 if (karteNoticeRecs.length > 0) {
                     attDetailHtml += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;">'
                         + '<div class="ks-hub-row"><span class="ks-hub-label">届出なし：</span>'
-                        + '<span class="ks-hub-val" style="font-weight:700;color:' + (karteNoticeMissing > 0 ? 'var(--danger)' : '#27AE60') + ';">' + karteNoticeMissing + '件</span></div>'
-                        + '<table style="width:100%;border-collapse:collapse;margin-top:3px;font-size:0.68rem;">'
+                        + '<span class="ks-hub-val" id="karte-nt-missing-' + idx + '" style="font-weight:700;color:' + (karteNoticeMissing > 0 ? 'var(--danger)' : '#27AE60') + ';">' + karteNoticeMissing + '件</span>'
+                        + '<span style="font-size:0.62rem;color:#888;margin-left:8px;">届出ボタンをタップで切替</span></div>'
+                        + '<div style="max-height:240px;overflow-y:auto;margin-top:3px;-webkit-overflow-scrolling:touch;">'
+                        + '<table style="width:100%;border-collapse:collapse;font-size:0.68rem;">'
                         + '<tr style="background:#f4f6f9;"><th style="padding:2px 4px;text-align:left;font-weight:600;">日付</th><th style="padding:2px 4px;text-align:left;font-weight:600;">状況</th><th style="padding:2px 4px;text-align:center;font-weight:600;">届出</th></tr>';
-                    karteNoticeRecs.slice(0, 10).forEach(function(r) {
+                    karteNoticeRecs.forEach(function(r) {
                         var lbl = karteAttLabels[r.status] || r.status;
-                        var nc  = r.hasNotice
-                            ? '<span style="color:#27AE60;font-weight:700;">✓届出</span>'
-                            : '<span style="color:#E74C3C;font-weight:700;">未提出</span>';
+                        var on = r.hasNotice;
                         attDetailHtml += '<tr><td style="padding:1px 4px;color:#555;">' + escapeHtml(r.date) + '</td>'
                             + '<td style="padding:1px 4px;">' + escapeHtml(lbl) + '</td>'
-                            + '<td style="padding:1px 4px;text-align:center;">' + nc + '</td></tr>';
+                            + '<td style="padding:2px 4px;text-align:center;">'
+                            + '<button id="karte-nt-' + idx + '-' + r.date + '"'
+                            + ' onclick="karteToggleNotice(' + idx + ',\x27' + r.date + '\x27)"'
+                            + ' style="border-radius:12px;padding:2px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;min-height:28px;min-width:64px;'
+                            + (on ? 'background:#E8F5E9;color:#27AE60;border:1.5px solid #27AE60;' : 'background:#FDEDEC;color:#E74C3C;border:1.5px solid #E74C3C;')
+                            + '">' + (on ? '✓届出' : '未提出') + '</button></td></tr>';
                     });
-                    if (karteNoticeRecs.length > 10) {
-                        attDetailHtml += '<tr><td colspan="3" style="padding:2px 4px;color:#888;font-size:0.65rem;">ほか ' + (karteNoticeRecs.length - 10) + ' 件</td></tr>';
-                    }
-                    attDetailHtml += '</table></div>';
+                    attDetailHtml += '</table></div></div>';
                 }
             }
             attDetailHtml += '</div></div>';

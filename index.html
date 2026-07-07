@@ -2061,7 +2061,7 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>年度</label>
-                            <input type="number" id="setYear" min="2020" max="2040">
+                            <input type="number" id="setYear" min="2020" max="2040" inputmode="numeric">
                         </div>
                         <div class="form-group">
                             <label>学年</label>
@@ -2091,6 +2091,7 @@
                             <option value="2">2学期制</option>
                         </select>
                     </div>
+                    <small style="color: var(--text-light);">※ 変更後は下の「💾 クラス情報と名簿を保存」を押してください</small>
                 </div>
                 <!-- 名簿 -->
                 <div class="card">
@@ -2103,7 +2104,7 @@
                         <small style="color: var(--text-light);">※ 転入生は末尾に追加、転出生は削除してください</small>
                     </div>
                     <div class="btn-group">
-                        <button class="btn btn-primary" onclick="saveMasterRoster()">💾 名簿を保存</button>
+                        <button class="btn btn-primary" onclick="saveMasterRoster()">💾 クラス情報と名簿を保存</button>
                     </div>
                     <div class="roster-preview" id="rosterPreview">
                         <div style="text-align: center; color: var(--text-light); padding: 20px;">名簿が入力されていません</div>
@@ -2412,19 +2413,19 @@
                                 <option>思考・判断・表現</option>
                                 <option value="主体性">主体的に学習に取り組む態度</option>
                             </select>
-                            <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1">
+                            <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" inputmode="numeric">
                             <input type="date" id="recTestDate">
                             <!-- まとめテスト設定 -->
                             <div class="rec-matome-fields" id="recMatomeFields">
                                 <div id="recMatomeFieldsTitle" style="font-size:0.82rem;font-weight:700;color:#1565C0;margin-bottom:6px;">📝 まとめテストの設定</div>
                                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
                                     <label style="font-size:0.78rem;">設問数:</label>
-                                    <input type="number" id="recMatomeQCount" value="10" min="1" max="50"
+                                    <input type="number" id="recMatomeQCount" value="10" min="1" max="50" inputmode="numeric"
                                         style="width:54px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;"
                                         onchange="recRenderMatomePreview()">
                                     <span style="font-size:0.78rem;">問</span>
                                     <button onclick="recSetMatomeUniform()" style="padding:4px 8px;background:#1976D2;color:#fff;border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;min-height:30px;">一括配点</button>
-                                    <input type="number" id="recMatomeUniformPt" value="5" min="1" style="width:44px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;">
+                                    <input type="number" id="recMatomeUniformPt" value="5" min="1" inputmode="numeric" style="width:44px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;">
                                     <span style="font-size:0.78rem;">点</span>
                                 </div>
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
@@ -2455,7 +2456,7 @@
                                         <option value="higher">多いほど良い</option>
                                     </select>
                                     <label style="font-size:0.78rem;">計測:</label>
-                                    <input type="number" id="recTestPeTrials" value="1" min="1" max="10"
+                                    <input type="number" id="recTestPeTrials" value="1" min="1" max="10" inputmode="numeric"
                                         style="width:44px;padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;text-align:center;font-size:0.82rem;">
                                     <span style="font-size:0.78rem;">回</span>
                                     </span>
@@ -2700,7 +2701,7 @@
                     <button class="btn-rec-small" id="subDiaryNextBtn">▶</button>
                     <button class="btn-rec-small goto" id="subDiaryTodayBtn">今日</button>
                     <span style="font-size:0.8rem;color:var(--text-light);">目標:</span>
-                    <input type="number" id="subDiaryTarget" min="1" max="365" style="width:60px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.85rem;text-align:center;">
+                    <input type="number" id="subDiaryTarget" min="1" max="365" inputmode="numeric" style="width:60px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.85rem;text-align:center;">
                     <span style="font-size:0.8rem;color:var(--text-light);">日</span>
                     <button class="btn-rec-small goto" id="subDiaryAllBtn" style="margin-left:auto;">全員+1</button>
                     <button class="btn-rec-small del" id="subDiaryClearBtn">この日クリア</button>
@@ -4556,7 +4557,10 @@
         // 児童選択グリッド
         var grid = document.getElementById('dashStudentGrid');
         if (master.students.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:20px;">名簿が設定されていません。「名簿・設定」から登録してください。</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px 16px;">' +
+                '<div style="font-size:0.9rem;color:var(--text-light);margin-bottom:14px;">まだ名簿が登録されていません。<br>はじめに児童の名簿を登録しましょう。</div>' +
+                '<button onclick="showView(\'settings\')" class="btn btn-primary" style="min-height:48px;padding:12px 28px;font-size:1rem;">👥 名簿を登録する</button>' +
+                '</div>';
         } else {
             var html = '';
             master.students.forEach(function(s, i) {
@@ -4681,7 +4685,7 @@
                 '<td style="padding:6px 4px;font-weight:500;">' + escapeHtml(s.name) + '</td>' +
                 '<td style="padding:4px 2px;text-align:center;"><select data-idx="' + i + '" data-field="visionL" style="width:48px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:0.85rem;">' + vOpts.replace('value="'+(s.visionL||'')+'"', 'value="'+(s.visionL||'')+'" selected') + '</select></td>' +
                 '<td style="padding:4px 2px;text-align:center;"><select data-idx="' + i + '" data-field="visionR" style="width:48px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:0.85rem;">' + vOpts.replace('value="'+(s.visionR||'')+'"', 'value="'+(s.visionR||'')+'" selected') + '</select></td>' +
-                '<td style="padding:4px 2px;text-align:center;"><input type="number" data-idx="' + i + '" data-field="height" value="' + (s.height||'') + '" style="width:56px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:0.85rem;text-align:center;" step="0.1" placeholder="--"></td>' +
+                '<td style="padding:4px 2px;text-align:center;"><input type="number" data-idx="' + i + '" data-field="height" value="' + (s.height||'') + '" style="width:56px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:0.85rem;text-align:center;" step="0.1" inputmode="decimal" placeholder="--"></td>' +
                 '</tr>';
         });
         tbody.innerHTML = html;
@@ -5706,9 +5710,27 @@
         const students = attGetStudents();
         if (students.length === 0) { showToast('名簿が設定されていません', 'warning'); return; }
         const label = ATT_STATUS_MAP[status] ? ATT_STATUS_MAP[status].label : status;
-        if (!confirm(`全員を「${label}」にしますか？`)) return;
         const dateKey = attDateStr(attCurrentDate);
         const allData = attGetAll();
+        const day = allData[dateKey] || {};
+
+        if (status === '○') {
+            const targets = [];
+            students.forEach((_, i) => { if (!day[String(i)]) targets.push(String(i)); });
+            if (targets.length === 0) { showToast('全員入力済みです', 'info'); return; }
+            if (!confirm('未入力の ' + targets.length + '名を「出席」にしますか？\n（入力済みの児童はそのままです）')) return;
+            targets.forEach(k => { day[k] = '○'; });
+            allData[dateKey] = day;
+            attSave(allData);
+            attRenderGrid();
+            attUpdateStats();
+            showToast('未入力の ' + targets.length + '名を「出席」にしました', 'success');
+            return;
+        }
+
+        const existing = Object.keys(day).length;
+        const warn = existing > 0 ? '\n（入力済みの ' + existing + '名も含め、全員を上書きします）' : '';
+        if (!confirm('全員を「' + label + '」にしますか？' + warn)) return;
         allData[dateKey] = {};
         students.forEach((_, i) => { allData[dateKey][String(i)] = status; });
         attSave(allData);
@@ -5717,7 +5739,10 @@
         showToast(`${students.length}名を「${label}」にしました`, 'success');
     }
     function attClearDay() {
-        if (!confirm('今日の出欠をすべてクリアしますか？')) return;
+        const d = attCurrentDate;
+        const dowJa = ['日','月','火','水','木','金','土'][d.getDay()];
+        const dateLabel = (d.getMonth() + 1) + '月' + d.getDate() + '日(' + dowJa + ')';
+        if (!confirm(dateLabel + ' の出欠をすべてクリアしますか？\n（同じ日の届出チェック・朝の準備の記録も削除されます）')) return;
         const dateKey = attDateStr(attCurrentDate);
         const allData = attGetAll();
         delete allData[dateKey];
@@ -6238,7 +6263,7 @@
                         + '<div class="rec-row-score-area">'
                         +   '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') + '"'
                         +   ' min="0" max="' + test.maxScore + '" placeholder="—"'
-                        +   ' step="' + (isPE ? '0.01' : '1') + '"'
+                        +   ' step="' + (isPE ? '0.01' : '1') + '" inputmode="' + (isPE ? 'decimal' : 'numeric') + '"'
                         +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
                         +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
@@ -7056,7 +7081,7 @@
                 return '<div class="rec-mq-cell">' +
                     '<span class="rec-mq-cell-label">Q' + (i+1) + '</span>' +
                     '<span class="rec-mq-cell-type ' + typeClass + '">' + (types[i]||'知') + '</span>' +
-                    '<input type="number" min="0" max="' + pt + '" step="0.1" value="' + (hasAns ? ans : '') + '"' +
+                    '<input type="number" min="0" max="' + pt + '" step="0.1" inputmode="decimal" value="' + (hasAns ? ans : '') + '"' +
                     ' placeholder="/' + pt + '" class="' + (hasAns ? 'has-val' : '') + '"' +
                     ' id="rec-mq-' + i + '"' +
                     ' oninput="recUpdateMatomeTotal()" style="width:52px;">' +
@@ -7286,7 +7311,7 @@
                 var col = colors[curType] || colors['知'];
                 return '<div class="rec-mq-item">' +
                     '<span class="rec-mq-label">Q' + (i+1) + '</span>' +
-                    '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1">' +
+                    '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1" inputmode="numeric">' +
                     '<button class="rec-mq-type-btn" id="rec-mq-type-' + (i+1) + '" data-type="' + curType + '"' +
                     ' style="border-color:' + col.c + ';background:' + col.bg + ';color:' + col.c + ';"' +
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
@@ -7667,7 +7692,7 @@
                     '<td style="padding:4px 8px;text-align:center;font-size:0.82rem;">' + row.stage + '</td>' +
                     '<td style="padding:4px 8px;text-align:center;font-size:0.82rem;color:var(--text-light);">' + escapeHtml(row.label || '-') + '</td>' +
                     '<td style="padding:4px 8px;text-align:center;">' +
-                    '<input type="number" min="0" max="10" step="0.1" value="' + (row.score10 != null ? row.score10 : '') + '" ' +
+                    '<input type="number" min="0" max="10" step="0.1" inputmode="decimal" value="' + (row.score10 != null ? row.score10 : '') + '" ' +
                     'data-stage="' + row.stage + '" style="width:64px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:0.82rem;">' +
                     '</td></tr>';
             }).join('');
@@ -9661,8 +9686,11 @@
         function karteRecCancelEdit() { karteRecEditingId = null; karteRecRating = null; karteRecCategory = null; karteRecAbsent = false; renderKarteRecords(); }
         function karteRecDelete(id) {
             if (!confirm('この記録を削除しますか？')) return;
-            karteSaveKarteRecs(karteGetKarteRecs().filter(function(r) { return r.id !== id; }));
-            showToast('削除しました', 'info');
+            var recs = karteGetKarteRecs();
+            var target = recs.find(function(r) { return r.id === id; });
+            if (target) karteDeletedBuffer.push({ type: 'recs', studentIndex: target.studentIndex, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() });
+            karteSaveKarteRecs(recs.filter(function(r) { return r.id !== id; }));
+            showToast('削除しました（元に戻せます）', 'warning');
             renderKarteStudentBar();
             renderKarteRecords();
         }
@@ -10012,6 +10040,11 @@
                 var list2 = Array.isArray(all2[String(idx)]) ? all2[String(idx)] : [];
                 list2.push(last.data); all2[String(idx)] = list2;
                 if (karteSafeSet(KK.parent, all2)) showToast('復元しました', 'success');
+            } else if (last.type === 'recs') {
+                var recs = karteGetKarteRecs();
+                recs.push(last.data);
+                karteSaveKarteRecs(recs);
+                showToast('復元しました', 'success');
             }
             refreshKarteTab();
         }
@@ -10249,12 +10282,20 @@
         var subEditingAssignId = null;
         function subDeleteAssign(id) {
             if (!confirm('この課題を削除しますか？\n提出データも削除されます。')) return;
+            var delAssign = subGetAssignments().find(function(a) { return a.id === id; });
+            var delSubs = subGetSubmissions().filter(function(s) { return s.assignmentId === id; });
             subSaveAssignments(subGetAssignments().filter(function(a) { return a.id !== id; }));
             subSaveSubmissions(subGetSubmissions().filter(function(s) { return s.assignmentId !== id; }));
             if (subCurrentAssign === id) subCurrentAssign = null;
             subRenderAssignList();
             subUpdateAssignSelects();
-            showToast('削除しました', 'success');
+            showUndoToast('課題を削除しました', function() {
+                if (delAssign) subSaveAssignments(subGetAssignments().concat([delAssign]));
+                if (delSubs.length) subSaveSubmissions(subGetSubmissions().concat(delSubs));
+                subRenderAssignList();
+                subUpdateAssignSelects();
+                showToast('復元しました', 'success');
+            });
         }
         function subEditAssign(id) {
             var assigns = subGetAssignments();
@@ -12523,13 +12564,13 @@
                  ['主体 A閾値','a','a','attitude','aThreshold'], ['主体 B閾値','a','b','attitude','bThreshold']].forEach(function(row) {
                     html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:0.82rem;">';
                     html += '<label style="flex:0 0 7em;">'+row[0]+':</label>';
-                    html += '<input type="number" id="gth-'+subj+'-'+row[1]+'-'+row[2]+'" value="'+cfg[row[3]][row[4]]+'" min="0" max="100" style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;">%';
+                    html += '<input type="number" id="gth-'+subj+'-'+row[1]+'-'+row[2]+'" value="'+cfg[row[3]][row[4]]+'" min="0" max="100" inputmode="numeric" style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;">%';
                     html += '</div>';
                 });
                 [['評定3 合計≧','f3','final','grade3',3,9],['評定2 合計≧','f2','final','grade2',3,9]].forEach(function(row) {
                     html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:0.82rem;">';
                     html += '<label style="flex:0 0 7em;">'+row[0]+':</label>';
-                    html += '<input type="number" id="gth-'+subj+'-'+row[1]+'" value="'+cfg[row[2]][row[3]]+'" min="'+row[4]+'" max="'+row[5]+'" style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;">';
+                    html += '<input type="number" id="gth-'+subj+'-'+row[1]+'" value="'+cfg[row[2]][row[3]]+'" min="'+row[4]+'" max="'+row[5]+'" inputmode="numeric" style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;">';
                     html += '</div>';
                 });
                 html += '</div>';
@@ -12640,7 +12681,7 @@
                     html += '<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;border-bottom:1px solid #f0f0f0;flex-wrap:wrap;">';
                     html += '<span style="flex:1;min-width:80px;font-size:0.82rem;">'+escapeHtml(item.name)+'</span>';
                     html += '<input type="range" min="0" max="100" step="1" value="'+dw+'" data-cat="'+cat.key+'" data-key="'+item.itemKey+'" class="grd-w-sl" style="flex:0 0 90px;accent-color:'+cat.color+';">';
-                    html += '<input type="number" min="0" max="100" step="0.1" value="'+dw+'" data-cat="'+cat.key+'" data-key="'+item.itemKey+'" class="grd-w-inp" style="width:50px;padding:3px;border:1px solid var(--border);border-radius:4px;text-align:center;font-size:0.82rem;">';
+                    html += '<input type="number" min="0" max="100" step="0.1" inputmode="decimal" value="'+dw+'" data-cat="'+cat.key+'" data-key="'+item.itemKey+'" class="grd-w-inp" style="width:50px;padding:3px;border:1px solid var(--border);border-radius:4px;text-align:center;font-size:0.82rem;">';
                     html += '<span style="font-size:0.8rem;">%</span></div>';
                 });
                 html += '<div style="text-align:right;padding:4px 6px;font-size:0.8rem;font-weight:700;">合計: <span id="gwt-'+cat.key+'">—</span>%</div></div>';
@@ -16865,12 +16906,12 @@
                 if(e==='握力'){
                     var vL=rec['握力_左']!==undefined?rec['握力_左']:'';
                     var vR=rec['握力_右']!==undefined?rec['握力_右']:'';
-                    html+='<td><input type="number" step="0.1" min="0" value="'+vL+'" placeholder="左" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'左\',this.value)" oninput="pf_setGripRecord('+s.id+',\'左\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
-                    html+='<td><input type="number" step="0.1" min="0" value="'+vR+'" placeholder="右" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'右\',this.value)" oninput="pf_setGripRecord('+s.id+',\'右\',this.value)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+s.id+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
+                    html+='<td><input type="number" step="0.1" min="0" inputmode="decimal" value="'+vL+'" placeholder="左" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'左\',this.value)" oninput="pf_setGripRecord('+s.id+',\'左\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="0.1" min="0" inputmode="decimal" value="'+vR+'" placeholder="右" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'右\',this.value)" oninput="pf_setGripRecord('+s.id+',\'右\',this.value)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+s.id+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
                 }else{
                     var step=e==='50m走'?'0.1':'1';
                     var v=rec[e]!==undefined?rec[e]:'';
-                    html+='<td><input type="number" step="'+step+'" min="0" value="'+v+'" placeholder="—" data-pf-idx="'+(inputIdx++)+'" onchange="pf_setRecord('+s.id+',\''+e+'\',this.value)" oninput="pf_setRecord('+s.id+',\''+e+'\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="'+step+'" min="0" inputmode="decimal" value="'+v+'" placeholder="—" data-pf-idx="'+(inputIdx++)+'" onchange="pf_setRecord('+s.id+',\''+e+'\',this.value)" oninput="pf_setRecord('+s.id+',\''+e+'\',this.value)" onkeydown="pfMoveNext(event,this)"></td>';
                 }
             });
             var scoreHtml=total>0?total:'—';

@@ -952,6 +952,9 @@
             container-type: inline-size; /* ラベルをボタン幅に追従させる */
         }
         .rec-nw-skill-lbl { font-size: clamp(8px, 34cqw, 13px); line-height: 1.05; white-space: nowrap; color: #555; }
+        .rec-nw-skill-sub { font-size: clamp(7px, 20cqw, 10px); line-height: 1.1; white-space: nowrap; color: #888; margin-top: 1px; }
+        .rec-nw-skill-btn.passed .rec-nw-skill-sub { color: #2E7D32; }
+        .rec-nw-skill-btn.uncounted .rec-nw-skill-sub { color: #CFCFCF; }
         .rec-nw-skill-btn.passed .rec-nw-skill-lbl { color: #2E7D32; font-weight: 700; }
         .rec-nw-skill-btn.uncounted .rec-nw-skill-lbl { color: #BDBDBD; }
         .rec-nw-skill-btn.passed { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
@@ -6619,12 +6622,12 @@
                         { id: 'sj6', short: '平75',     desc: '平泳ぎ(長く): 平泳ぎで75m泳ぐ' }
                     ]},
                     { id: 'high', name: 'ハイジャンプ', color: '#E91E63', isMaster: true, skills: [
-                        { id: 'sx1', short: 'M6', desc: 'マスター6: クロール(もっと長く) クロールで100m泳ぐ' },
-                        { id: 'sx2', short: 'M5', desc: 'マスター5: 平泳ぎ(もっと長く) 平泳ぎで100m泳ぐ' },
-                        { id: 'sx3', short: 'M4', desc: 'マスター4: クロール(もっとはやく) 25mを25秒以内' },
-                        { id: 'sx4', short: 'M3', desc: 'マスター3: 平泳ぎ(はやく) 25mを40秒以内' },
-                        { id: 'sx5', short: 'M2', desc: 'マスター2: 平泳ぎ(もっとはやく) 25mを35秒以内' },
-                        { id: 'sx6', short: 'M1', desc: 'マスター1: 長く泳ぐ どんな泳ぎでもよい200m泳ぐ' }
+                        { id: 'sx1', short: 'M6', sub: 'ク100m', desc: 'マスター6: クロール(もっと長く) クロールで100m泳ぐ' },
+                        { id: 'sx2', short: 'M5', sub: '平100m', desc: 'マスター5: 平泳ぎ(もっと長く) 平泳ぎで100m泳ぐ' },
+                        { id: 'sx3', short: 'M4', sub: 'ク25秒', desc: 'マスター4: クロール(もっとはやく) 25mを25秒以内' },
+                        { id: 'sx4', short: 'M3', sub: '平40秒', desc: 'マスター3: 平泳ぎ(はやく) 25mを40秒以内' },
+                        { id: 'sx5', short: 'M2', sub: '平35秒', desc: 'マスター2: 平泳ぎ(もっとはやく) 25mを35秒以内' },
+                        { id: 'sx6', short: 'M1', sub: '泳200m', desc: 'マスター1: 長く泳ぐ どんな泳ぎでもよい200m泳ぐ' }
                     ]}
                 ],
                 // stage(=合格累計技数) → ラベル。総24技。stage19-24がマスター6-1。
@@ -6802,6 +6805,7 @@
                         ' title="' + (skill.desc || skill.short) + '"' +
                         ' onclick="recNwToggle(' + idx + ',\x27' + skill.id + '\x27)">' +
                         '<div class="rec-nw-skill-lbl">' + skill.short + '</div>' +
+                        (skill.sub ? '<div class="rec-nw-skill-sub">' + skill.sub + '</div>' : '') +
                         '</button>';
                 });
             });
@@ -6867,7 +6871,8 @@
                     var passed = passData[skill.id] === 1;
                     var uncounted = kenteiIsLocked(config, cat.id, passData);
                     btn.className = 'rec-nw-skill-btn' + ((config.presetId || config._presetId) === 'swimming' ? ' sw-skill-btn' : '') + (passed ? ' passed' : '') + (uncounted ? ' uncounted' : '');
-                    btn.innerHTML = '<div class="rec-nw-skill-lbl">' + skill.short + '</div>';
+                    btn.innerHTML = '<div class="rec-nw-skill-lbl">' + skill.short + '</div>'
+                        + (skill.sub ? '<div class="rec-nw-skill-sub">' + skill.sub + '</div>' : '');
                 });
             });
         }

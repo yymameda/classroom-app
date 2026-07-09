@@ -1258,7 +1258,7 @@
             padding: 4px 0; min-height: var(--tap-min); display: flex; align-items: center; justify-content: center;
             background: var(--secondary); border-radius: 8px;
         }
-        .sub-cont-legend { display: flex; flex-direction: column; gap: 6px; }
+        .sub-cont-legend { display: flex; flex-direction: column; gap: 6px; user-select: none; -webkit-user-select: none; pointer-events: none; } /* v1.8.89: 凡例は表示専用 */
         .sub-cont-legend-item {
             display: flex; align-items: center; gap: 8px; border: 1.5px solid; border-radius: 8px;
             padding: 4px 8px; min-height: 36px; font-size: var(--fs-body); font-weight: 700;
@@ -10589,7 +10589,17 @@
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
             if (!row) return;
             var willBeAbsent = !row.classList.contains('absent');
-            if (!willBeAbsent) { subClearStatus(idx); return; } // v1.8.88: 欠席解除=空欄に戻す（×残留レコード防止）
+            if (!willBeAbsent) { // v1.8.89: ×の行のみ空欄に戻す。○△が付いた行は欠席表示だけ解除して状態を残す
+                if (row.classList.contains('status-missing')) { subClearStatus(idx); return; }
+                row.classList.remove('absent');
+                var _tag = row.querySelector('.sub-absent-tag');
+                if (_tag) _tag.remove();
+                var _ab = row.querySelector('.sub-absent-btn');
+                if (_ab) { _ab.classList.remove('absent-on'); _ab.textContent = '欠席'; }
+                subScheduleAutoSave();
+                subUpdateProgress();
+                return;
+            }
             if (willBeAbsent && !row.classList.contains('has-status')) {
                 subSelectStatus(idx, 'missing');
                 row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
@@ -10828,6 +10838,8 @@
             document.querySelectorAll('#subStatusModal .att-status-opt').forEach(function(opt) {
                 opt.classList.toggle('selected', opt.dataset.s === curStatus);
             });
+            var _absLbl = document.querySelector('#subStatusModal .att-status-opt[data-s="absent"] .lbl');
+            if (_absLbl) _absLbl.textContent = (curStatus === 'absent') ? '欠席解除' : '欠席'; // v1.8.89
             var lateToggle = document.getElementById('subModalLateToggle');
             var lateWrap = document.getElementById('subModalLateWrap');
             if (lateToggle) {
@@ -10854,9 +10866,13 @@
             if (status === '') {
                 subClearStatus(idx);
             } else if (status === 'absent') {
-                // subSelectStatusはabsentクラスを必ず除去するため、その後は常にON側へトグルする
-                subSelectStatus(idx, 'missing');
-                subToggleAbsent(idx);
+                var _mrow = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
+                if (_mrow && _mrow.classList.contains('absent')) {
+                    subToggleAbsent(idx); // v1.8.89: 欠席中なら解除（H-1の分岐に従い×は空欄・○△は状態維持）
+                } else {
+                    subSelectStatus(idx, 'missing');
+                    subToggleAbsent(idx);
+                }
             } else if (status === 'submitted' || status === 'resubmit') {
                 var lateToggle = document.getElementById('subModalLateToggle');
                 subSelectStatus(idx, status, lateToggle ? lateToggle.checked : undefined);

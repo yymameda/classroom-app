@@ -3805,6 +3805,7 @@
                 localStorage.setItem(key, str);
             } catch (e) {
                 console.error('StorageManager.setImmediate error:', key, e);
+                try { if (typeof showToast === 'function') showToast('⚠️ 保存に失敗しました（容量不足の可能性）。バックアップ後にデータ整理してください', 'error'); } catch(e2) {} // v1.8.88
             }
             if (this._idb) _idbPut(this._idb, key, str);
         },
@@ -4222,8 +4223,10 @@
     // 欠席レコード（absent:true）と ○/△ は対象外。冪等：対象がなければ何もしない。
     var SUB_MISSING_MARKERS_V1863 = ['missing', '×'];
     function cleanupSubmissionMissingV1863() {
+        var CLEAN_FLAG = 'spa_cleanup_missing_v1863_done'; // v1.8.88: 毎起動実行を廃止
+        try { if (localStorage.getItem(CLEAN_FLAG)) return; } catch(e) {}
         var raw = StorageManager.getRaw(KEYS.submissions_data);
-        if (raw === null) { console.log('[cleanupSubMissing] submissions_data なし。何もしません。'); return; }
+        if (raw === null) { console.log('[cleanupSubMissing] submissions_data なし。何もしません。'); try { localStorage.setItem(CLEAN_FLAG, '1'); } catch(e) {} return; }
         var arr;
         try { arr = JSON.parse(raw); } catch(e) { console.error('[cleanupSubMissing] parse error。中止します。', e); return; }
         if (!Array.isArray(arr)) { console.warn('[cleanupSubMissing] 配列ではないため中止します。'); return; }
@@ -4236,6 +4239,7 @@
 
         if (removed.length === 0) {
             console.log('[cleanupSubMissing] 対象なし（手動×レコード0件）。何もしません。');
+            try { localStorage.setItem(CLEAN_FLAG, '1'); } catch(e) {}
             return;
         }
 
@@ -4251,6 +4255,7 @@
         }
 
         StorageManager.set(KEYS.submissions_data, JSON.stringify(kept));
+        try { localStorage.setItem(CLEAN_FLAG, '1'); } catch(e) {}
         console.log('[cleanupSubMissing] 手動×レコード ' + removed.length + '件を削除（' + arr.length + '→' + kept.length + '件）。バックアップ: spa_submissions_removed_v1863');
     }
 
@@ -4316,6 +4321,7 @@
         window.addEventListener('pagehide', function() { flushSaveQueue(); });
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'hidden') {
+                try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch(e) {} // v1.8.88: 入力途中の点数を確定
                 flushSaveQueue();
                 _lastHeartbeat = Date.now();
             }
@@ -4417,12 +4423,43 @@
         };
         // 名簿をパース
         var lines = document.getElementById('masterRoster').value.trim().split('\n').filter(function(l) { return l.trim(); });
-        master.students = lines.map(function(line) {
+        var newStudents = lines.map(function(line) {
             var parts = line.trim().split(',');
             var name = parts[0].trim();
             var gender = (parts[1] || '').trim();
             return { name: name, gender: gender || '' };
         });
+        // v1.8.88: 名簿ズレ防止ガード。成績・出欠等は「名簿の並び順(番号)」に紐づくため、
+        // 途中の削除・挿入・並べ替えを検出したら警告する。末尾追加と男女修正・同位置の改名は安全。
+        var _old = master.students || [];
+        if (_old.length > 0) {
+            var _shift = false, _firstDiff = -1;
+            if (newStudents.length < _old.length) { _shift = true; }
+            for (var _gi = 0; _gi < _old.length && !(_shift && _firstDiff >= 0); _gi++) {
+                var _nw = newStudents[_gi];
+                if (!_nw || _nw.name !== _old[_gi].name) {
+                    if (_firstDiff < 0) _firstDiff = _gi;
+                    // 同位置の改名(誤字修正等)は許容。ただし旧名簿の別位置に同名が存在するなら並べ替え/削除の疑い
+                    var _movedFrom = -1;
+                    for (var _gk = 0; _gk < _old.length; _gk++) { if (_gk !== _gi && _nw && _old[_gk].name === _nw.name) { _movedFrom = _gk; break; } }
+                    if (!_nw || _movedFrom >= 0 || (newStudents.length !== _old.length)) _shift = true;
+                }
+            }
+            if (_shift) {
+                var _on = (_firstDiff >= 0 && _old[_firstDiff]) ? _old[_firstDiff].name : '（なし）';
+                var _nn = (_firstDiff >= 0 && newStudents[_firstDiff]) ? newStudents[_firstDiff].name : '（なし）';
+                var _msg = '⚠️ 名簿の並びが変わっています（' + (_firstDiff + 1) + '番: 「' + _on + '」→「' + _nn + '」）。\n\n'
+                    + 'このアプリでは成績・出欠・提出物・カルテなどの記録が「名簿の並び順」に紐づいています。\n'
+                    + 'このまま保存すると、' + (_firstDiff + 1) + '番以降の児童の記録が別の児童のものとして表示されるおそれがあります。\n\n'
+                    + '【安全な直し方】\n'
+                    + '・転出 → 行を削除せず、名前を「（転出）元の名前」に書き換える\n'
+                    + '・転入 → 名簿の一番下に追加する\n'
+                    + '・誤字の修正だけなら、この警告は無視して保存してかまいません\n\n'
+                    + 'それでも保存しますか？';
+                if (!confirm(_msg)) { showToast('名簿の保存を中止しました（データは変更されていません）', 'info'); return; }
+            }
+        }
+        master.students = newStudents;
         saveMaster();
         updateRosterPreview();
         renderPhysicalTable();
@@ -4474,7 +4511,7 @@
         if (viewName === 'records' && typeof recOnShowView === 'function') { recOnShowView(); }
         if (viewName === 'kanji' && typeof kanjiInit === 'function') { kanjiInit(); }
         if (viewName === 'pf' && typeof pf_onShowView === 'function') { pf_onShowView(); }
-        if (viewName === 'grades' && typeof grdImportFitnessTest === 'function') { grdImportFitnessTest(); }
+        if (viewName === 'grades' && typeof grdImportFitnessTest === 'function') { grdImportFitnessTest(true); }
         if (viewName === 'karte' && typeof karteViewInit === 'function') { karteViewInit(); }
         if (viewName === 'quickmemo' && typeof qmInit === 'function') { qmInit(); }
     }
@@ -4517,7 +4554,7 @@
             var subs    = StorageManager.get(KEYS.submissions_data, []);
             // 今月登録の課題に絞る
             var monthAssigns = assigns.filter(function(a) {
-                return a.dueDate && a.dueDate.slice(0, 7) === ym;
+                return a.date && a.date.slice(0, 7) === ym; // v1.8.88: 実フィールド名は date
             });
             if (monthAssigns.length === 0) monthAssigns = assigns; // なければ全件
             var ok = 0, re = 0, total2 = 0;
@@ -5948,6 +5985,7 @@
         var _scoresCache = null;
 
         function _invalidate() { _testsCache = null; _scoresCache = null; }
+        window.recInvalidateCache = _invalidate; // v1.8.88: 外部書き込み後のキャッシュ無効化用
 
         function recGetTests() {
             if (_testsCache === null) _testsCache = StorageManager.get(REC_KEYS.tests, []);
@@ -5959,7 +5997,10 @@
             _testsCache = null;
         }
         function recGetScores() {
-            if (_scoresCache === null) _scoresCache = StorageManager.get(REC_KEYS.scores, []);
+            if (_scoresCache === null) {
+                _scoresCache = StorageManager.get(REC_KEYS.scores, []);
+                _scoresCache.forEach(function(s) { if (s && typeof s.studentIndex === 'string') s.studentIndex = parseInt(s.studentIndex, 10); }); // v1.8.88
+            }
             return _scoresCache;
         }
         function recSaveScores(arr) {
@@ -6014,6 +6055,9 @@
         };
         window.recGoToTestMgmt = function() { recShowSub('tests'); };
 
+        // v1.8.88: 課題IDは数値(Date.now)と文字列(fitness_YYYY等)が混在するため共通解釈
+        function recParseTestId(v) { var s = String(v); return /^\d+$/.test(s) ? parseInt(s, 10) : s; }
+
         // ============================================================
         // 点数入力
         // ============================================================
@@ -6046,7 +6090,7 @@
                 if (!groups[subj]) return;
                 html += '<optgroup label="' + subj + '">';
                 groups[subj].forEach(function(t) {
-                    html += '<option value="' + t.id + '">' + (t.testType || '') + ' ' + t.name + ' (' + (t.date || '') + ')</option>';
+                    html += '<option value="' + t.id + '">' + (t.testType || '') + ' ' + escapeHtml(t.name) + ' (' + (t.date || '') + ')</option>';
                 });
                 html += '</optgroup>';
             });
@@ -6055,7 +6099,7 @@
                 if (REC_SUBJ_ORDER.indexOf(subj) >= 0) return;
                 html += '<optgroup label="' + subj + '">';
                 groups[subj].forEach(function(t) {
-                    html += '<option value="' + t.id + '">' + (t.testType || '') + ' ' + t.name + ' (' + (t.date || '') + ')</option>';
+                    html += '<option value="' + t.id + '">' + (t.testType || '') + ' ' + escapeHtml(t.name) + ' (' + (t.date || '') + ')</option>';
                 });
                 html += '</optgroup>';
             });
@@ -6065,7 +6109,7 @@
 
         window.recOnInputTestChange = function() {
             var sel = document.getElementById('recInputTestSelect');
-            recCurrentTestId = sel.value ? parseInt(sel.value) : null;
+            recCurrentTestId = sel.value ? recParseTestId(sel.value) : null; // v1.8.88
             recRenderInputArea();
             // 課題選択直後、最初の空欄へフォーカス（外付けキーボードで即入力可。空欄が無ければ何もしない）
             var inputs = document.querySelectorAll('#recList input[id^="rec-sc-"]');
@@ -7074,6 +7118,7 @@
 
             var typeMap = { '知': 'chi', '思': 'shi', '主': 'shu' };
             var grid = document.getElementById('recMatomeGrid');
+            window._recMqDirty = false; // v1.8.88
             grid.innerHTML = points.map(function(pt, i) {
                 var typeClass = typeMap[types[i]] || 'chi';
                 var ans = answers[i]; // 0〜pt=実得点, undefined=未入力
@@ -7084,7 +7129,7 @@
                     '<input type="number" min="0" max="' + pt + '" step="0.1" inputmode="decimal" value="' + (hasAns ? ans : '') + '"' +
                     ' placeholder="/' + pt + '" class="' + (hasAns ? 'has-val' : '') + '"' +
                     ' id="rec-mq-' + i + '"' +
-                    ' oninput="recUpdateMatomeTotal()" style="width:52px;">' +
+                    ' oninput="recUpdateMatomeTotal();window._recMqDirty=true" style="width:52px;">' +
                     '</div>';
             }).join('');
             recUpdateMatomeTotal();
@@ -7143,12 +7188,14 @@
             };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
+            window._recMqDirty = false; // v1.8.88
             flushSaveQueue();
             showToast('保存しました', 'success');
             recRenderList(test); recUpdateProgress(test);
         };
 
         window.recCloseMatomeModal = function() {
+            if (window._recMqDirty && recMatomeStudentIndex !== null) { recMatomeModalSave(); } // v1.8.88: 閉じる=保存（入力破棄防止）
             flushSaveQueue();
             document.getElementById('recMatomeModal').classList.remove('active');
             recMatomeStudentIndex = null;
@@ -7484,6 +7531,12 @@
                 tests.unshift(test);
             }
             recSaveTests(tests);
+            // v1.8.88: 追加した課題が入力フィルターで隠れる場合はフィルターを解除
+            if ((recInputFilters.subject && recInputFilters.subject !== test.subject) ||
+                (recInputFilters.category && recInputFilters.category !== test.category) ||
+                (recInputFilters.type && recInputFilters.type !== test.testType)) {
+                recInputFilters = { subject: '', category: '', type: '' };
+            }
             recResetTestForm();
             recRenderTestList();
             recUpdateTestSelect();
@@ -7519,6 +7572,7 @@
         }
 
         window.recEditTest = function(testId) {
+            testId = recParseTestId(testId); // v1.8.88
             var tests = recGetTests();
             var test = tests.find(function(t) { return t.id === testId; });
             if (!test) return;
@@ -7575,6 +7629,7 @@
         };
 
         window.recDeleteTest = function(testId) {
+            testId = recParseTestId(testId); // v1.8.88
             if (!confirm('この課題と関連する全ての点数データを削除しますか？')) return;
             recSaveTests(recGetTests().filter(function(t) { return t.id !== testId; }));
             recSaveScores(recGetScores().filter(function(s) { return s.testId !== testId; }));
@@ -7585,6 +7640,7 @@
         };
 
         window.recSelectTestGoto = function(testId) {
+            testId = recParseTestId(testId); // v1.8.88
             recCurrentTestId = testId;
             recShowSub('input');
         };
@@ -7634,17 +7690,17 @@
                 var scoreInfo = (test.category === '主体性' || test.testType === 'ルーブリック') ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
                 return '<div class="rec-test-item' + (test.id === recCurrentTestId ? ' selected' : '') +
                     (isPE ? ' pe-item' : '') + (isMatome ? ' matome-item' : '') + '">' +
-                    '<div class="rec-test-item-info" onclick="recSelectTestGoto(' + test.id + ')">' +
+                    '<div class="rec-test-item-info" onclick="recSelectTestGoto(&quot;' + test.id + '&quot;)">' +
                     '<div class="rec-test-item-name">' + (isPE?'🏃 ':'') + (isMatome?'📝 ':'') +
                     escapeHtml(test.subject) + '　' + (test.testType||'') + '　' + escapeHtml(test.name) +
                     ((test.rubricA || test.rubricB || test.rubricC) ? '<span class="rubric-has-badge">📐</span>' : '') + '</div>' +
                     '<div class="rec-test-item-meta">' + test.category + ' ｜ ' + scoreInfo + ' ｜ ' + (test.date||'') + ' ｜ 入力済: ' + cnt + '/' + students.length + '</div>' +
                     '</div>' +
                     '<div class="rec-test-item-acts">' +
-                    '<button class="btn-rec-small goto" onclick="recSelectTestGoto(' + test.id + ')">入力</button>' +
-                    '<button class="btn-rec-small edit" onclick="recEditTest(' + test.id + ')">編集</button>' +
-                    (kenteiGetConfig(test) ? '<button class="btn-rec-small" onclick="recEditKenteiTable(' + test.id + ')">換算表</button>' : '') +
-                    '<button class="btn-rec-small del" onclick="recDeleteTest(' + test.id + ')">削除</button>' +
+                    '<button class="btn-rec-small goto" onclick="recSelectTestGoto(&quot;' + test.id + '&quot;)">入力</button>' +
+                    '<button class="btn-rec-small edit" onclick="recEditTest(&quot;' + test.id + '&quot;)">編集</button>' +
+                    (kenteiGetConfig(test) ? '<button class="btn-rec-small" onclick="recEditKenteiTable(&quot;' + test.id + '&quot;)">換算表</button>' : '') +
+                    '<button class="btn-rec-small del" onclick="recDeleteTest(&quot;' + test.id + '&quot;)">削除</button>' +
                     '</div></div>';
             }).join('');
         }
@@ -7676,6 +7732,7 @@
         }
 
         window.recEditKenteiTable = function(testId) {
+            testId = recParseTestId(testId); // v1.8.88
             var tests = recGetTests();
             var test = tests.find(function(t) { return t.id === testId; });
             if (!test) return;
@@ -7763,6 +7820,7 @@
         // 初期化（view-records が表示された時）
         // ============================================================
         window.recOnShowView = function() {
+            _invalidate(); // v1.8.88: 他モジュール(新体力テスト取込等)の直接書込に追従
             recInitInput();
             recUpdateTestSelect();
             // 日付を今日に初期設定
@@ -10066,7 +10124,9 @@
         }
         function subSaveAssignments(arr) { StorageManager.set(KEYS.submissions_assignments, JSON.stringify(arr)); }
         function subGetSubmissions() {
-            return StorageManager.get(KEYS.submissions_data, []);
+            var _a = StorageManager.get(KEYS.submissions_data, []);
+            _a.forEach(function(s) { if (s && typeof s.studentIndex === 'string') s.studentIndex = parseInt(s.studentIndex, 10); }); // v1.8.88
+            return _a;
         }
         function subSaveSubmissions(arr) { StorageManager.set(KEYS.submissions_data, JSON.stringify(arr)); }
         function subGetDiary() {
@@ -10136,6 +10196,7 @@
             return subRoot;
         }
         function subShowSub(name) {
+            subFlushAutoSave(); // v1.8.88: タブ切替前に保留中の入力を確定
             var root = subGetRoot();
             if (!root) return;
             root.querySelectorAll('.sub-subnav-btn').forEach(function(b) {
@@ -10271,6 +10332,7 @@
                 return;
             }
             arr.unshift({ id: Date.now(), subject: subj, name: name, date: date, createdAt: new Date().toISOString() });
+            if (subFilterSubject && subFilterSubject !== subj) subFilterSubject = ''; // v1.8.88: 新規課題が隠れないようフィルター解除
             subSaveAssignments(arr);
             document.getElementById('subAssignSubject').value = '';
             document.getElementById('subAssignName').value = '';
@@ -10368,6 +10430,7 @@
             subRenderInputArea();
         }
         function subRenderInputArea() {
+            subFlushAutoSave(); // v1.8.88: 課題切替前に保留中の入力を確定（消失防止）
             var sel = document.getElementById('subInputAssignSel');
             subCurrentAssign = sel && sel.value ? parseInt(sel.value) : null;
             // 連続入力モードも既存の保存ロジック（DOM行の状態）に依存するため、常にリストを描画する
@@ -10526,6 +10589,7 @@
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
             if (!row) return;
             var willBeAbsent = !row.classList.contains('absent');
+            if (!willBeAbsent) { subClearStatus(idx); return; } // v1.8.88: 欠席解除=空欄に戻す（×残留レコード防止）
             if (willBeAbsent && !row.classList.contains('has-status')) {
                 subSelectStatus(idx, 'missing');
                 row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
@@ -10578,6 +10642,7 @@
                 else if (cls.indexOf('status-missing') >= 0) st = 'missing';
                 var isAbsent = row.classList.contains('absent');
                 if (!st && !isAbsent) return;
+                if (st === 'missing' && !isAbsent) return; // v1.8.88: 手動×は保存しない（未記録=未提出）
                 if (!st) st = 'missing'; // 欠席のみの場合は未提出扱い
                 var chk = row.querySelector('.sub-correction-check');
                 var corrDone = st === 'submitted' ? true : (chk ? chk.checked : false);
@@ -10631,7 +10696,7 @@
         function subRenderSeatView() {
             var grid = document.getElementById('subSeatGrid');
             if (!grid) return;
-            var seatingData = StorageManager.get(KEYS.seating, {});
+            var seatingData = getSeating(); // v1.8.88: 値をintに正規化（文字列比較不成立の防止）
             var students = subGetStudents();
             var subs = subCurrentAssign ? subGetSubmissions() : [];
             var rows = 0, cols = 0;
@@ -12168,7 +12233,7 @@
 
         // ================================================================
         // サブナビ
-        function grdImportFitnessTest() {
+        function grdImportFitnessTest(silent) {
             var masterData = StorageManager.get(KEYS.master, {});
             var students = masterData.students || [];
             var ci = masterData.classInfo || {};
@@ -12180,19 +12245,28 @@
             try { pfRoster = JSON.parse(localStorage.getItem('pf_roster')); } catch(e) {}
 
             if (!pfRecords || Object.keys(pfRecords).length === 0) {
-                showToast('新体力テストのデータがありません。先に記録を入力してください', 'error');
+                if (!silent) showToast('新体力テストのデータがありません。先に記録を入力してください', 'error');
                 return;
             }
             if (!pfRoster || !Array.isArray(pfRoster)) {
-                showToast('新体力テストの名簿がありません', 'error');
+                if (!silent) showToast('新体力テストの名簿がありません', 'error');
                 return;
             }
 
             var idToIndex = {};
+            var _dupNames = [], _usedIdx = {}; // v1.8.88: 同姓同名検出
             pfRoster.forEach(function(student) {
                 var idx = students.findIndex(function(s) { return s && s.name === student.name; });
-                if (idx !== -1) idToIndex[student.id] = idx;
+                if (idx !== -1) {
+                    if (_usedIdx[idx]) { if (_dupNames.indexOf(student.name) < 0) _dupNames.push(student.name); }
+                    _usedIdx[idx] = true;
+                    idToIndex[student.id] = idx;
+                }
             });
+            if (_dupNames.length > 0) {
+                showToast('⚠️ 同姓同名のため新体力テストの取り込みを中止しました: ' + _dupNames.join('、') + '（名簿の氏名を区別できるように修正してください）', 'error');
+                return;
+            }
 
             var pfSetting = null;
             try { pfSetting = JSON.parse(localStorage.getItem('pf_setting')); } catch(e) {}
@@ -12251,9 +12325,15 @@
             scores = scores.filter(function(s) { return s.testId !== testId; });
             var matched = 0, unmatched = 0;
 
+            var _unmatchedNames = []; // v1.8.88
             Object.keys(pfRecords).forEach(function(id) {
                 var idx = idToIndex[id];
-                if (idx === undefined) { unmatched++; return; }
+                if (idx === undefined) {
+                    unmatched++;
+                    var _ps = pfRoster.find(function(s) { return String(s.id) === String(id); });
+                    if (_ps && _ps.name) _unmatchedNames.push(_ps.name);
+                    return;
+                }
                 var pfStudent = pfRoster.find(function(s) { return String(s.id) === String(id); });
                 if (!pfStudent) { unmatched++; return; }
                 var rec = pfRecords[id] || {};
@@ -12298,6 +12378,11 @@
             });
 
             StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
+            if (unmatched > 0 && !window._pfUnmatchedWarned) { // v1.8.88: 照合できない児童を通知（セッション中1回）
+                window._pfUnmatchedWarned = true;
+                showToast('⚠️ 新体力テスト: ' + unmatched + '名を名簿と照合できませんでした' + (_unmatchedNames.length ? '（' + _unmatchedNames.join('、') + '）' : '') + '。氏名の表記(空白・字体)を確認してください', 'warning');
+            }
+            if (window.recInvalidateCache) window.recInvalidateCache(); // v1.8.88
             grdUpdateSubjectSelects();
             grdShowSub('overview');
         }

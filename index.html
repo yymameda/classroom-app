@@ -3039,6 +3039,7 @@
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_parent"> 👨‍👩‍👧 保護者対応</label>
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_health"> 🏥 身体・配慮</label>
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_learning"> 📖 学習面配慮</label>
+                        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_forgotten"> 🎒 忘れ物</label>
                     </div>
                     <div style="padding-top:10px;border-top:1px solid var(--border);">
                         <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text);">📚 提出物（教科を選択）</div>
@@ -8245,11 +8246,12 @@
             var secHealth     = !!(document.getElementById('kvSec_health')     && document.getElementById('kvSec_health').checked);
             var secLearning   = !!(document.getElementById('kvSec_learning')   && document.getElementById('kvSec_learning').checked);
             var secKanji      = !!(document.getElementById('kvSec_kanji')      && document.getElementById('kvSec_kanji').checked);
+            var secForgotten  = !!(document.getElementById('kvSec_forgotten')  && document.getElementById('kvSec_forgotten').checked); // v1.8.90
             var selectedSubjects = [];
             document.querySelectorAll('.kv-subj-chk:checked').forEach(function(c) { selectedSubjects.push(c.value); });
             var secSubmissions = selectedSubjects.length > 0;
 
-            if (!secGrades && !secAttendance && !secSubmissions && !secLife && !secParent && !secHealth && !secLearning && !secKanji) {
+            if (!secGrades && !secAttendance && !secSubmissions && !secLife && !secParent && !secHealth && !secLearning && !secKanji && !secForgotten) {
                 showToast('出力するセクションを1つ以上選択してください', 'warning'); return;
             }
 
@@ -8269,13 +8271,14 @@
             var healthAll   = secHealth      ? StorageManager.get(KEYS.karte_health, {})            : {};
             var learningAll = secLearning    ? StorageManager.get(KEYS.karte_learning, {})          : {};
             var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { chars: [], checks: {} }) : { chars: [], checks: {} };
+            var fgtAll      = secForgotten   ? StorageManager.get(KEYS.forgotten_daily, {})              : {}; // v1.8.90
             var subjects    = secGrades && typeof grdGetAvailableSubjects === 'function' ? grdGetAvailableSubjects() : [];
 
             var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
             var methodLabels = { phone:'電話', meeting:'面談', note:'連絡帳', other:'その他' };
 
-            var sec  = { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions };
-            var data = { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels };
+            var sec  = { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions, secForgotten }; // v1.8.90
+            var data = { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels, fgtAll }; // v1.8.90
 
             var pageList = [];
             selectedIdxs.forEach(function(idx) {
@@ -8462,51 +8465,27 @@
 
             // ── 提出物 ────────────────────────────────────────────
             if (sec.secSubmissions && data.assigns.length) {
-                var subOk=0, subRe=0, subMiss=0;
-                var subPendingList = [];
-                data.assigns.forEach(function(a) {
-                    var r = data.subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
-                    if (r && r.status === 'submitted') subOk++;
-                    else if (r && r.status === 'resubmit') { subRe++; subPendingList.push({ name: a.name || a.title || '', status: '再提出', subject: a.subject || '', checkedAt: a.date || '' }); }
-                    else { subMiss++; subPendingList.push({ name: a.name || a.title || '', status: '未提出', subject: a.subject || '', checkedAt: a.date || '' }); }
-                });
-                var subTotal = data.assigns.length;
-                var subRate = subTotal > 0 ? Math.round((subOk + subRe) / subTotal * 100) : 100;
+                // v1.8.90: 提出物チェックの一括印刷と同一表記（全課題一覧・欠席未提出の区別あり）
+                var _subStats = calcSubmissionStats(idx, data.assigns, data.subsData);
+                html += buildSubmissionSectionHtml(_subStats,
+                    '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:8pt;padding-left:6pt;border-left:4pt solid #3498DB;">📚 提出物</div>');
+            }
+
+            if (sec.secForgotten) {
+                // v1.8.90: わすれものチェック（児童向け・振り返り調）
+                var _fg = calcForgottenStats(idx, data.fgtAll);
+                var _fgMons = Object.keys(_fg.byMonth).sort().slice(-4);
                 html += '<div style="margin-bottom:5pt;">'
-                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #3498DB;">📚 提出物</div>'
-                    + '<div style="background:#EBF5FB;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:14pt;">'
-                    + '<div style="flex:1;">'
-                    + '<div style="font-size:7pt;color:#555;margin-bottom:3pt;">提出率</div>'
-                    + '<div style="background:#ddd;border-radius:20pt;height:7pt;overflow:hidden;">'
-                    + '<div style="background:linear-gradient(90deg,#2980B9,#3498DB);height:100%;width:' + subRate + '%;border-radius:20pt;"></div>'
-                    + '</div>'
-                    + '<div style="font-size:7pt;color:#888;margin-top:2pt;">' + subRate + '% (' + (subOk+subRe) + '/' + subTotal + '件)</div>'
-                    + '</div>'
-                    + '<div style="display:flex;gap:8pt;">'
-                    + [['提出済', subOk, '#27AE60'],['再提出', subRe, '#F9A825'],['未提出', subMiss, '#E74C3C']].map(function(col) {
-                        return '<div style="text-align:center;">'
-                            + '<div style="font-size:7pt;color:#777;">' + col[0] + '</div>'
-                            + '<div style="font-size:13pt;font-weight:900;color:' + (col[1] > 0 ? col[2] : '#ccc') + ';">' + col[1] + '</div>'
-                            + '</div>';
-                    }).join('')
-                    + '</div></div>';
-                if (subPendingList.length > 0) {
-                    html += '<div style="margin-top:5pt;">'
-                        + '<div style="font-size:7pt;font-weight:700;color:#555;margin-bottom:3pt;">未提出・再提出の課題</div>'
-                        + subPendingList.map(function(item) {
-                            var color = item.status === '未提出' ? '#E74C3C' : '#F39C12';
-                            var subjChip = item.subject ? '<span style="display:inline-block;min-width:34pt;text-align:center;font-size:7pt;font-weight:700;color:#1a2332;background:#eef2f7;border:0.6pt solid #ccd6e0;border-radius:4pt;padding:0.5pt 3pt;margin-right:3pt;">' + escapeHtml(item.subject) + '</span>' : '';
-                            var dateStr = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric' }) : '';
-                            return '<div style="display:flex;align-items:center;gap:6pt;padding:3pt 0;border-bottom:0.5pt solid #e0e0e0;">'
-                                + subjChip
-                                + '<span style="font-size:7.5pt;flex:1;">' + escapeHtml(item.name) + '</span>'
-                                + (dateStr ? '<span style="font-size:6.5pt;color:#888;white-space:nowrap;">🗓' + dateStr + '</span>' : '')
-                                + '<span style="font-size:6.5pt;font-weight:700;color:' + color + ';flex-shrink:0;">' + item.status + '</span>'
-                                + '</div>';
-                        }).join('')
-                        + '</div>';
-                }
-                html += '</div>';
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #E67E22;">🎒 わすれものチェック</div>'
+                    + '<div style="background:#FEF5E7;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:14pt;">'
+                    + '<div style="text-align:center;"><div style="font-size:7pt;color:#555;">合計</div><div style="font-size:16pt;font-weight:900;color:' + (_fg.total > 0 ? '#E67E22' : '#27AE60') + ';">' + _fg.total + '<span style="font-size:8pt;">件</span></div></div>'
+                    + '<div style="flex:1;display:flex;gap:10pt;">'
+                    + (_fgMons.length ? _fgMons.map(function(m) {
+                        return '<div style="text-align:center;"><div style="font-size:6.5pt;color:#777;">' + parseInt(m.slice(5), 10) + '月</div><div style="font-size:11pt;font-weight:700;color:#555;">' + _fg.byMonth[m] + '</div></div>';
+                    }).join('') : '<div style="font-size:7.5pt;color:#27AE60;font-weight:700;">わすれものゼロ！すばらしい！</div>')
+                    + '</div></div>'
+                    + (_fg.total > 0 ? '<div style="font-size:6.5pt;color:#888;margin-top:2pt;text-align:right;">まえの日のじゅんびで、へらしていけるといいね</div>' : '')
+                    + '</div>';
             }
 
             // ── 生活記録（成長エピソード） ─────────────────────────
@@ -8606,22 +8585,24 @@
             }
 
             if (sec.secSubmissions && data.assigns.length) {
-                var subOk2=0,subRe2=0,subMiss2=0;
-                data.assigns.forEach(function(a){
-                    var r=data.subsData.find(function(r2){return r2.studentIndex===idx&&r2.assignmentId===a.id;});
-                    if(r&&r.status==='submitted') subOk2++;
-                    else if(r&&r.status==='resubmit') subRe2++;
-                    else subMiss2++;
-                });
-                var subT=data.assigns.length;
-                var subR=subT>0?Math.round((subOk2+subRe2)/subT*100):100;
-                body += '<div style="'+CARD+'"><div style="'+TITLE+'">📚 提出物（'+subR+'%）</div>'
-                    +'<div style="display:flex;gap:8pt;">'
-                    +[['提出済',subOk2,'#27AE60'],['再提出',subRe2,'#B7950B'],['未提出',subMiss2,'#E74C3C']].map(function(c){
-                        return '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
-                            +'<div style="font-size:6.5pt;color:#777;">'+c[0]+'</div>'
-                            +'<div style="font-size:13pt;font-weight:900;color:'+(c[1]>0?c[2]:'#ccc')+';">'+c[1]+'</div></div>';
-                    }).join('')+'</div></div>';
+                // v1.8.90: 提出物チェックの一括印刷と同一表記（共通関数）
+                var _subStats2 = calcSubmissionStats(idx, data.assigns, data.subsData);
+                body += buildSubmissionSectionHtml(_subStats2, '<div style="'+TITLE+'">📚 提出物（提出率 '+_subStats2.rate+'）</div>');
+            }
+
+            if (sec.secForgotten) {
+                // v1.8.90: 忘れ物（教師向け・月別+品目内訳）
+                var _fg2 = calcForgottenStats(idx, data.fgtAll);
+                var _mons2 = Object.keys(_fg2.byMonth).sort();
+                var _items2 = Object.keys(_fg2.byItem).sort(function(a, b) { return _fg2.byItem[b] - _fg2.byItem[a]; });
+                body += '<div style="'+CARD+'"><div style="'+TITLE+'">🎒 忘れ物（累計'+_fg2.total+'件）</div>';
+                if (_fg2.total > 0) {
+                    body += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>月別：</b>' + _mons2.map(function(m){ return parseInt(m.slice(5), 10) + '月 ' + _fg2.byMonth[m] + '件'; }).join('　') + '</div>';
+                    body += '<div style="font-size:7.5pt;"><b>品目：</b>' + _items2.slice(0, 8).map(function(k){ return escapeHtml(k) + '×' + _fg2.byItem[k]; }).join('、') + (_items2.length > 8 ? '　ほか' : '') + '</div>';
+                } else {
+                    body += '<div style="font-size:7.5pt;color:#27AE60;padding:4pt;">記録なし（忘れ物ゼロ）</div>';
+                }
+                body += '</div>';
             }
 
             if (sec.secLife) {
@@ -16395,6 +16376,64 @@
     });
 
     // ===== 個人カルテ一括PDF出力 =====
+    // ================================================================
+    // v1.8.90: 提出物・忘れ物の集計と描画の一本化
+    // カルテ印刷と一括印刷が必ず同じ数字・同じ表記になるよう、両方がここを通る
+    // ================================================================
+    window.calcSubmissionStats = function(idx, assigns, subsData) {
+        var st = { total: assigns.length, ok: 0, re: 0, miss: 0, missAbs: 0, rate: '-', rows: [] };
+        assigns.forEach(function(a) {
+            var r = subsData.find(function(r2) { return Number(r2.studentIndex) === idx && r2.assignmentId === a.id; });
+            var stat = r ? r.status : 'missing';
+            var isAbs = r ? !!r.absent : false;
+            var label, color;
+            if (stat === 'submitted') { st.ok++; label = '提出済'; color = '#27AE60'; }
+            else if (stat === 'resubmit') { st.re++; label = '再提出'; color = '#B7950B'; }
+            else if (isAbs) { st.missAbs++; label = '🏠欠席未提出'; color = '#757575'; }
+            else { st.miss++; label = '★未提出'; color = '#E74C3C'; }
+            st.rows.push({ subject: a.subject || '', name: a.name || '', label: label, color: color });
+        });
+        if (st.total > 0) st.rate = Math.round((st.ok + st.re) / st.total * 100) + '%';
+        return st;
+    };
+    window.buildSubmissionSectionHtml = function(stats, headerHtml) {
+        var rowsHtml = '';
+        stats.rows.forEach(function(rw) {
+            rowsHtml += '<tr>'
+                + '<td style="padding:3px 6px;font-size:8pt;color:#555;white-space:nowrap;border-bottom:1px solid #eee;">' + escapeHtml(rw.subject) + '</td>'
+                + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml(rw.name) + '</td>'
+                + '<td style="padding:3px 6px;font-size:8pt;font-weight:700;text-align:right;color:' + rw.color + ';border-bottom:1px solid #eee;white-space:nowrap;">' + rw.label + '</td>'
+                + '</tr>';
+        });
+        if (!rowsHtml) rowsHtml = '<tr><td colspan="3" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">課題なし</td></tr>';
+        return '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;margin-bottom:5pt;">'
+            + (headerHtml || '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📚 提出状況</div>')
+            + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
+            + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">課題数</div><div style="font-size:18pt;font-weight:900;color:#1a1a2e;">' + stats.total + '<span style="font-size:9pt;">件</span></div></div>'
+            + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出済</div><div style="font-size:18pt;font-weight:900;color:#27AE60;">' + stats.ok + '<span style="font-size:9pt;">件</span></div></div>'
+            + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">再提出</div><div style="font-size:18pt;font-weight:900;color:#B7950B;">' + stats.re + '<span style="font-size:9pt;">件</span></div></div>'
+            + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出率</div><div style="font-size:18pt;font-weight:900;color:#3498DB;">' + stats.rate + '</div></div>'
+            + '</div>'
+            + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">課題一覧</div>'
+            + '<table style="width:100%;border-collapse:collapse;">'
+            + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">教科</th><th style="padding:3px 6px;font-size:7pt;text-align:left;">課題名</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">状況</th></tr>'
+            + rowsHtml
+            + '</table>'
+            + '</div>';
+    };
+    window.calcForgottenStats = function(idx, fgtAll) {
+        var byMonth = {}, byItem = {}, total = 0;
+        Object.keys(fgtAll || {}).forEach(function(dk) {
+            var items = (fgtAll[dk] || {})[String(idx)];
+            if (!Array.isArray(items) || !items.length) return;
+            var mon = dk.slice(0, 7);
+            byMonth[mon] = (byMonth[mon] || 0) + items.length;
+            items.forEach(function(it) { var k = String(it); byItem[k] = (byItem[k] || 0) + 1; });
+            total += items.length;
+        });
+        return { total: total, byMonth: byMonth, byItem: byItem };
+    };
+
     window.printAllKarte = function(mode) {
         mode = mode || 'all';
         var masterData = StorageManager.get(KEYS.master, {});
@@ -16536,38 +16575,9 @@
                     + '</table>'
                     + '</div>';
             } else if (mode === 'submissions') {
-                // 提出物セクションのみ（課題一覧付き）
-                var assignRows = '';
-                assigns.forEach(function(a) {
-                    var r = subs.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
-                    var st = r ? r.status : 'missing';
-                    var isAbsentRec = r ? !!r.absent : false;
-                    var stLabel, stColor;
-                    if (st === 'submitted') { stLabel = '提出済'; stColor = '#27AE60'; }
-                    else if (st === 'resubmit') { stLabel = '再提出'; stColor = '#B7950B'; }
-                    else if (isAbsentRec) { stLabel = '🏠欠席未提出'; stColor = '#757575'; }
-                    else { stLabel = '★未提出'; stColor = '#E74C3C'; }
-                    assignRows += '<tr>'
-                        + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml(a.name || '') + '</td>'
-                        + '<td style="padding:3px 6px;font-size:8pt;font-weight:700;text-align:right;color:' + stColor + ';border-bottom:1px solid #eee;">' + stLabel + '</td>'
-                        + '</tr>';
-                });
-                if (!assignRows) assignRows = '<tr><td colspan="2" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">課題なし</td></tr>';
-                pageHtml += '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;">'
-                    + '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📚 提出状況</div>'
-                    + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">課題数</div><div style="font-size:18pt;font-weight:900;color:#1a1a2e;">' + assigns.length + '<span style="font-size:9pt;">件</span></div></div>'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出済</div><div style="font-size:18pt;font-weight:900;color:#27AE60;">' + subDone + '<span style="font-size:9pt;">件</span></div></div>'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">再提出</div><div style="font-size:18pt;font-weight:900;color:#B7950B;">' + subRe + '<span style="font-size:9pt;">件</span></div></div>'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出率</div><div style="font-size:18pt;font-weight:900;color:#3498DB;">' + subRate + '</div></div>'
-                    + '</div>'
-                    + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">課題一覧</div>'
-                    + '<table style="width:100%;border-collapse:collapse;">'
-                    + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">課題名</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">状況</th></tr>'
-                    + assignRows
-                    + '</table>'
-                    + '</div>';
-            } else {
+                // v1.8.90: 共通関数で描画（カルテ印刷と同一表記）
+                pageHtml += buildSubmissionSectionHtml(calcSubmissionStats(idx, assigns, subs));
+                        } else {
                 // 全セクション表示（従来通り）
                 pageHtml += '<div style="display:flex;gap:8pt;margin-bottom:10pt;">'
                     + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'

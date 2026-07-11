@@ -10416,10 +10416,40 @@
             if (sel && subCurrentAssign) sel.value = subCurrentAssign;
             subRenderInputArea();
         }
+        // v1.8.92: 出席簿(spa_attendance)のその課題の提出日の欠席を課題管理側へ取り込む。
+        // 対象: × 病欠 / ／ 事故欠 / 忌 忌引 / 停 出停（遅刻・早退は登校のため対象外）。
+        // 既存の提出記録がある児童は上書きしない。課題ごとに absenceImported フラグで一度だけ。
+        function subImportAbsenceFromAttendance() {
+            if (!subCurrentAssign) return;
+            if (typeof attGetAll !== 'function') return;
+            var assigns = subGetAssignments();
+            var assign = assigns.find(function(a) { return a.id === subCurrentAssign; });
+            if (!assign || !assign.date || assign.absenceImported) return;
+            var attForDate = attGetAll()[assign.date] || {};
+            var ABSENT_CODES = ['×', '／', '忌', '停'];
+            var absentIdxs = [];
+            Object.keys(attForDate).forEach(function(k) {
+                if (ABSENT_CODES.indexOf(attForDate[k]) >= 0) { var n = parseInt(k, 10); if (!isNaN(n)) absentIdxs.push(n); }
+            });
+            if (!absentIdxs.length) return; // 出席簿が未入力/欠席なし → フラグを立てず次回再チェック
+            var subs = subGetSubmissions();
+            var changed = false;
+            absentIdxs.forEach(function(i) {
+                var exists = subs.some(function(s) { return s.studentIndex === i && s.assignmentId === subCurrentAssign; });
+                if (!exists) {
+                    subs.push({ id: Date.now() + i, studentIndex: i, assignmentId: subCurrentAssign, status: 'missing', correctionDone: false, lateOnDue: false, absent: true, createdAt: new Date().toISOString() });
+                    changed = true;
+                }
+            });
+            assign.absenceImported = true;
+            subSaveAssignments(assigns);
+            if (changed) subSaveSubmissions(subs);
+        }
         function subRenderInputArea() {
             subFlushAutoSave(); // v1.8.88: 課題切替前に保留中の入力を確定（消失防止）
             var sel = document.getElementById('subInputAssignSel');
             subCurrentAssign = sel && sel.value ? parseInt(sel.value) : null;
+            subImportAbsenceFromAttendance(); // v1.8.92: 出席簿の欠席を取り込む
             // 連続入力モードも既存の保存ロジック（DOM行の状態）に依存するため、常にリストを描画する
             subRenderInputList();
             if (subViewMode === 'seat') subRenderSeatView();

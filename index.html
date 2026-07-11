@@ -8429,15 +8429,12 @@
 
             // ── 出欠席 ────────────────────────────────────────────
             if (sec.secAttendance) {
-                var present = 0, absent = 0, late = 0, early = 0;
-                Object.keys(data.attAll).forEach(function(dk) {
-                    var st = (data.attAll[dk] || {})[String(idx)];
-                    if (!st) return;
-                    if (st==='○'||st==='チ'||st==='ソ'||st==='チソ') present++;
-                    if (st==='×'||st==='／') absent++;
-                    if (st==='チ'||st==='チソ') late++;
-                    if (st==='ソ'||st==='チソ') early++;
-                });
+                var att = calcAttendanceStats(idx, data.attAll);
+                var c = att.byCode;
+                var present = (c['○']||0) + (c['チ']||0) + (c['ソ']||0) + (c['チソ']||0);
+                var absent  = (c['×']||0) + (c['／']||0);
+                var late    = (c['チ']||0) + (c['チソ']||0);
+                var early   = (c['ソ']||0) + (c['チソ']||0);
                 var total = present + absent;
                 var attPct = total > 0 ? Math.round(present / total * 100) : 100;
                 var barW = attPct;
@@ -8589,15 +8586,12 @@
             }
 
             if (sec.secAttendance) {
-                var present=0,absent=0,late=0,early=0;
-                Object.keys(data.attAll).forEach(function(dk) {
-                    var st=(data.attAll[dk]||{})[String(idx)];
-                    if (!st) return;
-                    if(st==='○'||st==='チ'||st==='ソ'||st==='チソ') present++;
-                    if(st==='×'||st==='／') absent++;
-                    if(st==='チ'||st==='チソ') late++;
-                    if(st==='ソ'||st==='チソ') early++;
-                });
+                var att2 = calcAttendanceStats(idx, data.attAll);
+                var c2 = att2.byCode;
+                var present = (c2['○']||0) + (c2['チ']||0) + (c2['ソ']||0) + (c2['チソ']||0);
+                var absent  = (c2['×']||0) + (c2['／']||0);
+                var late    = (c2['チ']||0) + (c2['チソ']||0);
+                var early   = (c2['ソ']||0) + (c2['チソ']||0);
                 body += '<div style="' + CARD + '"><div style="' + TITLE + '">📅 出欠席</div>'
                     + '<div style="display:flex;gap:8pt;">'
                     + [['出席',present,'#27AE60'],['欠席',absent,'#E74C3C'],['遅刻',late,'#E67E22'],['早退',early,'#E67E22']].map(function(c){
@@ -8782,14 +8776,12 @@
                 L.push(myTests.length ? myTests.map(function(x) { return x.line; }).join('\n') : '（データなし）');
 
                 // 出欠席
-                var present = 0, absent = 0, late = 0, early = 0;
-                Object.keys(attAll).forEach(function(dk) {
-                    var st = (attAll[dk] || {})[String(idx)]; if (!st) return;
-                    if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') present++;
-                    if (st === '×' || st === '／') absent++;
-                    if (st === 'チ' || st === 'チソ') late++;
-                    if (st === 'ソ' || st === 'チソ') early++;
-                });
+                var att = calcAttendanceStats(idx, attAll);
+                var c = att.byCode;
+                var present = (c['○']||0) + (c['チ']||0) + (c['ソ']||0) + (c['チソ']||0);
+                var absent  = (c['×']||0) + (c['／']||0);
+                var late    = (c['チ']||0) + (c['チソ']||0);
+                var early   = (c['ソ']||0) + (c['チソ']||0);
                 L.push('');
                 L.push('【出欠席】');
                 L.push('出席 ' + present + '日／欠席 ' + absent + '日／遅刻 ' + late + '回／早退 ' + early + '回');
@@ -16440,6 +16432,21 @@
     // v1.8.90: 提出物・忘れ物の集計と描画の一本化
     // カルテ印刷と一括印刷が必ず同じ数字・同じ表記になるよう、両方がここを通る
     // ================================================================
+    // v1.8.94: 出欠ステータス解釈の共通化。コード別の生カウントを返し、
+    // 「何を欠席と呼ぶか」は呼び出し側で定義する（出席簿画面とPDFで欠席の定義が正当に異なるため）。
+    // byCode: { '○': n, '×': n, ... } / byMonth: { 'YYYY-MM': { '○': n, ... } }
+    window.calcAttendanceStats = function(idx, attAll) {
+        var byCode = {}, byMonth = {};
+        Object.keys(attAll || {}).forEach(function(dk) {
+            var st = (attAll[dk] || {})[String(idx)];
+            if (!st) return;
+            byCode[st] = (byCode[st] || 0) + 1;
+            var mon = dk.slice(0, 7);
+            if (!byMonth[mon]) byMonth[mon] = {};
+            byMonth[mon][st] = (byMonth[mon][st] || 0) + 1;
+        });
+        return { byCode: byCode, byMonth: byMonth };
+    };
     window.calcSubmissionStats = function(idx, assigns, subsData) {
         var st = { total: assigns.length, ok: 0, re: 0, miss: 0, missAbs: 0, rate: '-', rows: [] };
         assigns.forEach(function(a) {

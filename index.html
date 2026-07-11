@@ -10487,9 +10487,9 @@
                     changed = true;
                 }
             });
-            assign.absenceImported = true;
-            subSaveAssignments(assigns);
             if (changed) subSaveSubmissions(subs);
+            assign.absenceImported = true; // v1.8.96: 提出記録の保存成功後にフラグ確定（失敗時の取込消失防止）
+            subSaveAssignments(assigns);
         }
         function subRenderInputArea() {
             subFlushAutoSave(); // v1.8.88: 課題切替前に保留中の入力を確定（消失防止）
@@ -11294,9 +11294,9 @@
             var clearBtn = document.getElementById('subDiaryClearBtn');
             function moveDiaryDay(d) {
                 if (!diaryDate) return;
-                var dt = new Date(diaryDate.value);
-                dt.setDate(dt.getDate() + d);
-                diaryDate.value = dt.toISOString().split('T')[0];
+                var p = (diaryDate.value || getLocalDateStr()).split('-');
+                var dt = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + d);
+                diaryDate.value = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
                 subRenderDiary();
             }
             if (prevBtn) prevBtn.addEventListener('click', function() { moveDiaryDay(-1); });
@@ -13126,7 +13126,7 @@
             var csv = '\uFEFF' + [headers.map(grdEsc).join(',')].concat(rows.map(function(r){return r.map(grdEsc).join(',');})).join('\n');
             var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
             var url = URL.createObjectURL(blob);
-            var a = document.createElement('a'); a.href = url; a.download = subject+'_成績_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+            var a = document.createElement('a'); a.href = url; a.download = subject+'_成績_'+getLocalDateStr()+'.csv'; a.click();
             setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
             showToast('CSVをダウンロードしました');
         }
@@ -13250,7 +13250,7 @@
 
             var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
             var blob = new Blob([wbout], { type: 'application/octet-stream' });
-            var fileName = subject + '_成績根拠_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+            var fileName = subject + '_成績根拠_' + getLocalDateStr() + '.xlsx';
             await universalShare(blob, fileName);
         }
 
@@ -13493,7 +13493,7 @@
 
             var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
             var blob = new Blob([wbout], { type: 'application/octet-stream' });
-            await universalShare(blob, subject + '_同僚用テンプレート_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+            await universalShare(blob, subject + '_同僚用テンプレート_' + getLocalDateStr() + '.xlsx');
             showToast('同僚用テンプレートを出力しました');
         }
 
@@ -13950,7 +13950,7 @@
             } else {
                 arr = safeJsonParse(raw, FGT_DEFAULT_ITEMS.slice());
             }
-            if (arr.indexOf('宿題') === -1) {
+            if (arr.indexOf('宿題') === -1 && !localStorage.getItem('fgt_shukudai_migrated_v1')) {
                 var pos = arr.indexOf('連絡帳');
                 if (pos !== -1) {
                     arr.splice(pos + 1, 0, '宿題');
@@ -13959,6 +13959,7 @@
                 }
                 fgtSaveItems(arr);
             }
+            try { localStorage.setItem('fgt_shukudai_migrated_v1', '1'); } catch (e) {}
             return arr;
         }
         function fgtSaveItems(arr) { StorageManager.set(FGT_ITEMS_KEY, JSON.stringify(arr)); }
@@ -14842,7 +14843,7 @@
         function expRows(rows) {
             return rows.map(function(r) { return r.map(expEsc).join(','); }).join('\n');
         }
-        function expToday() { return new Date().toISOString().slice(0, 10); }
+        function expToday() { return getLocalDateStr(); } // v1.8.96: UTC由来の前日ズレ修正
 
         // ================================================================
         // 名簿 CSV
@@ -16977,6 +16978,21 @@
     function pf_storageKey(){return 'pf_records_'+pf_setting.year;}
     function pf_rosterKey(){return 'pf_roster';}
     function pf_settingKey(){return 'pf_setting';}
+    // v1.8.96: quota超過等の保存失敗を検知しユーザーへ通知（成功時true）
+    function pf_setItem(key,val){
+        try{
+            localStorage.setItem(key,val);
+            return true;
+        }catch(e){
+            if(e.name==='QuotaExceededError'||e.code===22){
+                showToast('⚠️ 保存容量の上限です。バックアップ後にデータ整理してください。','error');
+            }else{
+                showToast('⚠️ 保存中にエラーが発生しました: '+e.message,'error');
+            }
+            console.error('pf_setItem error:',key,e);
+            return false;
+        }
+    }
 
     function pf_loadAll(){
         try{
@@ -17004,16 +17020,16 @@
         pf_setting.year=sy?sy.value:'2026';
         pf_setting.grade=parseInt(sg?sg.value:'5')||5;
         pf_setting.className=sc?sc.value:'';
-        localStorage.setItem(pf_settingKey(),JSON.stringify(pf_setting));
+        pf_setItem(pf_settingKey(),JSON.stringify(pf_setting));
         pf_updateHeaderSub();
         var d=localStorage.getItem(pf_storageKey());
         pf_records=d?JSON.parse(d):{};
     }
 
     function pf_saveAll(){
-        localStorage.setItem(pf_storageKey(),JSON.stringify(pf_records));
-        localStorage.setItem(pf_rosterKey(),JSON.stringify(pf_roster));
-        showToast('💾 保存しました','success');
+        var ok1=pf_setItem(pf_storageKey(),JSON.stringify(pf_records));
+        var ok2=pf_setItem(pf_rosterKey(),JSON.stringify(pf_roster));
+        if(ok1&&ok2){showToast('💾 保存しました','success');}
     }
 
     function pf_updateHeaderSub(){
@@ -17034,7 +17050,7 @@
                 pf_roster=md.map(function(s,i){return{id:s.seqNo||s.id||(i+1),name:s.name||'',gender:s.gender||s.性別||'',age:s.age||10};}).filter(function(s){return s.name;});
             }
             if(pf_roster.length===0){showToast('⚠️ 名簿データが空です','warning');return;}
-            localStorage.setItem(pf_rosterKey(),JSON.stringify(pf_roster));
+            pf_setItem(pf_rosterKey(),JSON.stringify(pf_roster));
             pf_renderRosterPreview();
             pf_renderInputGrid();
             showToast('✅ '+pf_roster.length+'名を読み込みました','success');
@@ -17057,7 +17073,7 @@
             else{id=i+1;name=parts[0].trim();gender='';age=10;}
             if(name){pf_roster.push({id:id,name:name,gender:gender,age:age});}
         });
-        localStorage.setItem(pf_rosterKey(),JSON.stringify(pf_roster));
+        pf_setItem(pf_rosterKey(),JSON.stringify(pf_roster));
         pf_closeModal('pf-manualModal');
         pf_renderRosterPreview();
         pf_renderInputGrid();

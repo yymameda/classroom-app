@@ -8287,6 +8287,7 @@
             var students    = masterData.students || [];
             var ci          = masterData.classInfo || {};
             var attAll      = secAttendance  ? StorageManager.get(KEYS.attendance, {})              : {};
+            var noticeAll   = secAttendance  ? StorageManager.get(KEYS.attendance_notice, {})       : {}; // v1.8.95
             var allAssigns  = secSubmissions ? StorageManager.get(KEYS.submissions_assignments, []) : [];
             var assigns     = secSubmissions ? allAssigns.filter(function(a) { return selectedSubjects.indexOf(a.subject) >= 0; }) : [];
             var subsData    = secSubmissions ? StorageManager.get(KEYS.submissions_data, [])        : [];
@@ -8302,7 +8303,7 @@
             var methodLabels = { phone:'電話', meeting:'面談', note:'連絡帳', other:'その他' };
 
             var sec  = { secGrades, secAttendance, secLife, secParent, secHealth, secLearning, secKanji, secSubmissions, secForgotten }; // v1.8.90
-            var data = { subjects, attAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels, fgtAll }; // v1.8.90
+            var data = { subjects, attAll, noticeAll, assigns, subsData, lifeAll, parentAll, healthAll, learningAll, kanjiData, methodLabels, fgtAll }; // v1.8.95
 
             var pageList = [];
             selectedIdxs.forEach(function(idx) {
@@ -8592,14 +8593,42 @@
                 var absent  = (c2['×']||0) + (c2['／']||0);
                 var late    = (c2['チ']||0) + (c2['チソ']||0);
                 var early   = (c2['ソ']||0) + (c2['チソ']||0);
+                var special = (c2['忌']||0) + (c2['停']||0); // v1.8.95: 出席停止・忌引等（常時5枚目に別掲）
                 body += '<div style="' + CARD + '"><div style="' + TITLE + '">📅 出欠席</div>'
-                    + '<div style="display:flex;gap:8pt;">'
-                    + [['出席',present,'#27AE60'],['欠席',absent,'#E74C3C'],['遅刻',late,'#E67E22'],['早退',early,'#E67E22']].map(function(c){
+                    + '<div style="display:flex;gap:6pt;margin-bottom:6pt;">'
+                    + [['出席',present,'#27AE60'],['欠席',absent,'#E74C3C'],['遅刻',late,'#E67E22'],['早退',early,'#E67E22'],['出席停止・忌引等',special,'#7F8C8D']].map(function(c){
                         return '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
                             +'<div style="font-size:6.5pt;color:#777;">'+c[0]+'</div>'
                             +'<div style="font-size:14pt;font-weight:900;color:'+c[2]+';">'+c[1]+'</div></div>';
                     }).join('')
-                    + '</div></div>';
+                    + '</div>';
+                // v1.8.95: 月別内訳（欠席=×／のみ・キー昇順。数え方はprintAllKarteのattendanceモードを踏襲）
+                var _monKeys2 = Object.keys(att2.byMonth).sort();
+                var _monLine2 = _monKeys2.length
+                    ? _monKeys2.map(function(m) {
+                        var mb = att2.byMonth[m];
+                        var mAbs = (mb['×']||0) + (mb['／']||0);
+                        return parseInt(m.slice(5), 10) + '月 ' + mAbs + '日';
+                    }).join('　')
+                    : '記録なし';
+                body += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>月別欠席：</b>' + _monLine2 + '</div>';
+                // v1.8.95: 届出一覧（printAllKarteのattendanceモード届出抽出ルールを踏襲）
+                var _noticeNeedSet2 = ['×', '／', 'チ', 'ソ', 'チソ', '停'];
+                var _noticeRecs2 = [];
+                Object.keys(data.attAll).sort().reverse().forEach(function(dk) {
+                    var st = (data.attAll[dk] || {})[String(idx)];
+                    if (!st || _noticeNeedSet2.indexOf(st) === -1) return;
+                    var hn = (data.noticeAll[dk] || {})[String(idx)] === true;
+                    _noticeRecs2.push({ date: dk, status: st, hasNotice: hn });
+                });
+                var _noticeLine2 = _noticeRecs2.length
+                    ? _noticeRecs2.map(function(r) {
+                        var md = r.date.slice(5).replace('-', '/');
+                        var mk = r.hasNotice ? '<span style="color:#27AE60;">届出済</span>' : '<span style="color:#E74C3C;font-weight:700;">未提出</span>';
+                        return md + r.status + '（' + mk + '）';
+                    }).join('　')
+                    : 'なし';
+                body += '<div style="font-size:7.5pt;"><b>届出：</b>' + _noticeLine2 + '</div></div>';
             }
 
             if (sec.secSubmissions && data.assigns.length) {
@@ -8785,6 +8814,7 @@
                 L.push('');
                 L.push('【出欠席】');
                 L.push('出席 ' + present + '日／欠席 ' + absent + '日／遅刻 ' + late + '回／早退 ' + early + '回');
+                L.push('出席停止・忌引等 ' + ((c['忌']||0) + (c['停']||0)) + '日'); // v1.8.95
 
                 // 提出物（全教科）
                 var subOk = 0, subRe = 0, subMiss = 0, missList = [];

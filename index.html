@@ -10106,7 +10106,13 @@
         function subSaveAssignments(arr) { StorageManager.set(KEYS.submissions_assignments, JSON.stringify(arr)); }
         function subGetSubmissions() {
             var _a = StorageManager.get(KEYS.submissions_data, []);
-            _a.forEach(function(s) { if (s && typeof s.studentIndex === 'string') s.studentIndex = parseInt(s.studentIndex, 10); }); // v1.8.88
+            _a.forEach(function(s) {
+                if (!s) return;
+                if (typeof s.studentIndex === 'string') s.studentIndex = parseInt(s.studentIndex, 10); // v1.8.88
+                // v1.8.91: assignmentIdの型も数値へ正規化。リスト表示/統計は厳密比較(===)のため、
+                // 文字列型で保存された古い記録が照合に失敗し、状態も「提出遅れ」も表示されない不具合の修正。
+                if (typeof s.assignmentId === 'string') { var _aid = parseInt(s.assignmentId, 10); if (!isNaN(_aid)) s.assignmentId = _aid; }
+            });
             return _a;
         }
         function subSaveSubmissions(arr) { StorageManager.set(KEYS.submissions_data, JSON.stringify(arr)); }

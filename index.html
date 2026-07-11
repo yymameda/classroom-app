@@ -4260,6 +4260,29 @@
         console.log('[cleanupSubMissing] 手動×レコード ' + removed.length + '件を削除（' + arr.length + '→' + kept.length + '件）。バックアップ: spa_submissions_removed_v1863');
     }
 
+    // --- 提出物：studentIndex / assignmentId の型正規化（v1.8.93、起動時） ---
+    // 旧バージョンで文字列型のまま保存された studentIndex / assignmentId を数値へ正規化し永続化する。
+    // 背景: 印刷系（printAllKarte / kvPrint / kvBuildConferenceText）は StorageManager.get を直接読むため、
+    // subGetSubmissions() の読込時正規化（v1.8.88 / v1.8.91）が効かず、calcSubmissionStats 等の
+    // 厳密比較(===)で文字列IDレコードが「★未提出」と誤集計され得る。保存データ自体を直して全読取経路を安全にする。
+    // フラグは持たない（冪等・変更ゼロなら書き込まない・バックアップ復元後も次回起動で自己修復するため）。
+    function migrateSubmissionIdTypesV1893() {
+        var raw = StorageManager.getRaw(KEYS.submissions_data);
+        if (raw === null) return;
+        var arr;
+        try { arr = JSON.parse(raw); } catch(e) { console.error('[migrateSubIdTypes] parse error。中止します。', e); return; }
+        if (!Array.isArray(arr)) { console.warn('[migrateSubIdTypes] 配列ではないため中止します。'); return; }
+        var changed = 0;
+        arr.forEach(function(s) {
+            if (!s) return;
+            if (typeof s.studentIndex === 'string') { var si = parseInt(s.studentIndex, 10); if (!isNaN(si)) { s.studentIndex = si; changed++; } }
+            if (typeof s.assignmentId === 'string') { var ai = parseInt(s.assignmentId, 10); if (!isNaN(ai)) { s.assignmentId = ai; changed++; } }
+        });
+        if (changed === 0) return;
+        StorageManager.set(KEYS.submissions_data, JSON.stringify(arr));
+        console.log('[migrateSubIdTypes] ' + changed + 'フィールドを数値へ正規化しました（全' + arr.length + '件）。');
+    }
+
     let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
         migrateScoreData();
@@ -4267,6 +4290,7 @@
         cleanupOldKanjiBackups();
         migrateKanjiOrder();
         cleanupSubmissionMissingV1863();
+        migrateSubmissionIdTypesV1893(); // v1.8.93: 提出物ID型正規化
         loadMaster();
         updateSettingsUI();
         updateDashboard();
@@ -8773,7 +8797,7 @@
                 // 提出物（全教科）
                 var subOk = 0, subRe = 0, subMiss = 0, missList = [];
                 allAssigns.forEach(function(a) {
-                    var r = subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
+                    var r = subsData.find(function(r2) { return Number(r2.studentIndex) === idx && Number(r2.assignmentId) === Number(a.id); }); // v1.8.93: 型非依存に
                     if (r && r.status === 'submitted') subOk++;
                     else if (r && r.status === 'resubmit') { subRe++; missList.push(a.name + '（再提出）'); }
                     else { subMiss++; missList.push(a.name + '（未提出）'); }
@@ -10108,7 +10132,7 @@
             var _a = StorageManager.get(KEYS.submissions_data, []);
             _a.forEach(function(s) {
                 if (!s) return;
-                if (typeof s.studentIndex === 'string') s.studentIndex = parseInt(s.studentIndex, 10); // v1.8.88
+                if (typeof s.studentIndex === 'string') { var _sid = parseInt(s.studentIndex, 10); if (!isNaN(_sid)) s.studentIndex = _sid; } // v1.8.88（v1.8.93: NaNガード追加）
                 // v1.8.91: assignmentIdの型も数値へ正規化。リスト表示/統計は厳密比較(===)のため、
                 // 文字列型で保存された古い記録が照合に失敗し、状態も「提出遅れ」も表示されない不具合の修正。
                 if (typeof s.assignmentId === 'string') { var _aid = parseInt(s.assignmentId, 10); if (!isNaN(_aid)) s.assignmentId = _aid; }
@@ -16419,7 +16443,7 @@
     window.calcSubmissionStats = function(idx, assigns, subsData) {
         var st = { total: assigns.length, ok: 0, re: 0, miss: 0, missAbs: 0, rate: '-', rows: [] };
         assigns.forEach(function(a) {
-            var r = subsData.find(function(r2) { return Number(r2.studentIndex) === idx && r2.assignmentId === a.id; });
+            var r = subsData.find(function(r2) { return Number(r2.studentIndex) === idx && Number(r2.assignmentId) === Number(a.id); }); // v1.8.93: assignmentId比較も型非依存に
             var stat = r ? r.status : 'missing';
             var isAbs = r ? !!r.absent : false;
             var label, color;

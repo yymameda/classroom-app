@@ -2321,8 +2321,8 @@
                 <!-- サブナビ -->
                 <div class="rec-subnav">
                     <button class="rec-subnav-btn active" onclick="recShowSub('input')">📝 点数入力</button>
-                    <button class="rec-subnav-btn" onclick="recShowSub('tests')">📋 課題管理</button>
-                    <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 統計</button>
+                    <button class="rec-subnav-btn" onclick="recShowSub('tests')">📋 授業課題の管理</button>
+                    <button class="rec-subnav-btn" onclick="recShowSub('stats')">📊 授業課題の統計</button>
                     <button class="rec-subnav-btn" onclick="recShowSub('patrol')">🚶 机間巡視</button>
                     <button class="rec-subnav-btn" onclick="showView('pf')">🏃 新体力</button>
                 </div>
@@ -2351,13 +2351,13 @@
                             <div class="rubric-body" id="recRubricBody"></div>
                         </div>
                         <!-- 未選択メッセージ -->
-                        <div class="rec-input-info" id="recInputInfo">課題管理から課題を追加し、上のプルダウンから選択してください</div>
+                        <div class="rec-input-info" id="recInputInfo">授業課題の管理から課題を追加し、上のプルダウンから選択してください</div>
                         <!-- 入力グリッド -->
                         <div id="recBulkWrap" class="rec-bulk-wrap" style="display:none;">
                             <div class="rec-progress">
                                 <span id="recProgress">0 / 0 人入力済み</span>
                                 <div style="display:flex;gap:6px;align-items:center;">
-                                    <button onclick="recGoToTestMgmt()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:30px;">課題管理へ</button>
+                                    <button onclick="recGoToTestMgmt()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:30px;">授業課題の管理へ</button>
                                     <button onclick="recClearAllScores()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--text-light);border-radius:6px;color:var(--text-light);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:30px;">全クリア</button>
                                 </div>
                             </div>
@@ -2373,7 +2373,7 @@
                 <div id="rec-sub-stats" class="rec-sub">
                     <div class="rec-test-mgmt" id="recStatsMgmt">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                            <h3 style="color:var(--primary);margin:0;font-size:0.95rem;">📊 統計</h3>
+                            <h3 style="color:var(--primary);margin:0;font-size:0.95rem;">📊 授業課題の統計</h3>
                             <select id="recStatsTestSel" onchange="recRenderStats()" style="padding:6px 10px;border:2px solid var(--primary);border-radius:8px;font-family:inherit;font-size:0.85rem;font-weight:500;background:var(--secondary);color:var(--primary);min-height:34px;min-width:200px;">
                                 <option value="">課題を選択</option>
                             </select>
@@ -2623,9 +2623,9 @@
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
-                <button class="sub-subnav-btn" data-sub="stats">📊 統計</button>
+                <button class="sub-subnav-btn" data-sub="stats">📊 提出課題の統計</button>
                 <button class="sub-subnav-btn" data-sub="diary">📔 修養日誌</button>
-                <button class="sub-subnav-btn" data-sub="assign">📋 課題管理</button>
+                <button class="sub-subnav-btn" data-sub="assign">📋 提出課題の管理</button>
             </div>
 
             <!-- ── 入力タブ ── -->

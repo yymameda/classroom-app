@@ -2277,7 +2277,7 @@
                         <button class="btn btn-danger" id="seatResetBtn" onclick="resetSeating()" style="display:none;">🔄 リセット</button>
                         <button class="btn btn-success" id="seatSaveBtn" onclick="saveSeatingAndExit()" style="display:none;">💾 保存</button>
                         <button class="btn btn-outline" id="seatVisionBtn" onclick="toggleVisionMode()" style="border-color: #E74C3C; color: #E74C3C;">👁 視力表示</button>
-                        <button class="btn btn-outline" id="seatPrintBtn" onclick="printSeating()" style="border-color: #6B7280; color: #6B7280;">🖨️ 印刷</button>
+                        <button class="btn btn-outline" id="seatPrintBtn" onclick="printSeating()" style="border-color: #6B7280; color: #6B7280;">📄 PDF出力</button>
                         <button class="btn btn-outline" id="seatGroupBtn" onclick="toggleGroupMode()" style="border-color:#9B59B6;color:#9B59B6;">🏷 班表示</button>
                     </div>
                     <div style="background: linear-gradient(180deg, #2E5339, #3D6B4A); color: white; text-align: center; padding: 0.75rem; border-radius: 8px; margin-bottom: 12px; font-weight: 500;">【 黒 板 】</div>
@@ -2863,7 +2863,7 @@
                 <div id="grd-sub-overview" class="sub-sub active">
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdOverviewSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
-                        <button id="grdPrintBasisBtn" class="btn btn-primary" style="padding:8px 14px;font-size:0.82rem;">🖨️ 算出根拠シート印刷</button>
+                        <button id="grdPrintBasisBtn" class="btn btn-primary" style="padding:8px 14px;font-size:0.82rem;">📄 算出根拠シートPDF</button>
                         <button id="grdEditNotesBtn" class="btn btn-outline" style="padding:8px 14px;font-size:0.82rem;">📝 注記を編集</button>
                     </div>
                     <div id="grdOverviewContent"></div>
@@ -3543,6 +3543,58 @@
             t.classList.remove('show');
             _toastUndoReset();
         }, 5000);
+    }
+
+    // v1.8.98: HTMLページ配列→PDF共通変換（html2canvas+jsPDF、出力は共有シート）
+    // pageHtmls: 各要素が1ページ分のルートdiv文字列（インラインスタイル前提）
+    // opts: { orientation:'portrait'|'landscape', fileName, marginMm }
+    async function htmlPagesToPdf(pageHtmls, opts) {
+        opts = opts || {};
+        var orientation = opts.orientation || 'portrait';
+        var fileName = opts.fileName || ('出力_' + getLocalDateStr() + '.pdf');
+        var pageWpx = orientation === 'landscape' ? 1122 : 794;
+        if (typeof html2canvas === 'undefined' || !window.jspdf) {
+            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
+            return false;
+        }
+        showToast('PDF生成中…しばらくお待ちください', 'info');
+        var container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + pageWpx + 'px;background:#fff;'
+            + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
+            + 'box-sizing:border-box;';
+        document.body.appendChild(container);
+        var jsPDF = window.jspdf.jsPDF;
+        var pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: 'a4' });
+        var A4_W = orientation === 'landscape' ? 297 : 210;
+        var A4_H = orientation === 'landscape' ? 210 : 297;
+        var MARGIN = (opts.marginMm !== undefined) ? opts.marginMm : 10;
+        try {
+            for (var i = 0; i < pageHtmls.length; i++) {
+                container.innerHTML = pageHtmls[i];
+                var el = container.firstElementChild || container;
+                var canvas = await html2canvas(el, {
+                    scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
+                    windowWidth: pageWpx, scrollX: 0, scrollY: 0
+                });
+                var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                var availW = A4_W - MARGIN * 2;
+                var imgW = availW;
+                var imgH = canvas.height / canvas.width * imgW;
+                var maxH = A4_H - MARGIN * 2;
+                if (imgH > maxH) { imgH = maxH; imgW = canvas.width / canvas.height * imgH; }
+                var x = (A4_W - imgW) / 2;
+                if (i > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
+            }
+            document.body.removeChild(container);
+            await universalShare(pdf.output('blob'), fileName);
+            return true;
+        } catch (err) {
+            if (document.body.contains(container)) document.body.removeChild(container);
+            showToast('PDF生成中にエラーが発生しました', 'error');
+            console.error('htmlPagesToPdf error:', err);
+            return false;
+        }
     }
 
     // --- universalShare: Web Share API + Blobフォールバック ---
@@ -5133,7 +5185,8 @@
         renderSeating();
     }
 
-    function printSeating() {
+    // v1.8.98: 直接印刷(iframe)を廃止し、PDF生成→共有シートに統一（レイアウトは印刷版を踏襲）
+    async function printSeating() {
         var ci = master.classInfo || {};
         var grade = ci.grade || '';
         var cls   = ci.class || '';
@@ -5141,6 +5194,13 @@
         var today = new Date();
         var dateStr = (today.getMonth()+1) + '月' + today.getDate() + '日';
         var sd = seatEditing ? seatingData : getSeating();
+
+        var S_SEAT = 'flex:1;min-width:0;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;';
+        var S_OCC  = S_SEAT + 'background:#fff;border:2px solid #2D7D9A;';
+        var S_EMP  = S_SEAT + 'background:#F8FAFC;border:2px dashed #CBD5E0;';
+        var S_NUM  = 'position:absolute;top:3px;left:5px;font-size:6pt;color:#bbb;font-weight:600;';
+        var S_SEI  = 'font-size:12pt;font-weight:900;color:#1a2332;line-height:1.1;text-align:center;word-break:break-all;';
+        var S_MEI  = 'font-size:10pt;font-weight:700;color:#2D7D9A;line-height:1.1;text-align:center;word-break:break-all;';
 
         var rows = '';
         for (var r = 0; r < SEAT_ROWS; r++) {
@@ -5152,106 +5212,34 @@
                 if (s) {
                     var parts = (s.name || '').split(/[\s\u3000]+/);
                     var nameInner = parts.length >= 2
-                        ? '<div class="sei">' + escapeHtml(parts[0]) + '</div><div class="mei">' + escapeHtml(parts.slice(1).join('')) + '</div>'
-                        : '<div class="sei">' + escapeHtml(s.name || '') + '</div>';
-                    cells += '<div class="seat occ"><span class="num">' + (idx+1) + '</span>' + nameInner + '</div>';
+                        ? '<div style="' + S_SEI + '">' + escapeHtml(parts[0]) + '</div><div style="' + S_MEI + '">' + escapeHtml(parts.slice(1).join('')) + '</div>'
+                        : '<div style="' + S_SEI + '">' + escapeHtml(s.name || '') + '</div>';
+                    cells += '<div style="' + S_OCC + '"><span style="' + S_NUM + '">' + (idx+1) + '</span>' + nameInner + '</div>';
                 } else {
-                    cells += '<div class="seat emp"></div>';
+                    cells += '<div style="' + S_EMP + '"></div>';
                 }
             }
-            rows += '<div class="row">' + cells + '</div>';
+            rows += '<div style="display:flex;gap:3px;flex:1;min-height:0;width:100%;">' + cells + '</div>';
         }
 
         var titleStr = escapeHtml(String(grade)) + '年' + escapeHtml(String(cls)) + '組\u3000座席表';
 
-        var printDoc =
-            '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>' +
-            '@page{size:A4 landscape;margin:8mm 8mm;}' +
-            '*{box-sizing:border-box;margin:0;padding:0;}' +
-            'html{width:100%;height:100%;}' +
-            'body{width:100%;height:100%;max-width:100%;overflow:hidden;' +
-            '  font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;' +
-            '  display:flex;flex-direction:column;}' +
-            '.header{display:flex;justify-content:space-between;align-items:flex-end;' +
-            '  border-bottom:3px solid #2D7D9A;padding-bottom:4px;margin-bottom:6px;flex-shrink:0;}' +
-            '.title{font-size:18pt;font-weight:900;color:#1a2332;}' +
-            '.meta{font-size:8pt;color:#555;text-align:right;line-height:1.8;}' +
-            '.bb{background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:#fff;' +
-            '  text-align:center;padding:4px 0;border-radius:6px;' +
-            '  font-size:11pt;font-weight:700;letter-spacing:0.5em;margin-bottom:6px;flex-shrink:0;}' +
-            '.grid{flex:1;display:flex;flex-direction:column;gap:3px;min-height:0;width:100%;}' +
-            '.row{display:flex;gap:3px;flex:1;min-height:0;width:100%;}' +
-            '.seat{flex:1;min-width:0;border-radius:8px;display:flex;flex-direction:column;' +
-            '  align-items:center;justify-content:center;position:relative;overflow:hidden;}' +
-            '.occ{background:#fff;border:2px solid #2D7D9A;}' +
-            '.emp{background:#F8FAFC;border:2px dashed #CBD5E0;}' +
-            '.num{position:absolute;top:3px;left:5px;font-size:6pt;color:#bbb;font-weight:600;}' +
-            '.sei{font-size:12pt;font-weight:900;color:#1a2332;line-height:1.1;text-align:center;word-break:break-all;}' +
-            '.mei{font-size:10pt;font-weight:700;color:#2D7D9A;line-height:1.1;text-align:center;word-break:break-all;}' +
-            '.footer{display:flex;justify-content:space-between;padding:4px 2px 0;flex-shrink:0;}' +
-            '.side{font-size:8pt;color:#999;font-weight:600;}' +
-            '</style></head><body>' +
-            '<div class="header"><div class="title">' + titleStr + '</div>' +
-            '<div class="meta">' + dateStr + ' 現在\u3000担任：' + escapeHtml(teacher) + '</div></div>' +
-            '<div class="bb">\uff5e\u3000\u9ed2\u3000\u677f\u3000\uff5e</div>' +
-            '<div class="grid">' + rows + '</div>' +
-            '<div class="footer"><span class="side">\u25c4 \u7a93\u5074</span><span class="side">\u5eca\u4e0b\u5074 \u25ba</span></div>' +
-            '</body></html>';
+        var pageHtml =
+            '<div style="width:1122px;height:793px;background:#fff;box-sizing:border-box;display:flex;flex-direction:column;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2D7D9A;padding-bottom:4px;margin-bottom:6px;flex-shrink:0;">' +
+            '<div style="font-size:18pt;font-weight:900;color:#1a2332;">' + titleStr + '</div>' +
+            '<div style="font-size:8pt;color:#555;text-align:right;line-height:1.8;">' + dateStr + ' 現在\u3000担任：' + escapeHtml(teacher) + '</div></div>' +
+            '<div style="background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:#fff;text-align:center;padding:4px 0;border-radius:6px;font-size:11pt;font-weight:700;letter-spacing:0.5em;margin-bottom:6px;flex-shrink:0;">\uff5e\u3000\u9ed2\u3000\u677f\u3000\uff5e</div>' +
+            '<div style="flex:1;display:flex;flex-direction:column;gap:3px;min-height:0;width:100%;">' + rows + '</div>' +
+            '<div style="display:flex;justify-content:space-between;padding:4px 2px 0;flex-shrink:0;">' +
+            '<span style="font-size:8pt;color:#999;font-weight:600;">\u25c4 \u7a93\u5074</span>' +
+            '<span style="font-size:8pt;color:#999;font-weight:600;">\u5eca\u4e0b\u5074 \u25ba</span></div>' +
+            '</div>';
 
-        // Blob URLでiframeに渡す（PWAモードでも@pageが正しく効く）
-        var blob = new Blob([printDoc], {type: 'text/html;charset=utf-8'});
-        var blobUrl = URL.createObjectURL(blob);
-
-        var overlay = document.createElement('div');
-        overlay.id = 'po-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
-
-        // プレビュー（A4横比率）
-        var iframe = document.createElement('iframe');
-        iframe.src = blobUrl;
-        iframe.style.cssText = 'width:min(90vw,calc(85vh*297/210));height:min(calc(90vw*210/297),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
-
-        var btnRow = document.createElement('div');
-        btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
-
-        var printBtn = document.createElement('button');
-        printBtn.textContent = '🖨️ 印刷 / PDF保存';
-        printBtn.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-
-        var backBtn = document.createElement('button');
-        backBtn.textContent = '✕ 元の画面に戻る';
-        backBtn.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-
-        btnRow.appendChild(printBtn);
-        btnRow.appendChild(backBtn);
-        overlay.appendChild(iframe);
-        overlay.appendChild(btnRow);
-        document.body.appendChild(overlay);
-
-        function poCleanup() {
-            URL.revokeObjectURL(blobUrl);
-            var ov = document.getElementById('po-overlay');
-            if (ov) ov.remove();
-        }
-
-        // 印刷ボタン：iframeのwindow.printを呼ぶ
-        printBtn.addEventListener('click', function() {
-            try {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            } catch(e) {
-                // セキュリティ制限でiframe.printが使えない場合はBlob URLを新タブで開く
-                window.open(blobUrl, '_blank');
-            }
-        });
-
-        backBtn.addEventListener('click', poCleanup);
-
-        // 印刷後に自動で戻る
-        iframe.addEventListener('load', function() {
-            try {
-                iframe.contentWindow.addEventListener('afterprint', poCleanup);
-            } catch(e) {}
+        await htmlPagesToPdf([pageHtml], {
+            orientation: 'landscape',
+            fileName: String(grade) + '年' + String(cls) + '組_座席表_' + getLocalDateStr() + '.pdf',
+            marginMm: 8
         });
     }
 
@@ -8341,8 +8329,7 @@
                     var fname = pageList.length === 1
                         ? 'カルテ_' + pageList[0].name + '.pdf'
                         : 'カルテ_' + pageList.length + '名.pdf';
-                    pdf.save(fname);
-                    showToast('PDFを保存しました', 'success');
+                    universalShare(pdf.output('blob'), fname); // v1.8.98: 共有シート経由に統一
                     return;
                 }
                 container.innerHTML = pageList[pageIdx].html;
@@ -11959,8 +11946,8 @@
                         pdf.addImage(img2, 'JPEG', imgX2, 10, imgW2, imgH2);
                     }
                 }
-                pdf.save('成績レーダー面談シート_全員.pdf');
-                grdExtFlash('PDFを保存しました');
+                universalShare(pdf.output('blob'), '成績レーダー面談シート_全員.pdf'); // v1.8.98: 共有シート経由に統一
+                grdExtFlash('PDFを出力しました');
             } catch (err) {
                 alert('PDF作成中にエラーが発生しました: ' + (err && err.message ? err.message : err));
             } finally {
@@ -13044,49 +13031,20 @@
             return html;
         }
 
-        // 印刷ダイアログ（printSeating / grdPrintKarteCenter と同じ blob+iframe パターン）
-        function grdPrintBasisSheet() {
+        // v1.8.98: 直接印刷(iframe)を廃止し、PDF生成→共有シートに統一
+        async function grdPrintBasisSheet() {
             var subject = (document.getElementById('grdOverviewSubj')||{}).value || '';
             if (!subject) { showToast('教科を選択してください', 'warning'); return; }
             var defs = grdGetCategoryItemDefs(subject);
             if (!defs.knowledge.length && !defs.thinking.length && !defs.attitude.length) {
                 showToast('この教科の採点項目がまだありません', 'warning'); return;
             }
-            var pages = grdBuildSubjectSheetHtml(subject) + grdBuildCommonSheetHtml();
-            var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
-                + '@page{size:A4 portrait;margin:15mm;}'
-                + '*{box-sizing:border-box;margin:0;padding:0;}'
-                + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
-                + 'table{width:100%;border-collapse:collapse;}'
-                + '</style></head><body>' + pages + '</body></html>';
-            var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
-            var blobUrl = URL.createObjectURL(blob);
-
-            var overlay = document.createElement('div');
-            overlay.id = 'gbs-overlay';
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
-            var iframe = document.createElement('iframe');
-            iframe.src = blobUrl;
-            iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
-            var btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
-            var printBtn = document.createElement('button');
-            printBtn.textContent = '🖨️ 印刷 / PDF保存';
-            printBtn.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-            var backBtn = document.createElement('button');
-            backBtn.textContent = '✕ 元の画面に戻る';
-            backBtn.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-            btnRow.appendChild(printBtn); btnRow.appendChild(backBtn);
-            overlay.appendChild(iframe); overlay.appendChild(btnRow);
-            document.body.appendChild(overlay);
-
-            function gbsCleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('gbs-overlay'); if (ov) ov.remove(); }
-            printBtn.addEventListener('click', function() {
-                try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
-                catch(e) { window.open(blobUrl, '_blank'); }
+            var pages = [grdBuildSubjectSheetHtml(subject), grdBuildCommonSheetHtml()];
+            await htmlPagesToPdf(pages, {
+                orientation: 'portrait',
+                fileName: subject + '_成績根拠_' + getLocalDateStr() + '.pdf',
+                marginMm: 15
             });
-            backBtn.addEventListener('click', gbsCleanup);
-            iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', gbsCleanup); } catch(e) {} });
         }
 
         // 注記欄編集モーダル
@@ -16729,8 +16687,7 @@
                 if (document.body.contains(container)) document.body.removeChild(container);
                 var titleSuffix = mode === 'attendance' ? '出欠席' : mode === 'submissions' ? '提出物' : '全項目';
                 var fname = 'カルテ一括_' + titleSuffix + '_' + pageHtmls.length + '名.pdf';
-                pdf.save(fname);
-                showToast('PDFを保存しました', 'success');
+                universalShare(pdf.output('blob'), fname); // v1.8.98: 共有シート経由に統一
                 return;
             }
             container.innerHTML = pageHtmls[pageIdx];
@@ -16850,8 +16807,7 @@
         function processNext() {
             if (pageIdx >= pageHtmls.length) {
                 if (document.body.contains(container)) document.body.removeChild(container);
-                pdf.save('漢字チェック一括_' + pageHtmls.length + '名.pdf');
-                showToast('PDFを保存しました', 'success');
+                universalShare(pdf.output('blob'), '漢字チェック一括_' + pageHtmls.length + '名.pdf'); // v1.8.98: 共有シート経由に統一
                 return;
             }
             container.innerHTML = pageHtmls[pageIdx];

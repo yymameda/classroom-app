@@ -2151,7 +2151,7 @@
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
 
-                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte('attendance')">🖨️ 一括印刷</button>
+                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte('attendance')">📄 一括PDF出力</button>
                     </div>
                 </div>
             </div>
@@ -2619,7 +2619,7 @@
 
         <!-- ===== 提出物チェック (Phase 5) ===== -->
         <div id="view-submissions" class="view">
-            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="printAllKarte('submissions')">🖨️ 一括印刷</button></div></div>
+            <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="printAllKarte('submissions')">📄 一括PDF出力</button></div></div>
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
@@ -2948,7 +2948,7 @@
             <div class="view-header" id="kanjiListHeader" style="background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:8px;height:50px;flex-shrink:0;">
                 <h2 style="font-size:1rem;color:#fff;margin:0;">✍️ 漢字チェック</h2>
                 <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">🖨️ 一括印刷</button></div>
+                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">📄 一括PDF出力</button></div>
             </div>
             <div class="view-header" id="kanjiStudentHeader" style="display:none;background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:10px;height:50px;flex-shrink:0;">
                 <button onclick="kanjiBackToList()" style="min-height:var(--tap-min);padding:0 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.88rem;font-weight:700;cursor:pointer;">← 一覧へ戻る</button>
@@ -2979,7 +2979,7 @@
                 <h2>👤 個人カルテ</h2>
                 <div class="hdr-actions">
                     <button class="hdr-btn" id="kvModeViewBtn" onclick="kvSetMode('view')">👁 見る</button>
-                    <button class="hdr-btn active" id="kvModeOutputBtn" onclick="kvSetMode('output')">🖨️ 出力</button>
+                    <button class="hdr-btn active" id="kvModeOutputBtn" onclick="kvSetMode('output')">📄 出力</button>
                 </div>
             </div>
             <!-- 見るモード（次ステップで詳細カルテをここへ移設） -->
@@ -3067,7 +3067,7 @@
                     <button id="kvCopyTextBtn" class="btn btn-primary" style="padding:12px 24px;font-size:0.95rem;background:linear-gradient(135deg,#27AE60,#1E8449);border:none;border-radius:10px;min-height:48px;">📋 面談用テキストをコピー</button>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:24px;">
-                    <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,#2D7D9A,#1E5A70);border:none;border-radius:10px;min-height:48px;">🖨️ カルテ出力（PDF）</button>
+                    <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,#2D7D9A,#1E5A70);border:none;border-radius:10px;min-height:48px;">📄 カルテ出力（PDF）</button>
                     <span style="font-size:0.8rem;color:var(--text-light);">選択した児童・セクションをA4縦でまとめて出力します</span>
                 </div>
             </div>

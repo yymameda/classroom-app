@@ -2091,6 +2091,17 @@
                             <option value="2">2学期制</option>
                         </select>
                     </div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:140px;">
+                            <label>2学期開始日（MM-DD）</label>
+                            <input type="text" id="setTerm2Start" placeholder="09-01" maxlength="5" inputmode="numeric">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:140px;">
+                            <label>3学期開始日（MM-DD）</label>
+                            <input type="text" id="setTerm3Start" placeholder="01-01" maxlength="5" inputmode="numeric">
+                        </div>
+                    </div>
+                    <small style="color: var(--text-light);">※ 開始日は成績の学期自動判定（3学期制）に使用。空欄・不正な値は既定（09-01 / 01-01）扱い</small><br>
                     <small style="color: var(--text-light);">※ 変更後は下の「💾 クラス情報と名簿を保存」を押してください</small>
                 </div>
                 <!-- 名簿 -->
@@ -2415,6 +2426,12 @@
                             </select>
                             <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" inputmode="numeric">
                             <input type="date" id="recTestDate">
+                            <select id="recTestTerm" title="成績の学期分け（空欄なら実施日から自動判定）">
+                                <option value="">学期：自動（実施日から判定）</option>
+                                <option value="1">1学期</option>
+                                <option value="2">2学期</option>
+                                <option value="3">3学期</option>
+                            </select>
                             <!-- まとめテスト設定 -->
                             <div class="rec-matome-fields" id="recMatomeFields">
                                 <div id="recMatomeFieldsTitle" style="font-size:0.82rem;font-weight:700;color:#1565C0;margin-bottom:6px;">📝 まとめテストの設定</div>
@@ -2737,6 +2754,15 @@
                             <input type="date" id="subAssignDate">
                         </div>
                         <div class="sub-form-group">
+                            <label>学期</label>
+                            <select id="subAssignTerm" title="成績の学期分け（空欄なら提出日から自動判定）">
+                                <option value="">自動（提出日から判定）</option>
+                                <option value="1">1学期</option>
+                                <option value="2">2学期</option>
+                                <option value="3">3学期</option>
+                            </select>
+                        </div>
+                        <div class="sub-form-group">
                             <label>&nbsp;</label>
                             <button class="btn-rec-primary" id="subAssignAddBtn">課題を追加</button>
                         </div>
@@ -2856,6 +2882,12 @@
                 <button class="sub-subnav-btn" data-sub="stats"    style="color:#ccc;border-color:#444;white-space:nowrap;">📈 統計</button>
                 <button class="sub-subnav-btn" data-sub="settings" style="color:#ccc;border-color:#444;white-space:nowrap;">⚙️ 閾値</button>
                 <button class="sub-subnav-btn" data-sub="weights"  style="color:#ccc;border-color:#444;white-space:nowrap;">⚖️ 配点</button>
+                <select id="grdTermSel" title="表示する学期" style="margin-left:auto;font-size:0.82rem;padding:5px 8px;border:1.5px solid #444;border-radius:8px;background:#16213e;color:#eee;white-space:nowrap;flex-shrink:0;">
+                    <option value="1">1学期</option>
+                    <option value="2">2学期</option>
+                    <option value="3">3学期</option>
+                    <option value="all">通年</option>
+                </select>
             </div>
             <div class="view-content">
 
@@ -3949,7 +3981,7 @@
     // マスターデータ
     let master = {
         version: 2,
-        classInfo: { year: new Date().getFullYear(), grade: 4, class: 1, teacher: '', termSystem: 3 },
+        classInfo: { year: new Date().getFullYear(), grade: 4, class: 1, teacher: '', termSystem: 3, term2Start: '09-01', term3Start: '01-01' },
         students: [],
         lastSync: null
     };
@@ -4481,6 +4513,8 @@
         document.getElementById('setClass').value = ci.class;
         document.getElementById('setTeacher').value = ci.teacher || '';
         document.getElementById('setTermSystem').value = ci.termSystem || 3;
+        var _t2El = document.getElementById('setTerm2Start'); if (_t2El) _t2El.value = ci.term2Start || '09-01';
+        var _t3El = document.getElementById('setTerm3Start'); if (_t3El) _t3El.value = ci.term3Start || '01-01';
         var rosterText = master.students.map(function(s) {
             return s.gender ? s.name + ',' + s.gender : s.name;
         }).join('\n');
@@ -4491,12 +4525,19 @@
 
     function saveMasterRoster() {
         // クラス情報を取得
+        var _mmdd = function(id, dflt) {
+            var el = document.getElementById(id);
+            var v = el ? (el.value || '').trim() : '';
+            return /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v) ? v : dflt;
+        };
         master.classInfo = {
             year: parseInt(document.getElementById('setYear').value) || new Date().getFullYear(),
             grade: parseInt(document.getElementById('setGrade').value) || 4,
             class: parseInt(document.getElementById('setClass').value) || 1,
             teacher: document.getElementById('setTeacher').value.trim(),
-            termSystem: parseInt(document.getElementById('setTermSystem').value) || 3
+            termSystem: parseInt(document.getElementById('setTermSystem').value) || 3,
+            term2Start: _mmdd('setTerm2Start', '09-01'),
+            term3Start: _mmdd('setTerm3Start', '01-01')
         };
         // 名簿をパース
         var lines = document.getElementById('masterRoster').value.trim().split('\n').filter(function(l) { return l.trim(); });
@@ -5482,7 +5523,7 @@
             // マスターデータをリセット
             master = {
                 version: 2,
-                classInfo: { year: new Date().getFullYear(), grade: 4, class: 1, teacher: '', termSystem: 3 },
+                classInfo: { year: new Date().getFullYear(), grade: 4, class: 1, teacher: '', termSystem: 3, term2Start: '09-01', term3Start: '01-01' },
                 students: [],
                 lastSync: null
             };
@@ -7473,6 +7514,8 @@
             var category = document.getElementById('recTestCategory').value;
             var maxScoreVal = document.getElementById('recTestMaxScore').value;
             var date     = document.getElementById('recTestDate').value;
+            var _termEl  = document.getElementById('recTestTerm');
+            var termVal  = _termEl ? _termEl.value : '';
 
             var isABC     = category === '主体性' || testType === 'ルーブリック';
             var isMatome  = testType === 'まとめテスト' || testType === '単元テスト';
@@ -7504,6 +7547,7 @@
                 maxScore: isMatome ? matomeMaxScore : maxScore,
                 date: date, createdAt: new Date().toISOString()
             };
+            if (termVal === '1' || termVal === '2' || termVal === '3') test.term = termVal; // 学期の個別上書き（未設定＝実施日から自動判定）
             if (rubricA) test.rubricA = rubricA;
             if (rubricB) test.rubricB = rubricB;
             if (rubricC) test.rubricC = rubricC;
@@ -7560,7 +7604,7 @@
         };
 
         function recResetTestForm() {
-            ['recTestSubject','recTestType','recTestName','recTestCategory','recTestDate'].forEach(function(id) {
+            ['recTestSubject','recTestType','recTestName','recTestCategory','recTestDate','recTestTerm'].forEach(function(id) {
                 var el = document.getElementById(id); if (el) el.value = '';
             });
             // ルーブリックフィールドクリア
@@ -7595,6 +7639,7 @@
             document.getElementById('recTestName').value = test.name || '';
             document.getElementById('recTestCategory').value = (test.category === '複合') ? '' : (test.category || '');
             document.getElementById('recTestDate').value = test.date || '';
+            var _teEl = document.getElementById('recTestTerm'); if (_teEl) _teEl.value = test.term || '';
             // ルーブリック復元
             document.getElementById('recRubricA').value = test.rubricA || '';
             document.getElementById('recRubricB').value = test.rubricB || '';
@@ -10332,6 +10377,8 @@
             var subj = document.getElementById('subAssignSubject').value;
             var name = document.getElementById('subAssignName').value.trim();
             var date = document.getElementById('subAssignDate').value;
+            var _stEl = document.getElementById('subAssignTerm');
+            var termVal = _stEl ? _stEl.value : '';
             if (!subj) { showToast('教科を選択してください', 'warning'); return; }
             if (!name) { showToast('課題名を入力してください', 'warning'); return; }
             if (!date) { showToast('提出日を選択してください', 'warning'); return; }
@@ -10342,6 +10389,8 @@
                     arr[idx].subject = subj;
                     arr[idx].name = name;
                     arr[idx].date = date;
+                    if (termVal === '1' || termVal === '2' || termVal === '3') arr[idx].term = termVal;
+                    else delete arr[idx].term; // 空欄＝自動判定に戻す（可逆）
                     arr[idx].updatedAt = new Date().toISOString();
                 }
                 subSaveAssignments(arr);
@@ -10351,11 +10400,14 @@
                 showToast('✅ 課題を更新しました', 'success');
                 return;
             }
-            arr.unshift({ id: Date.now(), subject: subj, name: name, date: date, createdAt: new Date().toISOString() });
+            var _newAssign = { id: Date.now(), subject: subj, name: name, date: date, createdAt: new Date().toISOString() };
+            if (termVal === '1' || termVal === '2' || termVal === '3') _newAssign.term = termVal;
+            arr.unshift(_newAssign);
             if (subFilterSubject && subFilterSubject !== subj) subFilterSubject = ''; // v1.8.88: 新規課題が隠れないようフィルター解除
             subSaveAssignments(arr);
             document.getElementById('subAssignSubject').value = '';
             document.getElementById('subAssignName').value = '';
+            if (_stEl) _stEl.value = '';
             subInitAssignDate();
             subRenderAssignList();
             subUpdateAssignSelects();
@@ -10390,6 +10442,7 @@
             if (subjEl) subjEl.value = target.subject || '';
             if (nameEl) nameEl.value = target.name || '';
             if (dateEl) dateEl.value = target.date || '';
+            var _etEl = document.getElementById('subAssignTerm'); if (_etEl) _etEl.value = target.term || '';
             var addBtn = document.getElementById('subAssignAddBtn');
             if (addBtn) addBtn.textContent = '更新する';
             if (!document.getElementById('subAssignCancelBtn')) {
@@ -10415,6 +10468,7 @@
             var nameEl = document.getElementById('subAssignName');
             if (subjEl) subjEl.value = '';
             if (nameEl) nameEl.value = '';
+            var _ctEl = document.getElementById('subAssignTerm'); if (_ctEl) _ctEl.value = '';
             subInitAssignDate();
         }
         function subUpdateAssignSelects() {
@@ -12120,9 +12174,40 @@
             return { start: (fy+1)+'-01-01', end: (fy+1)+'-03-31' };
         }
 
+        // 成績の学期分けフィルタ（null は現在学期で初期化される。'all' で通年）
+        var grdCurrentTermFilter = null;
+
+        // 項目（テスト・提出物課題・机間巡視）の所属学期を判定する共通ヘルパー
+        // 優先順位: 1) term の明示設定（個別上書き） 2) 実施日(date)から境界日で自動判定
+        function grdItemTerm(item) {
+            if (item && (item.term === '1' || item.term === '2' || item.term === '3')) return item.term;
+            var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(item && item.date ? String(item.date) : '');
+            if (!m) return grdGetCurrentTerm(); // 日付なし・不正は現在学期扱い（安全な既定）
+            var dd = m[1] + '-' + m[2] + '-' + m[3];
+            var y = parseInt(m[1], 10), mo = parseInt(m[2], 10);
+            var fy = (mo <= 3) ? y - 1 : y; // 年度（4月始まり）。grdGetTermRange と同じ年繰り上げ
+            var ci = (master && master.classInfo) || {};
+            if (Number(ci.termSystem) === 2) {
+                // 2学期制は grdGetTermRange と同じ固定境界（前期 4/1〜9/30・後期 10/1〜）
+                return (dd < fy + '-10-01') ? '1' : '2';
+            }
+            var _v = function(v, dflt) { return /^\d{2}-\d{2}$/.test(v || '') ? v : dflt; };
+            var t2s = _v(ci.term2Start, '09-01');
+            var t3s = _v(ci.term3Start, '01-01');
+            var start2 = fy + '-' + t2s;
+            // 3学期開始は月が1〜3月なら翌暦年（例: 2026年度→2027-01-01）
+            var start3 = ((parseInt(t3s.slice(0, 2), 10) <= 3) ? (fy + 1) : fy) + '-' + t3s;
+            if (dd < start2) return '1';
+            if (dd < start3) return '2';
+            return '3';
+        }
+
         // 提出物→10点
-        function grdGetSubmissionScore10(studentIndex, subject) {
-            var assignments = grdGetAssignments().filter(function(a) { return a.subject === subject; });
+        function grdGetSubmissionScore10(studentIndex, subject, term) {
+            term = term || grdCurrentTermFilter || grdGetCurrentTerm();
+            var assignments = grdGetAssignments().filter(function(a) {
+                return a.subject === subject && (term === 'all' || grdItemTerm(a) === term);
+            });
             var submissions = grdGetSubmissions();
             if (!assignments.length) return { score10: null, detail: '提出物なし', submitted: 0, total: 0 };
             var submitted = 0;
@@ -12139,14 +12224,13 @@
         }
 
         // 机間巡視→10点
-        function grdGetPatrolScore10(studentIndex, subject, type) {
+        function grdGetPatrolScore10(studentIndex, subject, type, term) {
             var patrols = grdGetPatrol();
-            var term = grdGetCurrentTerm();
-            var range = grdGetTermRange(term);
+            term = term || grdCurrentTermFilter || grdGetCurrentTerm();
             var numIdx = Number(studentIndex);
             var filtered = patrols.filter(function(p) {
                 return p.subject === subject && Number(p.studentIndex) === numIdx &&
-                       p.date >= range.start && p.date <= range.end;
+                       (term === 'all' || grdItemTerm(p) === term);
             });
             if (!filtered.length) return { score10: null, detail: '記録なし', good: 0, concern: 0 };
             var good = 0, concern = 0;
@@ -12168,10 +12252,13 @@
         // ================================================================
         // 成績計算コア（元アプリの calculateGrades をそのまま移植）
         // ================================================================
-        function grdCalculate(subject) {
+        function grdCalculate(subject, term) {
+            term = term || grdCurrentTermFilter || grdGetCurrentTerm();
             if (grdIsExternalSubject(subject)) return grdExtCalculate(subject);
             var students = grdGetStudents();
-            var tests = grdGetTests().filter(function(t) { return t.subject === subject; });
+            var tests = grdGetTests().filter(function(t) {
+                return t.subject === subject && (term === 'all' || grdItemTerm(t) === term);
+            });
             var scores = grdGetScores();
             var th = grdGetThresholds();
             var cfg = th[subject] || th.default;
@@ -12223,7 +12310,7 @@
                     var r = _matomeExtract(test, sr, '思');
                     if (r.max > 0) { var ik = 'mt_'+test.id; tItems.push({ name: test.name+'（思考）', type: test.testType || 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'thinking',ik) }); }
                 });
-                var pt = grdGetPatrolScore10(i, subject, 'thinking');
+                var pt = grdGetPatrolScore10(i, subject, 'thinking', term);
                 tItems.push({ name: '机間巡視（思考）', type: '机間巡視', score10: pt.score10 !== null ? Math.round(pt.score10*10)/10 : null, raw: null, max: null, detail: pt.detail, itemKey: 'patrol_thinking', weight: grdGetItemWeight(subject,'thinking','patrol_thinking') });
                 var tAvg = calcWeightedScore(tItems);
                 var tABC = score10ToABC(tAvg !== null ? Math.round(tAvg*10)/10 : null, cfg.thinking.aThreshold, cfg.thinking.bThreshold);
@@ -12244,9 +12331,9 @@
                     var r = _matomeExtract(test, sr, '主');
                     if (r.max > 0) { var ik = 'ma_'+test.id; aItems.push({ name: test.name+'（主体性）', type: test.testType || 'まとめテスト', score10: r.hasData ? Math.round(scoreTo10(r.sum,r.max)*10)/10 : null, raw: r.hasData?r.sum:null, max: r.max, itemKey: ik, weight: grdGetItemWeight(subject,'attitude',ik) }); }
                 });
-                var sub = grdGetSubmissionScore10(i, subject);
+                var sub = grdGetSubmissionScore10(i, subject, term);
                 aItems.push({ name: '提出物（'+subject+'）', type: '提出物', score10: (sub.score10 !== null && sub.total > 0) ? Math.round(sub.score10*10)/10 : null, raw: null, max: null, detail: sub.detail, itemKey: 'submission', weight: grdGetItemWeight(subject,'attitude','submission') });
-                var pa = grdGetPatrolScore10(i, subject, 'attitude');
+                var pa = grdGetPatrolScore10(i, subject, 'attitude', term);
                 aItems.push({ name: '机間巡視（主体性）', type: '机間巡視', score10: pa.score10 !== null ? Math.round(pa.score10*10)/10 : null, raw: null, max: null, detail: pa.detail, itemKey: 'patrol_attitude', weight: grdGetItemWeight(subject,'attitude','patrol_attitude') });
                 var aAvg = calcWeightedScore(aItems);
                 var aABC = score10ToABC(aAvg !== null ? Math.round(aAvg*10)/10 : null, cfg.attitude.aThreshold, cfg.attitude.bThreshold);
@@ -13827,10 +13914,27 @@
             iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', kcCleanup); } catch(e) {} });
         }
 
+        // 学期セレクタ変更 → フィルタ更新＋表示中タブを再描画
+        function grdOnTermChange() {
+            var sel = document.getElementById('grdTermSel');
+            grdCurrentTermFilter = sel ? sel.value : null;
+            var act = function(n) { var el = document.getElementById('grd-sub-' + n); return el && el.classList.contains('active'); };
+            try {
+                if (act('overview')) { grdRenderOverview(); grdRenderDataStatus(); }
+                if (act('grade')) grdRenderGradeTable();
+                if (act('stats')) grdRenderStats();
+                if (act('karte')) grdRenderKarte();
+                if (act('kartecenter')) grdRenderKarteCenter();
+            } catch(e) { console.error('grdOnTermChange:', e); }
+        }
+
         function grdBindEvents() {
             var root = grdGetRoot(); if (!root) return;
             root.querySelectorAll('.sub-subnav-btn').forEach(function(btn) { btn.addEventListener('click', function() { grdShowSub(btn.dataset.sub); }); });
+            var _termSel = document.getElementById('grdTermSel');
+            if (_termSel) { _termSel.value = grdGetCurrentTerm(); grdCurrentTermFilter = _termSel.value; }
             var e = function(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('change', fn); };
+            e('grdTermSel', grdOnTermChange);
             e('grdOverviewSubj', function() { grdRenderOverview(); });
             e('grdGradeSubj', grdRenderGradeTable);
             e('grdKarteStu', grdRenderKarte);

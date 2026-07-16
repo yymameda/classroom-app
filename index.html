@@ -4133,137 +4133,14 @@
         console.log('[migrate] kanji v1.8.51: フラット化完了（' + n + '文字）');
     }
 
-    // --- 漢字チェック：chars配列の並び順修正（v1.8.53、起動時1回） ---
-    // バックアップPDFで確認された正しい順序（①→②→③連結、62字）に対し、
-    // 現在のcharsを「文字そのもの」をキーにして正しい62字順序へ並べ替える。
-    // 各児童のchecksは「文字→○/△」の対応として捉え直し、新しいchars配列の
-    // indexに基づいて再構築する（漢字とその○/△の対応は保たれる）。
-    // 冪等性は「charsが既に正しい62字順序と完全一致するか」で判定。
-    // 安全条件：charsの文字集合（重複も含めた多重集合）が正しい62字と完全一致しない場合
-    // （知らない文字が混じる・62字に満たない・重複がある等）は、安全のため何もせず警告ログを出す。
-    // 診断ログ（chars全文字・各児童のchecks件数）は判定結果に関わらず常に出力する。
-    var KANJI_CORRECT_ORDER_V1853 = '像経情象絶厚賞状喜解容技術適許可複構桜銅破修復眼停祖準備貿易際潔質報告属確識因造似限留現接応勢河歴史幹招句常序武士資査性非総'.split('');
-
-    function migrateKanjiOrder() {
-        var raw = StorageManager.getRaw(KEYS.kanji);
-        if (!raw) return;
-
-        var data;
-        try { data = JSON.parse(raw); } catch(e) { console.error('migrateKanjiOrder: parse error', e); return; }
-        if (!data || !data.chars || !data.chars.length) return;
-
-        var chars = data.chars;
-        var n = chars.length;
-        var correct = KANJI_CORRECT_ORDER_V1853;
-        var oldChecks = data.checks || {};
-
-        // 診断ログ：常に出力（Step0確認用）
-        console.log('[migrateKanjiOrder] chars(' + n + '字): ' + chars.join(''));
-        Object.keys(oldChecks).sort().forEach(function(stuKey) {
-            console.log('[migrateKanjiOrder] checks[' + stuKey + ']件数: ' + Object.keys(oldChecks[stuKey] || {}).length);
-        });
-
-        // 冪等性：charsが既に正しい62字順序と完全一致するなら何もしない
-        var alreadyCorrect = (n === correct.length);
-        if (alreadyCorrect) {
-            for (var k = 0; k < n; k++) {
-                if (chars[k] !== correct[k]) { alreadyCorrect = false; break; }
-            }
-        }
-        if (alreadyCorrect) {
-            console.log('[migrateKanjiOrder] charsは既に正しい62字順序のため、何もしません。');
-            return;
-        }
-
-        // 安全条件：charsの文字（多重集合）が正しい62字と完全一致するか
-        if (n !== correct.length) {
-            console.warn('[migrateKanjiOrder] 文字数が一致しません(現在' + n + '字 / 正しい順序' + correct.length + '字)。並べ替えは行いません。');
-            return;
-        }
-        var correctCount = {};
-        correct.forEach(function(c) { correctCount[c] = (correctCount[c] || 0) + 1; });
-        var charsCount = {};
-        chars.forEach(function(c) { charsCount[c] = (charsCount[c] || 0) + 1; });
-        var setMismatches = [];
-        Object.keys(correctCount).forEach(function(c) {
-            if (charsCount[c] !== correctCount[c]) setMismatches.push({ char: c, expected: correctCount[c], actual: charsCount[c] || 0 });
-        });
-        Object.keys(charsCount).forEach(function(c) {
-            if (!(c in correctCount)) setMismatches.push({ char: c, expected: 0, actual: charsCount[c] });
-        });
-        if (setMismatches.length > 0) {
-            console.warn('[migrateKanjiOrder] charsの文字集合が正しい62字と一致しません（不一致' + setMismatches.length + '件）。並べ替えは行いません。', setMismatches.slice(0, 10));
-            return;
-        }
-
-        // 各児童の「文字→○/△」対応を作る（charIdxではなく文字そのものをキーにする）
-        var charValueMap = {};
-        Object.keys(oldChecks).forEach(function(stuKey) {
-            var stuChecks = oldChecks[stuKey] || {};
-            charValueMap[stuKey] = {};
-            Object.keys(stuChecks).forEach(function(oldIdxStr) {
-                var oldIdx = parseInt(oldIdxStr, 10);
-                charValueMap[stuKey][chars[oldIdx]] = stuChecks[oldIdxStr];
-            });
-        });
-
-        // 新chars = 正しい62字順序、新checks = charValueMapを新しいindexに変換
-        var newChars = correct.slice();
-        var newChecks = {};
-        Object.keys(charValueMap).forEach(function(stuKey) {
-            var map = charValueMap[stuKey];
-            Object.keys(map).forEach(function(ch) {
-                var newIdx = newChars.indexOf(ch);
-                if (!newChecks[stuKey]) newChecks[stuKey] = {};
-                newChecks[stuKey][String(newIdx)] = map[ch];
-            });
-        });
-
-        // 条件A：無損失照合（並べ替え前後で「文字→○/△」対応が全児童で完全一致するか）
-        var ok = true, detail = [];
-        Object.keys(charValueMap).forEach(function(stuKey) {
-            var beforeMap = charValueMap[stuKey];
-            var afterMap = {};
-            Object.keys(newChecks[stuKey] || {}).forEach(function(idxStr) {
-                afterMap[newChars[parseInt(idxStr, 10)]] = newChecks[stuKey][idxStr];
-            });
-            var chk = {};
-            Object.keys(beforeMap).forEach(function(ch) { chk[ch] = true; });
-            Object.keys(afterMap).forEach(function(ch) { chk[ch] = true; });
-            Object.keys(chk).forEach(function(ch) {
-                if (beforeMap[ch] !== afterMap[ch]) {
-                    ok = false;
-                    detail.push({ stuKey: stuKey, char: ch, before: beforeMap[ch], after: afterMap[ch] });
-                }
-            });
-        });
-        if (!ok) {
-            console.error('migrateKanjiOrder: 並べ替え前後の照合に失敗。旧データを保持し、並べ替えを中止します。', detail.slice(0, 10));
-            return;
-        }
-
-        // 条件B：バックアップ（保存・読み返し確認が取れなければ並べ替えない）
-        StorageManager.setImmediate('spa_kanji_backup_v1853_order', raw);
-        if (StorageManager.getRaw('spa_kanji_backup_v1853_order') !== raw) {
-            console.error('migrateKanjiOrder: バックアップの保存に失敗。並べ替えを中止します。');
-            return;
-        }
-
-        data.chars = newChars;
-        data.checks = newChecks;
-        StorageManager.setImmediate(KEYS.kanji, JSON.stringify(data));
-        console.log('[migrateKanjiOrder] 並べ替え完了（' + n + '文字、正しい62字順序に変換）。spa_kanji_backup_v1853_order に旧データを保存しました。');
-    }
+    // v1.8.53の一回限り並べ替え移行(migrateKanjiOrder)は完了済みのため v1.9.1 で撤去。
+    // 残置すると手動並べ替えを固定62字順へ巻き戻すため。
 
     // --- 漢字チェック：旧バックアップキーの削除（v1.8.54、起動時1回） ---
     // v1.8.51フラット化移行時の退避(spa_kanji_backup_v1851)と
     // v1.8.53並べ替え移行時の退避(spa_kanji_backup_v1853_order)を削除し、
     // ストレージ使用量を削減する。spa_kanji本体や他のキーには一切触れない。
     // 冪等性：対象キーが両方とも存在しなければ何もしない。
-    // 呼び出し順序の注意：DOMContentLoadedでmigrateKanjiOrder()より先に呼ぶこと。
-    // migrateKanjiOrder()が今回の起動で並べ替えを実行するとspa_kanji_backup_v1853_orderを
-    // 新規作成するが、cleanupを先に走らせておくことで、その新規バックアップは
-    // 今回の削除対象に含まれず、最低1回の起動ぶんは保険として残る。
     var KANJI_OLD_BACKUP_KEYS_V1854 = ['spa_kanji_backup_v1851', 'spa_kanji_backup_v1853_order'];
 
     function cleanupOldKanjiBackups() {
@@ -4372,7 +4249,7 @@
         migrateScoreData();
         migrateKanjiToFlat();
         cleanupOldKanjiBackups();
-        migrateKanjiOrder();
+        // v1.8.53の一回限り並べ替え移行は完了済みのため v1.9.1 で撤去（手動並べ替え機能と競合するため）
         cleanupSubmissionMissingV1863();
         migrateSubmissionIdTypesV1893(); // v1.8.93: 提出物ID型正規化
         loadMaster();

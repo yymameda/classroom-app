@@ -2993,13 +2993,21 @@
             <!-- 漢字追加モーダル -->
             <div id="kanjiModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
                 <div style="background:#fff;border-radius:12px;padding:20px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-                    <h3 style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">漢字を追加</h3>
+                    <h3 style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">漢字を追加・並べ替え</h3>
                     <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">漢字（1行1文字 またはスペース・読点区切り）</label>
                     <textarea id="kanjiModalChars" rows="5" placeholder="例:&#10;美&#10;術&#10;競&#10;争&#10;または：美 術 競 争" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:1.1rem;font-family:inherit;resize:vertical;margin-bottom:14px;"></textarea>
                     <div id="kanjiModalPreview" style="font-size:0.8rem;color:#555;margin-bottom:14px;min-height:20px;"></div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
-                        <button onclick="kanjiCloseAddModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">キャンセル</button>
-                        <button onclick="kanjiAddChars()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">追加</button>
+                        <button id="kjAddBtn" onclick="kanjiAddChars()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">追加</button>
+                    </div>
+                    <hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">
+                    <div id="kjSortHeader" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"></div>
+                    <div id="kjSortBody"></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+                        <button onclick="kanjiCloseAddModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">閉じる</button>
+                        <div id="kjSortSaveRow" style="display:none;">
+                            <button onclick="kjSortSave()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">並べ替えを保存</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -14697,12 +14705,20 @@
         function kanjiOpenAddModal() {
             document.getElementById('kanjiModalChars').value = '';
             document.getElementById('kanjiModalPreview').textContent = '';
+            kjSortMode = false;
+            kjSortDraft = null;
+            kjSortRenderList();
             document.getElementById('kanjiModal').style.display = 'flex';
             document.getElementById('kanjiModalChars').focus();
         }
 
         // ---- モーダルを閉じる ----
         function kanjiCloseAddModal() {
+            if (kjSortMode && kjSortIsDirty()) {
+                if (!confirm('並べ替えを破棄しますか？')) return;
+            }
+            kjSortMode = false;
+            kjSortDraft = null;
             document.getElementById('kanjiModal').style.display = 'none';
         }
 
@@ -14732,6 +14748,181 @@
             showToast(chars.length + '文字を追加しました', 'success');
         }
 
+        // ---- 並べ替え：状態 ----
+        var kjSortMode  = false;
+        var kjSortDraft = null; // [{ char: '像', origIdx: 0 }, ...]
+
+        // ---- 並べ替え：追加UIのdisabled切り替え（同時編集の競合防止） ----
+        function kjSortSetAddUiDisabled(disabled) {
+            var ta = document.getElementById('kanjiModalChars');
+            var btn = document.getElementById('kjAddBtn');
+            if (ta) ta.disabled = disabled;
+            if (btn) btn.disabled = disabled;
+        }
+
+        // ---- 並べ替え：draftが元の並び順から変化しているか ----
+        function kjSortIsDirty() {
+            if (!kjSortDraft) return false;
+            for (var i = 0; i < kjSortDraft.length; i++) {
+                if (kjSortDraft[i].origIdx !== i) return true;
+            }
+            return false;
+        }
+
+        // ---- 並べ替え：通常表示／並べ替えリストの描画切替 ----
+        function kjSortRenderList() {
+            var headerEl = document.getElementById('kjSortHeader');
+            var bodyEl = document.getElementById('kjSortBody');
+            var saveRowEl = document.getElementById('kjSortSaveRow');
+            if (!headerEl || !bodyEl) return;
+
+            var data = kanjiGetData();
+            var chars = data.chars || [];
+
+            if (!kjSortMode) {
+                headerEl.innerHTML =
+                    '<span style="font-size:0.82rem;font-weight:600;">登録済みの漢字（' + chars.length + '字）</span>' +
+                    '<button onclick="kjSortEnter()" style="padding:6px 12px;border-radius:8px;border:1.5px solid #2E7D32;background:#fff;color:#2E7D32;cursor:pointer;font-size:0.8rem;">並べ替え</button>';
+                bodyEl.innerHTML = '<div style="font-size:0.9rem;color:#333;line-height:1.8;word-break:break-all;">' + escapeHtml(chars.join(' ')) + '</div>';
+                if (saveRowEl) saveRowEl.style.display = 'none';
+                kjSortSetAddUiDisabled(false);
+                return;
+            }
+
+            headerEl.innerHTML =
+                '<span style="font-size:0.82rem;font-weight:600;">登録済みの漢字（' + chars.length + '字）</span>' +
+                '<button onclick="kjSortExit()" style="padding:6px 12px;border-radius:8px;border:1.5px solid #999;background:#fff;color:#555;cursor:pointer;font-size:0.8rem;">キャンセル</button>';
+
+            var rowsHtml = '';
+            kjSortDraft.forEach(function(d, i) {
+                var isFirst = i === 0;
+                var isLast = i === kjSortDraft.length - 1;
+                rowsHtml += '<div class="kj-sort-row" id="kjSortRow' + i + '" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #eee;">'
+                    + '<span style="width:2.4em;color:#888;font-size:0.8rem;">[ ' + (i + 1) + ' ]</span>'
+                    + '<span style="flex:1;font-size:1.05rem;">' + escapeHtml(d.char) + '</span>'
+                    + '<button onclick="kjSortMove(' + i + ',-1)" ' + (isFirst ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">↑</button>'
+                    + '<button onclick="kjSortMove(' + i + ',1)" ' + (isLast ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">↓</button>'
+                    + '</div>';
+            });
+            bodyEl.innerHTML = '<div id="kjSortRows">' + rowsHtml + '</div>';
+
+            if (saveRowEl) saveRowEl.style.display = 'block';
+            kjSortSetAddUiDisabled(true);
+        }
+
+        // ---- 並べ替え：移動後のハイライト＆スクロール（見失い防止） ----
+        function kjSortHighlightRow(idx) {
+            var row = document.getElementById('kjSortRow' + idx);
+            if (!row) return;
+            row.scrollIntoView({ block: 'nearest' });
+            row.style.background = '#fff9c4';
+            setTimeout(function() { row.style.background = ''; }, 400);
+        }
+
+        // ---- 並べ替えモードへ入る ----
+        function kjSortEnter() {
+            var data = kanjiGetData();
+            var chars = data.chars || [];
+            kjSortDraft = chars.map(function(c, i) { return { char: c, origIdx: i }; });
+            kjSortMode = true;
+            kjSortRenderList();
+        }
+
+        // ---- 並べ替えモードを終了（force省略時、未保存の変更があればconfirm） ----
+        function kjSortExit(force) {
+            if (!force && kjSortIsDirty()) {
+                if (!confirm('並べ替えを破棄しますか？')) return;
+            }
+            kjSortMode = false;
+            kjSortDraft = null;
+            kjSortRenderList();
+        }
+
+        // ---- 並べ替え：隣接要素と入れ替え（この時点では保存しない） ----
+        function kjSortMove(idx, dir) {
+            if (!kjSortDraft) return;
+            var target = idx + dir;
+            if (target < 0 || target >= kjSortDraft.length) return;
+            var tmp = kjSortDraft[idx];
+            kjSortDraft[idx] = kjSortDraft[target];
+            kjSortDraft[target] = tmp;
+            kjSortRenderList();
+            kjSortHighlightRow(target);
+        }
+
+        // ---- 並べ替え：保存（ガードを1つでも満たさなければ中止） ----
+        function kjSortSave() {
+            var data = kanjiGetData();
+            var chars = data.chars || [];
+
+            // ガード1：draft件数がchars件数と一致するか
+            if (!kjSortDraft || kjSortDraft.length !== chars.length) {
+                showToast('並べ替えデータの取得に失敗しました', 'warning');
+                return;
+            }
+
+            // ガード2：origIdxの集合が0..n-1の完全な順列か（重複・欠落なし）
+            var n = chars.length;
+            var seenOrig = {};
+            var permutationOk = true;
+            for (var i = 0; i < kjSortDraft.length; i++) {
+                var oi = kjSortDraft[i].origIdx;
+                if (typeof oi !== 'number' || oi < 0 || oi >= n || seenOrig[oi]) { permutationOk = false; break; }
+                seenOrig[oi] = true;
+            }
+            if (!permutationOk || Object.keys(seenOrig).length !== n) {
+                showToast('並べ替えデータの整合性チェックに失敗しました', 'warning');
+                return;
+            }
+
+            // ガード3：多重集合一致（文字の集合が変化していないか）
+            var newChars = kjSortDraft.map(function(d) { return d.char; });
+            if (newChars.slice().sort().join('') !== chars.slice().sort().join('')) {
+                showToast('並べ替えデータの整合性チェックに失敗しました', 'warning');
+                return;
+            }
+
+            // ガード4：順序が変わっていなければ保存不要
+            if (!kjSortIsDirty()) {
+                showToast('並べ替えは変更されていません', 'info');
+                return;
+            }
+
+            // 再マップ：origIdxの順列に基づき、各児童のchecksを新indexへ変換
+            var oldChecks = data.checks || {};
+            var newChecks = {};
+            var oldCounts = {};
+            var newCounts = {};
+            Object.keys(oldChecks).forEach(function(stuKey) {
+                var oldStu = oldChecks[stuKey] || {};
+                var newStu = {};
+                oldCounts[stuKey] = Object.keys(oldStu).length;
+                kjSortDraft.forEach(function(d, newIdx) {
+                    var v = oldStu[String(d.origIdx)];
+                    if (v) newStu[String(newIdx)] = v; // undefinedのキーは作らない
+                });
+                newChecks[stuKey] = newStu;
+                newCounts[stuKey] = Object.keys(newStu).length;
+            });
+
+            // 保存前照合：全児童について再マップ前後のchecks件数が一致するか（無損失確認）
+            var lossless = true;
+            Object.keys(oldCounts).forEach(function(stuKey) {
+                if (oldCounts[stuKey] !== newCounts[stuKey]) lossless = false;
+            });
+            if (!lossless) {
+                showToast('並べ替え前後の照合に失敗しました。保存を中止します', 'warning');
+                return;
+            }
+
+            data.chars = newChars;
+            data.checks = newChecks;
+            kjSave(data);
+            kjSortExit(true);
+            kanjiRender();
+            showToast('並べ替えを保存しました', 'success');
+        }
+
         // ---- グローバル公開 ----
         window.kanjiInit          = kanjiInit;
         window.kanjiRender        = kanjiRender;
@@ -14741,6 +14932,10 @@
         window.kanjiOpenAddModal  = kanjiOpenAddModal;
         window.kanjiCloseAddModal = kanjiCloseAddModal;
         window.kanjiAddChars      = kanjiAddChars;
+        window.kjSortEnter        = kjSortEnter;
+        window.kjSortExit         = kjSortExit;
+        window.kjSortMove         = kjSortMove;
+        window.kjSortSave         = kjSortSave;
 
         // ---- DOMContentLoaded フック ----
         document.addEventListener('DOMContentLoaded', function() {

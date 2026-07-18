@@ -1424,10 +1424,17 @@
         .rubric-has-badge { display: inline-block; padding: 1px 5px; background: #E8F5E9; color: #2E7D32; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 4px; }
 
         /* 課題登録フォーム（元アプリ準拠） */
-        .sub-assign-form { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 1rem; }
-        .sub-form-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .sub-form-group label { font-weight: 500; color: var(--text-light); font-size: 0.9rem; }
-        .sub-form-group input, .sub-form-group select { padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 1rem; min-height: 44px; width: 100%; }
+        /* v1.9.3: minmax(180px,·) だと入力欄の固有幅が列幅を超えた際にトラックからはみ出し、
+           提出日と学期の欄が重なっていた。min(100%,180px) で列を縮めさせ、min-width:0 で
+           グリッドアイテムの min-content 制約を解除する。 */
+        .sub-assign-form { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); margin-bottom: 1rem; align-items: end; }
+        .sub-form-group { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+        .sub-form-group label { font-weight: 500; color: var(--text-light); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sub-form-group input, .sub-form-group select { padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 1rem; min-height: 44px; width: 100%; min-width: 0; max-width: 100%; }
+        /* v1.9.3: iOS Safari の date 入力は既定の appearance のままだと width 指定が効かず
+           固有幅で描画されるため、明示的に解除して 100% 幅に従わせる。 */
+        .sub-form-group input[type="date"] { -webkit-appearance: none; appearance: none; text-align: left; background: #fff; }
+        .sub-form-group select { -webkit-appearance: none; appearance: none; background: #fff; background-image: linear-gradient(45deg, transparent 50%, var(--text-light) 50%), linear-gradient(135deg, var(--text-light) 50%, transparent 50%); background-position: calc(100% - 16px) calc(50% - 2px), calc(100% - 11px) calc(50% - 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 2rem; text-overflow: ellipsis; }
         .sub-form-group input:focus, .sub-form-group select:focus { outline: none; border-color: var(--primary); }
         .sub-assign-list { display: flex; flex-direction: column; gap: 0.75rem; }
         .sub-assign-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; background: var(--secondary); border-radius: 12px; border: 1px solid var(--border); }

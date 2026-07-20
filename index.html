@@ -871,6 +871,26 @@
         .rec-mq-cell input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .rec-mq-cell input:focus { outline: none; border-color: #1565C0; background: #E3F2FD; }
         .rec-mq-cell input.has-val { border-color: #1565C0; background: #E3F2FD; }
+        /* 設問ごとABC入力（まとめ/単元テスト） */
+        .rec-mq-cell.abc { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+        .rec-mq-cell.abc .rec-mq-cell-head { display: flex; align-items: center; gap: 4px; margin-right: 6px; }
+        .rec-mq-abc-btn {
+            width: 44px; height: 44px; border: 2px solid var(--border);
+            border-radius: 6px; background: var(--white); font-size: 0.9rem;
+            font-weight: 700; cursor: pointer; font-family: inherit; padding: 0; flex-shrink: 0;
+        }
+        .rec-mq-abc-btn.sel-a { background: var(--success); border-color: var(--success); color: #fff; }
+        .rec-mq-abc-btn.sel-bplus { background: #1ABC9C; border-color: #1ABC9C; color: #fff; }
+        .rec-mq-abc-btn.sel-b { background: #3498DB; border-color: #3498DB; color: #fff; }
+        .rec-mq-abc-btn.sel-bminus { background: #F39C12; border-color: #F39C12; color: #fff; }
+        .rec-mq-abc-btn.sel-c { background: var(--accent); border-color: var(--accent); color: #fff; }
+        /* 設問設定フォームの 点/ABC モードトグル */
+        .rec-mq-mode-btn {
+            font-size: 0.62rem; font-weight: 700; padding: 4px 6px;
+            border: 1.5px solid #6A1B9A; border-radius: 4px; cursor: pointer;
+            background: #F3E5F5; color: #6A1B9A; font-family: inherit; min-height: 44px;
+        }
+        .rec-mq-mode-btn.abc { background: #6A1B9A; color: #fff; }
         .rec-matome-total-bar {
             background: #E3F2FD; border-radius: 8px; padding: 6px 10px;
             font-weight: 700; color: #1565C0; font-size: 0.88rem; margin-bottom: 4px;
@@ -2460,8 +2480,13 @@
                                     <button onclick="recSetMatomeUniformType('思')" style="padding:2px 8px;background:#E65100;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て思</button>
                                     <button onclick="recSetMatomeUniformType('主')" style="padding:2px 8px;background:#2E7D32;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て主</button>
                                 </div>
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+                                    <span style="font-size:0.75rem;font-weight:500;">入力方式一括:</span>
+                                    <button onclick="recSetMatomeUniformMode('point')" style="padding:2px 8px;background:#607D8B;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て点数</button>
+                                    <button onclick="recSetMatomeUniformMode('abc')" style="padding:2px 8px;background:#6A1B9A;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全てABC</button>
+                                </div>
                                 <div class="rec-matome-preview" id="recMatomePreview"></div>
-                                <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 ボタンで観点を切り替え。満点は配点合計で自動計算。</p>
+                                <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 で観点、点/ABC で入力方式を切替。ABCは A=10・B+=8.5・B=7・B-=5・C=3 として配点換算（満点は配点合計）。</p>
                             </div>
                             <!-- 実技記録設定 -->
                             <div class="rec-pe-fields" id="recPeFields">
@@ -6301,6 +6326,14 @@
             recOnScoreBlur(idx);
         };
 
+        // 設問ごとABC入力の換算比率（5段階abcTo10と一致: A=10 B+=8.5 B=7 B-=5 C=3 → /10）
+        var REC_ABC5_RATIO = { 'A': 1, 'B+': 0.85, 'B': 0.7, 'B-': 0.5, 'C': 0.3 };
+        function recAbcToPoints(grade, pt) {
+            var r = REC_ABC5_RATIO[grade];
+            if (r === undefined) return '';
+            return Math.round((pt || 0) * r * 10) / 10;
+        }
+
         function recCalcMatomeTotal(test, scores, studentIndex) {
             var sc = scores.find(function(s) { return s.studentIndex === studentIndex && s.testId === test.id; });
             if (!sc || !sc.answers) return null;
@@ -7064,15 +7097,33 @@
             var questions = recGetMatomeQ(test.id);
             var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
             var types = questions ? questions.map(function(q) { return q.type || '知'; }) : (test.matomeQuestionTypes || []);
+            var modes = questions ? questions.map(function(q) { return q.mode || 'point'; }) : (test.matomeQuestionModes || []);
             var scores = recGetScores();
             var sc = scores.find(function(s) { return s.studentIndex === studentIndex && s.testId === test.id; });
             var answers = sc ? (sc.answers || []) : [];
+            var answersABC = sc ? (sc.answersABC || []) : [];
 
             var typeMap = { '知': 'chi', '思': 'shi', '主': 'shu' };
+            var abcClsMap = { 'A': 'a', 'B+': 'bplus', 'B': 'b', 'B-': 'bminus', 'C': 'c' };
             var grid = document.getElementById('recMatomeGrid');
             window._recMqDirty = false; // v1.8.88
             grid.innerHTML = points.map(function(pt, i) {
                 var typeClass = typeMap[types[i]] || 'chi';
+                if (modes[i] === 'abc') {
+                    var curAbc = (typeof answersABC[i] === 'string') ? answersABC[i] : '';
+                    var hidVal = curAbc !== '' ? recAbcToPoints(curAbc, pt) : '';
+                    return '<div class="rec-mq-cell abc">' +
+                        '<div class="rec-mq-cell-head">' +
+                        '<span class="rec-mq-cell-label">Q' + (i+1) + '</span>' +
+                        '<span class="rec-mq-cell-type ' + typeClass + '">' + (types[i]||'知') + '</span>' +
+                        '</div>' +
+                        ['A','B+','B','B-','C'].map(function(v) {
+                            var sel = curAbc === v ? ' sel-' + abcClsMap[v] : '';
+                            return '<button type="button" class="rec-mq-abc-btn' + sel + '" onclick="recMatomeSelectABC(' + i + ',\'' + v + '\')">' + v + '</button>';
+                        }).join('') +
+                        '<input type="hidden" id="rec-mq-' + i + '" value="' + hidVal + '" data-abc-mode="1" data-abc="' + curAbc + '" data-pt="' + pt + '">' +
+                        '</div>';
+                }
                 var ans = answers[i]; // 0〜pt=実得点, undefined=未入力
                 var hasAns = typeof ans === 'number';
                 return '<div class="rec-mq-cell">' +
@@ -7113,6 +7164,25 @@
             s('recMqShu', r1(shu));  s('recMqShuMax', shuMax);
         };
 
+        window.recMatomeSelectABC = function(i, grade) {
+            var input = document.getElementById('rec-mq-' + i);
+            if (!input) return;
+            var pt = parseFloat(input.dataset.pt) || 0;
+            input.value = recAbcToPoints(grade, pt);
+            input.dataset.abc = grade;
+            var cell = input.closest('.rec-mq-cell');
+            if (cell) {
+                var abcClsMap = { 'A': 'a', 'B+': 'bplus', 'B': 'b', 'B-': 'bminus', 'C': 'c' };
+                var btns = cell.querySelectorAll('.rec-mq-abc-btn');
+                var grades = ['A','B+','B','B-','C'];
+                btns.forEach(function(b, bi) {
+                    b.className = 'rec-mq-abc-btn' + (grades[bi] === grade ? ' sel-' + abcClsMap[grades[bi]] : '');
+                });
+            }
+            window._recMqDirty = true;
+            recUpdateMatomeTotal();
+        };
+
         window.recMatomeModalSave = function() {
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
             if (!test) return;
@@ -7125,6 +7195,10 @@
                 if (isNaN(v)) return undefined;
                 return Math.min(Math.max(0, v), pt);
             });
+            var answersABC = points.map(function(pt, i) {
+                var input = document.getElementById('rec-mq-' + i);
+                return (input && input.dataset && input.dataset.abcMode === '1' && input.dataset.abc) ? input.dataset.abc : undefined;
+            });
             var total = 0;
             answers.forEach(function(ans) {
                 if (typeof ans === 'number') total += ans;
@@ -7136,7 +7210,7 @@
             });
             var rec = {
                 id: Date.now(), studentIndex: recMatomeStudentIndex, testId: test.id,
-                score: total, answers: answers, createdAt: new Date().toISOString()
+                score: total, answers: answers, answersABC: answersABC, createdAt: new Date().toISOString()
             };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
@@ -7304,16 +7378,20 @@
             if (!preview) return;
             preview.innerHTML = Array.from({length: qCount}, function(_, i) {
                 var existing = preview.querySelectorAll('.rec-mq-item')[i];
-                var curPt = existing ? (existing.querySelector('input') ? existing.querySelector('input').value : '5') : '5';
+                var curPt = existing ? (existing.querySelector('.rec-mq-pt') ? existing.querySelector('.rec-mq-pt').value : '5') : '5';
                 var curType = existing ? (existing.querySelector('.rec-mq-type-btn') ? existing.querySelector('.rec-mq-type-btn').dataset.type : '知') : '知';
+                var curMode = existing ? (existing.querySelector('.rec-mq-mode-btn') ? existing.querySelector('.rec-mq-mode-btn').dataset.mode : 'point') : 'point';
                 var colors = { '知': {c:'#1565C0',bg:'#E3F2FD'}, '思': {c:'#E65100',bg:'#FFF3E0'}, '主': {c:'#2E7D32',bg:'#E8F5E9'} };
                 var col = colors[curType] || colors['知'];
+                var isAbcMode = curMode === 'abc';
                 return '<div class="rec-mq-item">' +
                     '<span class="rec-mq-label">Q' + (i+1) + '</span>' +
                     '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1" inputmode="numeric">' +
                     '<button class="rec-mq-type-btn" id="rec-mq-type-' + (i+1) + '" data-type="' + curType + '"' +
                     ' style="border-color:' + col.c + ';background:' + col.bg + ';color:' + col.c + ';"' +
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
+                    '<button class="rec-mq-mode-btn' + (isAbcMode ? ' abc' : '') + '" id="rec-mq-mode-' + (i+1) + '" data-mode="' + curMode + '"' +
+                    ' onclick="recToggleMqMode(' + (i+1) + ')">' + (isAbcMode ? 'ABC' : '点') + '</button>' +
                     '</div>';
             }).join('');
         };
@@ -7381,6 +7459,26 @@
             }
         };
 
+        window.recToggleMqMode = function(num) {
+            var btn = document.getElementById('rec-mq-mode-' + num);
+            if (!btn) return;
+            var next = (btn.dataset.mode === 'abc') ? 'point' : 'abc';
+            btn.dataset.mode = next;
+            btn.textContent = (next === 'abc') ? 'ABC' : '点';
+            btn.classList.toggle('abc', next === 'abc');
+        };
+
+        window.recSetMatomeUniformMode = function(mode) {
+            var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
+            for (var i = 1; i <= qCount; i++) {
+                var btn = document.getElementById('rec-mq-mode-' + i);
+                if (!btn) continue;
+                btn.dataset.mode = mode;
+                btn.textContent = (mode === 'abc') ? 'ABC' : '点';
+                btn.classList.toggle('abc', mode === 'abc');
+            }
+        };
+
         window.recSetMatomeUniformType = function(type) {
             var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
             for (var i = 1; i <= qCount; i++) {
@@ -7395,14 +7493,16 @@
 
         function recGetMatomeFormData() {
             var qCount = parseInt(document.getElementById('recMatomeQCount').value) || 10;
-            var points = [], types = [];
+            var points = [], types = [], modes = [];
             for (var i = 1; i <= qCount; i++) {
                 var ptEl = document.getElementById('rec-mq-pt-' + i);
                 var typeEl = document.getElementById('rec-mq-type-' + i);
+                var modeEl = document.getElementById('rec-mq-mode-' + i);
                 points.push(parseInt(ptEl ? ptEl.value : 5) || 5);
                 types.push(typeEl ? typeEl.dataset.type : '知');
+                modes.push(modeEl && modeEl.dataset.mode === 'abc' ? 'abc' : 'point');
             }
-            return { points: points, types: types, total: points.reduce(function(a,b){return a+b;},0) };
+            return { points: points, types: types, modes: modes, total: points.reduce(function(a,b){return a+b;},0) };
         }
 
         window.recAddTest = function() {
@@ -7427,10 +7527,10 @@
             var maxScore = isAttitude ? 10 : (isABC ? 0 : (isPE ? 9999 : (isMatome ? 0 : parseInt(maxScoreVal))));
             if (!isABC && !isPE && !isMatome && !isAttitude && (!maxScore || maxScore <= 0)) { alert('満点を入力してください'); return; }
 
-            var matomePoints = [], matomeTypes = [], matomeMaxScore = 0;
+            var matomePoints = [], matomeTypes = [], matomeModes = [], matomeMaxScore = 0;
             if (isMatome) {
                 var md = recGetMatomeFormData();
-                matomePoints = md.points; matomeTypes = md.types; matomeMaxScore = md.total;
+                matomePoints = md.points; matomeTypes = md.types; matomeModes = md.modes; matomeMaxScore = md.total;
                 if (matomePoints.length === 0 || matomeMaxScore <= 0) { alert('設問の配点を設定してください'); return; }
             }
 
@@ -7452,9 +7552,10 @@
             if (isMatome) {
                 test.matomePoints = matomePoints;
                 test.matomeQuestionTypes = matomeTypes;
+                test.matomeQuestionModes = matomeModes;
                 test.matomeQCount = matomePoints.length;
                 // まとめ設問をmatomeQストアにも保存
-                var qObjs = matomePoints.map(function(pt, i) { return { points: pt, type: matomeTypes[i] }; });
+                var qObjs = matomePoints.map(function(pt, i) { return { points: pt, type: matomeTypes[i], mode: matomeModes[i] || 'point' }; });
                 recSaveMatomeQ(test.id, qObjs);
             }
             if (isPE) {
@@ -7569,6 +7670,12 @@
                         var col = cols[t2] || cols['知'];
                         typeEl.dataset.type = t2; typeEl.textContent = t2;
                         typeEl.style.borderColor = col.c; typeEl.style.background = col.bg; typeEl.style.color = col.c;
+                    }
+                    var modeEl = document.getElementById('rec-mq-mode-' + (i+1));
+                    if (modeEl) {
+                        var m2 = (test.matomeQuestionModes && test.matomeQuestionModes[i] === 'abc') ? 'abc' : 'point';
+                        modeEl.dataset.mode = m2; modeEl.textContent = (m2 === 'abc') ? 'ABC' : '点';
+                        modeEl.classList.toggle('abc', m2 === 'abc');
                     }
                 });
             }

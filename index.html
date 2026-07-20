@@ -7192,17 +7192,6 @@
         var REC_GRADE_TO_DIGIT = { 'A': '5', 'B+': '4', 'B': '3', 'B-': '2', 'C': '1' };
         function recMatomeGradeToDigit(g) { return REC_GRADE_TO_DIGIT[g] || ''; }
 
-        function recMatomeFocusNextInput(currentEl) {
-            var grid = document.getElementById('recMatomeGrid');
-            if (!grid || !currentEl) return;
-            var inputs = Array.prototype.slice.call(grid.querySelectorAll('input:not([type="hidden"])'));
-            var idx = inputs.indexOf(currentEl);
-            if (idx >= 0 && idx + 1 < inputs.length) {
-                var nx = inputs[idx + 1];
-                nx.focus(); try { nx.select(); } catch (e) {}
-            }
-        }
-
         // タップ・数字キー共通のABC適用処理
         function recMatomeApplyABC(i, grade, fromKey) {
             var input = document.getElementById('rec-mq-' + i); // 得点を保持する隠しinput
@@ -7226,7 +7215,8 @@
             window._recMqDirty = true;
             recUpdateMatomeTotal();
             if (grade === '') return; // クリア時は送らない
-            // 最後の空欄が埋まった瞬間だけ、自動で次の児童へ
+            if (fromKey) return; // 数字入力: 選択のみ。設問間の移動・次の児童への送りは Enter で行う
+            // タップ操作: 最後の空欄が埋まった瞬間だけ、自動で次の児童へ
             if (!wasComplete && recMatomeAllFilled()) {
                 var students = recGetStudents();
                 if (recMatomeStudentIndex < students.length - 1) {
@@ -7234,9 +7224,6 @@
                 } else {
                     setTimeout(function() { recMatomeModalSave(); showToast('全員の入力が完了しました', 'success'); }, 280);
                 }
-            } else if (fromKey) {
-                // 未完了ならキーボード連続入力のため次の入力欄へフォーカス移動
-                recMatomeFocusNextInput(document.getElementById('rec-mqk-' + i));
             }
         }
 
@@ -7498,16 +7485,18 @@
         document.getElementById('recMatomeGrid').addEventListener('keydown', function(e) {
             if (e.key !== 'Enter') return;
             var input = e.target;
-            if (!input || !input.id || !/^rec-mq-\d+$/.test(input.id)) return;
+            // 数値欄(rec-mq-N) と ABC数字欄(rec-mqk-N) の両方に対応。隠しinputは対象外。
+            if (!input || !input.id || !/^rec-mqk?-\d+$/.test(input.id) || input.type === 'hidden') return;
             e.preventDefault();
-            var num = parseInt(input.id.replace('rec-mq-', ''));
-            var total = document.getElementById('recMatomeGrid').querySelectorAll('input[id^="rec-mq-"]').length;
-            if (num + 1 < total) {
-                // まだ設問が残っていれば次の設問欄へ
-                var next = document.getElementById('rec-mq-' + (num + 1));
-                if (next) { next.focus(); try { next.select(); } catch (err) {} }
+            var grid = document.getElementById('recMatomeGrid');
+            var visibles = Array.prototype.slice.call(grid.querySelectorAll('input:not([type="hidden"])'));
+            var idx = visibles.indexOf(input);
+            if (idx >= 0 && idx + 1 < visibles.length) {
+                // まだ入力欄が残っていれば次の欄へ（数値・ABC混在でも表示順に移動）
+                var next = visibles[idx + 1];
+                next.focus(); try { next.select(); } catch (err) {}
             } else {
-                // 最終設問で Enter → 保存して次の児童カードへ（recOpenMatomeModal 側で先頭欄へ自動フォーカス）
+                // 最後の欄で Enter → 保存して次の児童カードへ
                 recMatomeModalNext();
             }
         });

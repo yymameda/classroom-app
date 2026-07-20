@@ -3744,18 +3744,43 @@
         var percent = (total / 1024 / maxKB * 100).toFixed(1);
         return { totalKB: totalKB, maxKB: maxKB, percent: percent };
     }
-    function updateStorageDisplay() {
-        var u = getStorageUsage();
+    // Shared bar renderer (used by both estimate and legacy paths)
+    function _renderStorageBar(text, percentNum) {
         var txt = document.getElementById('storageText');
         var bar = document.getElementById('storageBar');
         if (!txt) return;
         var color = 'var(--primary)';
         var warn = '';
-        if (parseFloat(u.percent) > 95) { color = 'var(--danger)'; warn = ' ⚠️'; }
-        else if (parseFloat(u.percent) > 80) { color = 'var(--accent)'; warn = ' ⚠'; }
-        txt.textContent = u.totalKB + ' KB / ' + u.maxKB + ' KB (' + u.percent + '%)' + warn;
+        if (percentNum > 95) { color = 'var(--danger)'; warn = ' ⚠️'; }
+        else if (percentNum > 80) { color = 'var(--accent)'; warn = ' ⚠'; }
+        txt.textContent = text + warn;
         txt.style.color = color;
-        if (bar) { bar.style.width = Math.min(parseFloat(u.percent), 100) + '%'; bar.style.background = color; }
+        if (bar) { bar.style.width = Math.min(percentNum, 100) + '%'; bar.style.background = color; }
+    }
+    function _fmtStorageSize(bytes) {
+        var mb = bytes / 1024 / 1024;
+        if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+        if (mb >= 10) return mb.toFixed(0) + ' MB';
+        return mb.toFixed(1) + ' MB';
+    }
+    // Legacy: sum of localStorage keys / 5MB (when estimate unavailable or fails)
+    function _updateStorageDisplayLegacy() {
+        var u = getStorageUsage();
+        _renderStorageBar(u.totalKB + ' KB / ' + u.maxKB + ' KB (' + u.percent + '%)', parseFloat(u.percent));
+    }
+    // Phase C: real usage via navigator.storage.estimate() (includes IndexedDB)
+    function updateStorageDisplay() {
+        if (navigator.storage && navigator.storage.estimate) {
+            navigator.storage.estimate().then(function(est) {
+                var used = est.usage || 0;
+                var quota = est.quota || 0;
+                if (!quota) { _updateStorageDisplayLegacy(); return; }
+                var percent = used / quota * 100;
+                _renderStorageBar(_fmtStorageSize(used) + ' / ' + _fmtStorageSize(quota) + ' (' + percent.toFixed(1) + '%)', percent);
+            }).catch(function() { _updateStorageDisplayLegacy(); });
+        } else {
+            _updateStorageDisplayLegacy();
+        }
     }
 
     // ================================================================

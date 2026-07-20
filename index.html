@@ -884,6 +884,16 @@
         .rec-mq-abc-btn.sel-b { background: #3498DB; border-color: #3498DB; color: #fff; }
         .rec-mq-abc-btn.sel-bminus { background: #F39C12; border-color: #F39C12; color: #fff; }
         .rec-mq-abc-btn.sel-c { background: var(--accent); border-color: var(--accent); color: #fff; }
+        /* ABCをキーボード数字(5-1)で入力する欄 */
+        .rec-mq-abc-key {
+            width: 46px; height: 44px; border: 2px dashed #6A1B9A; border-radius: 6px;
+            text-align: center; font-size: 1rem; font-weight: 700; font-family: inherit;
+            color: #6A1B9A; background: #FAF5FC; margin-left: 6px; padding: 0;
+            -moz-appearance: textfield;
+        }
+        .rec-mq-abc-key::-webkit-outer-spin-button,
+        .rec-mq-abc-key::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .rec-mq-abc-key:focus { outline: none; border-style: solid; background: #F3E5F5; }
         /* 設問設定フォームの 点/ABC モードトグル */
         .rec-mq-mode-btn {
             font-size: 0.62rem; font-weight: 700; padding: 4px 6px;
@@ -2486,7 +2496,7 @@
                                     <button onclick="recSetMatomeUniformMode('abc')" style="padding:2px 8px;background:#6A1B9A;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全てABC</button>
                                 </div>
                                 <div class="rec-matome-preview" id="recMatomePreview"></div>
-                                <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 で観点、点/ABC で入力方式を切替。ABCは A=10・B+=8.5・B=7・B-=5・C=3 として配点換算（満点は配点合計）。</p>
+                                <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 で観点、点/ABC で入力方式を切替。ABCはタップ、またはキーボード数字（5=A・4=B+・3=B・2=B-・1=C）で入力。A=10・B+=8.5・B=7・B-=5・C=3 として配点換算（満点は配点合計）。</p>
                             </div>
                             <!-- 実技記録設定 -->
                             <div class="rec-pe-fields" id="recPeFields">
@@ -7088,8 +7098,8 @@
                 (studentIndex + 1) + '番 ' + (stu.name || '') + ' の' + (test.testType || 'テスト');
             recRenderMatomeModalGrid(test, studentIndex);
             document.getElementById('recMatomeModal').classList.add('active');
-            // カードが開いたら最初の設問欄へ自動フォーカス（タップ不要）
-            var first = document.getElementById('rec-mq-0');
+            // カードが開いたら最初の入力欄へ自動フォーカス（隠しinputは除外＝ABC数字ボックス/数値欄）
+            var first = document.querySelector('#recMatomeGrid input:not([type="hidden"])');
             if (first) { first.focus(); try { first.select(); } catch (e) {} }
         };
 
@@ -7121,6 +7131,7 @@
                             var sel = curAbc === v ? ' sel-' + abcClsMap[v] : '';
                             return '<button type="button" class="rec-mq-abc-btn' + sel + '" onclick="recMatomeSelectABC(' + i + ',\'' + v + '\')">' + v + '</button>';
                         }).join('') +
+                        '<input type="text" inputmode="numeric" maxlength="1" class="rec-mq-abc-key" id="rec-mqk-' + i + '" value="' + recMatomeGradeToDigit(curAbc) + '" placeholder="5-1" title="5=A 4=B+ 3=B 2=B- 1=C" oninput="recMatomeKeyABC(' + i + ')">' +
                         '<input type="hidden" id="rec-mq-' + i + '" value="' + hidVal + '" data-abc-mode="1" data-abc="' + curAbc + '" data-pt="' + pt + '">' +
                         '</div>';
                 }
@@ -7164,23 +7175,87 @@
             s('recMqShu', r1(shu));  s('recMqShuMax', shuMax);
         };
 
-        window.recMatomeSelectABC = function(i, grade) {
-            var input = document.getElementById('rec-mq-' + i);
+        // モーダル内の全設問が入力済みか（数値・ABC共通。recMatomeGrid内のみ対象）
+        function recMatomeAllFilled() {
+            var grid = document.getElementById('recMatomeGrid');
+            if (!grid) return false;
+            var inputs = grid.querySelectorAll('input[id^="rec-mq-"]');
+            if (!inputs.length) return false;
+            for (var i = 0; i < inputs.length; i++) {
+                if (inputs[i].value === '') return false;
+            }
+            return true;
+        }
+
+        // 数字キー(5-1) ⇔ 評価 の対応（A=5 B+=4 B=3 B-=2 C=1）
+        var REC_DIGIT_TO_GRADE = { '5': 'A', '4': 'B+', '3': 'B', '2': 'B-', '1': 'C' };
+        var REC_GRADE_TO_DIGIT = { 'A': '5', 'B+': '4', 'B': '3', 'B-': '2', 'C': '1' };
+        function recMatomeGradeToDigit(g) { return REC_GRADE_TO_DIGIT[g] || ''; }
+
+        function recMatomeFocusNextInput(currentEl) {
+            var grid = document.getElementById('recMatomeGrid');
+            if (!grid || !currentEl) return;
+            var inputs = Array.prototype.slice.call(grid.querySelectorAll('input:not([type="hidden"])'));
+            var idx = inputs.indexOf(currentEl);
+            if (idx >= 0 && idx + 1 < inputs.length) {
+                var nx = inputs[idx + 1];
+                nx.focus(); try { nx.select(); } catch (e) {}
+            }
+        }
+
+        // タップ・数字キー共通のABC適用処理
+        function recMatomeApplyABC(i, grade, fromKey) {
+            var input = document.getElementById('rec-mq-' + i); // 得点を保持する隠しinput
             if (!input) return;
+            var wasComplete = recMatomeAllFilled(); // 適用前の状態（編集時の誤送り防止）
             var pt = parseFloat(input.dataset.pt) || 0;
-            input.value = recAbcToPoints(grade, pt);
-            input.dataset.abc = grade;
+            if (grade === '') { input.value = ''; input.dataset.abc = ''; }
+            else { input.value = recAbcToPoints(grade, pt); input.dataset.abc = grade; }
+            // 数字ボックスを同期（タップ操作時のみ。キー入力時は入力中の値を尊重）
+            var keyEl = document.getElementById('rec-mqk-' + i);
+            if (keyEl && !fromKey) keyEl.value = recMatomeGradeToDigit(grade);
+            // ボタンの選択表示
             var cell = input.closest('.rec-mq-cell');
             if (cell) {
                 var abcClsMap = { 'A': 'a', 'B+': 'bplus', 'B': 'b', 'B-': 'bminus', 'C': 'c' };
-                var btns = cell.querySelectorAll('.rec-mq-abc-btn');
                 var grades = ['A','B+','B','B-','C'];
-                btns.forEach(function(b, bi) {
+                cell.querySelectorAll('.rec-mq-abc-btn').forEach(function(b, bi) {
                     b.className = 'rec-mq-abc-btn' + (grades[bi] === grade ? ' sel-' + abcClsMap[grades[bi]] : '');
                 });
             }
             window._recMqDirty = true;
             recUpdateMatomeTotal();
+            if (grade === '') return; // クリア時は送らない
+            // 最後の空欄が埋まった瞬間だけ、自動で次の児童へ
+            if (!wasComplete && recMatomeAllFilled()) {
+                var students = recGetStudents();
+                if (recMatomeStudentIndex < students.length - 1) {
+                    setTimeout(function() { recMatomeModalNext(); }, 280);
+                } else {
+                    setTimeout(function() { recMatomeModalSave(); showToast('全員の入力が完了しました', 'success'); }, 280);
+                }
+            } else if (fromKey) {
+                // 未完了ならキーボード連続入力のため次の入力欄へフォーカス移動
+                recMatomeFocusNextInput(document.getElementById('rec-mqk-' + i));
+            }
+        }
+
+        window.recMatomeSelectABC = function(i, grade) { recMatomeApplyABC(i, grade, false); };
+
+        window.recMatomeKeyABC = function(i) {
+            var keyEl = document.getElementById('rec-mqk-' + i);
+            if (!keyEl) return;
+            var raw = (keyEl.value || '').trim();
+            if (raw === '') { recMatomeApplyABC(i, '', true); return; } // 空＝未入力に戻す
+            var grade = REC_DIGIT_TO_GRADE[raw.slice(-1)];
+            if (!grade) {
+                // 無効な数字は元の評価に戻す（5-1以外は無視）
+                var cur = (document.getElementById('rec-mq-' + i) || {}).dataset;
+                keyEl.value = recMatomeGradeToDigit(cur && cur.abc ? cur.abc : '');
+                return;
+            }
+            keyEl.value = recMatomeGradeToDigit(grade); // 1文字に正規化
+            recMatomeApplyABC(i, grade, true);
         };
 
         window.recMatomeModalSave = function() {

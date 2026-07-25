@@ -544,6 +544,14 @@
             min-height: 44px;
         }
         .att-mode-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        /* v1.10.0: ツールバー内の出力ボタン（att-mode-tab と高さを揃える） */
+        .att-toolbar-btn {
+            padding: 5px 10px; border-radius: 7px; border: 1.5px solid var(--primary);
+            background: var(--secondary); color: var(--primary);
+            font-size: 0.8rem; cursor: pointer; font-weight: 600;
+            font-family: inherit; white-space: nowrap; min-height: 44px;
+        }
+        .att-toolbar-btn:active { background: var(--primary); color: #fff; }
         /* 統計バー */
         .att-stats-bar {
             display: flex; gap: 6px; padding: 5px 8px; background: white;
@@ -1594,7 +1602,6 @@
 
             /* 成績処理：テーブルを広く */
             #grd-sub-grade .view-content,
-            #grd-sub-karte .view-content,
             #grd-sub-stats .view-content {
                 max-width: 100%;
             }
@@ -1650,6 +1657,7 @@
             }
             .att-nav-btn,
             .att-mode-tab,
+            .att-toolbar-btn,
             .rec-subnav-btn,
             .sub-subnav-btn {
                 min-height: 48px;
@@ -2201,7 +2209,7 @@
                         <button class="att-mode-tab"        id="attTabMonth"   onclick="attSetTab('month')">📆 一覧</button>
                         <button class="att-mode-tab"        id="attTabSummary" onclick="attSetTab('summary')">📊 集計</button>
 
-                        <button style="min-height:36px;padding:4px 10px;background:var(--secondary);color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;" onclick="printAllKarte('attendance')">📄 一括PDF出力</button>
+                        <button class="att-toolbar-btn" onclick="printAllKarte('attendance')">📄 一括PDF出力</button>
                     </div>
                 </div>
             </div>
@@ -2407,8 +2415,8 @@
                             <div class="rec-progress">
                                 <span id="recProgress">0 / 0 人入力済み</span>
                                 <div style="display:flex;gap:6px;align-items:center;">
-                                    <button onclick="recGoToTestMgmt()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:30px;">授業課題の管理へ</button>
-                                    <button onclick="recClearAllScores()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--text-light);border-radius:6px;color:var(--text-light);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:30px;">全クリア</button>
+                                    <button onclick="recGoToTestMgmt()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">授業課題の管理へ</button>
+                                    <button onclick="recClearAllScores()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--text-light);border-radius:6px;color:var(--text-light);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">全クリア</button>
                                 </div>
                             </div>
                             <div class="rec-list" id="recList"></div>
@@ -2480,7 +2488,7 @@
                                         style="width:54px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;"
                                         onchange="recRenderMatomePreview()">
                                     <span style="font-size:0.78rem;">問</span>
-                                    <button onclick="recSetMatomeUniform()" style="padding:4px 8px;background:#1976D2;color:#fff;border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;min-height:30px;">一括配点</button>
+                                    <button onclick="recSetMatomeUniform()" style="padding:4px 8px;background:#1976D2;color:#fff;border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;min-height:44px;">一括配点</button>
                                     <input type="number" id="recMatomeUniformPt" value="5" min="1" inputmode="numeric" style="width:44px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;">
                                     <span style="font-size:0.78rem;">点</span>
                                 </div>
@@ -2881,12 +2889,12 @@
                         <div id="fgtItemEdit" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
                         <div style="display:flex;gap:6px;">
                             <input type="text" id="fgtNewItemInput" placeholder="アイテム名を追加" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;">
-                            <button id="fgtAddItemBtn" class="btn-primary" style="padding:8px 14px;">追加</button>
+                            <button id="fgtAddItemBtn" class="btn btn-primary" style="padding:8px 14px;">追加</button>
                         </div>
                     </div>
                     <div class="card">
                         <div style="font-weight:600;margin-bottom:10px;">🗑️ データ管理</div>
-                        <button id="fgtClearDayBtn" class="btn-danger" style="width:100%;padding:10px;">選択日のデータを削除</button>
+                        <button id="fgtClearDayBtn" class="btn btn-danger" style="width:100%;padding:10px;">選択日のデータを削除</button>
                     </div>
                 </div>
 
@@ -2901,7 +2909,7 @@
                     <button id="fgtModalClose" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-light);">✕</button>
                 </div>
                 <div id="fgtModalItems" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
-                <button id="fgtModalSave" class="btn-primary" style="width:100%;padding:12px;font-size:1rem;">保存</button>
+                <button id="fgtModalSave" class="btn btn-primary" style="width:100%;padding:12px;font-size:1rem;">保存</button>
 
             </div>
         </div>
@@ -2953,9 +2961,9 @@
                 <div id="grd-sub-grade" class="sub-sub">
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdGradeSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);flex:1;"></select>
-                        <button id="grdCSVBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">📥 CSV</button>
-                        <button id="grdExcelBtn" class="btn-primary" style="padding:6px 12px;font-size:0.82rem;background:#1565C0;">📊 Excel（根拠）</button>
-                        <button id="grdTemplateBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">📤 同僚用テンプレート</button>
+                        <button id="grdCSVBtn" class="btn btn-outline" style="padding:6px 12px;font-size:0.82rem;">📥 CSV</button>
+                        <button id="grdExcelBtn" class="btn btn-primary" style="padding:6px 12px;font-size:0.82rem;background:#1565C0;">📊 Excel（根拠）</button>
+                        <button id="grdTemplateBtn" class="btn btn-outline" style="padding:6px 12px;font-size:0.82rem;">📤 同僚用テンプレート</button>
                     </div>
                     <div id="grdGradeContainer"></div>
                 </div>
@@ -2971,7 +2979,7 @@
                 <!-- 閾値設定タブ -->
                 <div id="grd-sub-settings" class="sub-sub">
                     <div style="padding:6px 0 8px;display:flex;justify-content:flex-end;">
-                        <button id="grdSaveThreshBtn" class="btn-primary" style="padding:7px 16px;">💾 設定を保存</button>
+                        <button id="grdSaveThreshBtn" class="btn btn-primary" style="padding:7px 16px;">💾 設定を保存</button>
                     </div>
                     <div id="grdSettingsContent"></div>
                     <div class="card" style="margin-top:12px;">
@@ -2993,15 +3001,15 @@
                 <div id="grd-sub-external" class="sub-sub">
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdExtSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
-                        <button id="grdExtRegisterBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">＋ この教科を専科登録</button>
-                        <button id="grdExtSuggestBtn" class="btn-outline" style="padding:6px 12px;font-size:0.82rem;">評定をABCから一括提案</button>
+                        <button id="grdExtRegisterBtn" class="btn btn-outline" style="padding:6px 12px;font-size:0.82rem;">＋ この教科を専科登録</button>
+                        <button id="grdExtSuggestBtn" class="btn btn-outline" style="padding:6px 12px;font-size:0.82rem;">評定をABCから一括提案</button>
                         <button id="grdExtClearSubjBtn" style="display:none;padding:6px 12px;font-size:0.82rem;border:1.5px solid #c0392b;color:#c0392b;background:var(--white);border-radius:8px;cursor:pointer;">🗑 この教科の専科データを削除</button>
                         <span id="grdExtSavedMsg" style="font-size:0.78rem;color:var(--primary);"></span>
                     </div>
                     <div id="grdExtGridWrap"></div>
                     <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;">
-                        <button id="grdExtRadarPdfBtn" class="btn-primary" style="padding:10px 16px;font-size:0.9rem;background:#1a6b4a;">📄 面談用レーダーPDF（全員連続）</button>
-                        <button id="grdExtEditCommentsBtn" class="btn-outline" style="padding:10px 16px;font-size:0.9rem;margin-left:8px;">✏️ 個別コメント編集</button>
+                        <button id="grdExtRadarPdfBtn" class="btn btn-primary" style="padding:10px 16px;font-size:0.9rem;background:#1a6b4a;">📄 面談用レーダーPDF（全員連続）</button>
+                        <button id="grdExtEditCommentsBtn" class="btn btn-outline" style="padding:10px 16px;font-size:0.9rem;margin-left:8px;">✏️ 個別コメント編集</button>
                         <div style="font-size:0.75rem;color:#666;margin-top:6px;">※ 専科込みの全教科×評定でクラス全員分（1人1ページ）を出力します。</div>
                     </div>
                 </div>
@@ -3010,8 +3018,8 @@
                 <div id="grd-sub-weights" class="sub-sub">
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="grdWeightsSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);flex:1;"></select>
-                        <button id="grdSaveWeightsBtn" class="btn-primary" style="padding:7px 14px;">💾 保存</button>
-                        <button id="grdResetWeightsBtn" class="btn-outline" style="padding:7px 14px;">↺ 均等</button>
+                        <button id="grdSaveWeightsBtn" class="btn btn-primary" style="padding:7px 14px;">💾 保存</button>
+                        <button id="grdResetWeightsBtn" class="btn btn-outline" style="padding:7px 14px;">↺ 均等</button>
                     </div>
                     <div id="grdWeightsContent"></div>
                 </div>
@@ -3166,7 +3174,7 @@
                 <div class="card" style="margin-bottom:12px;">
                     <div style="font-weight:700;margin-bottom:6px;">👥 名簿</div>
                     <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:8px;">番号・氏名・性別を出力します。</p>
-                    <button id="expMasterBtn" class="btn-primary" style="width:100%;padding:10px;">📥 名簿 CSV 出力</button>
+                    <button id="expMasterBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 名簿 CSV 出力</button>
                 </div>
 
                 <!-- 出席簿 -->
@@ -3181,7 +3189,7 @@
                         </select>
                         <span style="font-size:0.8rem;color:var(--text-light);">列=日付 / 行=児童</span>
                     </div>
-                    <button id="expAttBtn" class="btn-primary" style="width:100%;padding:10px;">📥 出席簿 CSV 出力</button>
+                    <button id="expAttBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 出席簿 CSV 出力</button>
                 </div>
 
                 <!-- テスト成績 -->
@@ -3193,7 +3201,7 @@
                         </select>
                         <span style="font-size:0.8rem;color:var(--text-light);">列=課題 / 行=児童</span>
                     </div>
-                    <button id="expScoreBtn" class="btn-primary" style="width:100%;padding:10px;">📥 テスト成績 CSV 出力</button>
+                    <button id="expScoreBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 テスト成績 CSV 出力</button>
                 </div>
 
                 <!-- 提出物 -->
@@ -3205,7 +3213,7 @@
                         </select>
                         <span style="font-size:0.8rem;color:var(--text-light);">列=課題 / 行=児童</span>
                     </div>
-                    <button id="expSubBtn" class="btn-primary" style="width:100%;padding:10px;">📥 提出物 CSV 出力</button>
+                    <button id="expSubBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 提出物 CSV 出力</button>
                 </div>
 
                 <!-- 忘れ物 -->
@@ -3217,7 +3225,7 @@
                         </select>
                         <span style="font-size:0.8rem;color:var(--text-light);">児童別集計</span>
                     </div>
-                    <button id="expFgtBtn" class="btn-primary" style="width:100%;padding:10px;">📥 忘れ物 CSV 出力</button>
+                    <button id="expFgtBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 忘れ物 CSV 出力</button>
                 </div>
 
                 <!-- 成績処理統合 -->
@@ -3228,7 +3236,7 @@
                             <option value="">教科を選択</option>
                         </select>
                     </div>
-                    <button id="expGradeBtn" class="btn-primary" style="width:100%;padding:10px;">📥 成績処理 CSV 出力</button>
+                    <button id="expGradeBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 成績処理 CSV 出力</button>
                 </div>
 
                 <!-- 監査診断 -->
@@ -3238,7 +3246,7 @@
                         <div class="audit-description">
                             <p>このアプリのデータが「どう解釈されて評価になるか」を確認します。児童の氏名や自由記述は表示・出力されません。データは一切変更されません。</p>
                         </div>
-                        <button class="btn-primary" style="width:100%;padding:10px;" onclick="runAuditDiagnosis()">診断を実行</button>
+                        <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="runAuditDiagnosis()">診断を実行</button>
                         <div id="audit-result-container"></div>
                     </details>
                 </div>
@@ -3629,19 +3637,94 @@
         }, 5000);
     }
 
+    // ================================================================
+    // v1.10.0: PDF生成の共通基盤
+    //   進捗オーバーレイ / 二度押し防止 / ユーザー操作を取り直す共有
+    //   ここを直せば全PDF（座席表・根拠シート・カルテ・漢字・レーダー）に反映される
+    // ================================================================
+    function pdfShowProgress(total) {
+        pdfRemoveProgress();
+        var ov = document.createElement('div');
+        ov.id = 'pdfProgressOverlay';
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;'
+            + 'display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+        ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 32px;min-width:280px;max-width:90vw;text-align:center;font-family:inherit;">'
+            + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#1a2332;">📄 PDFを作成中… '
+            + '<span id="pdfProgressCount">0 / ' + total + '</span> ページ</div>'
+            + '<div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px;">'
+            + '<div id="pdfProgressBar" style="background:var(--primary);height:100%;width:0%;transition:width .2s;"></div></div>'
+            + '<div id="pdfProgressName" style="font-size:13px;color:#666;min-height:1.3em;"></div>'
+            + '</div>';
+        document.body.appendChild(ov);
+        return ov;
+    }
+    function pdfUpdateProgress(done, total, label) {
+        var c = document.getElementById('pdfProgressCount');
+        var b = document.getElementById('pdfProgressBar');
+        var n = document.getElementById('pdfProgressName');
+        if (c) c.textContent = done + ' / ' + total;
+        if (b) b.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+        if (n) n.textContent = label ? ('（' + label + '）') : '';
+    }
+    function pdfRemoveProgress() {
+        var ov = document.getElementById('pdfProgressOverlay');
+        if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    }
+
+    // iOS SafariのWeb Share APIは「ユーザー操作から数秒以内」でないと拒否される。
+    // 生成に時間がかかった場合は共有ボタンを1枚挟み、操作を取り直してから共有する。
+    var PDF_GESTURE_LIMIT_MS = 3000;
+    function pdfShareWithGesture(blob, fileName, elapsedMs) {
+        if (elapsedMs < PDF_GESTURE_LIMIT_MS) return universalShare(blob, fileName);
+        return new Promise(function(resolve) {
+            var ov = document.createElement('div');
+            ov.id = 'pdfShareOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;'
+                + 'display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+            ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 28px;min-width:280px;max-width:90vw;text-align:center;font-family:inherit;">'
+                + '<div style="font-size:16px;font-weight:700;color:#1a2332;margin-bottom:6px;">✅ PDFができました</div>'
+                + '<div style="font-size:12px;color:#666;word-break:break-all;margin-bottom:16px;">' + escapeHtml(fileName) + '</div>'
+                + '<button id="pdfShareGoBtn" class="btn btn-primary" style="width:100%;margin-bottom:8px;">📤 保存 / 共有</button>'
+                + '<button id="pdfShareCancelBtn" class="btn btn-outline" style="width:100%;">キャンセル</button>'
+                + '</div>';
+            document.body.appendChild(ov);
+            function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+            var go = ov.querySelector('#pdfShareGoBtn');
+            var cancel = ov.querySelector('#pdfShareCancelBtn');
+            if (go) go.addEventListener('click', function() {
+                close();
+                universalShare(blob, fileName).then(function(r) { resolve(r); }, function() { resolve(false); });
+            });
+            if (cancel) cancel.addEventListener('click', function() {
+                close(); showToast('保存をキャンセルしました', 'info'); resolve(false);
+            });
+        });
+    }
+
     // v1.8.98: HTMLページ配列→PDF共通変換（html2canvas+jsPDF、出力は共有シート）
     // pageHtmls: 各要素が1ページ分のルートdiv文字列（インラインスタイル前提）
-    // opts: { orientation:'portrait'|'landscape', fileName, marginMm }
+    // opts: { orientation, fileName, marginMm, labels[], btnId, onPageReady(el,i) }
     async function htmlPagesToPdf(pageHtmls, opts) {
         opts = opts || {};
         var orientation = opts.orientation || 'portrait';
         var fileName = opts.fileName || ('出力_' + getLocalDateStr() + '.pdf');
         var pageWpx = orientation === 'landscape' ? 1122 : 794;
+        var labels = opts.labels || [];
+        var btnEl = opts.btnId ? document.getElementById(opts.btnId) : null;
         if (typeof html2canvas === 'undefined' || !window.jspdf) {
             showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
             return false;
         }
-        showToast('PDF生成中…しばらくお待ちください', 'info');
+        if (!pageHtmls || !pageHtmls.length) {
+            showToast('出力できるデータがありません', 'warning');
+            return false;
+        }
+        var total = pageHtmls.length;
+        var useOverlay = total >= 2;
+        if (btnEl) btnEl.disabled = true;
+        if (useOverlay) pdfShowProgress(total);
+        else showToast('PDF生成中…しばらくお待ちください', 'info');
+        var t0 = Date.now();
         var container = document.createElement('div');
         container.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + pageWpx + 'px;background:#fff;'
             + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
@@ -3653,14 +3736,19 @@
         var A4_H = orientation === 'landscape' ? 210 : 297;
         var MARGIN = (opts.marginMm !== undefined) ? opts.marginMm : 10;
         try {
-            for (var i = 0; i < pageHtmls.length; i++) {
+            for (var i = 0; i < total; i++) {
+                if (useOverlay) {
+                    pdfUpdateProgress(i, total, labels[i] || '');
+                    await new Promise(function(r) { requestAnimationFrame(r); });
+                }
                 container.innerHTML = pageHtmls[i];
                 var el = container.firstElementChild || container;
+                if (typeof opts.onPageReady === 'function') opts.onPageReady(el, i);
                 var canvas = await html2canvas(el, {
                     scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
                     windowWidth: pageWpx, scrollX: 0, scrollY: 0
                 });
-                var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                var imgData = canvas.toDataURL('image/jpeg', (opts.quality !== undefined) ? opts.quality : 0.92);
                 var availW = A4_W - MARGIN * 2;
                 var imgW = availW;
                 var imgH = canvas.height / canvas.width * imgW;
@@ -3670,14 +3758,18 @@
                 if (i > 0) pdf.addPage();
                 pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
             }
-            document.body.removeChild(container);
-            await universalShare(pdf.output('blob'), fileName);
+            if (useOverlay) pdfUpdateProgress(total, total, '');
+            pdfRemoveProgress();
+            await pdfShareWithGesture(pdf.output('blob'), fileName, Date.now() - t0);
             return true;
         } catch (err) {
-            if (document.body.contains(container)) document.body.removeChild(container);
             showToast('PDF生成中にエラーが発生しました', 'error');
             console.error('htmlPagesToPdf error:', err);
             return false;
+        } finally {
+            pdfRemoveProgress();
+            if (document.body.contains(container)) document.body.removeChild(container);
+            if (btnEl) btnEl.disabled = false;
         }
     }
 
@@ -3692,7 +3784,8 @@
                     return true;
                 }
             } catch (err) {
-                if (err.name === 'AbortError') return true;
+                // v1.10.0: 共有シートをキャンセルしたときに無反応にならないよう通知する
+                if (err.name === 'AbortError') { showToast('保存をキャンセルしました', 'info'); return true; }
             }
         }
         try {
@@ -4897,7 +4990,7 @@
                 + '<div style="width:20px;height:20px;border-radius:50%;background:' + (g.color||GROUP_COLORS[i]||'#ccc') + ';flex-shrink:0;"></div>'
                 + '<input type="text" value="' + escapeHtml(g.name||('第'+(i+1)+'班')) + '" data-gi="' + i + '" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:0.9rem;" placeholder="班名">'
                 + '<span style="font-size:0.8rem;color:var(--text-light);">' + (g.seats||[]).length + '席</span>'
-                + '<button data-gi="' + i + '" onclick="deleteGroup(this)" style="background:none;border:none;color:#E74C3C;font-size:1.1rem;cursor:pointer;min-width:36px;min-height:36px;">✕</button>'
+                + '<button data-gi="' + i + '" onclick="deleteGroup(this)" style="background:none;border:none;color:#E74C3C;font-size:1.1rem;cursor:pointer;min-width:44px;min-height:44px;">✕</button>'
                 + '</div>';
         });
         el.innerHTML = html;
@@ -7611,16 +7704,16 @@
             var isRubric  = testType === 'ルーブリック';
 
             if (isMatome && !category) category = '複合';
-            if (!subject || !testType || !name || !category || !date) { alert('全項目を入力してください'); return; }
+            if (!subject || !testType || !name || !category || !date) { showToast('全項目を入力してください', 'warning'); return; }
 
             var maxScore = isAttitude ? 10 : (isABC ? 0 : (isPE ? 9999 : (isMatome ? 0 : parseInt(maxScoreVal))));
-            if (!isABC && !isPE && !isMatome && !isAttitude && (!maxScore || maxScore <= 0)) { alert('満点を入力してください'); return; }
+            if (!isABC && !isPE && !isMatome && !isAttitude && (!maxScore || maxScore <= 0)) { showToast('満点を入力してください', 'warning'); return; }
 
             var matomePoints = [], matomeTypes = [], matomeModes = [], matomeMaxScore = 0;
             if (isMatome) {
                 var md = recGetMatomeFormData();
                 matomePoints = md.points; matomeTypes = md.types; matomeModes = md.modes; matomeMaxScore = md.total;
-                if (matomePoints.length === 0 || matomeMaxScore <= 0) { alert('設問の配点を設定してください'); return; }
+                if (matomePoints.length === 0 || matomeMaxScore <= 0) { showToast('設問の配点を設定してください', 'warning'); return; }
             }
 
             var tests = recGetTests();
@@ -8444,66 +8537,17 @@
 
             if (!pageList.length) { showToast('出力できるデータがありません', 'warning'); return; }
 
-            if (typeof html2canvas === 'undefined' || !window.jspdf) {
-                showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
-                return;
-            }
-
-            showToast('PDF生成中…しばらくお待ちください', 'info');
-
-            var container = document.createElement('div');
-            container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;'
-                + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
-                + 'box-sizing:border-box;';
-            document.body.appendChild(container);
-
-            var jsPDF = window.jspdf.jsPDF;
-            var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-            var A4_W = 210, A4_H = 297, MARGIN = 10;
-            var pageIdx = 0;
-
-            function processNext() {
-                if (pageIdx >= pageList.length) {
-                    if (document.body.contains(container)) document.body.removeChild(container);
-                    var fname = pageList.length === 1
-                        ? 'カルテ_' + pageList[0].name + '.pdf'
-                        : 'カルテ_' + pageList.length + '名.pdf';
-                    universalShare(pdf.output('blob'), fname); // v1.8.98: 共有シート経由に統一
-                    return;
-                }
-                container.innerHTML = pageList[pageIdx].html;
-                var el = container.firstElementChild || container;
-                html2canvas(el, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    backgroundColor: '#ffffff',
-                    windowWidth: 794,
-                    scrollX: 0,
-                    scrollY: 0
-                }).then(function(canvas) {
-                    var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                    var availW = A4_W - MARGIN * 2;
-                    var imgW = availW;
-                    var imgH = canvas.height / canvas.width * imgW;
-                    var maxH = A4_H - MARGIN * 2;
-                    if (imgH > maxH) {
-                        imgH = maxH;
-                        imgW = canvas.width / canvas.height * imgH;
-                    }
-                    var x = (A4_W - imgW) / 2;
-                    if (pageIdx > 0) pdf.addPage();
-                    pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
-                    pageIdx++;
-                    processNext();
-                }).catch(function(err) {
-                    if (document.body.contains(container)) document.body.removeChild(container);
-                    showToast('PDF生成中にエラーが発生しました', 'error');
-                    console.error('kvPrint html2canvas error:', err);
-                });
-            }
-
-            processNext();
+            // v1.10.0: 自前ループを廃止し htmlPagesToPdf に統一
+            var fname = (pageList.length === 1
+                ? 'カルテ_' + pageList[0].name
+                : 'カルテ_' + pageList.length + '名') + '_' + getLocalDateStr() + '.pdf';
+            htmlPagesToPdf(pageList.map(function(p) { return p.html; }), {
+                orientation: 'portrait',
+                fileName: fname,
+                marginMm: 10,
+                labels: pageList.map(function(p) { return p.name; }),
+                btnId: 'kvPrintBtn'
+            });
         }
 
         // ----------------------------------------------------------------
@@ -9796,7 +9840,7 @@
             html += '</div></div>';
             html += '<div class="klife-field"><label>メモ</label><textarea id="karteRecMemo" rows="2" placeholder="詳細を入力..."></textarea></div>';
             html += '<div class="klife-field"><label>欠席</label>'
-                + '<button type="button" id="karteRecAbsentBtn" onclick="karteRecToggleAbsent()" style="padding:4px 10px;border:1.5px solid ' + (karteRecAbsent ? '#757575' : 'var(--border)') + ';border-radius:6px;background:' + (karteRecAbsent ? '#757575' : 'var(--white)') + ';color:' + (karteRecAbsent ? 'white' : 'var(--text-light)') + ';font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;min-height:32px;">'
+                + '<button type="button" id="karteRecAbsentBtn" onclick="karteRecToggleAbsent()" style="padding:4px 10px;border:1.5px solid ' + (karteRecAbsent ? '#757575' : 'var(--border)') + ';border-radius:6px;background:' + (karteRecAbsent ? '#757575' : 'var(--white)') + ';color:' + (karteRecAbsent ? 'white' : 'var(--text-light)') + ';font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;min-height:44px;">'
                 + (karteRecAbsent ? '🏠 欠席中' : '欠席') + '</button></div>';
             html += '<div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;">';
             html += '<button class="klife-save-btn" onclick="karteRecSave()">保存</button>';
@@ -11801,7 +11845,9 @@
             el._t = setTimeout(function(){ el.textContent = ''; }, 1600);
         }
         function grd_drawRadar(canvasId, labels, values) {
-            var canvas = document.getElementById(canvasId); if (!canvas) return;
+            // v1.10.0: 要素そのものも受け取れるようにする（PDF生成時のID衝突回避）
+            var canvas = (canvasId && canvasId.getContext) ? canvasId : document.getElementById(canvasId);
+            if (!canvas) return;
             var ctx = canvas.getContext('2d');
             var W = canvas.width, H = canvas.height, cx = W/2, cy = H/2, r = Math.min(W,H)/2 - 48, n = labels.length, MAX = 3;
             ctx.clearRect(0,0,W,H);
@@ -11911,35 +11957,8 @@
             showToast('✅ コメントを保存しました');
             grdExtCloseCommentModal();
         }
-        // ===== 面談用PDF: 進捗オーバーレイ =====
-        function grdExtShowProgress(total) {
-            var ov = document.createElement('div');
-            ov.id = 'grdExtProgressOverlay';
-            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
-            ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 32px;min-width:280px;text-align:center;font-family:sans-serif;">'
-                + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;">📄 面談資料を作成中… <span id="grdExtProgressCount">0 / '+total+'</span>ページ</div>'
-                + '<div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px;"><div id="grdExtProgressBar" style="background:#1a6b4a;height:100%;width:0%;transition:width .2s;"></div></div>'
-                + '<div id="grdExtProgressName" style="font-size:13px;color:#666;"></div>'
-                + '</div>';
-            document.body.appendChild(ov);
-            return ov;
-        }
-        function grdExtUpdateProgress(done, total, name) {
-            var countEl = document.getElementById('grdExtProgressCount');
-            var barEl = document.getElementById('grdExtProgressBar');
-            var nameEl = document.getElementById('grdExtProgressName');
-            if (countEl) countEl.textContent = done+' / '+total;
-            if (barEl) barEl.style.width = Math.round(done/total*100)+'%';
-            if (nameEl) nameEl.textContent = name ? ('（'+name+'）') : '';
-        }
-        function grdExtRemoveProgress() {
-            var ov = document.getElementById('grdExtProgressOverlay');
-            if (ov) ov.remove();
-        }
         async function grdExtExportRadarPDF() {
-            if (typeof html2canvas === 'undefined' || !window.jspdf) { alert('PDFライブラリが読み込まれていません'); return; }
-            var jsPDF = window.jspdf.jsPDF;
-            var pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+            // v1.10.0: ライブラリ確認・PDF生成・共有はすべて htmlPagesToPdf 側に集約
             var students = grdGetStudents();
             var subjects = grdGetAvailableSubjects();
             var ci = (master && master.classInfo) || {};
@@ -11970,24 +11989,13 @@
                 var chunks = cardsHtml.length ? [cardsHtml] : [];
                 return { chunks: chunks };
             });
-            var totalPages = 0;
-            studentPages.forEach(function(sp) { if (sp) totalPages += 1 + sp.chunks.length; });
 
-            var pdfBtn = null, stage = null;
-            var first = true;
-            var done = 0;
-            try {
-                pdfBtn = document.getElementById('grdExtRadarPdfBtn');
-                if (pdfBtn) pdfBtn.disabled = true;
-                stage = document.createElement('div');
-                stage.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
-                document.body.appendChild(stage);
-                grdExtShowProgress(totalPages);
+            // v1.10.0: 自前のPDFループを廃止し htmlPagesToPdf に統一。
+            // レーダーはcanvas描画が必要なため、onPageReady フックで各ページ描画直前に描く。
+            var pages = [], pageLabels = [], radarJobs = {};
+            {
                 for (var i=0;i<students.length;i++) {
                     var stu = students[i]; if (!stu || !stu.name) continue;
-                    done++;
-                    grdExtUpdateProgress(done, totalPages, stu.name);
-                    await new Promise(function(r){ requestAnimationFrame(r); });
 
                     var labels=[], vals=[], rows=[];
                     subjects.forEach(function(subj){
@@ -12044,7 +12052,9 @@
                     var manualComment = comments[String(i)] || '';
                     var section5Html = manualComment ? escapeHtml(manualComment).replace(/\n/g,'<br>') : examAdvice.slice(0,2).join('');
 
-                    stage.innerHTML = '<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:12px;">'
+                    radarJobs[pages.length] = { labels: labels, vals: vals };
+                    pageLabels.push(stu.name);
+                    pages.push('<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:12px;">'
                         + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
                         + '<h2 style="margin:2px 0 12px;font-size:19px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　学習のようす（面談資料）</h2>'
                         + '<div style="display:flex;gap:20px;align-items:flex-start;">'
@@ -12062,49 +12072,42 @@
                         + '<div style="font-size:13px;font-weight:700;border-left:4px solid #1a6b4a;padding-left:8px;margin:14px 0 6px;">中学受験・今後に向けて</div>'
                         + '<div>'+section5Html+'</div>'
                         + '<div style="margin-top:18px;font-size:9px;color:#999;">※ 本資料は担任の記録に基づく参考情報です。評定は3＝よくできる／2＝できる／1＝もう少し、を表します。</div>'
-                        + '</div>';
-                    grd_drawRadar('grdRadarStage', labels, vals);
-                    var shot = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
-                    var img = shot.toDataURL('image/jpeg', 0.85);
-                    var pw = 210, iw = pw - 20, ih = shot.height * (iw / shot.width);
-                    if (!first) pdf.addPage(); first = false;
-                    var imgW1 = iw, imgH1 = ih, imgX1 = 10;
-                    if (imgH1 > 277) { var scale1 = 277 / imgH1; imgW1 = imgW1 * scale1; imgH1 = 277; imgX1 = (pw - imgW1) / 2; }
-                    pdf.addImage(img, 'JPEG', imgX1, 10, imgW1, imgH1);
+                        + '</div>');
 
                     // ---- 2ページ目以降: 教科別のくわしい記録 ----
                     var sp = studentPages[i];
                     for (var ci2 = 0; ci2 < sp.chunks.length; ci2++) {
                         var chunk = sp.chunks[ci2];
-                        done++;
-                        grdExtUpdateProgress(done, totalPages, stu.name);
-                        await new Promise(function(r){ requestAnimationFrame(r); });
                         var pageLabel = sp.chunks.length > 1 ? '（'+(ci2+1)+'/'+sp.chunks.length+'）' : '';
                         var gridHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' + chunk.join('') + '</div>';
-                        stage.innerHTML = '<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:10px;">'
+                        pageLabels.push(stu.name);
+                        pages.push('<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:10px;">'
                             + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
                             + '<h2 style="margin:2px 0 12px;font-size:17px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　教科別のくわしい記録'+pageLabel+'</h2>'
                             + gridHtml
                             + '<div style="font-size:9px;color:#999;margin-top:14px;">※ 偏差値は各テストをクラス内で受験した児童の中での位置を示す参考値です。</div>'
-                            + '</div>';
-                        var shot2 = await html2canvas(stage.firstChild, { scale:2, backgroundColor:'#fff' });
-                        var img2 = shot2.toDataURL('image/jpeg', 0.85);
-                        var ih2 = shot2.height * (iw / shot2.width);
-                        pdf.addPage();
-                        var imgW2 = iw, imgH2 = ih2, imgX2 = 10;
-                        if (imgH2 > 277) { var scale2 = 277 / imgH2; imgW2 = imgW2 * scale2; imgH2 = 277; imgX2 = (pw - imgW2) / 2; }
-                        pdf.addImage(img2, 'JPEG', imgX2, 10, imgW2, imgH2);
+                            + '</div>');
                     }
                 }
-                universalShare(pdf.output('blob'), '成績レーダー面談シート_全員.pdf'); // v1.8.98: 共有シート経由に統一
-                grdExtFlash('PDFを出力しました');
-            } catch (err) {
-                alert('PDF作成中にエラーが発生しました: ' + (err && err.message ? err.message : err));
-            } finally {
-                if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
-                grdExtRemoveProgress();
-                if (pdfBtn) pdfBtn.disabled = false;
             }
+
+            if (!pages.length) { showToast('出力できるデータがありません', 'warning'); return; }
+
+            var ok = await htmlPagesToPdf(pages, {
+                orientation: 'portrait',
+                fileName: '成績レーダー面談シート_全員_' + getLocalDateStr() + '.pdf',
+                marginMm: 10,
+                labels: pageLabels,
+                btnId: 'grdExtRadarPdfBtn',
+                onPageReady: function(el, idx) {
+                    var job = radarJobs[idx];
+                    if (!job) return;
+                    // ページ要素内に限定して取得（同名IDの衝突を避ける）
+                    var cv = el.querySelector('#grdRadarStage');
+                    if (cv) grd_drawRadar(cv, job.labels, job.vals);
+                }
+            });
+            if (ok) grdExtFlash('PDFを出力しました');
         }
         // ===== 面談用PDF 2ページ目: 教科別のくわしい記録 =====
         // 教科の「数値テスト」一覧(recDeviationStatsと同じ除外条件: 主体性/ルーブリック/実技記録を除く)
@@ -12471,13 +12474,7 @@
             ['grdOverviewSubj','grdGradeSubj','grdStatsSubj','grdWeightsSubj'].forEach(function(id) {
                 var el = document.getElementById(id); if (el) el.innerHTML = opts;
             });
-            var kSel = document.getElementById('grdKarteSubj');
-            if (kSel) kSel.innerHTML = '<option value="">全教科</option>' + subjects.map(function(s) { return '<option value="'+s+'">'+s+'</option>'; }).join('');
-            var stuSel = document.getElementById('grdKarteStu');
-            if (stuSel) {
-                var students = grdGetStudents();
-                stuSel.innerHTML = '<option value="">児童を選択</option>' + students.map(function(s,i) { return '<option value="'+i+'">'+(i+1)+'. '+escapeHtml(s.name||'')+'</option>'; }).join('');
-            }
+
         }
 
         // ================================================================
@@ -12643,16 +12640,14 @@
         function grdShowSub(name) {
             var root = grdGetRoot(); if (!root) return;
             root.querySelectorAll('.sub-subnav-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.sub === name); });
-            ['overview','grade','karte','stats','settings','weights','kartecenter','external'].forEach(function(n) {
+            ['overview','grade','stats','settings','weights','external'].forEach(function(n) {
                 var el = document.getElementById('grd-sub-'+n); if (el) el.classList.toggle('active', n === name);
             });
             if (name === 'overview')    { grdUpdateSubjectSelects(); grdRenderOverview(); grdRenderDataStatus(); }
             if (name === 'grade')       { grdUpdateSubjectSelects(); }
-            if (name === 'karte')       { grdUpdateSubjectSelects(); }
             if (name === 'stats')       { grdUpdateSubjectSelects(); }
             if (name === 'settings')    { grdRenderSettings(); }
             if (name === 'weights')     { grdUpdateSubjectSelects(); }
-            if (name === 'kartecenter') { grdRenderKarteCenter(); }
             if (name === 'external')    { grdExtRenderTab(); }
         }
 
@@ -12762,68 +12757,6 @@
                 html += '<td style="'+TD+'">'+(r.attitude.avg !== null ? r.attitude.avg.toFixed(1) : '—')+'</td></tr>';
             });
             html += '</tbody></table></div>';
-            container.innerHTML = html;
-        }
-
-        // ================================================================
-        // 👤 個人カルテタブ
-        // ================================================================
-        function grdRenderKarte() {
-            var stuIdx = (document.getElementById('grdKarteStu')||{}).value;
-            var subjFilter = (document.getElementById('grdKarteSubj')||{}).value || '';
-            var container = document.getElementById('grdKarteContent');
-            if (!container) return;
-            if (stuIdx === '' || stuIdx === undefined || stuIdx === null) {
-                container.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;"><div style="font-size:2rem;">👤</div><p>児童を選択してください</p></div>'; return;
-            }
-            var idx = parseInt(stuIdx);
-            var students = grdGetStudents();
-            var stu = students[idx];
-            var subjects = subjFilter ? [subjFilter] : grdGetAvailableSubjects();
-            var html = '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--secondary);border-radius:10px;margin-bottom:14px;">';
-            html += '<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;">'+(stu&&stu.name?stu.name[0]:'?')+'</div>';
-            html += '<div><div style="font-weight:700;font-size:1rem;">'+(idx+1)+'番 '+escapeHtml(stu?stu.name||'':'')+'</div><div style="font-size:0.78rem;color:var(--text-light);">'+subjects.join('・')+' の成績詳細</div></div></div>';
-            subjects.forEach(function(subject) {
-                var results; try { results = grdCalculate(subject); } catch(e) { console.error('grdRenderKarte error:', subject, e); return; }
-                var sr = results.find(function(r) { return r.index === idx; });
-                if (!sr) return;
-                html += '<h3 style="margin:10px 0 6px;font-size:0.95rem;border-bottom:2px solid var(--text);padding-bottom:4px;">'+escapeHtml(subject)+'</h3>';
-                html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;">';
-                [['📘 知識・技能','knowledge','#1565C0'],['📙 思考・判断・表現','thinking','#E65100'],['📗 主体性（態度）','attitude','#2E7D32'],['🏆 最終評定',null,'#555']].forEach(function(col) {
-                    var abc = col[1] ? sr[col[1]].abc : '';
-                    var avg = col[1] ? sr[col[1]].avg : null;
-                    var cnt = col[1] ? sr[col[1]].items.length : null;
-                    var val = col[1] ? (abc||'—') : (sr.hyoutei||'—');
-                    var sub2 = col[1] ? '10点平均: '+(avg!==null?avg.toFixed(1):'—')+' / '+cnt+'件' : '合計: '+(sr.totalNum!==null?sr.totalNum:'—');
-                    html += '<div style="background:var(--white);border:2px solid '+col[2]+';border-radius:10px;padding:8px 10px;">';
-                    html += '<div style="font-size:0.72rem;color:'+col[2]+';font-weight:600;">'+col[0]+'</div>';
-                    html += '<div class="'+(col[1]?abcClass(abc):'')+'" style="font-size:1.6rem;font-weight:700;text-align:center;">'+val+'</div>';
-                    html += '<div style="font-size:0.68rem;color:var(--text-light);">'+sub2+'</div></div>';
-                });
-                html += '</div>';
-                // 内訳
-                [['📘 知識・技能の内訳','knowledge','#1565C0','background:#E3F2FD;'],
-                 ['📙 思考・判断・表現の内訳','thinking','#E65100','background:#FFF3E0;'],
-                 ['📗 主体性の内訳','attitude','#2E7D32','background:#E8F5E9;']].forEach(function(col) {
-                    var cat = sr[col[1]];
-                    if (!cat.items.length) return;
-                    html += '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">';
-                    html += '<div style="padding:6px 10px;'+col[3]+'font-weight:700;font-size:0.82rem;color:'+col[2]+';">'+col[0]+'</div>';
-                    cat.items.forEach(function(item) {
-                        var rawLabel = item.raw !== null ? item.raw+(item.max?'/'+item.max:'') : (item.detail||'');
-                        var s10 = item.score10 !== null ? item.score10.toFixed(1)+'/10' : '—/10';
-                        var wL = item.weight !== null && item.weight !== undefined ? ' ['+item.weight+'%]' : '';
-                        html += '<div style="display:flex;align-items:center;padding:5px 10px;border-top:1px solid #f0f0f0;font-size:0.8rem;">';
-                        html += '<span style="flex:1;">'+escapeHtml(item.name)+' '+(item.type?'('+item.type+')':'')+wL+'</span>';
-                        html += '<span style="color:var(--text-light);font-size:0.72rem;margin-right:6px;">'+escapeHtml(String(rawLabel))+'</span>';
-                        html += '<span style="font-weight:700;min-width:40px;text-align:right;">'+s10+'</span></div>';
-                    });
-                    var hasW = cat.items.some(function(it) { return it.weight !== null && it.weight !== undefined; });
-                    html += '<div style="display:flex;padding:6px 10px;'+col[3]+'font-weight:700;font-size:0.8rem;">';
-                    html += '<span style="flex:1;">'+(hasW?'加重平均':'平均')+'（'+cat.items.filter(function(it){return it.score10!==null;}).length+'件）</span>';
-                    html += '<span>'+(cat.avg!==null?cat.avg.toFixed(1):'-')+'/10 → '+(cat.abc||'—')+'</span></div></div>';
-                });
-            });
             container.innerHTML = html;
         }
 
@@ -13266,10 +13199,9 @@
             }
             var csv = '\uFEFF' + [headers.map(grdEsc).join(',')].concat(rows.map(function(r){return r.map(grdEsc).join(',');})).join('\n');
             var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a'); a.href = url; a.download = subject+'_成績_'+getLocalDateStr()+'.csv'; a.click();
-            setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
-            showToast('CSVをダウンロードしました');
+            // v1.10.0: iOS Safari 対策。PDF/バックアップと同じ universalShare 経由に統一
+            universalShare(blob, subject + '_成績_' + getLocalDateStr() + '.csv')
+                .catch(function(e) { showToast('CSV出力に失敗しました', 'error'); console.error('grdExportCSV:', e); });
         }
 
         // ================================================================
@@ -13640,378 +13572,6 @@
             showToast('同僚用テンプレートを出力しました');
         }
 
-        // ================================================================
-        // 📋 カルテ出力センター
-        // ================================================================
-        function grdRenderKarteCenter() {
-            var students = grdGetStudents();
-            var container = document.getElementById('kcStudentList');
-            if (!container) return;
-            container.innerHTML = students.map(function(s, i) {
-                return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
-                    + '<input type="checkbox" class="kc-student-chk" value="' + i + '" checked>'
-                    + escapeHtml((i + 1) + '. ' + (s.name || ''))
-                    + '</label>';
-            }).join('');
-            var status = document.getElementById('kcStatusText');
-            if (status) status.textContent = students.length + '名が選択されています';
-            container.addEventListener('change', function() {
-                var checked = container.querySelectorAll('.kc-student-chk:checked').length;
-                if (status) status.textContent = checked + '名が選択されています';
-            });
-
-            // 提出物の教科チェックボックスを動的生成
-            var assigns = StorageManager.get(KEYS.submissions_assignments, []);
-            var subjSet = {};
-            assigns.forEach(function(a) { if (a.subject) subjSet[a.subject] = 1; });
-            var subjList = Object.keys(subjSet);
-            var subsContainer = document.getElementById('kcSubjectChecks');
-            if (subsContainer) {
-                if (subjList.length === 0) {
-                    subsContainer.innerHTML = '<span style="font-size:0.8rem;color:var(--text-light);">（課題データなし）</span>';
-                } else {
-                    subsContainer.innerHTML = subjList.map(function(subj) {
-                        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:0.82rem;cursor:pointer;padding:3px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);">'
-                            + '<input type="checkbox" class="kc-subj-chk" value="' + escapeHtml(subj) + '" checked>'
-                            + escapeHtml(subj)
-                            + '</label>';
-                    }).join('');
-                }
-            }
-        }
-
-        function grdKarteCenterSelectAll(checked) {
-            var container = document.getElementById('kcStudentList');
-            if (!container) return;
-            container.querySelectorAll('.kc-student-chk').forEach(function(chk) { chk.checked = checked; });
-            var status = document.getElementById('kcStatusText');
-            if (status) {
-                var cnt = checked ? container.querySelectorAll('.kc-student-chk').length : 0;
-                status.textContent = cnt + '名が選択されています';
-            }
-        }
-
-        function grdPrintKarteCenter() {
-            var selectedIdxs = [];
-            document.querySelectorAll('.kc-student-chk:checked').forEach(function(chk) { selectedIdxs.push(parseInt(chk.value)); });
-            if (!selectedIdxs.length) { showToast('出力する児童を選択してください', 'warning'); return; }
-
-            var secGrades     = !!(document.getElementById('kcSec_grades')     && document.getElementById('kcSec_grades').checked);
-            var secAttendance = !!(document.getElementById('kcSec_attendance') && document.getElementById('kcSec_attendance').checked);
-            var secLife       = !!(document.getElementById('kcSec_life')       && document.getElementById('kcSec_life').checked);
-            var secParent     = !!(document.getElementById('kcSec_parent')     && document.getElementById('kcSec_parent').checked);
-            var secHealth     = !!(document.getElementById('kcSec_health')     && document.getElementById('kcSec_health').checked);
-            var secLearning   = !!(document.getElementById('kcSec_learning')   && document.getElementById('kcSec_learning').checked);
-            var secKanji      = !!(document.getElementById('kcSec_kanji')      && document.getElementById('kcSec_kanji').checked);
-            var selectedSubjects = [];
-            document.querySelectorAll('.kc-subj-chk:checked').forEach(function(chk) { selectedSubjects.push(chk.value); });
-            var secSubmissions = selectedSubjects.length > 0;
-            if (!secGrades && !secAttendance && !secSubmissions && !secLife && !secParent && !secHealth && !secLearning && !secKanji) {
-                showToast('出力するセクションを1つ以上選択してください', 'warning'); return;
-            }
-
-            var masterData  = StorageManager.get(KEYS.master, {});
-            var students    = masterData.students || [];
-            var ci          = masterData.classInfo || {};
-            var attAll      = secAttendance  ? StorageManager.get(KEYS.attendance, {})              : {};
-            var noticeAll   = secAttendance  ? StorageManager.get(KEYS.attendance_notice, {})       : {};
-            var allAssigns  = secSubmissions ? StorageManager.get(KEYS.submissions_assignments, []) : [];
-            var assigns     = secSubmissions ? allAssigns.filter(function(a) { return selectedSubjects.indexOf(a.subject) >= 0; }) : [];
-            var subsData    = secSubmissions ? StorageManager.get(KEYS.submissions_data, [])        : [];
-            var lifeAll     = secLife        ? StorageManager.get(KEYS.karte_life, {})              : {};
-            var parentAll   = secParent      ? StorageManager.get(KEYS.karte_parent, {})            : {};
-            var healthAll   = secHealth      ? StorageManager.get(KEYS.karte_health, {})            : {};
-            var learningAll = secLearning    ? StorageManager.get(KEYS.karte_learning, {})          : {};
-            var kanjiData   = secKanji       ? StorageManager.get(KEYS.kanji, { chars: [], checks: {} }) : { chars: [], checks: {} };
-            var subjects    = secGrades      ? grdGetAvailableSubjects()                            : [];
-
-            var classLabel = escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '');
-            var CARD = 'border:1.5pt solid #ddd;border-radius:8pt;padding:8pt 10pt;margin-bottom:8pt;';
-            var TITLE = 'font-size:8pt;font-weight:700;color:#555;margin-bottom:6pt;';
-            var methodLabels = { phone:'📞 電話', meeting:'🤝 面談', note:'📝 連絡帳', other:'💬 その他' };
-
-            var pages = '';
-            selectedIdxs.forEach(function(idx, pageIdx) {
-                var s = students[idx];
-                if (!s || !s.name) return;
-                var isLast = (pageIdx === selectedIdxs.length - 1);
-                var body = '';
-
-                // 成績セクション
-                if (secGrades && subjects.length) {
-                    var gradeSec = '<div style="' + CARD + '">';
-                    gradeSec += '<div style="' + TITLE + '">📈 成績（観点別評価・評定）</div>';
-                    gradeSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
-                    gradeSec += '<thead><tr style="background:#1a1a2e;color:#fff;">'
-                        + '<th style="padding:3pt 5pt;text-align:left;font-weight:700;">教科</th>'
-                        + '<th style="padding:3pt 5pt;text-align:center;">知識・技能</th>'
-                        + '<th style="padding:3pt 5pt;text-align:center;">思考・判断・表現</th>'
-                        + '<th style="padding:3pt 5pt;text-align:center;">主体的態度</th>'
-                        + '<th style="padding:3pt 5pt;text-align:center;font-weight:900;">評定</th>'
-                        + '</tr></thead><tbody>';
-                    subjects.forEach(function(subj) {
-                        var res; try { res = grdCalculate(subj); } catch(e) { return; }
-                        var sr = res && res.find(function(r) { return r.index === idx; });
-                        if (!sr) return;
-                        var abc = function(v, col) { var c = v==='A'?'#27AE60':v==='B'?'#3498DB':v==='C'?'#E67E22':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+(v||'—')+'</span>'; };
-                        var hy = sr.hyoutei ? '<span style="font-size:10pt;font-weight:900;">' + sr.hyoutei + '</span>' : '—';
-                        gradeSec += '<tr style="border-bottom:1pt solid #eee;">'
-                            + '<td style="padding:3pt 5pt;font-weight:600;">' + escapeHtml(subj) + '</td>'
-                            + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.knowledge.abc) + '<span style="font-size:6.5pt;color:#888;display:block;">' + (sr.knowledge.avg !== null ? sr.knowledge.avg.toFixed(1) + '/10' : '') + '</span></td>'
-                            + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.thinking.abc)  + '<span style="font-size:6.5pt;color:#888;display:block;">' + (sr.thinking.avg  !== null ? sr.thinking.avg.toFixed(1)  + '/10' : '') + '</span></td>'
-                            + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.attitude.abc)  + '<span style="font-size:6.5pt;color:#888;display:block;">' + (sr.attitude.avg  !== null ? sr.attitude.avg.toFixed(1)  + '/10' : '') + '</span></td>'
-                            + '<td style="padding:3pt 5pt;text-align:center;background:#f9f9f9;">' + hy + '</td>'
-                            + '</tr>';
-                    });
-                    gradeSec += '</tbody></table></div>';
-                    body += gradeSec;
-                }
-
-                // 出欠席セクション
-                if (secAttendance) {
-                    var present = 0, absent = 0, late = 0, early = 0;
-                    var attMonths = {};
-                    Object.keys(attAll).forEach(function(dk) {
-                        var st = (attAll[dk] || {})[String(idx)];
-                        if (!st) return;
-                        var mon = dk.slice(0, 7);
-                        if (!attMonths[mon]) attMonths[mon] = { present:0, absent:0, late:0 };
-                        if (st==='○'||st==='チ'||st==='ソ'||st==='チソ') { present++; attMonths[mon].present++; }
-                        if (st==='×'||st==='／') { absent++; attMonths[mon].absent++; }
-                        if (st==='チ'||st==='チソ') { late++; attMonths[mon].late++; }
-                        if (st==='ソ'||st==='チソ') early++;
-                    });
-                    var attSec = '<div style="' + CARD + '">';
-                    attSec += '<div style="' + TITLE + '">📅 出欠席状況</div>';
-                    attSec += '<div style="display:flex;gap:10pt;margin-bottom:6pt;">';
-                    [['出席', present, '#27AE60'],['欠席', absent, '#E74C3C'],['遅刻', late, '#E67E22'],['早退', early, '#E67E22']].forEach(function(col) {
-                        attSec += '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
-                            + '<div style="font-size:6.5pt;color:#777;">' + col[0] + '</div>'
-                            + '<div style="font-size:14pt;font-weight:900;color:' + col[2] + ';">' + col[1] + '</div>'
-                            + '</div>';
-                    });
-                    attSec += '</div>';
-                    var monKeys = Object.keys(attMonths).sort().reverse().slice(0, 6);
-                    if (monKeys.length) {
-                        attSec += '<table style="width:100%;border-collapse:collapse;font-size:7pt;">'
-                            + '<tr style="background:#f4f6f9;"><th style="padding:2pt 4pt;text-align:left;">月</th><th style="padding:2pt 4pt;text-align:right;">出席</th><th style="padding:2pt 4pt;text-align:right;color:#E74C3C;">欠席</th><th style="padding:2pt 4pt;text-align:right;color:#E67E22;">遅刻</th></tr>';
-                        monKeys.forEach(function(mon) {
-                            var p = mon.split('-');
-                            attSec += '<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 4pt;">' + parseInt(p[0]) + '年' + parseInt(p[1]) + '月</td>'
-                                + '<td style="padding:2pt 4pt;text-align:right;">' + attMonths[mon].present + '</td>'
-                                + '<td style="padding:2pt 4pt;text-align:right;color:#E74C3C;">' + attMonths[mon].absent + '</td>'
-                                + '<td style="padding:2pt 4pt;text-align:right;color:#E67E22;">' + attMonths[mon].late + '</td></tr>';
-                        });
-                        attSec += '</table>';
-                    }
-                    attSec += '</div>';
-                    body += attSec;
-                }
-
-                // 提出物セクション（教科絞り込み済み assigns を使用）
-                if (secSubmissions) {
-                    var subOk=0, subRe=0, subMiss=0;
-                    var missList = [];
-                    assigns.forEach(function(a) {
-                        var r = subsData.find(function(r2) { return r2.studentIndex === idx && r2.assignmentId === a.id; });
-                        if (r && r.status === 'submitted') { subOk++; }
-                        else if (r && r.status === 'resubmit') { subRe++; missList.push({ name: a.name, subject: a.subject || '', resub: true, checkedAt: a.date || '' }); }
-                        else { subMiss++; missList.push({ name: a.name, subject: a.subject || '', resub: false, checkedAt: a.date || '' }); }
-                    });
-                    var total = assigns.length;
-                    var rate = total > 0 ? Math.round((subOk + subRe) / total * 100) : 0;
-                    var subjectLabel = selectedSubjects.join('・');
-                    var subSec = '<div style="' + CARD + '">';
-                    subSec += '<div style="' + TITLE + '">📚 提出物 — ' + escapeHtml(subjectLabel) + '（' + total + '件）</div>';
-                    subSec += '<div style="display:flex;gap:8pt;margin-bottom:' + (missList.length ? '5pt' : '0') + ';">';
-                    [['提出済', subOk, '#27AE60'],['再提出', subRe, '#B7950B'],['未提出', subMiss, '#E74C3C'],['提出率', rate+'%', '#1565C0']].forEach(function(col) {
-                        subSec += '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
-                            + '<div style="font-size:6.5pt;color:#777;">' + col[0] + '</div>'
-                            + '<div style="font-size:12pt;font-weight:900;color:' + col[2] + ';">' + col[1] + '</div>'
-                            + '</div>';
-                    });
-                    subSec += '</div>';
-                    if (missList.length) {
-                        subSec += '<div style="margin-top:4pt;">';
-                        subSec += '<div style="font-size:7pt;font-weight:700;color:#E74C3C;margin-bottom:2pt;">まだ終わっていない課題</div>';
-                        missList.forEach(function(it) {
-                            var subjChip = '<span style="display:inline-block;min-width:34pt;text-align:center;font-size:7pt;font-weight:700;color:#1a2332;background:#eef2f7;border:0.6pt solid #ccd6e0;border-radius:4pt;padding:0.5pt 3pt;margin-right:5pt;">' + escapeHtml(it.subject || '') + '</span>';
-                            var dateStr = it.checkedAt ? new Date(it.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric' }) : '';
-                            var reTag = it.resub ? '<span style="font-size:7pt;color:#B7950B;font-weight:700;margin-left:3pt;">（再）</span>' : '';
-                            subSec += '<div style="display:flex;align-items:center;font-size:8.5pt;padding:2.5pt 0;border-bottom:0.5pt solid #f0f0f0;">' + subjChip + '<span style="flex:1;color:#333;">' + escapeHtml(it.name) + reTag + '</span>' + (dateStr ? '<span style="font-size:7pt;color:#888;white-space:nowrap;">🗓' + dateStr + '</span>' : '') + '</div>';
-                        });
-                        subSec += '</div>';
-                    }
-                    subSec += '</div>';
-                    body += subSec;
-                }
-
-                // 生活記録セクション
-                if (secLife) {
-                    var lifeRecs = Array.isArray(lifeAll[String(idx)]) ? lifeAll[String(idx)] : [];
-                    var lifeSorted = lifeRecs.slice().sort(function(a, b) { return (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''); });
-                    var lifeSec = '<div style="' + CARD + '">';
-                    lifeSec += '<div style="' + TITLE + '">📔 生活記録（直近5件 / 計' + lifeRecs.length + '件）</div>';
-                    if (lifeSorted.length) {
-                        lifeSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
-                        lifeSorted.slice(0, 5).forEach(function(r) {
-                            lifeSec += '<tr style="border-bottom:1pt solid #eee;">'
-                                + '<td style="padding:2pt 5pt;color:#555;white-space:nowrap;width:70pt;">' + escapeHtml(r.date || '') + '</td>'
-                                + '<td style="padding:2pt 5pt;">' + escapeHtml((r.summary || r.memo || '').slice(0, 100)) + '</td></tr>';
-                        });
-                        lifeSec += '</table>';
-                    } else {
-                        lifeSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
-                    }
-                    lifeSec += '</div>';
-                    body += lifeSec;
-                }
-
-                // 保護者対応セクション
-                if (secParent) {
-                    var parentRecs = Array.isArray(parentAll[String(idx)]) ? parentAll[String(idx)] : [];
-                    var parentSorted = parentRecs.slice().sort(function(a, b) { return (b.datetime || b.date || '').localeCompare(a.datetime || a.date || ''); });
-                    var parentSec = '<div style="' + CARD + '">';
-                    parentSec += '<div style="' + TITLE + '">👨‍👩‍👧 保護者対応（計' + parentRecs.length + '件）</div>';
-                    if (parentSorted.length) {
-                        parentSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
-                        parentSorted.slice(0, 5).forEach(function(r) {
-                            var method = methodLabels[r.method] || r.method || '';
-                            var dateStr = r.datetime ? new Date(r.datetime).toLocaleDateString('ja-JP') : (r.date || '');
-                            parentSec += '<tr style="border-bottom:1pt solid #eee;">'
-                                + '<td style="padding:2pt 5pt;color:#555;white-space:nowrap;width:60pt;">' + escapeHtml(dateStr) + '</td>'
-                                + '<td style="padding:2pt 5pt;white-space:nowrap;">' + method + '</td>'
-                                + '<td style="padding:2pt 5pt;">' + escapeHtml((r.content || '').slice(0, 80)) + '</td></tr>';
-                        });
-                        parentSec += '</table>';
-                    } else {
-                        parentSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
-                    }
-                    parentSec += '</div>';
-                    body += parentSec;
-                }
-
-                // 身体・配慮セクション
-                if (secHealth) {
-                    var hd = (healthAll[String(idx)]) || { allergies:[], medication:'', exerciseLimit:'', familyMemo:'' };
-                    var healthSec = '<div style="' + CARD + '">';
-                    healthSec += '<div style="' + TITLE + '">🏥 身体・配慮</div>';
-                    var hasH = false;
-                    if ((hd.allergies||[]).length) {
-                        healthSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>アレルギー：</b>' + hd.allergies.map(function(a) { return escapeHtml(a); }).join('、') + '</div>';
-                        hasH = true;
-                    }
-                    if (hd.medication) { healthSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>服薬：</b>' + escapeHtml(hd.medication) + '</div>'; hasH = true; }
-                    if (hd.exerciseLimit) { healthSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>運動制限：</b>' + escapeHtml(hd.exerciseLimit) + '</div>'; hasH = true; }
-                    if (hd.familyMemo) { healthSec += '<div style="font-size:7.5pt;"><b>家庭メモ：</b>' + escapeHtml(hd.familyMemo) + '</div>'; hasH = true; }
-                    if (!hasH) healthSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
-                    healthSec += '</div>';
-                    body += healthSec;
-                }
-
-                // 学習面配慮セクション
-                if (secLearning) {
-                    var ld = (learningAll[String(idx)]) || { characteristics:'', readingWriting:'', classroomSupport:'', communication:'', assessment:'', supportKeywords:[] };
-                    var learnSec = '<div style="' + CARD + '">';
-                    learnSec += '<div style="' + TITLE + '">📖 学習面配慮</div>';
-                    var hasL = false;
-                    if ((ld.supportKeywords||[]).length) {
-                        learnSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>支援キーワード：</b>' + ld.supportKeywords.map(function(k) { return escapeHtml(k); }).join(' / ') + '</div>';
-                        hasL = true;
-                    }
-                    if (ld.characteristics) { learnSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>特性：</b>' + escapeHtml(ld.characteristics.slice(0, 120)) + '</div>'; hasL = true; }
-                    if (ld.classroomSupport) { learnSec += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>授業での配慮：</b>' + escapeHtml(ld.classroomSupport.slice(0, 100)) + '</div>'; hasL = true; }
-                    if (ld.communication) { learnSec += '<div style="font-size:7.5pt;"><b>コミュニケーション：</b>' + escapeHtml(ld.communication.slice(0, 100)) + '</div>'; hasL = true; }
-                    if (!hasL) learnSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">記録なし</div>';
-                    learnSec += '</div>';
-                    body += learnSec;
-                }
-
-                // 漢字チェックセクション
-                if (secKanji) {
-                    var kjChars = kanjiData.chars || [];
-                    var kanjiSec = '<div style="' + CARD + '">';
-                    kanjiSec += '<div style="' + TITLE + '">✍️ 漢字チェック</div>';
-                    if (kjChars.length) {
-                        var stuChecks = (kanjiData.checks || {})[String(idx)] || {};
-                        var done = 0, retry = 0;
-                        kjChars.forEach(function(_, ci) {
-                            var v = stuChecks[String(ci)];
-                            if (v === 'o') done++;
-                            else if (v === 'd') retry++;
-                        });
-                        var total = kjChars.length;
-                        var rate = Math.round(done / total * 100);
-                        var rateColor = rate >= 100 ? '#27AE60' : rate >= 80 ? '#1565C0' : '#E67E22';
-                        kanjiSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">'
-                            + '<thead><tr style="background:#e8f5e9;">'
-                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#2E7D32;">文字数</th>'
-                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#27AE60;">○完了</th>'
-                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#F57F17;">△再提出</th>'
-                            + '<th style="padding:2pt 5pt;text-align:right;font-weight:700;color:#1565C0;">達成率</th>'
-                            + '</tr></thead><tbody>'
-                            + '<tr style="border-bottom:1pt solid #eee;">'
-                            + '<td style="padding:2pt 5pt;text-align:right;">' + total + '字</td>'
-                            + '<td style="padding:2pt 5pt;text-align:right;color:#27AE60;font-weight:700;">' + done + '</td>'
-                            + '<td style="padding:2pt 5pt;text-align:right;color:#F57F17;">' + retry + '</td>'
-                            + '<td style="padding:2pt 5pt;text-align:right;font-weight:700;color:' + rateColor + ';">' + rate + '%</td>'
-                            + '</tr>'
-                            + '</tbody></table>';
-                    } else {
-                        kanjiSec += '<div style="font-size:7.5pt;color:#aaa;text-align:center;padding:6pt;">データなし</div>';
-                    }
-                    kanjiSec += '</div>';
-                    body += kanjiSec;
-                }
-
-                var pageHtml = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:10mm 12mm;box-sizing:border-box;">'
-                    + '<div style="border-bottom:3pt solid #1a1a2e;padding-bottom:5pt;margin-bottom:8pt;display:flex;justify-content:space-between;align-items:flex-end;">'
-                    + '<div style="font-size:16pt;font-weight:900;color:#1a1a2e;">個人カルテ</div>'
-                    + '<div style="font-size:7.5pt;color:#555;">' + classLabel + '</div>'
-                    + '</div>'
-                    + '<div style="background:#f4f6f9;border-radius:8pt;padding:6pt 10pt;margin-bottom:8pt;display:flex;align-items:center;gap:14pt;">'
-                    + '<span style="font-size:8pt;color:#555;font-weight:700;">番号</span>'
-                    + '<span style="font-size:13pt;font-weight:900;color:#1a1a2e;">' + (idx + 1) + '</span>'
-                    + '<span style="font-size:8pt;color:#555;font-weight:700;">氏名</span>'
-                    + '<span style="font-size:15pt;font-weight:900;color:#1a1a2e;">' + escapeHtml(s.name) + '</span>'
-                    + '</div>'
-                    + body
-                    + '</div>';
-                pages += pageHtml;
-            });
-
-            if (!pages) { showToast('出力できるデータがありません', 'warning'); return; }
-
-            var printDoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
-                + '@page{size:A4 portrait;margin:0;}'
-                + '*{box-sizing:border-box;margin:0;padding:0;}'
-                + 'body{font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}'
-                + '</style></head><body>' + pages + '</body></html>';
-            var blob = new Blob([printDoc], { type: 'text/html;charset=utf-8' });
-            var blobUrl = URL.createObjectURL(blob);
-            var overlay = document.createElement('div');
-            overlay.id = 'po-overlay';
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;';
-            var iframe = document.createElement('iframe');
-            iframe.src = blobUrl;
-            iframe.style.cssText = 'width:min(90vw,calc(85vh*210/297));height:min(calc(90vw*297/210),85vh);border:none;background:white;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.6);flex-shrink:0;';
-            var btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex;gap:12px;flex-shrink:0;';
-            var printBtn2 = document.createElement('button');
-            printBtn2.textContent = '🖨️ 印刷 / PDF保存';
-            printBtn2.style.cssText = 'background:#27AE60;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-            var backBtn2 = document.createElement('button');
-            backBtn2.textContent = '✕ 元の画面に戻る';
-            backBtn2.style.cssText = 'background:#555;color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-            btnRow.appendChild(printBtn2); btnRow.appendChild(backBtn2);
-            overlay.appendChild(iframe); overlay.appendChild(btnRow);
-            document.body.appendChild(overlay);
-            function kcCleanup() { URL.revokeObjectURL(blobUrl); var ov = document.getElementById('po-overlay'); if (ov) ov.remove(); }
-            printBtn2.addEventListener('click', function() { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.open(blobUrl, '_blank'); } });
-            backBtn2.addEventListener('click', kcCleanup);
-            iframe.addEventListener('load', function() { try { iframe.contentWindow.addEventListener('afterprint', kcCleanup); } catch(e) {} });
-        }
-
         // 学期セレクタ変更 → フィルタ更新＋表示中タブを再描画
         function grdOnTermChange() {
             var sel = document.getElementById('grdTermSel');
@@ -14021,8 +13581,6 @@
                 if (act('overview')) { grdRenderOverview(); grdRenderDataStatus(); }
                 if (act('grade')) grdRenderGradeTable();
                 if (act('stats')) grdRenderStats();
-                if (act('karte')) grdRenderKarte();
-                if (act('kartecenter')) grdRenderKarteCenter();
             } catch(e) { console.error('grdOnTermChange:', e); }
         }
 
@@ -14035,8 +13593,6 @@
             e('grdTermSel', grdOnTermChange);
             e('grdOverviewSubj', function() { grdRenderOverview(); });
             e('grdGradeSubj', grdRenderGradeTable);
-            e('grdKarteStu', grdRenderKarte);
-            e('grdKarteSubj', grdRenderKarte);
             e('grdStatsSubj', grdRenderStats);
             e('grdWeightsSubj', grdRenderWeights);
             e('grdExtSubj', grdExtRenderGrid);
@@ -14047,9 +13603,6 @@
             btn('grdCSVBtn', grdExportCSV);
             btn('grdExcelBtn', grdExportExcel);
             btn('grdTemplateBtn', grdExportTemplate);
-            btn('kcSelectAll',   function() { grdKarteCenterSelectAll(true); });
-            btn('kcDeselectAll', function() { grdKarteCenterSelectAll(false); });
-            btn('kcPrintBtn',    grdPrintKarteCenter);
             btn('grdPrintBasisBtn', grdPrintBasisSheet);
             btn('grdEditNotesBtn',  grdOpenNotesModal);
             btn('grdExtRegisterBtn', grdExtRegisterCurrent);
@@ -15175,10 +14728,9 @@
         function expGetStudents() { return master.students || []; }
         function expDownloadCSV(csv, filename) {
             var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url; a.download = filename; a.click();
-            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+            // v1.10.0: iOS Safari 対策。PDF/バックアップと同じ universalShare 経由に統一
+            universalShare(blob, filename)
+                .catch(function(e) { showToast('CSV出力に失敗しました', 'error'); console.error('expDownloadCSV:', e); });
         }
         function expEsc(v) {
             if (v === null || v === undefined) return '';
@@ -16408,8 +15960,8 @@
 
             // コピーボタン
             html += '<div class="audit-copy-buttons">';
-            html += '<button class="btn-primary" onclick="copyAuditResultAsJSON()" style="padding:8px 16px;">📋 全結果を JSON でコピー</button>';
-            html += '<button class="btn-primary" onclick="copyAuditResultAsText()" style="padding:8px 16px;">📝 全結果をテキストでコピー</button>';
+            html += '<button class="btn btn-primary" onclick="copyAuditResultAsJSON()" style="padding:8px 16px;">📋 全結果を JSON でコピー</button>';
+            html += '<button class="btn btn-primary" onclick="copyAuditResultAsText()" style="padding:8px 16px;">📝 全結果をテキストでコピー</button>';
             html += '</div>';
 
             document.getElementById('audit-result-container').innerHTML = html;
@@ -16895,8 +16447,10 @@
         var methodLabels = { phone: '📞 電話', meeting: '🤝 面談', note: '📝 連絡帳', other: '💬 その他' };
         var titleSuffix = mode === 'attendance' ? '（出欠席）' : mode === 'submissions' ? '（提出物）' : '';
         var pageHtmls = [];
+        var pageNames = []; // v1.10.0: 進捗表示用
         students.forEach(function(s, idx) {
             if (!s || !s.name) return;
+            pageNames.push(s.name);
             // 出席集計
             var present = 0, absent = 0, late = 0, early = 0;
             var attMonths = {};
@@ -17054,60 +16608,14 @@
             }
             pageHtmls.push(pageHtml + '</div>');
         });
-        if (typeof html2canvas === 'undefined' || !window.jspdf) {
-            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
-            return;
-        }
-        showToast('PDF生成中…しばらくお待ちください', 'info');
-
-        var container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;'
-            + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
-            + 'box-sizing:border-box;';
-        document.body.appendChild(container);
-
-        var jsPDF = window.jspdf.jsPDF;
-        var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        var A4_W = 210, A4_H = 297, MARGIN = 10;
-        var pageIdx = 0;
-
-        function processNext() {
-            if (pageIdx >= pageHtmls.length) {
-                if (document.body.contains(container)) document.body.removeChild(container);
-                var titleSuffix = mode === 'attendance' ? '出欠席' : mode === 'submissions' ? '提出物' : '全項目';
-                var fname = 'カルテ一括_' + titleSuffix + '_' + pageHtmls.length + '名.pdf';
-                universalShare(pdf.output('blob'), fname); // v1.8.98: 共有シート経由に統一
-                return;
-            }
-            container.innerHTML = pageHtmls[pageIdx];
-            var el = container.firstElementChild || container;
-            html2canvas(el, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff',
-                windowWidth: 794,
-                scrollX: 0,
-                scrollY: 0
-            }).then(function(canvas) {
-                var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                var availW = A4_W - MARGIN * 2;
-                var imgW = availW;
-                var imgH = canvas.height / canvas.width * imgW;
-                var maxH = A4_H - MARGIN * 2;
-                if (imgH > maxH) { imgH = maxH; imgW = canvas.width / canvas.height * imgH; }
-                var x = (A4_W - imgW) / 2;
-                if (pageIdx > 0) pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
-                pageIdx++;
-                processNext();
-            }).catch(function(err) {
-                if (document.body.contains(container)) document.body.removeChild(container);
-                showToast('PDF生成中にエラーが発生しました', 'error');
-                console.error('printAllKarte html2canvas error:', err);
-            });
-        }
-        processNext();
+        // v1.10.0: 自前ループを廃止し htmlPagesToPdf に統一
+        var fileSuffix = mode === 'attendance' ? '出欠席' : mode === 'submissions' ? '提出物' : '全項目';
+        htmlPagesToPdf(pageHtmls, {
+            orientation: 'portrait',
+            fileName: 'カルテ一括_' + fileSuffix + '_' + pageHtmls.length + '名_' + getLocalDateStr() + '.pdf',
+            marginMm: 10,
+            labels: pageNames
+        });
     };
 
     // ===== 漢字チェック一括PDF出力 =====
@@ -17123,8 +16631,10 @@
         var displayChars = chars; // 入力層と同じ並び（最古が先頭）
 
         var pageHtmls = [];
+        var pageNames = []; // v1.10.0: 進捗表示用
         students.forEach(function(s, idx) {
             if (!s || !s.name) return;
+            pageNames.push(s.name);
             var checks = (kanjiData.checks || {})[String(idx)] || {};
             var doneCount = 0, retryCount = 0;
             var cellsHtml = '';
@@ -17176,58 +16686,13 @@
             pageHtmls.push(pageHtml);
         });
 
-        if (typeof html2canvas === 'undefined' || !window.jspdf) {
-            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
-            return;
-        }
-        showToast('PDF生成中…しばらくお待ちください', 'info');
-
-        var container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;'
-            + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
-            + 'box-sizing:border-box;';
-        document.body.appendChild(container);
-
-        var jsPDF = window.jspdf.jsPDF;
-        var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        var A4_W = 210, A4_H = 297, MARGIN = 10;
-        var pageIdx = 0;
-
-        function processNext() {
-            if (pageIdx >= pageHtmls.length) {
-                if (document.body.contains(container)) document.body.removeChild(container);
-                universalShare(pdf.output('blob'), '漢字チェック一括_' + pageHtmls.length + '名.pdf'); // v1.8.98: 共有シート経由に統一
-                return;
-            }
-            container.innerHTML = pageHtmls[pageIdx];
-            var el = container.firstElementChild || container;
-            html2canvas(el, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff',
-                windowWidth: 794,
-                scrollX: 0,
-                scrollY: 0
-            }).then(function(canvas) {
-                var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                var availW = A4_W - MARGIN * 2;
-                var imgW = availW;
-                var imgH = canvas.height / canvas.width * imgW;
-                var maxH = A4_H - MARGIN * 2;
-                if (imgH > maxH) { imgH = maxH; imgW = canvas.width / canvas.height * imgH; }
-                var x = (A4_W - imgW) / 2;
-                if (pageIdx > 0) pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
-                pageIdx++;
-                processNext();
-            }).catch(function(err) {
-                if (document.body.contains(container)) document.body.removeChild(container);
-                showToast('PDF生成中にエラーが発生しました', 'error');
-                console.error('printAllKanjiPDF html2canvas error:', err);
-            });
-        }
-        processNext();
+        // v1.10.0: 自前ループを廃止し htmlPagesToPdf に統一
+        htmlPagesToPdf(pageHtmls, {
+            orientation: 'portrait',
+            fileName: '漢字チェック一括_' + pageHtmls.length + '名_' + getLocalDateStr() + '.pdf',
+            marginMm: 10,
+            labels: pageNames
+        });
     };
 
     // --- 暗号化バックアップ: prompt()の代わりにモーダルUI ---
@@ -17691,9 +17156,9 @@
             csv+=(total||'')+','+(ev||'')+'\n';
         });
         var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-        a.download='新体力テスト_'+(pf_setting.className||'クラス')+'_'+pf_setting.year+'.csv';a.click();
-        showToast('📥 CSV出力しました','success');
+        // v1.10.0: iOS Safari 対策。PDF/バックアップと同じ universalShare 経由に統一
+        universalShare(blob, '新体力テスト_'+(pf_setting.className||'クラス')+'_'+pf_setting.year+'_'+getLocalDateStr()+'.csv')
+            .catch(function(e) { showToast('CSV出力に失敗しました', 'error'); console.error('pf_exportCSV:', e); });
     }
 
 

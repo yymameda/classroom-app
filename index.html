@@ -3007,11 +3007,6 @@
                         <span id="grdExtSavedMsg" style="font-size:0.78rem;color:var(--primary);"></span>
                     </div>
                     <div id="grdExtGridWrap"></div>
-                    <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;">
-                        <button id="grdExtRadarPdfBtn" class="btn btn-primary" style="padding:10px 16px;font-size:0.9rem;background:#1a6b4a;">📄 面談用レーダーPDF（全員連続）</button>
-                        <button id="grdExtEditCommentsBtn" class="btn btn-outline" style="padding:10px 16px;font-size:0.9rem;margin-left:8px;">✏️ 個別コメント編集</button>
-                        <div style="font-size:0.75rem;color:#666;margin-top:6px;">※ 専科込みの全教科×評定でクラス全員分（1人1ページ）を出力します。</div>
-                    </div>
                 </div>
 
                 <!-- 傾斜配分タブ -->
@@ -3157,6 +3152,12 @@
                     <h3>🗣️ 面談用テキスト出力</h3>
                     <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">選択中の児童の<strong>全項目</strong>（成績・出欠・提出・漢字・生活記録・児童記録・保護者対応・身体配慮・学習配慮）をテキスト化してコピーします。WebのClaudeに貼り付けて面談準備にお使いください。<br>※上の「出力するセクション」のチェックはPDF用です。テキストは常に全項目を出力します。</p>
                     <button id="kvCopyTextBtn" class="btn btn-primary" style="padding:12px 24px;font-size:0.95rem;background:linear-gradient(135deg,#27AE60,#1E8449);border:none;border-radius:10px;min-height:48px;">📋 面談用テキストをコピー</button>
+                </div>
+                <div class="card">
+                    <h3>📄 面談用レーダーPDF</h3>
+                    <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">専科込みの全教科×評定でクラス<strong>全員分</strong>を出力します（1人あたり「学習のようす」＋「教科別のくわしい記録」の2ページ）。<br>※ 上の児童選択・セクション設定は使いません。常に全員が対象です。</p>
+                    <button id="grdExtRadarPdfBtn" class="btn btn-primary" style="padding:12px 22px;font-size:0.92rem;background:#1a6b4a;">📄 面談用レーダーPDF（全員連続）</button>
+                    <button id="grdExtEditCommentsBtn" class="btn btn-outline" style="padding:12px 22px;font-size:0.92rem;margin-left:8px;">✏️ 個別コメント編集</button>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:24px;">
                     <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,#2D7D9A,#1E5A70);border:none;border-radius:10px;min-height:48px;">📄 カルテ出力（PDF）</button>
@@ -3677,9 +3678,10 @@
     //   ・PDF_PREVIEW_ENABLED = false にすると従来どおり即共有に戻る
     // ================================================================
     var PDF_PREVIEW_ENABLED = true;
-    function pdfPresentResult(blob, fileName) {
+    function pdfPresentResult(blob, fileName, rebuildMasked) {
         if (!PDF_PREVIEW_ENABLED) return universalShare(blob, fileName);
         return new Promise(function(resolve) {
+            var curBlob = blob, curName = fileName, masked = false;
             var url = URL.createObjectURL(blob);
             var openedExternally = false;
             var ov = document.createElement('div');
@@ -3689,12 +3691,13 @@
             ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:16px;width:min(700px,96vw);'
                 + 'max-height:94vh;display:flex;flex-direction:column;gap:10px;font-family:inherit;">'
                 + '<div style="font-size:15px;font-weight:700;color:#1a2332;">✅ PDFができました</div>'
-                + '<div style="font-size:11.5px;color:#666;word-break:break-all;">' + escapeHtml(fileName) + '</div>'
+                + '<div id="pdfResName" style="font-size:11.5px;color:#666;word-break:break-all;">' + escapeHtml(fileName) + '</div>'
                 + '<iframe id="pdfPreviewFrame" src="' + url + '" title="PDFプレビュー" '
                 + 'style="flex:1;min-height:40vh;width:100%;border:1px solid #ddd;border-radius:8px;background:#f5f5f5;"></iframe>'
                 + '<div style="font-size:11px;color:#888;line-height:1.5;">※ この枠内では1ページ目しか表示されないことがあります。'
                 + '全ページ確認するには「別のタブで開く」をお使いください。</div>'
                 + '<button id="pdfResShareBtn" class="btn btn-primary" style="width:100%;">📤 保存 / 共有</button>'
+                + (rebuildMasked ? '<button id="pdfResMaskBtn" class="btn btn-outline" style="width:100%;">🔒 名前を伏せて作り直す</button>' : '')
                 + '<div style="display:flex;gap:8px;">'
                 + '<button id="pdfResOpenBtn" class="btn btn-outline" style="flex:1;">↗️ 別のタブで開く</button>'
                 + '<button id="pdfResCloseBtn" class="btn btn-outline" style="flex:1;">✕ 閉じる</button>'
@@ -3710,9 +3713,30 @@
             var shareBtn = ov.querySelector('#pdfResShareBtn');
             var openBtn  = ov.querySelector('#pdfResOpenBtn');
             var closeBtn = ov.querySelector('#pdfResCloseBtn');
+            var maskBtn  = ov.querySelector('#pdfResMaskBtn');
+            var titleEl  = ov.querySelector('#pdfResName');
+            var frameEl  = ov.querySelector('#pdfPreviewFrame');
             if (shareBtn) shareBtn.addEventListener('click', function() {
+                var b = curBlob, n = curName;
                 cleanup();
-                universalShare(blob, fileName).then(function(r) { resolve(r); }, function() { resolve(false); });
+                universalShare(b, n).then(function(r) { resolve(r); }, function() { resolve(false); });
+            });
+            if (maskBtn) maskBtn.addEventListener('click', async function() {
+                if (masked) { showToast('すでに氏名を伏せた状態です', 'info'); return; }
+                ov.style.display = 'none';
+                var nb = await rebuildMasked();
+                ov.style.display = 'flex';
+                if (!nb) return;
+                masked = true;
+                if (!openedExternally) URL.revokeObjectURL(url);
+                curBlob = nb;
+                curName = curName.replace(/\.pdf$/, '') + '_匿名.pdf';
+                url = URL.createObjectURL(nb);
+                if (frameEl) frameEl.src = url;
+                if (titleEl) titleEl.textContent = curName;
+                maskBtn.disabled = true;
+                maskBtn.textContent = '🔒 氏名を伏せました';
+                showToast('氏名を「児童N」に置き換えました', 'success');
             });
             if (openBtn) openBtn.addEventListener('click', function() {
                 openedExternally = true;
@@ -3725,24 +3749,50 @@
         });
     }
 
-    // v1.8.98: HTMLページ配列→PDF共通変換（html2canvas+jsPDF、出力は共有シート）
-    // pageHtmls: 各要素が1ページ分のルートdiv文字列（インラインスタイル前提）
-    // opts: { orientation, fileName, marginMm, labels[], btnId, onPageReady(el,i) }
-    async function htmlPagesToPdf(pageHtmls, opts) {
-        opts = opts || {};
+    // ================================================================
+    // v1.10.2: 氏名マスク（生成したPDFを外部AI等に読ませる際の個人情報配慮）
+    //   ページHTML文字列に対して名簿の氏名を「児童N」に置換する。
+    //   同じ姓が複数いる場合は番号を付けず「児童」とし、誤対応を避ける。
+    // ================================================================
+    function pdfMaskNames(html) {
+        var roster = (typeof master !== 'undefined' && master && master.students) ? master.students : [];
+        if (!roster.length) return html;
+        var partOwner = {};
+        roster.forEach(function(s, i) {
+            if (!s || !s.name) return;
+            String(s.name).trim().split(/[\s\u3000]+/).forEach(function(part) {
+                if (!part || part.length < 2) return;
+                if (partOwner[part] === undefined) partOwner[part] = i;
+                else if (partOwner[part] !== i) partOwner[part] = -1; // 複数人が該当
+            });
+        });
+        var pairs = [];
+        roster.forEach(function(s, i) {
+            if (!s || !s.name) return;
+            var label = '児童' + (i + 1);
+            var full = String(s.name).trim();
+            if (full) pairs.push([full, label]);
+            full.split(/[\s\u3000]+/).forEach(function(part) {
+                if (!part || part.length < 2) return;
+                pairs.push([part, partOwner[part] === -1 ? '児童' : label]);
+            });
+        });
+        pairs.sort(function(a, b) { return b[0].length - a[0].length; }); // 長い順に置換
+        var seen = {};
+        pairs.forEach(function(pr) {
+            if (seen[pr[0]]) return;
+            seen[pr[0]] = 1;
+            html = html.split(pr[0]).join(pr[1]);
+        });
+        return html;
+    }
+
+    // ページ配列 → PDF Blob（マスク有無を切り替えて何度でも実行できる）
+    async function pdfRenderPages(pageHtmls, opts, maskNames) {
         var orientation = opts.orientation || 'portrait';
-        var fileName = opts.fileName || ('出力_' + getLocalDateStr() + '.pdf');
         var pageWpx = orientation === 'landscape' ? 1122 : 794;
         var labels = opts.labels || [];
         var btnEl = opts.btnId ? document.getElementById(opts.btnId) : null;
-        if (typeof html2canvas === 'undefined' || !window.jspdf) {
-            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
-            return false;
-        }
-        if (!pageHtmls || !pageHtmls.length) {
-            showToast('出力できるデータがありません', 'warning');
-            return false;
-        }
         var total = pageHtmls.length;
         var useOverlay = total >= 2;
         if (btnEl) btnEl.disabled = true;
@@ -3761,10 +3811,10 @@
         try {
             for (var i = 0; i < total; i++) {
                 if (useOverlay) {
-                    pdfUpdateProgress(i, total, labels[i] || '');
+                    pdfUpdateProgress(i, total, maskNames ? '' : (labels[i] || ''));
                     await new Promise(function(r) { requestAnimationFrame(r); });
                 }
-                container.innerHTML = pageHtmls[i];
+                container.innerHTML = maskNames ? pdfMaskNames(pageHtmls[i]) : pageHtmls[i];
                 var el = container.firstElementChild || container;
                 if (typeof opts.onPageReady === 'function') opts.onPageReady(el, i);
                 var canvas = await html2canvas(el, {
@@ -3782,18 +3832,38 @@
                 pdf.addImage(imgData, 'JPEG', x, MARGIN, imgW, imgH);
             }
             if (useOverlay) pdfUpdateProgress(total, total, '');
-            pdfRemoveProgress();
-            await pdfPresentResult(pdf.output('blob'), fileName);
-            return true;
+            return pdf.output('blob');
         } catch (err) {
             showToast('PDF生成中にエラーが発生しました', 'error');
-            console.error('htmlPagesToPdf error:', err);
-            return false;
+            console.error('pdfRenderPages error:', err);
+            return null;
         } finally {
             pdfRemoveProgress();
             if (document.body.contains(container)) document.body.removeChild(container);
             if (btnEl) btnEl.disabled = false;
         }
+    }
+
+    // v1.8.98: HTMLページ配列→PDF共通変換（html2canvas+jsPDF、出力は共有シート）
+    // pageHtmls: 各要素が1ページ分のルートdiv文字列（インラインスタイル前提）
+    // opts: { orientation, fileName, marginMm, quality, labels[], btnId, onPageReady(el,i) }
+    async function htmlPagesToPdf(pageHtmls, opts) {
+        opts = opts || {};
+        var fileName = opts.fileName || ('出力_' + getLocalDateStr() + '.pdf');
+        if (typeof html2canvas === 'undefined' || !window.jspdf) {
+            showToast('ライブラリ読み込み中です。しばらく待ってから再試行してください', 'warning');
+            return false;
+        }
+        if (!pageHtmls || !pageHtmls.length) {
+            showToast('出力できるデータがありません', 'warning');
+            return false;
+        }
+        var blob = await pdfRenderPages(pageHtmls, opts, false);
+        if (!blob) return false;
+        await pdfPresentResult(blob, fileName, function() {
+            return pdfRenderPages(pageHtmls, opts, true);
+        });
+        return true;
     }
 
     // --- universalShare: Web Share API + Blobフォールバック ---
@@ -12130,7 +12200,7 @@
                     if (cv) grd_drawRadar(cv, job.labels, job.vals);
                 }
             });
-            if (ok) grdExtFlash('PDFを出力しました');
+            if (ok) showToast('面談用レーダーPDFを出力しました', 'success');
         }
         // ===== 面談用PDF 2ページ目: 教科別のくわしい記録 =====
         // 教科の「数値テスト」一覧(recDeviationStatsと同じ除外条件: 主体性/ルーブリック/実技記録を除く)

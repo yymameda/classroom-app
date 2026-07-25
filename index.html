@@ -3671,32 +3671,56 @@
         if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
     }
 
-    // iOS SafariのWeb Share APIは「ユーザー操作から数秒以内」でないと拒否される。
-    // 生成に時間がかかった場合は共有ボタンを1枚挟み、操作を取り直してから共有する。
-    var PDF_GESTURE_LIMIT_MS = 3000;
-    function pdfShareWithGesture(blob, fileName, elapsedMs) {
-        if (elapsedMs < PDF_GESTURE_LIMIT_MS) return universalShare(blob, fileName);
+    // ================================================================
+    // v1.10.1: PDF完成後の確認ダイアログ（プレビュー + 保存/共有 + 別タブ）
+    //   ・共有は必ずタップ起点になるため、iOS の user activation 切れが構造的に起きない
+    //   ・PDF_PREVIEW_ENABLED = false にすると従来どおり即共有に戻る
+    // ================================================================
+    var PDF_PREVIEW_ENABLED = true;
+    function pdfPresentResult(blob, fileName) {
+        if (!PDF_PREVIEW_ENABLED) return universalShare(blob, fileName);
         return new Promise(function(resolve) {
+            var url = URL.createObjectURL(blob);
+            var openedExternally = false;
             var ov = document.createElement('div');
-            ov.id = 'pdfShareOverlay';
-            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;'
-                + 'display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
-            ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 28px;min-width:280px;max-width:90vw;text-align:center;font-family:inherit;">'
-                + '<div style="font-size:16px;font-weight:700;color:#1a2332;margin-bottom:6px;">✅ PDFができました</div>'
-                + '<div style="font-size:12px;color:#666;word-break:break-all;margin-bottom:16px;">' + escapeHtml(fileName) + '</div>'
-                + '<button id="pdfShareGoBtn" class="btn btn-primary" style="width:100%;margin-bottom:8px;">📤 保存 / 共有</button>'
-                + '<button id="pdfShareCancelBtn" class="btn btn-outline" style="width:100%;">キャンセル</button>'
-                + '</div>';
+            ov.id = 'pdfResultOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;'
+                + 'display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
+            ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:16px;width:min(700px,96vw);'
+                + 'max-height:94vh;display:flex;flex-direction:column;gap:10px;font-family:inherit;">'
+                + '<div style="font-size:15px;font-weight:700;color:#1a2332;">✅ PDFができました</div>'
+                + '<div style="font-size:11.5px;color:#666;word-break:break-all;">' + escapeHtml(fileName) + '</div>'
+                + '<iframe id="pdfPreviewFrame" src="' + url + '" title="PDFプレビュー" '
+                + 'style="flex:1;min-height:40vh;width:100%;border:1px solid #ddd;border-radius:8px;background:#f5f5f5;"></iframe>'
+                + '<div style="font-size:11px;color:#888;line-height:1.5;">※ この枠内では1ページ目しか表示されないことがあります。'
+                + '全ページ確認するには「別のタブで開く」をお使いください。</div>'
+                + '<button id="pdfResShareBtn" class="btn btn-primary" style="width:100%;">📤 保存 / 共有</button>'
+                + '<div style="display:flex;gap:8px;">'
+                + '<button id="pdfResOpenBtn" class="btn btn-outline" style="flex:1;">↗️ 別のタブで開く</button>'
+                + '<button id="pdfResCloseBtn" class="btn btn-outline" style="flex:1;">✕ 閉じる</button>'
+                + '</div></div>';
             document.body.appendChild(ov);
-            function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
-            var go = ov.querySelector('#pdfShareGoBtn');
-            var cancel = ov.querySelector('#pdfShareCancelBtn');
-            if (go) go.addEventListener('click', function() {
-                close();
+
+            function cleanup() {
+                if (ov.parentNode) ov.parentNode.removeChild(ov);
+                // 別タブで開いた場合は即revokeするとそのタブが壊れるため猶予を置く
+                if (openedExternally) setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+                else URL.revokeObjectURL(url);
+            }
+            var shareBtn = ov.querySelector('#pdfResShareBtn');
+            var openBtn  = ov.querySelector('#pdfResOpenBtn');
+            var closeBtn = ov.querySelector('#pdfResCloseBtn');
+            if (shareBtn) shareBtn.addEventListener('click', function() {
+                cleanup();
                 universalShare(blob, fileName).then(function(r) { resolve(r); }, function() { resolve(false); });
             });
-            if (cancel) cancel.addEventListener('click', function() {
-                close(); showToast('保存をキャンセルしました', 'info'); resolve(false);
+            if (openBtn) openBtn.addEventListener('click', function() {
+                openedExternally = true;
+                var w = window.open(url, '_blank');
+                if (!w) showToast('ポップアップがブロックされました。「保存 / 共有」をお使いください', 'warning');
+            });
+            if (closeBtn) closeBtn.addEventListener('click', function() {
+                cleanup(); resolve(false);
             });
         });
     }
@@ -3724,7 +3748,6 @@
         if (btnEl) btnEl.disabled = true;
         if (useOverlay) pdfShowProgress(total);
         else showToast('PDF生成中…しばらくお待ちください', 'info');
-        var t0 = Date.now();
         var container = document.createElement('div');
         container.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + pageWpx + 'px;background:#fff;'
             + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
@@ -3760,7 +3783,7 @@
             }
             if (useOverlay) pdfUpdateProgress(total, total, '');
             pdfRemoveProgress();
-            await pdfShareWithGesture(pdf.output('blob'), fileName, Date.now() - t0);
+            await pdfPresentResult(pdf.output('blob'), fileName);
             return true;
         } catch (err) {
             showToast('PDF生成中にエラーが発生しました', 'error');

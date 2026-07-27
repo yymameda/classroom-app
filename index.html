@@ -30,7 +30,7 @@
             --text-light: #718096;
             --white: #FFFFFF;
             --border: #E2E8F0;
-            --sidebar-w: 64px;
+            --sidebar-w: 84px;
             /* UI設計基準書v2: タップ最小値・タイプスケール・状態色 */
             --tap-min: 44px;
             --fs-caption: 12px;
@@ -73,60 +73,40 @@
                 gap: 2px;
             }
         }
+        /* v1.11.0 ②：アイコン単独をやめ、縦向き・横向きを問わずラベルを常時表示。
+           タッチ端末に :hover は無く、旧実装は縦向きで絵文字のみになっていた。
+           併せて高さを --tap-min(44px) 以上に是正。 */
         .nav-btn {
-            width: 52px; height: 48px;
+            width: 76px; height: 46px;
             border-radius: 10px; border: none;
             background: rgba(255,255,255,0.15);
-            color: white; font-size: 20px;
-            cursor: pointer; transition: all 0.15s;
-            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 17px;
+            cursor: pointer;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 0px;
             flex-shrink: 0; position: relative;
         }
-        .nav-btn[data-tooltip]::after {
+        .nav-btn::before {
             content: attr(data-tooltip);
-            position: absolute; left: 56px; top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0,0,0,0.8); color: white;
-            font-size: 0.72rem; white-space: nowrap;
-            padding: 4px 8px; border-radius: 6px;
-            pointer-events: none; opacity: 0;
-            transition: opacity 0.15s; z-index: 100;
+            font-size: 0.58rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.85);
+            line-height: 1.1;
+            text-align: center;
+            max-width: 74px;   /* 全角7字×0.58rem≒65px に対し 9px の余裕 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            order: 2;
         }
-        .nav-btn[data-tooltip]:hover::after { opacity: 1; }
+        .nav-btn.active::before { color: var(--primary); }
         .nav-btn:hover { background: rgba(255,255,255,0.3); }
         .nav-btn.active {
             background: white; color: var(--primary);
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
-        @media (orientation: landscape) and (min-width: 1000px) {
-            :root { --sidebar-w: 76px; }
-            .nav-btn {
-                width: 68px;
-                height: 40px;
-                flex-direction: column;
-                gap: 0px;
-                font-size: 17px;
-            }
-            .nav-btn::before {
-                content: attr(data-tooltip);
-                font-size: 0.52rem;
-                font-weight: 600;
-                color: rgba(255,255,255,0.85);
-                line-height: 1;
-                text-align: center;
-                max-width: 68px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                order: 2;
-            }
-            .nav-btn.active::before {
-                color: var(--primary);
-            }
-            .nav-btn[data-tooltip]::after {
-                display: none;
-            }
-        }
+        /* v1.11.0 ②：横向き専用のナビ上書きは基本スタイルに統合したため撤去 */
         .divider {
             width: 36px; height: 1px;
             background: rgba(255,255,255,0.25);
@@ -179,8 +159,10 @@
         }
         @media (orientation: landscape) and (min-width: 1000px) {
             .content {
-                width: calc(100vw - 80px);
-                max-width: calc(100vw - 80px);
+                /* v1.11.0：レール幅の直書き(80px)をやめ変数から導出。
+                   従来は 76+（100vw-80)+右margin8 = 100vw+4 で 4px はみ出していた。 */
+                width: calc(100vw - var(--sidebar-w) - 8px);
+                max-width: calc(100vw - var(--sidebar-w) - 8px);
                 overflow: hidden;
             }
             .view {
@@ -2010,6 +1992,57 @@
         .audit-detail-block{margin-top:4px;}
         .audit-detail-block summary{cursor:pointer;font-size:0.85em;color:#3498db;}
         .audit-detail-body{margin:6px 0 0 8px;font-size:0.85em;}
+
+        /* ================================================================
+           v1.11.0 ①：押下フィードバックの横断適用
+           「触れた瞬間に必ず何かが返る」— 沈むのは速く(0.06s)、戻るのは遅く(0.16s)
+           ================================================================ */
+        /* 対象は「実際に押せる要素」だけ。表示専用の .stat-card は含めない
+           （押して何も起きない要素を沈ませると、それ自体が嘘の合図になる） */
+        .btn, .nav-btn, .hdr-btn, .student-btn, .att-quick-btn, .att-mode-tab,
+        .att-nav-btn, .att-toolbar-btn, .att-status-opt, .att-modal-close,
+        .grid-cell, .sub-subnav-btn, .rec-subnav-btn, .pf-subnav-btn,
+        .karte-tab-btn, .btn-rec-small, .pf-btn, .patrol-item-btn, .modal-close,
+        .toast-undo-btn, .att-date-badge {
+            transition: transform 0.16s ease-out, filter 0.16s ease-out,
+                        background-color 0.16s ease-out;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active, .nav-btn:active, .hdr-btn:active, .student-btn:active,
+        .att-quick-btn:active, .att-mode-tab:active, .att-nav-btn:active,
+        .att-toolbar-btn:active, .att-status-opt:active, .att-modal-close:active,
+        .grid-cell:active, .sub-subnav-btn:active,
+        .rec-subnav-btn:active, .pf-subnav-btn:active, .karte-tab-btn:active,
+        .btn-rec-small:active, .pf-btn:active, .patrol-item-btn:active,
+        .modal-close:active, .toast-undo-btn:active, .att-date-badge:active {
+            transform: scale(0.96);
+            filter: brightness(0.94);
+            transition: transform 0.06s ease-out, filter 0.06s ease-out;
+        }
+        /* 空セルは押せないので沈ませない（嘘の手応えを返さない） */
+        .grid-cell.empty:active { transform: none; filter: none; }
+        /* disabled は沈まない */
+        .btn:disabled:active, .pf-btn:disabled:active, .hdr-btn:disabled:active {
+            transform: none; filter: none;
+        }
+
+        /* 成功の瞬間だけ祝う：入力できたことを確認しに行かなくて済むように */
+        @keyframes uiConfirmPulse {
+            0%   { box-shadow: 0 0 0 0    rgba(39,174,96,0.55); }
+            100% { box-shadow: 0 0 0 12px rgba(39,174,96,0); }
+        }
+        .ui-just-set { animation: uiConfirmPulse 0.35s ease-out; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn, .nav-btn, .hdr-btn, .student-btn, .att-quick-btn, .att-mode-tab,
+            .att-nav-btn, .att-toolbar-btn, .att-status-opt,
+            .grid-cell, .toast { transition: none !important; }
+            .btn:active, .nav-btn:active, .hdr-btn:active, .student-btn:active,
+            .att-quick-btn:active, .att-status-opt:active, .grid-cell:active {
+                transform: none;
+            }
+            .ui-just-set { animation: none; }
+        }
     </style>
     <!-- XLSX: Excel出力時に動的読み込み -->
     <script src="./libs/html2canvas.min.js"></script>
@@ -3513,7 +3546,9 @@
     <div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="toastUndoBtn" class="toast-undo-btn" style="display:none;">元に戻す</button></div>
 
     <!-- 復元案内オーバーレイ（起動時にデータが空の場合） -->
-    <div class="modal-overlay" id="restoreGuideOverlay">
+    <!-- v1.11.0 ③：閉じるボタンを持たない強制選択モーダル。
+         背景タップ／Escapeで消せてしまうと、データ空のまま案内なく放置される。 -->
+    <div class="modal-overlay" id="restoreGuideOverlay" data-keep-open>
         <div class="modal">
             <div class="modal-header" style="background: linear-gradient(135deg, #E67E22, #F39C12);">
                 <h3>📂 データがありません</h3>
@@ -3645,6 +3680,100 @@
             _toastUndoReset();
         }, 5000);
     }
+
+    // ================================================================
+    // v1.11.0 ③：モーダルの共通離脱手段（背景タップ / Escape）
+    //   「どこからでもBで戻れる」— ただし書きかけの入力は絶対に失わせない
+    //   対象: .att-modal-overlay / .modal-overlay / .pf-modal-overlay
+    //   除外: data-keep-open 属性を持つもの、未保存テキストを含むもの
+    // ================================================================
+    var UI_MODAL_SELECTOR = '.att-modal-overlay, .modal-overlay, .pf-modal-overlay';
+
+    function _uiModalIsOpen(el) {
+        if (!el) return false;
+        return window.getComputedStyle(el).display !== 'none';
+    }
+
+    // --- ダーティ判定 ---
+    // 「中身があるか」ではなく「開いてから実際に打鍵されたか」で判定する。
+    // 保存済みの注記を読むだけで開いた場合に警告が出ると、警告そのものが
+    // 読まれなくなるため（＝confirm を減らした意味が消えるため）。
+    var _UI_DIRTY_TYPES = ['text', 'search', 'number', 'color', 'tel', 'url', 'email'];
+
+    document.addEventListener('input', function(e) {
+        var t = e.target;
+        if (!t || !t.tagName) return;
+        var tag = t.tagName.toLowerCase();
+        if (tag !== 'textarea' && tag !== 'input') return;
+        if (tag === 'input' && _UI_DIRTY_TYPES.indexOf((t.type || 'text').toLowerCase()) === -1) return;
+        var modal = t.closest ? t.closest(UI_MODAL_SELECTOR) : null;
+        if (modal) modal.setAttribute('data-ui-dirty', '1');
+    }, true);
+
+    // モーダルが「閉→開」に変わった瞬間にダーティ印をリセットする
+    (function _uiWatchModalOpenState() {
+        if (typeof MutationObserver === 'undefined') return;
+        var obs = new MutationObserver(function(muts) {
+            muts.forEach(function(m) {
+                var el = m.target;
+                if (_uiModalIsOpen(el)) {
+                    if (el.getAttribute('data-ui-open') !== '1') {
+                        el.setAttribute('data-ui-open', '1');
+                        el.removeAttribute('data-ui-dirty');
+                    }
+                } else {
+                    el.setAttribute('data-ui-open', '0');
+                    el.removeAttribute('data-ui-dirty');
+                }
+            });
+        });
+        document.querySelectorAll(UI_MODAL_SELECTOR).forEach(function(el) {
+            obs.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+        });
+    })();
+
+    function _uiCloseModal(el) {
+        if (!el) return false;
+        if (el.hasAttribute('data-keep-open')) return false;
+        if (el.getAttribute('data-ui-dirty') === '1') {
+            showToast('入力中の内容があります。「保存」か「×」で閉じてください', 'warning');
+            return false;
+        }
+        el.classList.remove('active');   // .att-modal-overlay / .modal-overlay
+        el.classList.remove('show');     // .pf-modal-overlay
+        // インラインで display を直接操作している旧来のモーダルにも対応
+        if (el.style && el.style.display && el.style.display !== 'none') {
+            el.style.display = 'none';
+        }
+        el.removeAttribute('data-ui-dirty');
+        return true;
+    }
+
+    // 背景（オーバーレイ自身）をタップしたときだけ閉じる。中身のタップでは閉じない。
+    document.addEventListener('click', function(e) {
+        var el = e.target;
+        if (!el || !el.matches) return;
+        if (!el.matches(UI_MODAL_SELECTOR)) return;
+        if (!_uiModalIsOpen(el)) return;
+        _uiCloseModal(el);
+    });
+
+    // Escape：開いているモーダルのうち最前面（DOM上で最後）の1枚だけを閉じる
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape' && e.key !== 'Esc') return;
+        // 日本語入力の変換中に押された Escape は「変換の取り消し」であって
+        // 「モーダルを閉じる」ではない。IME より先に奪ってはいけない。
+        if (e.isComposing || e.keyCode === 229) return;
+        var open = [];
+        document.querySelectorAll(UI_MODAL_SELECTOR).forEach(function(el) {
+            if (_uiModalIsOpen(el)) open.push(el);
+        });
+        if (open.length === 0) return;
+        if (_uiCloseModal(open[open.length - 1])) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
 
     // ================================================================
     // v1.10.0: PDF生成の共通基盤
@@ -5867,9 +5996,19 @@
             attSave(allData);
             attRenderGrid();
             attUpdateStats();
+            attPulseCell(i);   // v1.11.0 ①：入ったことを確認しに行かずに済むように
         } else {
             attOpenModal(i);
         }
+    }
+
+    // v1.11.0 ①：再描画後のセルを一瞬だけ光らせる
+    function attPulseCell(i) {
+        const grid = document.getElementById('attGrid');
+        if (!grid || !grid.children[i]) return;
+        const cell = grid.children[i];
+        cell.classList.add('ui-just-set');
+        setTimeout(function() { cell.classList.remove('ui-just-set'); }, 400);
     }
 
     function attRenderGrid() {
@@ -5980,10 +6119,12 @@
         } else {
             delete allData[dateKey][String(attCurrentStudentIdx)];
         }
+        const _pulseIdx = attCurrentStudentIdx;
         attSave(allData);
         attRenderGrid();
         attUpdateStats();
         attCloseModal();
+        if (status) attPulseCell(_pulseIdx);   // v1.11.0 ①
         showToast(status ? '出欠を記録しました' : 'クリアしました', 'success');
     }
 

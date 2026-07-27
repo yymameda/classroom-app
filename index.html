@@ -2249,13 +2249,21 @@
                 <!-- 集計タブ -->
                 <div id="att-tab-summary" style="display:none; flex-direction:column; flex:1; min-height:0; overflow:hidden;">
                     <div class="att-top-bar" style="border-top:none;">
-                        <label style="font-size:0.85rem;font-weight:600;">学期：</label>
+                        <select id="attSumUnit" onchange="attSumUnitChange()" style="font-size:0.85rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:white;font-weight:600;">
+                            <option value="term">学期別</option>
+                            <option value="month">月別</option>
+                        </select>
                         <select id="attTermSel" onchange="attRenderSummary()" style="font-size:0.85rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:white;">
                             <option value="1">1学期</option>
                             <option value="2">2学期</option>
                             <option value="3">3学期</option>
                             <option value="all">全期間</option>
                         </select>
+                        <span id="attSumMonthWrap" style="display:none;align-items:center;gap:4px;">
+                            <button class="att-nav-btn" onclick="attSumMonthShift(-1)">◀</button>
+                            <select id="attSumMonthSel" onchange="attRenderSummary()" style="font-size:0.85rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:white;"></select>
+                            <button class="att-nav-btn" onclick="attSumMonthShift(1)">▶</button>
+                        </span>
                     </div>
                     <div class="att-summary-wrap">
                         <div class="att-summary-grid" id="attSummaryGrid"></div>
@@ -5744,9 +5752,52 @@
         }
         return 'other';
     }
+    // term: '1'|'2'|'3'|'all'、または 'm:YYYY-MM'（月別集計）
     function attFilterByTerm(data, term) {
         if (term === 'all') return data;
+        if (typeof term === 'string' && term.indexOf('m:') === 0) {
+            const ym = term.slice(2);
+            return Object.fromEntries(Object.entries(data).filter(([d]) => d.slice(0, 7) === ym));
+        }
         return Object.fromEntries(Object.entries(data).filter(([d]) => attDateToTerm(d) === String(term)));
+    }
+
+    // ---- 集計：月別セレクタ ----
+    function attSumCurrentYM() { return attDateStr(new Date()).slice(0, 7); }
+    function attSumMonthList() {
+        const set = new Set(Object.keys(attGetAll()).map(d => d.slice(0, 7)));
+        set.add(attSumCurrentYM());
+        return Array.from(set).sort();
+    }
+    function attSumMonthLabel(ym) {
+        return Number(ym.slice(0, 4)) + '年' + Number(ym.slice(5, 7)) + '月';
+    }
+    function attPopulateSumMonths() {
+        const sel = document.getElementById('attSumMonthSel');
+        if (!sel) return;
+        const prev = sel.value;
+        const list = attSumMonthList();
+        sel.innerHTML = list.map(ym => `<option value="${ym}">${attSumMonthLabel(ym)}</option>`).join('');
+        const cur = attSumCurrentYM();
+        sel.value = (prev && list.indexOf(prev) >= 0) ? prev
+                  : (list.indexOf(cur) >= 0 ? cur : list[list.length - 1]);
+    }
+    function attSumMonthShift(delta) {
+        const sel = document.getElementById('attSumMonthSel');
+        if (!sel || !sel.options.length) return;
+        const i = Math.min(sel.options.length - 1, Math.max(0, sel.selectedIndex + delta));
+        if (i === sel.selectedIndex) return;
+        sel.selectedIndex = i;
+        attRenderSummary();
+    }
+    function attSumUnitChange() {
+        const unit = (document.getElementById('attSumUnit') || {}).value || 'term';
+        const termSel = document.getElementById('attTermSel');
+        const mWrap   = document.getElementById('attSumMonthWrap');
+        if (termSel) termSel.style.display = (unit === 'month') ? 'none' : '';
+        if (mWrap)   mWrap.style.display   = (unit === 'month') ? 'inline-flex' : 'none';
+        if (unit === 'month') attPopulateSumMonths();
+        attRenderSummary();
     }
 
     // ---- タブ切替 ----
@@ -5758,7 +5809,7 @@
             if (btn)   btn.classList.toggle('active', t === tab);
         });
         if (tab === 'month')   attInitMonth();
-        if (tab === 'summary') attRenderSummary();
+        if (tab === 'summary') attSumUnitChange();
     }
 
     // ---- 日付操作 ----
@@ -6108,14 +6159,27 @@
 
     // ---- 集計 ----
     function attRenderSummary() {
-        const sel = document.getElementById('attTermSel');
         const container = document.getElementById('attSummaryGrid');
-        if (!sel || !container) return;
-        const term = sel.value;
+        if (!container) return;
+        const unit = (document.getElementById('attSumUnit') || {}).value || 'term';
+        let term, periodLabel;
+        if (unit === 'month') {
+            const ms = document.getElementById('attSumMonthSel');
+            if (ms && !ms.options.length) attPopulateSumMonths();
+            const ym = ms ? ms.value : '';
+            if (!ym) { container.innerHTML = '<p style="grid-column:1/-1;color:var(--text-light);text-align:center;padding:20px;">集計できる月がありません</p>'; return; }
+            term = 'm:' + ym;
+            periodLabel = attSumMonthLabel(ym);
+        } else {
+            const sel = document.getElementById('attTermSel');
+            if (!sel) return;
+            term = sel.value;
+            periodLabel = (term === 'all') ? '全期間' : term + '学期';
+        }
         const students = attGetStudents();
         const allData  = attFilterByTerm(attGetAll(), term);
         if (students.length === 0) {
-            container.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:20px;">名簿に児童が登録されていません</p>';
+            container.innerHTML = '<p style="grid-column:1/-1;color:var(--text-light);text-align:center;padding:20px;">名簿に児童が登録されていません</p>';
             return;
         }
         const schoolDates = new Set(
@@ -6123,7 +6187,7 @@
                 .filter(([,day]) => Object.values(day).some(s => ['○','×','／','チ','ソ','チソ','忌','停','校'].includes(s)))
                 .map(([d]) => d)
         );
-        let html = `<p style="font-size:0.82rem;color:var(--text-light);margin-bottom:8px;">学校日数（推定）: <b>${schoolDates.size}日</b></p>`;
+        let html = `<p style="grid-column:1/-1;font-size:0.82rem;color:var(--text-light);margin-bottom:8px;"><b>${escapeHtml(periodLabel)}</b> ／ 学校日数（推定）: <b>${schoolDates.size}日</b></p>`;
         students.forEach((s, i) => {
             const cnts = {};
             Object.keys(ATT_STATUS_MAP).forEach(k => { cnts[k] = 0; });

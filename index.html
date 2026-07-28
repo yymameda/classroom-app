@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>教室管理SPA</title>
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -1955,6 +1955,11 @@
         .pf-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
         .pf-empty{text-align:center;padding:40px 20px;color:var(--text-light);}
         .pf-empty-icon{font-size:40px;margin-bottom:12px;}
+        /* v1.12.0 ②：空の画面の共通表示（行き止まりを作らない） */
+        .ui-empty{grid-column:1/-1;text-align:center;padding:32px 20px;color:var(--text-light);}
+        .ui-empty-icon{font-size:40px;line-height:1;margin-bottom:10px;}
+        .ui-empty-msg{font-size:0.9rem;line-height:1.6;margin-bottom:14px;}
+        .ui-empty-btn{min-height:48px;padding:12px 28px;font-size:1rem;}
         .pf-heat-1{background:#fdeaea;color:#9a2020;} .pf-heat-2{background:#fde8d0;color:#b85c00;} .pf-heat-3{background:#fffbe6;color:#7a6000;} .pf-heat-4{background:#e8f5ee;color:#0d4a30;} .pf-heat-5{background:#d4f0e4;color:#0d7a3e;}
         .pf-radar-wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;}
         .pf-radar-canvas-wrap{position:relative;flex:0 0 auto;}
@@ -2198,7 +2203,7 @@
                         <button class="btn btn-primary" onclick="saveMasterRoster()">💾 クラス情報と名簿を保存</button>
                     </div>
                     <div class="roster-preview" id="rosterPreview">
-                        <div style="text-align: center; color: var(--text-light); padding: 20px;">名簿が入力されていません</div>
+                        <div class="ui-empty"><div class="ui-empty-icon">👥</div><div class="ui-empty-msg">上の欄に児童名を1行ずつ貼り付けて、「クラス情報と名簿を保存」を押すと、ここに一覧が出ます。</div></div>
                     </div>
                     <div class="roster-count" id="rosterCount"></div>
                 </div>
@@ -3658,7 +3663,10 @@
         _toastHideTimer = setTimeout(function() { t.classList.remove('show'); _toastHideTimer = null; }, 2500);
     }
 
-    // --- showUndoToast: 削除等を5秒間だけUndo可能にするトースト ---
+    // --- showUndoToast: 削除等を一定時間だけUndo可能にするトースト ---
+    // v1.12.0: 取り消せる時間を全操作で統一する（操作ごとに違うと「まだ戻せるか」を
+    //          毎回考えることになり、確認ダイアログを減らした意味が薄れるため）
+    var UI_UNDO_MS = 8000;
     function showUndoToast(message, onUndo) {
         const t = document.getElementById('toast');
         const msgEl = document.getElementById('toastMsg');
@@ -3678,8 +3686,111 @@
         _toastUndoTimer = setTimeout(function() {
             t.classList.remove('show');
             _toastUndoReset();
-        }, 5000);
+        }, UI_UNDO_MS);
     }
+
+    // ================================================================
+    // v1.12.0 ①：取り消せる操作は確認せずに実行し、後から戻せるようにする
+    //   変更前の生文字列を保持し、Undo で書き戻す。JSONの中身は解釈しない。
+    //   ・保留中のdebounce書き込みを先に流してから書き戻す（後追いの上書き防止）
+    //   ・モジュール内キャッシュを破棄する（登録制。破棄しないと画面が古いまま）
+    //   ・取り消し可能時間中に別の変更が入っていたら書き戻さない
+    //     （一括操作の直後に手で1人直した、という場合にその修正を消さないため）
+    // ================================================================
+    var UI_CACHE_RESETTERS = [];
+    function uiRegisterCacheReset(fn) {
+        if (typeof fn === 'function') UI_CACHE_RESETTERS.push(fn);
+    }
+    function uiResetCaches() {
+        UI_CACHE_RESETTERS.forEach(function(fn) {
+            try { fn(); } catch (e) { console.error('uiResetCaches:', e); }
+        });
+    }
+
+    // DOMを正とするモジュール（提出物など）は、入力を数百ms遅らせて保存する。
+    // 競合を判定する前にそれを確定させないと、「保存待ちの1タップ」が
+    // 変更なしと見なされ、書き戻しで黙って消える。
+    var UI_PENDING_FLUSHERS = [];
+    function uiRegisterPendingFlush(fn) {
+        if (typeof fn === 'function') UI_PENDING_FLUSHERS.push(fn);
+    }
+    function uiFlushPending() {
+        UI_PENDING_FLUSHERS.forEach(function(fn) {
+            try { fn(); } catch (e) { console.error('uiFlushPending:', e); }
+        });
+        if (typeof flushSaveQueue === 'function') flushSaveQueue();
+    }
+
+    // 使い方: var undo = uiUndoable('…しました', [キー…], 再描画関数);
+    //         …変更処理…
+    //         undo();
+    function uiUndoable(message, keys, afterRestore) {
+        // StorageManager.set は500ms遅延で書き込む。IndexedDB読込前（Phase A）は
+        // getRaw が localStorage を直接読むため、流し込む前に読むと古い値を掴む。
+        // それをスナップショットにすると、取り消し時に必ず競合と誤判定される。
+        if (typeof flushSaveQueue === 'function') flushSaveQueue();
+        var before = {};
+        keys.forEach(function(k) { before[k] = StorageManager.getRaw(k); });
+        return function commit() {
+            if (typeof flushSaveQueue === 'function') flushSaveQueue();
+            var committed = {};
+            keys.forEach(function(k) { committed[k] = StorageManager.getRaw(k); });
+            showUndoToast(message, function() {
+                uiFlushPending();
+                var conflicted = keys.some(function(k) {
+                    return StorageManager.getRaw(k) !== committed[k];
+                });
+                if (conflicted) {
+                    showToast('そのあとに変更があったため、元に戻せませんでした', 'warning');
+                    return;
+                }
+                keys.forEach(function(k) {
+                    var v = before[k];
+                    if (v === null || v === undefined) StorageManager.remove(k);
+                    else StorageManager.setImmediate(k, v);
+                });
+                uiResetCaches();
+                if (typeof afterRestore === 'function') afterRestore();
+                showToast('元に戻しました', 'success');
+            });
+        };
+    }
+
+    // ================================================================
+    // v1.12.0 ②：空の画面（エンプティステート）の統一
+    //   「何も無い」だけを伝えて終わらせない。必ず次の一手を置く。
+    //   戻り値はHTML文字列。呼び出し側は innerHTML に入れるだけでよい。
+    //   emptyState('名簿が未登録です')                        → 既定で設定タブへ
+    //   emptyState('…', 'ボタン文言', function(){ … })       → 任意の遷移
+    //   emptyState('…', null)                                 → ボタンなし（既にその場で操作できる画面用）
+    // ================================================================
+    var _uiEmptyActions = {};
+    var _uiEmptySeq = 0;
+    function emptyState(msg, actionLabel, actionFn) {
+        var html = '<div class="ui-empty">'
+            + '<div class="ui-empty-icon">👥</div>'
+            + '<div class="ui-empty-msg">' + escapeHtml(msg) + '</div>';
+        if (actionLabel !== null) {
+            var key;
+            if (typeof actionFn === 'function') {
+                key = 'a' + (++_uiEmptySeq);
+                _uiEmptyActions[key] = actionFn;
+            } else {
+                key = 'settings';   // 既定の行き先。関数を溜め込まないよう登録しない
+            }
+            html += '<button type="button" class="btn btn-primary ui-empty-btn" data-ui-empty="' + key + '">'
+                 + escapeHtml(actionLabel || '👥 名簿を登録する') + '</button>';
+        }
+        return html + '</div>';
+    }
+    document.addEventListener('click', function(e) {
+        var btn = (e.target && e.target.closest) ? e.target.closest('[data-ui-empty]') : null;
+        if (!btn) return;
+        var key = btn.getAttribute('data-ui-empty');
+        if (key === 'settings') { showView('settings'); return; }
+        var fn = _uiEmptyActions[key];
+        if (typeof fn === 'function') fn();
+    });
 
     // ================================================================
     // v1.11.0 ③：モーダルの共通離脱手段（背景タップ / Escape）
@@ -4866,7 +4977,7 @@
         var container = document.getElementById('rosterPreview');
         var countEl = document.getElementById('rosterCount');
         if (master.students.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:20px;">名簿が入力されていません</div>';
+            container.innerHTML = emptyState('上の欄に児童名を1行ずつ貼り付けて、「クラス情報と名簿を保存」を押すと、ここに一覧が出ます。', null);
             countEl.textContent = '';
             return;
         }
@@ -5572,9 +5683,16 @@
         renderSeating();
     }
     function resetSeating() {
-        if (!confirm('座席配置をリセットしますか？')) return;
+        if (Object.keys(seatingData).length === 0) { showToast('座席はまだ配置されていません', 'info'); return; }
+        // 編集中の一時状態のみ。保存は「座席を保存」を押すまで行われないためストレージは触らない
+        var prev = JSON.parse(JSON.stringify(seatingData));
         seatingData = {};
         renderSeating();
+        showUndoToast('座席配置をリセットしました', function() {
+            seatingData = prev;
+            renderSeating();
+            showToast('元に戻しました', 'success');
+        });
     }
     function saveSeatingAndExit() {
         saveSeatingData(seatingData);
@@ -6131,7 +6249,7 @@
     // ---- 一括操作 ----
     function attMarkAll(status) {
         const students = attGetStudents();
-        if (students.length === 0) { showToast('名簿が設定されていません', 'warning'); return; }
+        if (students.length === 0) { showToast('先に設定タブで名簿を登録してください', 'warning'); return; }
         const label = ATT_STATUS_MAP[status] ? ATT_STATUS_MAP[status].label : status;
         const dateKey = attDateStr(attCurrentDate);
         const allData = attGetAll();
@@ -6141,50 +6259,63 @@
             const targets = [];
             students.forEach((_, i) => { if (!day[String(i)]) targets.push(String(i)); });
             if (targets.length === 0) { showToast('全員入力済みです', 'info'); return; }
-            if (!confirm('未入力の ' + targets.length + '名を「出席」にしますか？\n（入力済みの児童はそのままです）')) return;
+            const undoBlank = uiUndoable('未入力の ' + targets.length + '名を「出席」にしました', [ATT_KEY], function() {
+                attRenderGrid();
+                attUpdateStats();
+            });
             targets.forEach(k => { day[k] = '○'; });
             allData[dateKey] = day;
             attSave(allData);
             attRenderGrid();
             attUpdateStats();
-            showToast('未入力の ' + targets.length + '名を「出席」にしました', 'success');
+            undoBlank();
             return;
         }
 
         const existing = Object.keys(day).length;
-        const warn = existing > 0 ? '\n（入力済みの ' + existing + '名も含め、全員を上書きします）' : '';
-        if (!confirm('全員を「' + label + '」にしますか？' + warn)) return;
+        const undoAll = uiUndoable(
+            `${students.length}名を「${label}」にしました` + (existing > 0 ? '（入力済み ' + existing + '名を上書き）' : ''),
+            [ATT_KEY],
+            function() { attRenderGrid(); attUpdateStats(); });
         allData[dateKey] = {};
         students.forEach((_, i) => { allData[dateKey][String(i)] = status; });
         attSave(allData);
         attRenderGrid();
         attUpdateStats();
-        showToast(`${students.length}名を「${label}」にしました`, 'success');
+        undoAll();
     }
     function attClearDay() {
+        const dateKey = attDateStr(attCurrentDate);
+        const allData = attGetAll();
+        const nd = attGetAllNotice();
+        const mpData = StorageManager.get(KEYS.morning_prep, {});
+        if (!allData[dateKey] && !nd[dateKey] && !mpData[dateKey]) {
+            showToast('この日の記録はまだありません', 'info');
+            return;
+        }
         const d = attCurrentDate;
         const dowJa = ['日','月','火','水','木','金','土'][d.getDay()];
         const dateLabel = (d.getMonth() + 1) + '月' + d.getDate() + '日(' + dowJa + ')';
-        if (!confirm(dateLabel + ' の出欠をすべてクリアしますか？\n（同じ日の届出チェック・朝の準備の記録も削除されます）')) return;
-        const dateKey = attDateStr(attCurrentDate);
-        const allData = attGetAll();
+        // 出欠・届出チェック・朝の準備の3つを1回の取り消しでまとめて戻す
+        const undoClear = uiUndoable(
+            dateLabel + ' の記録をクリアしました',
+            [ATT_KEY, KEYS.attendance_notice, KEYS.morning_prep],
+            function() { attRenderGrid(); attUpdateStats(); });
         delete allData[dateKey];
         attSave(allData);
         // 届出チェックの当日分を削除
-        const nd = attGetAllNotice();
         if (nd[dateKey]) {
             delete nd[dateKey];
             attSaveNotice(nd);
         }
         // 朝の準備の当日分を削除
-        const mpData = StorageManager.get(KEYS.morning_prep, {});
         if (mpData[dateKey]) {
             delete mpData[dateKey];
             StorageManager.setImmediate(KEYS.morning_prep, JSON.stringify(mpData));
         }
         attRenderGrid();
         attUpdateStats();
-        showToast('クリアしました', 'success');
+        undoClear();
     }
 
     function attToggleMorningPrep(idx) {
@@ -6385,6 +6516,7 @@
 
         function _invalidate() { _testsCache = null; _scoresCache = null; }
         window.recInvalidateCache = _invalidate; // v1.8.88: 外部書き込み後のキャッシュ無効化用
+        uiRegisterCacheReset(_invalidate);       // v1.12.0: 取り消しでの書き戻しに追従
 
         function recGetTests() {
             if (_testsCache === null) _testsCache = StorageManager.get(REC_KEYS.tests, []);
@@ -7494,11 +7626,17 @@
 
         window.recClearAllScores = function() {
             if (!recCurrentTestId) return;
-            if (!confirm('この課題の全点数データをクリアしますか？')) return;
-            var scores = recGetScores().filter(function(s) { return s.testId !== recCurrentTestId; });
-            recSaveScores(scores);
-            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            var testId = recCurrentTestId;
+            var hit = recGetScores().filter(function(s) { return s.testId === testId; }).length;
+            if (hit === 0) { showToast('この課題の点数はまだありません', 'info'); return; }
+            var undo = uiUndoable(hit + ' 件の点数をクリアしました', [REC_KEYS.scores], function() {
+                var t2 = recGetTests().find(function(t) { return t.id === testId; });
+                if (t2) { recRenderList(t2); recUpdateProgress(t2); }
+            });
+            recSaveScores(recGetScores().filter(function(s) { return s.testId !== testId; }));
+            var test = recGetTests().find(function(t) { return t.id === testId; });
             if (test) { recRenderList(test); recUpdateProgress(test); }
+            undo();
         };
 
         // ============================================================
@@ -8173,13 +8311,24 @@
 
         window.recDeleteTest = function(testId) {
             testId = recParseTestId(testId); // v1.8.88
-            if (!confirm('この課題と関連する全ての点数データを削除しますか？')) return;
+            var target = recGetTests().find(function(t) { return t.id === testId; });
+            if (!target) { showToast('課題が見つかりません', 'warning'); return; }
+            var hit = recGetScores().filter(function(s) { return s.testId === testId; }).length;
+            var prevCurrent = recCurrentTestId;
+            var undo = uiUndoable(
+                '「' + (target.name || '無題の課題') + '」を削除しました' + (hit > 0 ? '（点数 ' + hit + ' 件を含む）' : ''),
+                [REC_KEYS.tests, REC_KEYS.scores, REC_KEYS.matomeQ],
+                function() {
+                    recCurrentTestId = prevCurrent;
+                    recRenderTestList(); recUpdateTestSelect();
+                });
             recSaveTests(recGetTests().filter(function(t) { return t.id !== testId; }));
             recSaveScores(recGetScores().filter(function(s) { return s.testId !== testId; }));
             var allMQ = StorageManager.get(REC_KEYS.matomeQ, {});
             if (allMQ[testId]) { delete allMQ[testId]; StorageManager.setImmediate(REC_KEYS.matomeQ, JSON.stringify(allMQ)); }
             if (recCurrentTestId === testId) recCurrentTestId = null;
             recRenderTestList(); recUpdateTestSelect();
+            undo();
         };
 
         window.recSelectTestGoto = function(testId) {
@@ -8435,6 +8584,7 @@
             StorageManager.setImmediate(KEYS.patrol, JSON.stringify(data));
             _patrolDataCache = null;
         }
+        uiRegisterCacheReset(function() { _patrolDataCache = null; });
 
         function getCurrentPatrolSessionKey() {
             var d = document.getElementById('patrolDate').value;
@@ -8643,11 +8793,17 @@
         }
 
         function clearPatrolSession() {
-            if (!confirm('本時の机間巡視記録をすべて削除しますか？')) return;
-            var patrolData = getPatrolData().filter(function(d){ return d.sessionKey !== getCurrentPatrolSessionKey(); });
-            savePatrolData(patrolData);
+            var sessionKey = getCurrentPatrolSessionKey();
+            var target = getPatrolData().filter(function(d){ return d.sessionKey === sessionKey; });
+            if (target.length === 0) { showToast('本時の記録はまだありません', 'info'); return; }
+            var undo = uiUndoable(target.length + ' 件の記録を削除しました', [KEYS.patrol], function() {
+                renderPatrolGrid();
+                renderPatrolSummary();
+            });
+            savePatrolData(getPatrolData().filter(function(d){ return d.sessionKey !== sessionKey; }));
             renderPatrolGrid();
             renderPatrolSummary();
+            undo();
         }
 
         function showPatrolHistory() {
@@ -9524,7 +9680,7 @@
         function karteGetHealthCare()     { return karteSafeGet(KK.health,   {}); }
         function karteGetLearningCare()   { return karteSafeGet(KK.learning, {}); }
         function karteGetKarteRecs()      { return karteSafeGet(KK.recs,     []); }
-        function karteSaveKarteRecs(arr)  { karteSafeSet(KK.recs, arr); }
+        function karteSaveKarteRecs(arr)  { return karteSafeSet(KK.recs, arr); }
 
         function karteGetStudentLife(idx)    { var a = karteGetLifeRecords();    return Array.isArray(a[String(idx)]) ? a[String(idx)] : []; }
         function karteGetStudentParent(idx)  { var a = karteGetParentContacts(); return Array.isArray(a[String(idx)]) ? a[String(idx)] : []; }
@@ -9588,7 +9744,7 @@
                        : (hasParent ? '#9c6ade;background:#f3ecfb;color:#5e35b1;' : 'var(--border);background:var(--white);color:var(--text);');
                 html += '<button onclick="qmSelect(' + i + ')" style="' + style + '">' + (i+1) + ' ' + escapeHtml(name) + '</button>';
             }
-            grid.innerHTML = html || '<div style="color:var(--text-light);">名簿が未登録です</div>';
+            grid.innerHTML = html || emptyState('名簿がまだ登録されていません。');
         }
 
         function qmSelect(idx) {
@@ -10238,14 +10394,22 @@
         }
         function karteRecCancelEdit() { karteRecEditingId = null; karteRecRating = null; karteRecCategory = null; karteRecAbsent = false; renderKarteRecords(); }
         function karteRecDelete(id) {
-            if (!confirm('この記録を削除しますか？')) return;
             var recs = karteGetKarteRecs();
             var target = recs.find(function(r) { return r.id === id; });
-            if (target) karteDeletedBuffer.push({ type: 'recs', studentIndex: target.studentIndex, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() });
-            karteSaveKarteRecs(recs.filter(function(r) { return r.id !== id; }));
-            showToast('削除しました（元に戻せます）', 'warning');
+            if (!target) { showToast('記録が見つかりません', 'warning'); return; }
+            var buf = { type: 'recs', studentIndex: target.studentIndex, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() };
+            var undo = uiUndoable('記録を削除しました', [KK.recs], function() {
+                // 書き戻しに成功したらバッファからも取り除く（画面上部の件数と二重にならないように）
+                var bi = karteDeletedBuffer.indexOf(buf);
+                if (bi >= 0) karteDeletedBuffer.splice(bi, 1);
+                renderKarteStudentBar();
+                renderKarteRecords();
+            });
+            if (!karteSaveKarteRecs(recs.filter(function(r) { return r.id !== id; }))) return;   // 保存失敗時はバッファも汚さない
+            karteDeletedBuffer.push(buf);
             renderKarteStudentBar();
             renderKarteRecords();
+            undo();
         }
         function setKarteRecFilter(f) { karteRecFilter = f; renderKarteRecords(); }
 
@@ -10375,15 +10539,22 @@
         function editKarteLife(id) { karteLifeEditingId = id; renderKarteLife(); var c = document.querySelector('.karte-tab-content'); if (c) c.scrollTop = 0; }
         function cancelKarteLifeEdit() { karteLifeEditingId = null; karteLifeSelectedCats = []; renderKarteLife(); }
         function deleteKarteLife(id) {
-            if (!confirm('この記録を削除しますか？')) return;
             var idx = karteSelectedStudent;
             var all = karteGetLifeRecords();
             var list = Array.isArray(all[String(idx)]) ? all[String(idx)] : [];
             var target = list.find(function(r) { return r.id === id; });
-            if (!target) return;
-            karteDeletedBuffer.push({ type: 'life', studentIndex: idx, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() });
+            if (!target) { showToast('記録が見つかりません', 'warning'); return; }
+            var buf = { type: 'life', studentIndex: idx, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() };
+            var undo = uiUndoable('生活記録を削除しました', [KK.life], function() {
+                var bi = karteDeletedBuffer.indexOf(buf);
+                if (bi >= 0) karteDeletedBuffer.splice(bi, 1);
+                renderKarteLife();
+            });
             all[String(idx)] = list.filter(function(r) { return r.id !== id; });
-            if (karteSafeSet(KK.life, all)) { showToast('削除しました（元に戻せます）', 'warning'); renderKarteLife(); }
+            if (!karteSafeSet(KK.life, all)) return;   // 保存失敗時はバッファも汚さない
+            karteDeletedBuffer.push(buf);
+            renderKarteLife();
+            undo();
         }
 
         // ===== タブ: 保護者対応 =====
@@ -10467,14 +10638,22 @@
         function editKarteParent(id) { karteParentEditingId = id; renderKarteParent(); var c = document.querySelector('.karte-tab-content'); if (c) c.scrollTop = 0; }
         function cancelKarteParentEdit() { karteParentEditingId = null; karteParentSelectedMethod = ''; renderKarteParent(); }
         function deleteKarteParent(id) {
-            if (!confirm('この記録を削除しますか？')) return;
             var idx = karteSelectedStudent;
             var all = karteGetParentContacts();
             var list = Array.isArray(all[String(idx)]) ? all[String(idx)] : [];
             var target = list.find(function(r) { return r.id === id; });
-            if (target) karteDeletedBuffer.push({ type: 'parent', studentIndex: idx, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() });
+            if (!target) { showToast('記録が見つかりません', 'warning'); return; }
+            var buf = { type: 'parent', studentIndex: idx, data: JSON.parse(JSON.stringify(target)), deletedAt: Date.now() };
+            var undo = uiUndoable('保護者対応の記録を削除しました', [KK.parent], function() {
+                var bi = karteDeletedBuffer.indexOf(buf);
+                if (bi >= 0) karteDeletedBuffer.splice(bi, 1);
+                renderKarteParent();
+            });
             all[String(idx)] = list.filter(function(r) { return r.id !== id; });
-            if (karteSafeSet(KK.parent, all)) { showToast('削除しました（元に戻せます）', 'warning'); renderKarteParent(); }
+            if (!karteSafeSet(KK.parent, all)) return;   // 保存失敗時はバッファも汚さない
+            karteDeletedBuffer.push(buf);
+            renderKarteParent();
+            undo();
         }
 
         // ===== タブ: 身体・配慮 =====
@@ -10851,21 +11030,24 @@
         }
         var subEditingAssignId = null;
         function subDeleteAssign(id) {
-            if (!confirm('この課題を削除しますか？\n提出データも削除されます。')) return;
             var delAssign = subGetAssignments().find(function(a) { return a.id === id; });
-            var delSubs = subGetSubmissions().filter(function(s) { return s.assignmentId === id; });
+            if (!delAssign) { showToast('課題が見つかりません', 'warning'); return; }
+            var delCount = subGetSubmissions().filter(function(s) { return s.assignmentId === id; }).length;
+            var prevCurrent = subCurrentAssign;
+            var undo = uiUndoable(
+                '「' + (delAssign.name || '無題の課題') + '」を削除しました' + (delCount > 0 ? '（提出記録 ' + delCount + ' 件を含む）' : ''),
+                [KEYS.submissions_assignments, KEYS.submissions_data],
+                function() {
+                    subCurrentAssign = prevCurrent;
+                    subRenderAssignList();
+                    subUpdateAssignSelects();
+                });
             subSaveAssignments(subGetAssignments().filter(function(a) { return a.id !== id; }));
             subSaveSubmissions(subGetSubmissions().filter(function(s) { return s.assignmentId !== id; }));
             if (subCurrentAssign === id) subCurrentAssign = null;
             subRenderAssignList();
             subUpdateAssignSelects();
-            showUndoToast('課題を削除しました', function() {
-                if (delAssign) subSaveAssignments(subGetAssignments().concat([delAssign]));
-                if (delSubs.length) subSaveSubmissions(subGetSubmissions().concat(delSubs));
-                subRenderAssignList();
-                subUpdateAssignSelects();
-                showToast('復元しました', 'success');
-            });
+            undo();
         }
         function subEditAssign(id) {
             var assigns = subGetAssignments();
@@ -10985,7 +11167,7 @@
             var wrap = document.getElementById('subListWrap');
             if (!wrap) return;
             var students = subGetStudents();
-            if (!students.length) { wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-light);">名簿が未設定です</div>'; return; }
+            if (!students.length) { wrap.innerHTML = emptyState('名簿がまだ登録されていません。'); return; }
             var subs = subCurrentAssign ? subGetSubmissions() : [];
             var html = '';
             students.forEach(function(stu, i) {
@@ -11178,6 +11360,8 @@
                 subAutoSave();
             }
         }
+        // v1.12.0: 取り消しの競合判定前に、保留中の入力を確定させる
+        uiRegisterPendingFlush(subFlushAutoSave);
         function subAutoSave() {
             if (!subCurrentAssign) return;
             var students = subGetStudents();
@@ -11234,12 +11418,23 @@
         }
         function subSetAllOk() {
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
-            var assign = subGetAssignments().find(function(a) { return a.id === subCurrentAssign; });
-            var assignName = assign ? assign.name : '選択中の課題';
-            if (!confirm('「' + assignName + '」を全員提出済みにします。よろしいですか？')) return;
             var students = subGetStudents();
+            if (!students.length) { showToast('先に設定タブで名簿を登録してください', 'warning'); return; }
+            // この画面は DOM が正。保存は subAutoSave が DOM を読んで行うため、
+            // スナップショットの前後で必ず保存を確定させてから取り消しを仕掛ける。
+            if (!document.querySelector('#subListWrap .sub-input-row')) {
+                showToast('入力欄がまだ表示されていません', 'warning'); return;
+            }
+            subFlushAutoSave();
+            var undo = uiUndoable('全員を提出済みにしました', [KEYS.submissions_data], function() {
+                subRenderInputList();
+                if (subViewMode === 'seat') subRenderSeatView();
+                else if (subViewMode === 'continuous') subRenderContinuous();
+                subUpdateProgress();
+            });
             students.forEach(function(_, i) { subSelectStatus(i, 'submitted'); });
-            subScheduleAutoSave();
+            subFlushAutoSave();
+            undo();
         }
 
         // 座席表示
@@ -11327,7 +11522,7 @@
             if (!grid) return;
             var students = subGetStudents();
             if (!students.length) {
-                grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-light);grid-column:1/-1;">名簿が未設定です</div>';
+                grid.innerHTML = emptyState('名簿がまだ登録されていません。');
                 if (progLabel) progLabel.textContent = '0 / 0';
                 return;
             }
@@ -11551,7 +11746,7 @@
             var grid = document.getElementById('subDiaryGrid');
             if (!grid) return;
             if (!students.length) {
-                grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-light);">名簿が未設定です</div>';
+                grid.innerHTML = emptyState('名簿がまだ登録されていません。');
                 return;
             }
             var todayCnt = 0, shortageCnt = 0;
@@ -11670,9 +11865,11 @@
         function subDiaryAllAdd() {
             var dateEl = document.getElementById('subDiaryDate');
             if (!dateEl) return;
-            if (!confirm('全員のページ数を+1します。よろしいですか？')) return;
-            var selDate = dateEl.value;
             var students = subGetStudents();
+            if (!students.length) { showToast('先に設定タブで名簿を登録してください', 'warning'); return; }
+            var selDate = dateEl.value;
+            if (!selDate) { showToast('日付を選んでください', 'warning'); return; }
+            var undo = uiUndoable('全員のページ数を+1しました', [KEYS.submissions_diary], subRenderDiary);
             var diary = subGetDiary();
             if (!diary[selDate]) diary[selDate] = {};
             students.forEach(function(_, i) {
@@ -11680,16 +11877,19 @@
             });
             subSaveDiary(diary);
             subRenderDiary();
-            showToast('全員+1しました', 'success');
+            undo();
         }
         function subDiaryClearDay() {
             var dateEl = document.getElementById('subDiaryDate');
             if (!dateEl) return;
-            if (!confirm(dateEl.value + ' のデータをクリアしますか？')) return;
+            if (!dateEl.value) { showToast('日付を選んでください', 'warning'); return; }
             var diary = subGetDiary();
+            if (!diary[dateEl.value]) { showToast('この日の記録はまだありません', 'info'); return; }
+            var undo = uiUndoable(dateEl.value + ' のデータをクリアしました', [KEYS.submissions_diary], subRenderDiary);
             delete diary[dateEl.value];
             subSaveDiary(diary);
             subRenderDiary();
+            undo();
         }
 
         // ================================================================
@@ -11828,6 +12028,9 @@
             _grdCacheTests = _grdCacheScores = _grdCachePatrol = null;
             _grdCacheAssign = _grdCacheSubs = _grdCacheWeights = _grdCacheThresh = null;
         }
+        // v1.12.0: 取り消しでの書き戻しに追従。成績タブに居たまま Undo を押した場合、
+        // showView('grades') を経由しないため grdInvalidate が呼ばれず古い値が残る。
+        uiRegisterCacheReset(grdInvalidate);
 
         function grdGetStudents() { return master.students || []; }
         function grdGetTests() {
@@ -12793,7 +12996,7 @@
                 return;
             }
             if (!pfRoster || !Array.isArray(pfRoster)) {
-                if (!silent) showToast('新体力テストの名簿がありません', 'error');
+                if (!silent) showToast('先に設定タブで名簿を登録してください', 'error');
                 return;
             }
 
@@ -14076,7 +14279,7 @@
             var dayData = daily[key] || {};
             var students = fgtGetStudents();
             if (!students.length) {
-                el.innerHTML = '<div style="grid-column:1/-1;color:var(--text-light);text-align:center;padding:30px 0;">名簿が未登録です</div>';
+                el.innerHTML = emptyState('名簿がまだ登録されていません。');
                 return;
             }
             var html = '';
@@ -14212,7 +14415,7 @@
             var filterMonth = sel ? sel.value : '';
             var daily = fgtGetDaily();
             var students = fgtGetStudents();
-            if (!students.length) { el.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;">名簿が未登録です</div>'; return; }
+            if (!students.length) { el.innerHTML = emptyState('名簿がまだ登録されていません。'); return; }
 
             // 集計
             var counts = {}; // idx → total
@@ -14291,7 +14494,7 @@
             var history = fgtGetHistory();
             var daily = fgtGetDaily();
             var students = fgtGetStudents();
-            if (!students.length) { el.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:30px 0;">名簿が未登録です</div>'; return; }
+            if (!students.length) { el.innerHTML = emptyState('名簿がまだ登録されていません。'); return; }
 
             // 月リスト
             var months = {};
@@ -14647,7 +14850,7 @@
                 return;
             }
             if (students.length === 0) {
-                wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">名簿が未設定です。</div>';
+                wrap.innerHTML = emptyState('名簿がまだ登録されていません。');
                 return;
             }
 
@@ -16733,7 +16936,7 @@
         mode = mode || 'all';
         var masterData = StorageManager.get(KEYS.master, {});
         var students = masterData.students || [];
-        if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
+        if (!students.length) { showToast('先に設定タブで名簿を登録してください', 'warning'); return; }
         var ci = masterData.classInfo || {};
         var attAll = StorageManager.get(KEYS.attendance, {});
         var noticeAll = StorageManager.get(KEYS.attendance_notice, {});
@@ -16920,7 +17123,7 @@
     window.printAllKanjiPDF = function() {
         var masterData = StorageManager.get(KEYS.master, {});
         var students = masterData.students || [];
-        if (!students.length) { showToast('名簿が未設定です', 'warning'); return; }
+        if (!students.length) { showToast('先に設定タブで名簿を登録してください', 'warning'); return; }
         var ci = masterData.classInfo || {};
         var kanjiData = StorageManager.get(KEYS.kanji, { chars: [], checks: {} });
         var chars = kanjiData.chars || [];
@@ -17199,7 +17402,7 @@
     function pf_renderRosterPreview(){
         var el=document.getElementById('pf-rosterPreview');
         if(!el)return;
-        if(pf_roster.length===0){el.innerHTML='<div style="color:var(--text-light);font-size:12px;">名簿が登録されていません</div>';return;}
+        if(pf_roster.length===0){el.innerHTML=emptyState('下の欄に児童名を貼り付けて保存すると、ここに一覧が出ます。', null);return;}
         var male=pf_roster.filter(function(s){return s.gender==='男';}).length;
         var female=pf_roster.filter(function(s){return s.gender==='女';}).length;
         el.innerHTML='<div class="pf-info-box green">登録済み：<strong>'+pf_roster.length+'名</strong>（男子 '+male+'名 / 女子 '+female+'名）<br>'+
@@ -17213,7 +17416,16 @@
         var filterVal=gf?gf.value:'all';
         var filtered=filterVal==='all'?pf_roster:pf_roster.filter(function(s){return s.gender===filterVal;});
         if(filtered.length===0){
-            wrap.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">👥</div>名簿が空です。設定タブで名簿を登録してください。</div>';
+            // 名簿が無いのか、絞り込みで0件になったのかで次の一手が違う
+            if(pf_roster.length===0){
+                wrap.innerHTML=emptyState('名簿がまだ登録されていません。','👥 名簿を登録する',function(){pf_switchView('settings');});
+            }else{
+                wrap.innerHTML=emptyState('絞り込みに当てはまる児童がいません。','すべて表示',function(){
+                    var g=document.getElementById('pf-genderFilter');
+                    if(g)g.value='all';
+                    pf_renderInputGrid();
+                });
+            }
             return;
         }
         var html='<div class="pf-input-grid"><table class="pf-sg-table"><thead><tr>';
@@ -17430,7 +17642,7 @@
     }
 
     function pf_exportCSV(){
-        if(pf_roster.length===0){showToast('⚠️ 名簿がありません','warning');return;}
+        if(pf_roster.length===0){showToast('先に設定タブで名簿を登録してください','warning');return;}
         var csv='﻿出席番号,氏名,性別,年齢,';
         PF_EVENTS.forEach(function(e){
             if(e==='握力'){csv+='握力左(kg),握力右(kg),握力平均(kg),握力(点),';}

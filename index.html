@@ -1226,13 +1226,68 @@
         .rating-btn.selected { border-width: 2px; }
 
         /* ===== 提出物チェック CSS ===== */
-        .sub-subnav { display: flex; gap: 4px; padding: 8px 12px; background: var(--white); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 4; }
-        .sub-subnav-btn { padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); color: var(--text-light); font-size: 0.82rem; font-family: inherit; cursor: pointer; min-height: 44px; white-space: nowrap; }
+        .sub-subnav { display: flex; gap: 4px; padding: 8px 12px; background: var(--white); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 4; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .sub-subnav-btn { padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); color: var(--text-light); font-size: 0.82rem; font-family: inherit; cursor: pointer; min-height: 44px; white-space: nowrap; flex-shrink: 0; }
         .sub-subnav-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
         .sub-sub { display: none; }
         .sub-sub.active { display: block; }
         .sub-panel { background: var(--white); border-radius: 12px; padding: 1rem; margin: 0.75rem; }
         .sub-panel-title { font-weight: 700; font-size: 0.95rem; color: var(--text-light); margin-bottom: 0.75rem; }
+
+        /* ===== 入力（個人）— 児童別 未提出チェック（v1.13.0） ===== */
+        .sub-psn-stu { position: relative; }
+        .sub-psn-stu.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+        .sub-psn-stu.active .num { color: rgba(255,255,255,0.85); }
+        .sub-psn-badge {
+            position: absolute; top: -5px; right: -4px; min-width: 20px; height: 20px;
+            border-radius: 10px; background: var(--danger); color: #fff;
+            font-size: 0.65rem; font-weight: 700; line-height: 20px; text-align: center;
+            padding: 0 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+        }
+        .sub-psn-badge.clear { background: #27AE60; }
+        .sub-psn-sec { border: 1.5px solid var(--border); border-radius: 10px; background: var(--white); margin: 0 0.75rem 0.6rem; overflow: hidden; }
+        .sub-psn-sec-hd { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #f4f6f9; border-bottom: 1px solid var(--border); font-size: 0.82rem; font-weight: 700; }
+        .sub-psn-sec-cnt { margin-left: auto; font-size: 0.75rem; font-weight: 700; }
+        .sub-psn-sec-bd { padding: 6px 8px; }
+        .sub-psn-row { border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; background: var(--white); }
+        .sub-psn-row:last-child { margin-bottom: 0; }
+        .sub-psn-row.done { background: #F7FBF8; border-color: #CDE7D6; }
+        .sub-psn-row.untouched { background: #FAFAFA; border-style: dashed; }
+        .sub-psn-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 5px; }
+        .sub-psn-subj { font-size: 0.68rem; font-weight: 700; color: var(--primary); border: 1px solid var(--primary); border-radius: 10px; padding: 1px 7px; }
+        .sub-psn-name { font-size: 0.85rem; font-weight: 600; }
+        .sub-psn-date { font-size: 0.7rem; color: var(--text-light); }
+        .sub-psn-tag { font-size: 0.65rem; font-weight: 700; border-radius: 8px; padding: 1px 6px; }
+        .sub-psn-tag.absent { background: #EEF2F7; color: #607D8B; }
+        .sub-psn-tag.late { background: #FDF2E3; color: #E67E22; }
+        .sub-psn-tag.re { background: #FCF6E0; color: #B7950B; }
+        .sub-psn-tag.new { background: #EDF1F5; color: #78909C; }
+        .sub-psn-acts { display: flex; gap: 5px; flex-wrap: wrap; }
+        .sub-psn-btn {
+            min-height: 44px; padding: 4px 12px; border-radius: 8px; cursor: pointer;
+            font-family: inherit; font-size: 0.8rem; font-weight: 700;
+            border: 1.5px solid var(--border); background: var(--white); color: var(--text);
+        }
+        .sub-psn-btn.ok { border-color: #27AE60; color: #27AE60; }
+        .sub-psn-btn.late { border-color: #E67E22; color: #E67E22; }
+        .sub-psn-btn.re { border-color: #B7950B; color: #B7950B; }
+        .sub-psn-btn.absent { border-color: #90A4AE; color: #607D8B; }
+        .sub-psn-btn.del { border-color: var(--danger); color: var(--danger); }
+        .sub-psn-nt { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-bottom: 1px dashed var(--border); }
+        .sub-psn-nt:last-child { border-bottom: none; }
+        .sub-psn-nt-date { font-size: 0.78rem; color: #555; min-width: 92px; }
+        .sub-psn-nt-st { font-size: 0.78rem; font-weight: 600; }
+        .sub-psn-nt-btn { margin-left: auto; min-height: 44px; min-width: 84px; border-radius: 12px; padding: 4px 12px; font-family: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+        .sub-psn-nt-btn.on  { background: #E8F5E9; color: #27AE60; border: 1.5px solid #27AE60; }
+        .sub-psn-nt-btn.off { background: #FDEDEC; color: #E74C3C; border: 1.5px solid #E74C3C; }
+        .sub-psn-empty { font-size: 0.78rem; color: var(--text-light); padding: 8px 4px; }
+        .sub-psn-sum { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 0.75rem 4px; }
+        .sub-psn-chip { font-size: 0.75rem; font-weight: 700; border-radius: 14px; padding: 4px 12px; border: 1.5px solid var(--border); background: var(--white); }
+        .sub-psn-chip.ng { border-color: var(--danger); color: var(--danger); }
+        .sub-psn-chip.re { border-color: #B7950B; color: #B7950B; }
+        .sub-psn-chip.nt { border-color: #E67E22; color: #E67E22; }
+        .sub-psn-chip.clear { border-color: #27AE60; color: #27AE60; }
+        .sub-psn-title { font-size: 1rem; font-weight: 700; }
 
         /* 入力 — グリッド（元アプリ準拠） */
         .sub-input-top { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
@@ -2738,6 +2793,7 @@
             <!-- サブナビ -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
+                <button class="sub-subnav-btn" data-sub="person">👤 入力（個人）</button>
                 <button class="sub-subnav-btn" data-sub="stats">📊 提出課題の統計</button>
                 <button class="sub-subnav-btn" data-sub="diary">📔 修養日誌</button>
                 <button class="sub-subnav-btn" data-sub="assign">📋 提出課題の管理</button>
@@ -2784,6 +2840,22 @@
                 <div id="subSeatWrap" style="display:none;">
                     <div class="sub-seat-grid" id="subSeatGrid"></div>
                 </div>
+            </div>
+
+            <!-- ── 入力（個人）タブ ── v1.13.0 -->
+            <div id="sub-sub-person" class="sub-sub">
+                <div class="sub-panel" style="padding:0.75rem;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                        <div style="font-size:0.85rem;font-weight:700;">👤 児童を選ぶ</div>
+                        <span style="font-size:0.7rem;color:var(--text-light);">バッジ＝未提出＋お直し＋未届の合計</span>
+                        <select id="subPsnSubjSel" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;">
+                            <option value="">全教科</option>
+                        </select>
+                        <button class="btn-rec-small" id="subPsnReloadBtn" style="min-height:38px;">🔄 再集計</button>
+                    </div>
+                    <div class="student-grid" id="subPsnGrid"></div>
+                </div>
+                <div id="subPsnDetail"></div>
             </div>
 
             <!-- ── 統計タブ ── -->
@@ -10886,6 +10958,7 @@
                 el.classList.toggle('active', el.id === 'sub-sub-' + name);
             });
             if (name === 'input') { subInitInput(); }
+            if (name === 'person') { subPsnRender(); }
             if (name === 'stats') { subRenderStats(); }
             if (name === 'diary') { subRenderDiary(); }
             if (name === 'assign') { subRenderAssignList(); }
@@ -11893,6 +11966,387 @@
         }
 
         // ================================================================
+        // 入力（個人）タブ — 児童別 未提出チェック（v1.13.0）
+        //   ねらい：遅れて持ってきた子について「どの課題が残っているか」を
+        //   課題を1つずつ開いて探さなくても、児童を選ぶだけで一覧できるようにする。
+        //   出欠の届出（病欠・事故欠・遅刻・早退・出停）の未提出も同じ画面で確認・記録する。
+        //   保存先は既存と同一（spa_submissions_data / spa_attendance_notice）。
+        //   入力タブ・出席簿・カルテとデータを共有し、新しい保存キーは増やさない。
+        // ================================================================
+        var subPsnIdx = null;       // 選択中の児童index（null＝未選択）
+        var subPsnSubject = '';     // 教科フィルター
+        var subPsnShowDone = false; // 提出済みも表示するか
+
+        // 届出が必要な出欠コード（出席簿側の定義を参照。取得できない場合は同等の既定値）
+        function subPsnNoticeTargets() {
+            if (typeof ATT_NOTICE_TARGETS !== 'undefined' && ATT_NOTICE_TARGETS && ATT_NOTICE_TARGETS.has) return ATT_NOTICE_TARGETS;
+            return new Set(['×', '／', 'チ', 'ソ', 'チソ', '停']);
+        }
+        function subPsnStatusLabel(code) {
+            if (typeof ATT_STATUS_MAP !== 'undefined' && ATT_STATUS_MAP && ATT_STATUS_MAP[code]) return ATT_STATUS_MAP[code].label;
+            return code;
+        }
+        function subPsnGetAtt()    { return (typeof attGetAll === 'function')       ? (attGetAll() || {})       : {}; }
+        function subPsnGetNotice() { return (typeof attGetAllNotice === 'function') ? (attGetAllNotice() || {}) : {}; }
+
+        function subPsnSortByDate(arr) {
+            return arr.slice().sort(function(a, b) {
+                var av = a.date || '', bv = b.date || '';
+                if (av !== bv) return bv.localeCompare(av); // 新しい課題が上
+                return (b.id || 0) - (a.id || 0);
+            });
+        }
+        function subPsnFilteredAssigns() {
+            var arr = subGetAssignments();
+            if (subPsnSubject) arr = arr.filter(function(a) { return a.subject === subPsnSubject; });
+            return subPsnSortByDate(arr);
+        }
+
+        // 課題の実施日に休んでいたか（出席簿を直接参照）。
+        // subImportAbsenceFromAttendance と同じコードを使う。遅刻・早退は登校しているので対象外。
+        // 入力タブでその課題を一度も開いていないと absent フラグは書かれないため、
+        // ここでは保存データに頼らず、表示のたびに出席簿と突き合わせる。
+        var SUB_PSN_ABSENT_CODES = ['×', '／', '忌', '停'];
+        function subPsnAbsentOn(att, dateStr, idx) {
+            if (!dateStr) return false;
+            var code = (att[dateStr] || {})[String(idx)];
+            return !!code && SUB_PSN_ABSENT_CODES.indexOf(code) >= 0;
+        }
+        // クラスの誰か1人でも記録がある課題のID集合。
+        // 「登録しただけでまだ集めていない課題」を全員の未提出に数えてしまうのを防ぐ判定に使う。
+        function subPsnCollectedIds(subs) {
+            var m = {};
+            subs.forEach(function(r) { if (r) m[r.assignmentId] = true; });
+            return m;
+        }
+        // 1回の描画で localStorage を読むのは1度だけにする（名簿人数ぶん再パースしない）
+        function subPsnSnapshot() {
+            var subs = subGetSubmissions();
+            return {
+                assigns: subPsnFilteredAssigns(),
+                subs: subs,
+                att: subPsnGetAtt(),
+                notice: subPsnGetNotice(),
+                collected: subPsnCollectedIds(subs)
+            };
+        }
+
+        // 児童1人分の「終わっていないもの」を集計する。
+        //   missing    … 提出記録がない／未提出。クラスの誰かが記録済みの課題に限る
+        //   untouched  … クラス全員が未記録＝まだ集めていない課題（バッジには数えない）
+        //   correction … △再提出のうち、お直しが未完了
+        //   notice     … 届出が必要な出欠日のうち、届出が未提出
+        //   done       … ○提出、またはお直し完了済みの△
+        function subPsnCollect(idx, assigns, subs, att, notice, collected) {
+            var recMap = {};
+            subs.forEach(function(s) { if (s && s.studentIndex === idx) recMap[s.assignmentId] = s; });
+            var out = { missing: [], untouched: [], correction: [], notice: [], noticeDone: [], done: [], total: 0 };
+            assigns.forEach(function(a) {
+                var rec = recMap[a.id] || null;
+                var st  = rec ? rec.status : '';
+                if (st === 'submitted') { out.done.push({ assign: a, rec: rec }); return; }
+                if (st === 'resubmit') {
+                    if (rec.correctionDone) out.done.push({ assign: a, rec: rec });
+                    else out.correction.push({ assign: a, rec: rec });
+                    return;
+                }
+                var item = { assign: a, rec: rec, absentOnDay: subPsnAbsentOn(att, a.date, idx) };
+                // 記録がゼロの課題＝まだクラス全体で集めていない。全員の未提出に数えると
+                // 課題を登録した瞬間に全員のバッジが増えてしまうため、別枠にする。
+                if (!rec && collected && !collected[a.id]) { out.untouched.push(item); return; }
+                out.missing.push(item);
+            });
+            var tset = subPsnNoticeTargets();
+            Object.keys(att).forEach(function(dk) {
+                var code = (att[dk] || {})[String(idx)];
+                if (!code || !tset.has(code)) return;
+                var on = (notice[dk] || {})[String(idx)] === true;
+                (on ? out.noticeDone : out.notice).push({ date: dk, code: code });
+            });
+            var byDateDesc = function(a, b) { return b.date.localeCompare(a.date); };
+            out.notice.sort(byDateDesc);
+            out.noticeDone.sort(byDateDesc);
+            out.total = out.missing.length + out.correction.length + out.notice.length;
+            return out;
+        }
+
+        // --- 保存系 ---------------------------------------------------
+        // status: 'submitted' | 'resubmit' | 'missing' | null（null＝記録を消して未提出に戻す）
+        function subPsnSetStatus(assignId, status, late, absent) {
+            if (subPsnIdx === null) return;
+            subFlushAutoSave(); // 入力タブに保留中の変更があれば先に確定（上書き事故の防止）
+            var idx = subPsnIdx;
+            var msg = status === null ? '未提出に戻しました'
+                    : status === 'submitted' ? (late ? '「遅れて提出」で記録しました' : '「提出」で記録しました')
+                    : status === 'resubmit'  ? '「再提出」で記録しました'
+                    : absent ? '「欠席」で記録しました' : '記録しました';
+            var undo = uiUndoable(msg, [KEYS.submissions_data], function() { subPsnRender(); });
+            var all = subGetSubmissions();
+            var prev = null;
+            // 同一児童×同一課題のレコードは1件に正規化する（重複データがあっても取りこぼさない）
+            var subs = all.filter(function(s) {
+                var hit = s && s.studentIndex === idx && s.assignmentId === assignId;
+                if (hit) prev = s;
+                return !hit;
+            });
+            if (status === null) {
+                // 空欄＝未提出（A案）に統一。除外済みの subs をそのまま保存＝レコード削除
+            } else {
+                var rec = {
+                    id: (prev && prev.id) ? prev.id : Date.now(),
+                    studentIndex: idx,
+                    assignmentId: assignId,
+                    status: status,
+                    // ○提出は常にお直し完了扱い。○から△へ戻した場合は、強制チェックされていた
+                    // お直し完了を解除する（入力タブ subSelectStatus の wasSubmitted 処理と同じ）
+                    correctionDone: status === 'submitted' ? true
+                                  : (prev && prev.status !== 'submitted') ? !!prev.correctionDone
+                                  : false,
+                    lateOnDue: !!late,
+                    createdAt: new Date().toISOString()
+                };
+                if (absent) rec.absent = true; // 状態選択と欠席は排他（入力タブと同一ルール）
+                subs.push(rec);
+            }
+            subSaveSubmissions(subs);
+            subPsnRender();
+            undo();
+        }
+        function subPsnToggleAbsent(assignId) {
+            if (subPsnIdx === null) return;
+            subFlushAutoSave();
+            var subs = subGetSubmissions(), rec = null;
+            for (var i = 0; i < subs.length; i++) {
+                if (subs[i] && subs[i].studentIndex === subPsnIdx && subs[i].assignmentId === assignId) { rec = subs[i]; break; }
+            }
+            if (rec && rec.absent === true && rec.status === 'missing') subPsnSetStatus(assignId, null, false, false);
+            else subPsnSetStatus(assignId, 'missing', false, true);
+        }
+        function subPsnToggleCorrection(assignId) {
+            if (subPsnIdx === null) return;
+            subFlushAutoSave();
+            var subs = subGetSubmissions(), pos = -1;
+            for (var i = 0; i < subs.length; i++) {
+                if (subs[i] && subs[i].studentIndex === subPsnIdx && subs[i].assignmentId === assignId) { pos = i; break; }
+            }
+            if (pos < 0) { showToast('提出の記録が見つかりませんでした', 'warning'); return; }
+            var willBe = !subs[pos].correctionDone;
+            var undo = uiUndoable(willBe ? 'お直し完了にしました' : 'お直し未完了に戻しました',
+                [KEYS.submissions_data], function() { subPsnRender(); });
+            subs[pos].correctionDone = willBe;
+            subSaveSubmissions(subs);
+            subPsnRender();
+            undo();
+        }
+        function subPsnToggleNotice(dateKey) {
+            if (subPsnIdx === null || !dateKey) return;
+            var nd = subPsnGetNotice();
+            if (!nd || typeof nd !== 'object') nd = {};
+            var key = String(subPsnIdx);
+            var wasOn = (nd[dateKey] || {})[key] === true;
+            var undo = uiUndoable(wasOn ? '届出を未提出に戻しました' : '届出ありに記録しました',
+                [KEYS.attendance_notice], function() { subPsnRender(); });
+            if (wasOn) {
+                delete nd[dateKey][key];
+                if (!Object.keys(nd[dateKey]).length) delete nd[dateKey];
+            } else {
+                if (!nd[dateKey]) nd[dateKey] = {};
+                nd[dateKey][key] = true;
+            }
+            if (typeof attSaveNotice === 'function') attSaveNotice(nd);
+            else StorageManager.setImmediate(KEYS.attendance_notice, JSON.stringify(nd));
+            if (typeof attRenderGrid === 'function') { try { attRenderGrid(); } catch (e) {} }
+            subPsnRender();
+            undo();
+        }
+        function subPsnAction(act, aid) {
+            if (act === 'ok')     return subPsnSetStatus(aid, 'submitted', false, false);
+            if (act === 'late')   return subPsnSetStatus(aid, 'submitted', true,  false);
+            if (act === 're')     return subPsnSetStatus(aid, 'resubmit',  false, false);
+            if (act === 'relate') return subPsnSetStatus(aid, 'resubmit',  true,  false);
+            if (act === 'absent') return subPsnToggleAbsent(aid);
+            if (act === 'clear')  return subPsnSetStatus(aid, null, false, false);
+            if (act === 'corr')   return subPsnToggleCorrection(aid);
+        }
+
+        // --- 描画系 ---------------------------------------------------
+        function subPsnUpdateSubjSel() {
+            var sel = document.getElementById('subPsnSubjSel');
+            if (!sel) return;
+            var subjects = [];
+            subGetAssignments().forEach(function(a) { if (a.subject && subjects.indexOf(a.subject) < 0) subjects.push(a.subject); });
+            subjects.sort(function(a, b) { return SUB_SUBJECTS.indexOf(a) - SUB_SUBJECTS.indexOf(b); });
+            if (subPsnSubject && subjects.indexOf(subPsnSubject) < 0) subPsnSubject = '';
+            sel.innerHTML = '<option value="">全教科</option>' + subjects.map(function(s) {
+                return '<option value="' + escapeHtml(s) + '"' + (s === subPsnSubject ? ' selected' : '') + '>' + escapeHtml(s) + '</option>';
+            }).join('');
+        }
+        function subPsnRenderGrid(snap) {
+            var grid = document.getElementById('subPsnGrid');
+            if (!grid) return;
+            var students = subGetStudents();
+            if (!students.length) {
+                grid.innerHTML = '<div style="grid-column:1/-1;">' + emptyState('名簿がまだ登録されていません。') + '</div>';
+                return;
+            }
+            snap = snap || subPsnSnapshot();
+            var html = '';
+            students.forEach(function(s, i) {
+                var c = subPsnCollect(i, snap.assigns, snap.subs, snap.att, snap.notice, snap.collected);
+                var disp = (s.name || '').length > 5 ? s.name.substring(0, 5) + '…' : (s.name || '');
+                html += '<button class="student-btn sub-psn-stu' + (subPsnIdx === i ? ' active' : '') + '" data-idx="' + i + '">'
+                     +   '<span class="num">' + (i + 1) + '</span>' + escapeHtml(disp)
+                     +   '<span class="sub-psn-badge' + (c.total === 0 ? ' clear' : '') + '">' + (c.total === 0 ? '✓' : c.total) + '</span>'
+                     + '</button>';
+            });
+            grid.innerHTML = html;
+            grid.querySelectorAll('.sub-psn-stu').forEach(function(btn) {
+                btn.addEventListener('click', function() { subPsnSelect(parseInt(btn.dataset.idx, 10)); });
+            });
+        }
+        function subPsnRowHtml(item, kind) {
+            var a = item.assign, rec = item.rec, tags = '';
+            var aid = escapeHtml(a.id);
+            // 保存された absent フラグと、出席簿から都度求めた欠席のどちらでもタグを出す
+            if ((rec && rec.absent === true) || item.absentOnDay) tags += '<span class="sub-psn-tag absent">その日欠席</span>';
+            if (rec && rec.lateOnDue === true)    tags += '<span class="sub-psn-tag late">提出遅れ</span>';
+            if (rec && rec.status === 'resubmit') tags += '<span class="sub-psn-tag re">△ 再提出</span>';
+            if (kind === 'untouched')             tags += '<span class="sub-psn-tag new">クラス未集計</span>';
+            var h = '<div class="sub-psn-row' + (kind === 'done' ? ' done' : '') + (kind === 'untouched' ? ' untouched' : '') + '">'
+                  +   '<div class="sub-psn-meta">'
+                  +     '<span class="sub-psn-subj">' + escapeHtml(a.subject || '—') + '</span>'
+                  +     '<span class="sub-psn-name">' + escapeHtml(a.name || '（名称なし）') + '</span>'
+                  +     '<span class="sub-psn-date">' + escapeHtml(a.date || '') + '</span>' + tags
+                  +   '</div><div class="sub-psn-acts">';
+            if (kind === 'missing' || kind === 'untouched') {
+                h += '<button class="sub-psn-btn ok"     data-psnact="ok"     data-aid="' + aid + '">○ 提出</button>'
+                  +  '<button class="sub-psn-btn late"   data-psnact="late"   data-aid="' + aid + '">⏰ 遅れて提出</button>'
+                  +  '<button class="sub-psn-btn re"     data-psnact="re"     data-aid="' + aid + '">△ 再提出</button>'
+                  +  '<button class="sub-psn-btn absent" data-psnact="absent" data-aid="' + aid + '">' + (rec && rec.absent ? '欠席を解除' : '欠席') + '</button>';
+            } else if (kind === 'correction') {
+                h += '<button class="sub-psn-btn ok"  data-psnact="corr"  data-aid="' + aid + '">✓ お直し完了</button>'
+                  +  '<button class="sub-psn-btn"     data-psnact="ok"    data-aid="' + aid + '">○ 提出に変更</button>'
+                  +  '<button class="sub-psn-btn del" data-psnact="clear" data-aid="' + aid + '">↩ 未提出に戻す</button>';
+            } else {
+                if (rec && rec.status === 'resubmit') h += '<button class="sub-psn-btn re" data-psnact="corr" data-aid="' + aid + '">お直し未完了に戻す</button>';
+                h += '<button class="sub-psn-btn del" data-psnact="clear" data-aid="' + aid + '">↩ 未提出に戻す</button>';
+            }
+            return h + '</div></div>';
+        }
+        function subPsnNoticeRowHtml(r, on) {
+            return '<div class="sub-psn-nt">'
+                 +   '<span class="sub-psn-nt-date">' + escapeHtml(r.date) + '</span>'
+                 +   '<span class="sub-psn-nt-st">' + escapeHtml(subPsnStatusLabel(r.code)) + '</span>'
+                 +   '<button class="sub-psn-nt-btn ' + (on ? 'on' : 'off') + '" data-psnact="notice" data-date="' + escapeHtml(r.date) + '">'
+                 +     (on ? '✓ 届出済' : '未提出') + '</button>'
+                 + '</div>';
+        }
+        function subPsnSecHtml(title, count, bodyHtml, warn) {
+            return '<div class="sub-psn-sec"><div class="sub-psn-sec-hd">' + title
+                 +   '<span class="sub-psn-sec-cnt" style="color:' + (count > 0 ? (warn || 'var(--danger)') : '#27AE60') + ';">' + count + '件</span>'
+                 + '</div><div class="sub-psn-sec-bd">' + bodyHtml + '</div></div>';
+        }
+        function subPsnRenderDetail(snap) {
+            var wrap = document.getElementById('subPsnDetail');
+            if (!wrap) return;
+            var students = subGetStudents();
+            if (subPsnIdx !== null && !students[subPsnIdx]) subPsnIdx = null; // 名簿変更などで範囲外になった場合
+            if (subPsnIdx === null) {
+                wrap.innerHTML = '<div class="sub-psn-empty" style="margin:0 1.25rem 1rem;">児童を選ぶと、その子の「終わっていない課題」と「未提出の届出」がまとめて表示されます。</div>';
+                return;
+            }
+            var stu = students[subPsnIdx];
+            snap = snap || subPsnSnapshot();
+            var c = subPsnCollect(subPsnIdx, snap.assigns, snap.subs, snap.att, snap.notice, snap.collected);
+
+            var h = '<div class="sub-psn-sum">'
+                  + '<span class="sub-psn-title">👤 ' + (subPsnIdx + 1) + '. ' + escapeHtml(stu.name || '') + '</span>';
+            if (c.total === 0) h += '<span class="sub-psn-chip clear">✓ 残っているものはありません</span>';
+            else {
+                if (c.missing.length)    h += '<span class="sub-psn-chip ng">未提出 ' + c.missing.length + '</span>';
+                if (c.correction.length) h += '<span class="sub-psn-chip re">お直し ' + c.correction.length + '</span>';
+                if (c.notice.length)     h += '<span class="sub-psn-chip nt">未届 ' + c.notice.length + '</span>';
+            }
+            h += '<label style="margin-left:auto;font-size:0.75rem;display:flex;align-items:center;gap:5px;cursor:pointer;min-height:38px;">'
+              +    '<input type="checkbox" id="subPsnDoneChk"' + (subPsnShowDone ? ' checked' : '') + ' style="width:20px;height:20px;">提出済みも表示</label>'
+              +  '<button class="btn-rec-small" id="subPsnCloseBtn" style="min-height:38px;">✕ 閉じる</button>'
+              + '</div>';
+
+            // ① 終わっていない課題
+            var mBody = snap.assigns.length === 0
+                ? '<div class="sub-psn-empty">課題がまだ登録されていません。「📋 提出課題の管理」で登録してください。</div>'
+                : (c.missing.length ? c.missing.map(function(it) { return subPsnRowHtml(it, 'missing'); }).join('')
+                                    : '<div class="sub-psn-empty">未提出の課題はありません。</div>');
+            h += subPsnSecHtml('📚 終わっていない課題', c.missing.length, mBody);
+
+            // ② お直し未完了（△再提出）
+            if (c.correction.length || subPsnShowDone) {
+                var cBody = c.correction.length ? c.correction.map(function(it) { return subPsnRowHtml(it, 'correction'); }).join('')
+                                                : '<div class="sub-psn-empty">お直し待ちはありません。</div>';
+                h += subPsnSecHtml('🔁 お直しが終わっていない課題', c.correction.length, cBody, '#B7950B');
+            }
+
+            // ③ 未提出の届出（欠席・遅刻・早退・出停）
+            var nBody = (c.notice.length || c.noticeDone.length)
+                ? (c.notice.length ? c.notice.map(function(r) { return subPsnNoticeRowHtml(r, false); }).join('')
+                                   : '<div class="sub-psn-empty">未提出の届出はありません。</div>')
+                  + (subPsnShowDone && c.noticeDone.length
+                        ? '<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-light);">届出済み</div>'
+                          + c.noticeDone.map(function(r) { return subPsnNoticeRowHtml(r, true); }).join('')
+                        : '')
+                : '<div class="sub-psn-empty">届出が必要な欠席・遅刻・早退の記録はありません。</div>';
+            h += subPsnSecHtml('📋 未提出の届出（欠席・遅刻・早退・出停）', c.notice.length, nBody, '#E67E22');
+
+            // ④ まだクラス全体で集めていない課題（バッジには数えない）
+            if (c.untouched.length) {
+                h += '<div class="sub-psn-sec"><div class="sub-psn-sec-hd">🕒 まだ集計していない課題'
+                  +  '<span class="sub-psn-sec-cnt" style="color:var(--text-light);">' + c.untouched.length + '件</span></div>'
+                  +  '<div class="sub-psn-sec-bd">'
+                  +    '<div class="sub-psn-empty" style="padding:2px 4px 6px;">クラスの誰にもまだ記録がない課題です。上の件数・バッジには数えていません。</div>'
+                  +    c.untouched.map(function(it) { return subPsnRowHtml(it, 'untouched'); }).join('')
+                  +  '</div></div>';
+            }
+
+            // ⑤ 提出済み（確認・取り消し用）
+            if (subPsnShowDone) {
+                var dBody = c.done.length ? c.done.map(function(it) { return subPsnRowHtml(it, 'done'); }).join('')
+                                          : '<div class="sub-psn-empty">提出済みの課題はありません。</div>';
+                h += '<div class="sub-psn-sec"><div class="sub-psn-sec-hd">✅ 提出済みの課題'
+                  +  '<span class="sub-psn-sec-cnt" style="color:#27AE60;">' + c.done.length + '件</span></div>'
+                  +  '<div class="sub-psn-sec-bd">' + dBody + '</div></div>';
+            }
+            wrap.innerHTML = h;
+
+            wrap.querySelectorAll('[data-psnact]').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    var act = b.dataset.psnact;
+                    if (act === 'notice') { subPsnToggleNotice(b.dataset.date); return; }
+                    var aid = parseInt(b.dataset.aid, 10);
+                    if (isNaN(aid)) return;
+                    subPsnAction(act, aid);
+                });
+            });
+            var chk = document.getElementById('subPsnDoneChk');
+            if (chk) chk.addEventListener('change', function() { subPsnShowDone = chk.checked; subPsnRenderDetail(); });
+            var cls = document.getElementById('subPsnCloseBtn');
+            if (cls) cls.addEventListener('click', function() { subPsnIdx = null; subPsnRender(); });
+        }
+        function subPsnSelect(i) {
+            subPsnIdx = (subPsnIdx === i) ? null : i;
+            subPsnRender();
+            if (subPsnIdx !== null) {
+                var d = document.getElementById('subPsnDetail');
+                if (d && d.scrollIntoView) { try { d.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }
+            }
+        }
+        function subPsnRender() {
+            subPsnUpdateSubjSel();     // 先に教科リストを確定させてから読み込む
+            var snap = subPsnSnapshot();
+            subPsnRenderGrid(snap);
+            subPsnRenderDetail(snap);
+        }
+
+        // ================================================================
         // イベント設定（DOMContentLoaded後に実行）
         // ================================================================
         function subBindEvents() {
@@ -11911,6 +12365,11 @@
             // 入力課題選択
             var inputSel = document.getElementById('subInputAssignSel');
             if (inputSel) inputSel.addEventListener('change', subRenderInputArea);
+            // 入力（個人）タブ
+            var psnSubj = document.getElementById('subPsnSubjSel');
+            if (psnSubj) psnSubj.addEventListener('change', function() { subPsnSubject = psnSubj.value || ''; subPsnRender(); });
+            var psnReload = document.getElementById('subPsnReloadBtn');
+            if (psnReload) psnReload.addEventListener('click', function() { subFlushAutoSave(); subPsnRender(); showToast('再集計しました', 'info'); });
             // 統計フィルタ
             var statsSel = document.getElementById('subStatsAssignSel');
             if (statsSel) statsSel.addEventListener('change', subRenderStats);

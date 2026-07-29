@@ -2851,6 +2851,11 @@
                         <select id="subPsnSubjSel" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;">
                             <option value="">全教科</option>
                         </select>
+                        <select id="subPsnSortSel" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;">
+                            <option value="date_desc">📅 日付（新しい順）</option>
+                            <option value="date_asc">📅 日付（古い順）</option>
+                            <option value="subject">📚 教科順</option>
+                        </select>
                         <button class="btn-rec-small" id="subPsnReloadBtn" style="min-height:38px;">🔄 再集計</button>
                     </div>
                     <div class="student-grid" id="subPsnGrid"></div>
@@ -10861,7 +10866,7 @@
     (function() { 'use strict';
         // --- 定数 ---
         var SUB_SUBJECTS = ['国語','社会','算数','理科','音楽','図工','家庭','体育','英語','道徳','総合','その他'];
-        var SUB_WEIGHTS = { submitted: 1.0, resubmit: 0.8, missing: 0.0 };
+        var SUB_WEIGHTS = { submitted: 1.0, resubmit: 0.8, late: 0.8, missing: 0.0 };
 
         // --- データアクセス ---
         function subGetStudents() { return master.students || []; }
@@ -10891,12 +10896,25 @@
         function subSaveDiaryTarget(v) { StorageManager.set(KEYS.submissions_diaryDays, String(v)); }
 
         // --- 計算 ---
-        function subCalcRate(sub, resub, total) {
-            if (!total) return 0;
-            return ((sub * SUB_WEIGHTS.submitted + resub * SUB_WEIGHTS.resubmit) / total) * 100;
+        // v1.14.0: 判定は成績側 grdSubmissionCredit に一本化する。
+        // 重みが2か所にあると、統計タブの表示と通知表の値が食い違うため。
+        function subCredit(rec) {
+            if (typeof window.grdSubmissionCredit === 'function') return window.grdSubmissionCredit(rec);
+            if (!rec) return 0; // 成績モジュール未初期化時のフォールバック
+            if (rec.status === 'submitted') return rec.lateOnDue === true ? SUB_WEIGHTS.late : SUB_WEIGHTS.submitted;
+            if (rec.status === 'resubmit') {
+                var b = rec.correctionDone === true ? SUB_WEIGHTS.submitted : SUB_WEIGHTS.resubmit;
+                return rec.lateOnDue === true ? Math.min(b, SUB_WEIGHTS.late) : b;
+            }
+            return 0;
         }
-        function subCalc10(sub, resub, total) {
-            return Math.round((subCalcRate(sub, resub, total) / 100) * 10 * 10) / 10;
+        // credit＝評価点の合計（件数ではない）
+        function subCalcRate(credit, total) {
+            if (!total) return 0;
+            return (credit / total) * 100;
+        }
+        function subCalc10(credit, total) {
+            return Math.round((subCalcRate(credit, total) / 100) * 10 * 10) / 10;
         }
         function subScoreColor(v) {
             return v >= 8 ? '#27AE60' : v >= 6 ? '#B7950B' : '#E74C3C';
@@ -11705,15 +11723,18 @@
             var filtered = assignSelVal ? assigns.filter(function(a) { return a.id === parseInt(assignSelVal); }) : assigns;
             // サマリー
             var total = filtered.length * n;
-            var ok = 0, re = 0;
+            var ok = 0, re = 0, credit = 0;
             filtered.forEach(function(a) {
                 var as = subs.filter(function(s) { return s.assignmentId === a.id; });
-                ok += as.filter(function(s) { return s.status === 'submitted'; }).length;
-                re += as.filter(function(s) { return s.status === 'resubmit'; }).length;
+                as.forEach(function(s) {
+                    if (s.status === 'submitted') ok++;
+                    else if (s.status === 'resubmit') re++;
+                    credit += subCredit(s);
+                });
             });
             var ng = total - ok - re;
-            var rate = total ? Math.round(subCalcRate(ok, re, total)) : 0;
-            var score10 = total ? subCalc10(ok, re, total) : 0;
+            var rate = total ? Math.round(subCalcRate(credit, total)) : 0;
+            var score10 = total ? subCalc10(credit, total) : 0;
             var cardsEl = document.getElementById('subStatsCards');
             if (cardsEl) {
                 cardsEl.innerHTML = [
@@ -11759,10 +11780,14 @@
             if (stuEl) {
                 var stuData = students.map(function(stu, i) {
                     var ss = subs.filter(function(s) { return s.studentIndex === i; });
-                    var sok = ss.filter(function(s) { return s.status === 'submitted'; }).length;
-                    var sre = ss.filter(function(s) { return s.status === 'resubmit'; }).length;
+                    var sok = 0, sre = 0, scr = 0;
+                    ss.forEach(function(s) {
+                        if (s.status === 'submitted') sok++;
+                        else if (s.status === 'resubmit') sre++;
+                        scr += subCredit(s);
+                    });
                     var sng = assigns.length - sok - sre;
-                    return { i: i, name: stu.name, ok: sok, re: sre, ng: Math.max(0, sng) };
+                    return { i: i, name: stu.name, ok: sok, re: sre, ng: Math.max(0, sng), credit: scr };
                 });
                 if (filterVal === 'missing') stuData = stuData.filter(function(s) { return s.ng > 0; });
                 if (filterVal === 'resubmit') stuData = stuData.filter(function(s) { return s.re > 0; });
@@ -11771,8 +11796,8 @@
                     return;
                 }
                 stuEl.innerHTML = stuData.map(function(s) {
-                    var sc = assigns.length ? subCalc10(s.ok, s.re, assigns.length) : 0;
-                    var rt = assigns.length ? Math.round(subCalcRate(s.ok, s.re, assigns.length)) : 0;
+                    var sc = assigns.length ? subCalc10(s.credit, assigns.length) : 0;
+                    var rt = assigns.length ? Math.round(subCalcRate(s.credit, assigns.length)) : 0;
                     return '<div class="sub-student-row' + (s.ng > 0 ? ' has-missing' : '') + '">'
                         + '<div class="sub-stu-num">' + (s.i + 1) + '</div>'
                         + '<div class="sub-stu-name">' + escapeHtml(s.name) + '</div>'
@@ -11976,6 +12001,7 @@
         var subPsnIdx = null;       // 選択中の児童index（null＝未選択）
         var subPsnSubject = '';     // 教科フィルター
         var subPsnShowDone = false; // 提出済みも表示するか
+        var subPsnSortKey = 'date_desc'; // 並べ替え（v1.13.1）
 
         // 届出が必要な出欠コード（出席簿側の定義を参照。取得できない場合は同等の既定値）
         function subPsnNoticeTargets() {
@@ -11989,17 +12015,31 @@
         function subPsnGetAtt()    { return (typeof attGetAll === 'function')       ? (attGetAll() || {})       : {}; }
         function subPsnGetNotice() { return (typeof attGetAllNotice === 'function') ? (attGetAllNotice() || {}) : {}; }
 
-        function subPsnSortByDate(arr) {
+        // 並べ替え（v1.13.1）。'date_desc' | 'date_asc' | 'subject'
+        // 教科順は教科リストの並び（国語→社会→算数…）に合わせ、同一教科内は新しい日付が上。
+        // 未登録の教科は末尾へ回す。
+        function subPsnSortAssigns(arr) {
+            var key = subPsnSortKey;
             return arr.slice().sort(function(a, b) {
                 var av = a.date || '', bv = b.date || '';
-                if (av !== bv) return bv.localeCompare(av); // 新しい課題が上
+                if (key === 'subject') {
+                    var ai = SUB_SUBJECTS.indexOf(a.subject); if (ai < 0) ai = 999;
+                    var bi = SUB_SUBJECTS.indexOf(b.subject); if (bi < 0) bi = 999;
+                    if (ai !== bi) return ai - bi;
+                    if (av !== bv) return bv.localeCompare(av);
+                } else if (key === 'date_asc') {
+                    if (av !== bv) return av.localeCompare(bv);
+                    return (a.id || 0) - (b.id || 0);
+                } else {
+                    if (av !== bv) return bv.localeCompare(av);
+                }
                 return (b.id || 0) - (a.id || 0);
             });
         }
         function subPsnFilteredAssigns() {
             var arr = subGetAssignments();
             if (subPsnSubject) arr = arr.filter(function(a) { return a.subject === subPsnSubject; });
-            return subPsnSortByDate(arr);
+            return subPsnSortAssigns(arr);
         }
 
         // 課題の実施日に休んでいたか（出席簿を直接参照）。
@@ -12159,14 +12199,30 @@
             subPsnRender();
             undo();
         }
-        function subPsnAction(act, aid) {
-            if (act === 'ok')     return subPsnSetStatus(aid, 'submitted', false, false);
-            if (act === 'late')   return subPsnSetStatus(aid, 'submitted', true,  false);
-            if (act === 're')     return subPsnSetStatus(aid, 'resubmit',  false, false);
-            if (act === 'relate') return subPsnSetStatus(aid, 'resubmit',  true,  false);
-            if (act === 'absent') return subPsnToggleAbsent(aid);
-            if (act === 'clear')  return subPsnSetStatus(aid, null, false, false);
-            if (act === 'corr')   return subPsnToggleCorrection(aid);
+        function subPsnAction(act, aid, late) {
+            if (act === 'ok')      return subPsnSetStatus(aid, 'submitted', !!late, false);
+            if (act === 're')      return subPsnSetStatus(aid, 'resubmit',  !!late, false);
+            if (act === 'absent')  return subPsnToggleAbsent(aid);
+            if (act === 'clear')   return subPsnSetStatus(aid, null, false, false);
+            if (act === 'corr')    return subPsnToggleCorrection(aid);
+            if (act === 'tgllate') return subPsnToggleLate(aid);
+        }
+        // 提出済みの行から遅れフラグを付け外しする（自動判定の訂正用）
+        function subPsnToggleLate(assignId) {
+            if (subPsnIdx === null) return;
+            subFlushAutoSave();
+            var subs = subGetSubmissions(), pos = -1;
+            for (var i = 0; i < subs.length; i++) {
+                if (subs[i] && subs[i].studentIndex === subPsnIdx && subs[i].assignmentId === assignId) { pos = i; break; }
+            }
+            if (pos < 0) { showToast('提出の記録が見つかりませんでした', 'warning'); return; }
+            var willBe = !(subs[pos].lateOnDue === true);
+            var undo = uiUndoable(willBe ? '遅れて提出に変更しました' : '遅れを取り消しました',
+                [KEYS.submissions_data], function() { subPsnRender(); });
+            subs[pos].lateOnDue = willBe;
+            subSaveSubmissions(subs);
+            subPsnRender();
+            undo();
         }
 
         // --- 描画系 ---------------------------------------------------
@@ -12219,9 +12275,13 @@
                   +     '<span class="sub-psn-date">' + escapeHtml(a.date || '') + '</span>' + tags
                   +   '</div><div class="sub-psn-acts">';
             if (kind === 'missing' || kind === 'untouched') {
-                h += '<button class="sub-psn-btn ok"     data-psnact="ok"     data-aid="' + aid + '">○ 提出</button>'
-                  +  '<button class="sub-psn-btn late"   data-psnact="late"   data-aid="' + aid + '">⏰ 遅れて提出</button>'
-                  +  '<button class="sub-psn-btn re"     data-psnact="re"     data-aid="' + aid + '">△ 再提出</button>'
+                // v1.14.0: その日欠席していれば出せなくて当然なので遅れ扱いにしない。
+                // 出席していたなら、いま記録する＝期限後の提出なので遅れ扱い。
+                var wasAbsent = (rec && rec.absent === true) || item.absentOnDay === true;
+                var lt = wasAbsent ? '0' : '1';
+                h += '<button class="sub-psn-btn ' + (wasAbsent ? 'ok' : 'late') + '" data-psnact="ok" data-late="' + lt + '" data-aid="' + aid + '">'
+                  +    (wasAbsent ? '○ 提出' : '⏰ 提出（遅れ）') + '</button>'
+                  +  '<button class="sub-psn-btn re"     data-psnact="re" data-late="' + lt + '" data-aid="' + aid + '">△ 再提出</button>'
                   +  '<button class="sub-psn-btn absent" data-psnact="absent" data-aid="' + aid + '">' + (rec && rec.absent ? '欠席を解除' : '欠席') + '</button>';
             } else if (kind === 'correction') {
                 h += '<button class="sub-psn-btn ok"  data-psnact="corr"  data-aid="' + aid + '">✓ お直し完了</button>'
@@ -12229,6 +12289,8 @@
                   +  '<button class="sub-psn-btn del" data-psnact="clear" data-aid="' + aid + '">↩ 未提出に戻す</button>';
             } else {
                 if (rec && rec.status === 'resubmit') h += '<button class="sub-psn-btn re" data-psnact="corr" data-aid="' + aid + '">お直し未完了に戻す</button>';
+                if (rec) h += '<button class="sub-psn-btn late" data-psnact="tgllate" data-aid="' + aid + '">'
+                           +    (rec.lateOnDue === true ? '遅れを取り消す' : '遅れにする') + '</button>';
                 h += '<button class="sub-psn-btn del" data-psnact="clear" data-aid="' + aid + '">↩ 未提出に戻す</button>';
             }
             return h + '</div></div>';
@@ -12323,7 +12385,7 @@
                     if (act === 'notice') { subPsnToggleNotice(b.dataset.date); return; }
                     var aid = parseInt(b.dataset.aid, 10);
                     if (isNaN(aid)) return;
-                    subPsnAction(act, aid);
+                    subPsnAction(act, aid, b.dataset.late === '1');
                 });
             });
             var chk = document.getElementById('subPsnDoneChk');
@@ -12368,6 +12430,8 @@
             // 入力（個人）タブ
             var psnSubj = document.getElementById('subPsnSubjSel');
             if (psnSubj) psnSubj.addEventListener('change', function() { subPsnSubject = psnSubj.value || ''; subPsnRender(); });
+            var psnSort = document.getElementById('subPsnSortSel');
+            if (psnSort) psnSort.addEventListener('change', function() { subPsnSortKey = psnSort.value || 'date_desc'; subPsnRender(); });
             var psnReload = document.getElementById('subPsnReloadBtn');
             if (psnReload) psnReload.addEventListener('click', function() { subFlushAutoSave(); subPsnRender(); showToast('再集計しました', 'info'); });
             // 統計フィルタ
@@ -12564,8 +12628,25 @@
 
         // 採点ルールの定数（算出根拠シートの説明文と計算ロジックで共有・二重管理を防ぐ）
         var LATE_SUBMIT_FACTOR = 0.8;          // 期限後提出時のペナルティ係数
-        var SUBMISSION_CREDIT_FULL = 1.0;      // 提出済み
-        var SUBMISSION_CREDIT_RESUBMIT = 0.8;  // 再提出
+        var SUBMISSION_CREDIT_FULL = 1.0;      // 提出済み／お直し完了した再提出
+        var SUBMISSION_CREDIT_RESUBMIT = 0.8;  // 再提出（お直し前）
+        var SUBMISSION_CREDIT_LATE = 0.8;      // 遅れて提出（上限。v1.14.0）
+
+        // v1.14.0: 提出記録1件あたりの評価点（0〜1）。成績・統計の唯一の判定元。
+        //   ○提出          … 1.0
+        //   △再提出 お直し済 … 1.0（きちんと直したら通常の提出と同じ評価）
+        //   △再提出 お直し前 … 0.8
+        //   未提出          … 0.0
+        //   遅れて提出したものは、上記の上限を 0.8 に抑える
+        function grdSubmissionCredit(sub) {
+            if (!sub) return 0;
+            var st = sub.status, base = 0;
+            if (st === 'submitted' || st === '○' || st === 'A' || st === '◎' || st === 'late') base = SUBMISSION_CREDIT_FULL;
+            else if (st === 'resubmit' || st === '△') base = (sub.correctionDone === true) ? SUBMISSION_CREDIT_FULL : SUBMISSION_CREDIT_RESUBMIT;
+            if (base > 0 && sub.lateOnDue === true) base = Math.min(base, SUBMISSION_CREDIT_LATE);
+            return base;
+        }
+        window.grdSubmissionCredit = grdSubmissionCredit; // 提出物モジュール（統計タブ）と共有
 
         function nawatobiToScore10(grade) {
             if (grade === undefined || grade === null) return null;
@@ -13275,8 +13356,7 @@
                     return (s.assignmentId === a.id || s.assignmentId === String(a.id)) &&
                            (s.studentIndex === studentIndex || s.studentIndex === String(studentIndex));
                 });
-                if (sub && (sub.status === 'submitted' || sub.status === '○' || sub.status === 'A' || sub.status === '◎' || sub.status === 'late')) submitted += SUBMISSION_CREDIT_FULL;
-                else if (sub && (sub.status === 'resubmit' || sub.status === '△')) submitted += SUBMISSION_CREDIT_RESUBMIT;
+                if (sub) submitted += grdSubmissionCredit(sub);
             });
             var rate = submitted / assignments.length;
             return { score10: Math.round(rate * 100) / 10, detail: Math.floor(submitted)+'/'+assignments.length+'件（'+Math.round(rate*100)+'%）', submitted: submitted, total: assignments.length };
@@ -13852,7 +13932,9 @@
             return 'A=' + abcTo10('A') + '点 / B=' + abcTo10('B') + '点 / C=' + abcTo10('C') + '点（10点満点）';
         }
         function grdSubmissionCreditText() {
-            return '提出済み=' + Math.round(SUBMISSION_CREDIT_FULL*100) + '% / 再提出=' + Math.round(SUBMISSION_CREDIT_RESUBMIT*100) + '% / 未提出=0%';
+            return '提出済み=' + Math.round(SUBMISSION_CREDIT_FULL*100) + '% / 再提出（お直し済み）=' + Math.round(SUBMISSION_CREDIT_FULL*100)
+                 + '% / 再提出（お直し前）=' + Math.round(SUBMISSION_CREDIT_RESUBMIT*100) + '% / 未提出=0%'
+                 + '。遅れて提出したものは上限' + Math.round(SUBMISSION_CREDIT_LATE*100) + '%';
         }
         function grdLateSubmitText() {
             return '期限後提出（遅れ提出）は得点を' + Math.round(LATE_SUBMIT_FACTOR*100) + '%として換算';

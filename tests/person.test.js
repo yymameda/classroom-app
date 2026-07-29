@@ -1,4 +1,5 @@
-// person.test.js — 提出物チェック「👤 入力（個人）」タブの動作確認（v1.13.0）
+// person.test.js — 対応バージョン: v1.14.0 ／ 全34項目 ／ 提出ボタン統合版
+// 対応バージョン: v1.14.0 ／ 全34項目 ／ 提出ボタン統合版（○提出と⏰遅れて提出は1ボタンに統合済み）
 //
 // 実行手順（リポジトリのルールに準拠）
 //   1) リポジトリ直下で: python3 -m http.server 8123
@@ -11,10 +12,11 @@
 //   ③ 児童を選ぶとセクションが出る
 //   ④ 欠席日の課題に「その日欠席」タグが出る（出席簿を都度参照）
 //   ⑤ 誰も記録がない課題は「まだ集計していない課題」に隔離される
-//   ⑥「○ 提出」で未提出から消え、バッジが減り、正しく保存される
-//   ⑦「⏰ 遅れて提出」で lateOnDue:true が保存される
-//   ⑧ 届出ボタンで spa_attendance_notice が更新される（他児童の届出を壊さない）
-//   ⑨ 入力タブへ往復してもデータが壊れない（自動保存との競合がない）
+//   ⑥ 並べ替え（日付 新しい順／古い順／教科順）が効く
+//   ⑦ 提出ボタンが1つで、その日の出欠から遅れ扱いを自動判定する
+//   ⑧ 提出済みの行から遅れフラグを付け外しできる
+//   ⑨ 届出ボタンで spa_attendance_notice が更新される（他児童の届出を壊さない）
+//   ⑩ 入力タブへ往復してもデータが壊れない（自動保存との競合がない）
 
 const puppeteer = require('puppeteer-core');
 
@@ -164,8 +166,59 @@ const H = {
     check('未提出セクションには入らない',
       !(await page.evaluate(H.missingNames)).includes('観察カード'));
 
-    // ── ⑥「○ 提出」 ─────────────────────────────────────
-    console.log('\n⑥「○ 提出」の記録');
+    // ── ⑥ 並べ替え ──────────────────────────────────────
+    console.log('\n⑥ 並べ替え');
+    // あおいの未提出: 101 国語 7/10 ／ 103 社会 7/5
+    await page.select('#subPsnSortSel', 'date_asc');
+    await page.waitForFunction(() => {
+      const s = document.querySelector('#subPsnDetail .sub-psn-sec');
+      const n = s && s.querySelectorAll('.sub-psn-name');
+      return n && n.length === 2 && n[0].textContent === '新聞づくり';
+    });
+    check('日付（古い順）で並びが反転する',
+      (await page.evaluate(H.missingNames)).join(',') === '新聞づくり,漢字ドリル⑤');
+
+    await page.select('#subPsnSortSel', 'subject');
+    await page.waitForFunction(() => {
+      const s = document.querySelector('#subPsnDetail .sub-psn-sec');
+      const n = s && s.querySelectorAll('.sub-psn-name');
+      return n && n.length === 2 && n[0].textContent === '漢字ドリル⑤';
+    });
+    check('教科順（国語→社会）で並ぶ',
+      (await page.evaluate(H.missingNames)).join(',') === '漢字ドリル⑤,新聞づくり');
+
+    await page.select('#subPsnSortSel', 'date_desc');
+    await page.waitForFunction(() => {
+      const s = document.querySelector('#subPsnDetail .sub-psn-sec');
+      const n = s && s.querySelectorAll('.sub-psn-name');
+      return n && n.length === 2 && n[0].textContent === '漢字ドリル⑤';
+    });
+    check('日付（新しい順）に戻せる',
+      (await page.evaluate(H.missingNames)).join(',') === '漢字ドリル⑤,新聞づくり');
+    check('並べ替えでデータは書き換わらない',
+      (await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('spa_submissions_data') || '[]').length)) === 4);
+
+    // ── ⑦ 提出ボタンの自動判定 ──────────────────────────
+    console.log('\n⑦ 提出ボタン（遅れ扱いの自動判定）');
+    const btnLabels = await page.evaluate(() => {
+      const g = id => {
+        const b = document.querySelector('#subPsnDetail .sub-psn-btn[data-psnact="ok"][data-aid="' + id + '"]');
+        return b ? { text: b.textContent, late: b.dataset.late } : null;
+      };
+      return { a101: g(101), a103: g(103) };
+    });
+    check('提出ボタンは1課題につき1つ',
+      btnLabels.a101 !== null && btnLabels.a103 !== null);
+    check('7/10欠席の101は「○ 提出」（遅れ扱いにしない）',
+      btnLabels.a101.text.indexOf('○ 提出') >= 0 && btnLabels.a101.late === '0',
+      JSON.stringify(btnLabels.a101));
+    check('出席していた103は「⏰ 提出（遅れ）」',
+      btnLabels.a103.text.indexOf('遅れ') >= 0 && btnLabels.a103.late === '1',
+      JSON.stringify(btnLabels.a103));
+    check('「⏰ 遅れて提出」の別ボタンは無くなっている',
+      (await page.$('#subPsnDetail .sub-psn-btn[data-psnact="late"]')) === null);
+
     await page.click('#subPsnDetail .sub-psn-btn[data-psnact="ok"][data-aid="101"]');
     await page.waitForFunction(() =>
       document.querySelectorAll('#subPsnDetail .sub-psn-sec')[0]
@@ -181,19 +234,44 @@ const H = {
     check('lateOnDue=false',  rec101 && rec101.lateOnDue === false,    JSON.stringify(rec101));
     check('correctionDone=true', rec101 && rec101.correctionDone === true, JSON.stringify(rec101));
 
-    // ── ⑦「⏰ 遅れて提出」 ──────────────────────────────
-    console.log('\n⑦「⏰ 遅れて提出」の記録');
-    await page.click('#subPsnDetail .sub-psn-btn[data-psnact="late"][data-aid="103"]');
+    // ── ⑧ 遅れフラグの自動付与と訂正 ────────────────────
+    console.log('\n⑧ 遅れフラグの自動付与と訂正');
+    await page.click('#subPsnDetail .sub-psn-btn[data-psnact="ok"][data-aid="103"]');
     await page.waitForFunction(() =>
       document.querySelectorAll('#subPsnDetail .sub-psn-sec')[0]
         .querySelectorAll('.sub-psn-name').length === 0);
-    const rec103 = await page.evaluate(() =>
+    const rd = () => page.evaluate(() =>
       JSON.parse(localStorage.getItem('spa_submissions_data') || '[]')
         .find(r => r.studentIndex === 0 && r.assignmentId === 103));
-    check('lateOnDue=true', rec103 && rec103.lateOnDue === true, JSON.stringify(rec103));
+    let rec103 = await rd();
+    check('出席日の提出は lateOnDue=true が自動で付く',
+      rec103 && rec103.lateOnDue === true, JSON.stringify(rec103));
 
-    // ── ⑧ 届出トグル ───────────────────────────────────
-    console.log('\n⑧ 届出の切り替え');
+    // 提出済みセクションを開いて遅れを取り消す
+    await page.click('#subPsnDoneChk');
+    await page.waitForFunction(() =>
+      !!document.querySelector('#subPsnDetail .sub-psn-btn[data-psnact="tgllate"][data-aid="103"]'));
+    await page.click('#subPsnDetail .sub-psn-btn[data-psnact="tgllate"][data-aid="103"]');
+    await page.waitForFunction(() => {
+      const b = document.querySelector('#subPsnDetail .sub-psn-btn[data-psnact="tgllate"][data-aid="103"]');
+      return b && b.textContent.indexOf('遅れにする') >= 0;
+    });
+    rec103 = await rd();
+    check('遅れを取り消せる（自動判定の訂正）',
+      rec103 && rec103.lateOnDue === false, JSON.stringify(rec103));
+    await page.click('#subPsnDetail .sub-psn-btn[data-psnact="tgllate"][data-aid="103"]');
+    await page.waitForFunction(() => {
+      const b = document.querySelector('#subPsnDetail .sub-psn-btn[data-psnact="tgllate"][data-aid="103"]');
+      return b && b.textContent.indexOf('遅れを取り消す') >= 0;
+    });
+    rec103 = await rd();
+    check('もう一度押すと遅れに戻る', rec103 && rec103.lateOnDue === true);
+    await page.click('#subPsnDoneChk');
+    await page.waitForFunction(() =>
+      !document.querySelector('#subPsnDetail .sub-psn-btn[data-psnact="tgllate"]'));
+
+    // ── ⑨ 届出トグル ───────────────────────────────────
+    console.log('\n⑨ 届出の切り替え');
     await page.click('#subPsnDetail .sub-psn-nt-btn[data-psnact="notice"]');
     await page.waitForFunction(() => !document.querySelector('#subPsnDetail .sub-psn-nt-btn.off'));
     const nt = await page.evaluate(() =>
@@ -204,8 +282,8 @@ const H = {
       nt['2026-07-03'] && nt['2026-07-03']['1'] === true, JSON.stringify(nt));
     check('あおいのバッジが ✓ になる', (await page.evaluate(H.badges))[0] === '✓');
 
-    // ── ⑨ 入力タブとの往復 ─────────────────────────────
-    console.log('\n⑨ 入力タブとの往復');
+    // ── ⑩ 入力タブとの往復 ─────────────────────────────
+    console.log('\n⑩ 入力タブとの往復');
     await page.click('#view-submissions .sub-subnav-btn[data-sub="input"]');
     await page.waitForSelector('#sub-sub-input.active');
     await page.select('#subInputAssignSel', '101');

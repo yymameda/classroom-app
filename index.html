@@ -753,6 +753,24 @@
         .rec-abc-btn.sel-b { background: #3498DB; border-color: #3498DB; color: #fff; }
         .rec-abc-btn.sel-bminus { background: #F39C12; border-color: #F39C12; color: #fff; }
         .rec-abc-btn.sel-c { background: var(--accent); border-color: var(--accent); color: #fff; }
+        /* v1.14.2: 児童ごとの入力行を全UI共通レイアウトに統一（ABC評価・数値点数・提出物とも同一パターン）
+           ヘッダ＝［番号］［氏名］［欠席(小)］［✓］／下段＝主要ボタン・入力欄を横いっぱいに大きく */
+        .rec-row.abc-row, .rec-row.sc-row { height: auto; min-height: 86px; gap: 3px; }
+        .rec-row.abc-row .rec-abc-btns { width: 100%; gap: 3px; }
+        .rec-row.abc-row .rec-abc-btn {
+            flex: 1 1 0; width: auto; min-width: 0; height: 48px;
+            font-size: 1.05rem; border-radius: 8px;
+        }
+        .rec-row.abc-row .rec-abc-btn:disabled { opacity: 0.4; cursor: default; }
+        .rec-row.sc-row .rec-row-score-area input[type="number"] {
+            max-width: none; height: 48px; font-size: 1.15rem;
+            border-radius: 8px; padding: 0 4px;
+        }
+        @media (max-width: 700px) {
+            .rec-row.abc-row .rec-abc-btns { gap: 2px; }
+            .rec-row.abc-row .rec-abc-btn { height: 44px; font-size: 0.8rem; border-radius: 6px; }
+            .rec-row.sc-row .rec-row-score-area input[type="number"] { height: 44px; }
+        }
         .rec-save-bar {
             margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); flex-shrink: 0;
         }
@@ -1416,8 +1434,8 @@
         .sub-clear-btn:hover { background: #E0E0E0; }
         .sub-status-btns { display: flex; gap: 3px; width: 100%; }
         .sub-status-btn {
-            flex: 1; height: 44px; border: 2px solid var(--border); border-radius: 6px;
-            background: var(--white); font-size: 0.95rem; font-weight: 700;
+            flex: 1; height: 48px; border: 2px solid var(--border); border-radius: 8px;
+            background: var(--white); font-size: 1.05rem; font-weight: 700;
             cursor: pointer; transition: all 0.15s; padding: 0;
             display: flex; align-items: center; justify-content: center; font-family: inherit;
         }
@@ -1428,8 +1446,21 @@
         /* 欠席フラグ */
         .sub-input-row.absent { background: #F0F0F0 !important; border-color: #9E9E9E !important; }
         .sub-absent-tag { font-size: 0.5rem; font-weight: 700; background: #757575; color: white; border-radius: 3px; padding: 1px 4px; line-height: 1.4; flex-shrink: 0; }
-        .sub-absent-btn { font-size: 0.6rem; font-weight: 700; border: 1.5px solid #9E9E9E; border-radius: 4px; background: white; color: #757575; cursor: pointer; padding: 0 2px; font-family: inherit; height: 44px; width: 40px; flex: none; overflow: hidden; white-space: nowrap; transition: all 0.15s; }
-        .sub-absent-btn.absent-on { background: #757575; color: white; border-color: #616161; }
+        /* v1.14.1: 全入力UI共通「氏名の隣の小さな欠席ボタン」。行ヘッダ内に置く */
+        .sub-absent-btn {
+            flex: none; width: 38px; height: 28px; padding: 0;
+            font-size: 0.58rem; font-weight: 700; font-family: inherit;
+            border: 1.5px solid #9E9E9E; border-radius: 4px;
+            background: var(--white); color: #757575; cursor: pointer;
+            line-height: 1; white-space: nowrap; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .sub-absent-btn.absent-on { background: #757575; color: #fff; border-color: #616161; }
+        @media (max-width: 700px) {
+            .sub-absent-btn { width: 32px; font-size: 0.52rem; }
+            .sub-status-btn { height: 44px; font-size: 1rem; }
+        }
         .sub-late-label {
           display: inline-flex; align-items: center; gap: 4px;
           font-size: 11px; color: #b85c00; white-space: nowrap;
@@ -1832,9 +1863,9 @@
 
             .sub-status-btn {
                 flex: 1;
-                height: 36px;
-                font-size: 1rem;
-                border-radius: 6px;
+                height: 48px;
+                font-size: 1.05rem;
+                border-radius: 8px;
             }
         }
         .mp-btn { display: none; } /* 左縦バー(.grid-cell-mp-strip)に移行 */
@@ -6884,11 +6915,14 @@
                 } else if (isABC) {
                     var curAbc = existingSc ? existingSc.score : '';
                     var isAbsent = !!(existingSc && existingSc.absent);
-                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + (isAbsent ? ' absent' : '') + '" id="rec-row-' + idx + '">'
+                    // v1.14.2: 欠席ボタンは氏名の隣に小さく配置し、A〜Cの5ボタンで1行を使い切る
+                    return '<div class="rec-row abc-row' + (hasSc ? ' has-score' : '') + (isAbsent ? ' absent' : '') + '" id="rec-row-' + idx + '">'
                         + '<div class="rec-row-hd">'
                         +   '<div class="sub-row-num">' + (idx + 1) + '</div>'
                         +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
-                        +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
+                        +   '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '"'
+                        +     ' title="' + (isAbsent ? '欠席を解除' : '欠席にする') + '"'
+                        +     ' onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                         +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
                         +   (hasSc ? '✓' : '') + '</div>'
                         + '</div>'
@@ -6898,18 +6932,20 @@
                             var sel = curAbc === v ? ' sel-' + cls : '';
                             return '<button class="rec-abc-btn' + sel + '"' + (isAbsent ? ' disabled' : '') + ' onclick="recSelectABC(' + idx + ',\'' + v + '\')">' + v + '</button>';
                         }).join('')
-                        + '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                         + '</div>'
                         + '</div>';
                 } else {
                     var curVal = hasSc ? existingSc.score : '';
                     var isAbsent = !!(existingSc && existingSc.absent);
                     var isLateRec = hasSc && existingSc.lateSubmit === true;
-                    return '<div class="rec-row' + (hasSc ? ' has-score' : '') + (isAbsent ? ' absent' : '') + '" id="rec-row-' + idx + '">'
+                    // v1.14.2: ABC行・提出物一覧と同じ並び（欠席は氏名の隣に小さく／入力欄は幅いっぱい）
+                    return '<div class="rec-row sc-row' + (hasSc ? ' has-score' : '') + (isAbsent ? ' absent' : '') + '" id="rec-row-' + idx + '">'
                         + '<div class="rec-row-hd">'
                         +   '<button class="sub-row-num' + (isLateRec ? ' late-on' : '') + '" data-idx="' + idx + '">' + (isLateRec ? '遅' : (idx + 1)) + '</button>'
                         +   '<div class="sub-row-name">' + escapeHtml(stu.name || '') + '</div>'
-                        +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
+                        +   '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '"'
+                        +     ' title="' + (isAbsent ? '欠席を解除' : '欠席にする') + '"'
+                        +     ' onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                         +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
                         +   (hasSc ? '✓' : '') + '</div>'
                         + '</div>'
@@ -6920,7 +6956,6 @@
                         +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
                         +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
-                        +   '<button type="button" class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" onclick="recToggleAbsent(' + idx + ')">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                         + '</div>'
                         + '</div>';
                 }
@@ -11276,14 +11311,14 @@
                     + '<div class="sub-row-hd">'
                     +   '<button class="sub-row-num' + (isLate ? ' late-on' : '') + '" data-idx="' + i + '">' + (isLate ? '遅' : (i + 1)) + '</button>'
                     +   '<div class="sub-row-name" title="' + escapeHtml(stu.name) + '">' + escapeHtml(dispName) + '</div>'
-                    +   (isAbsent ? '<span class="sub-absent-tag">欠席</span>' : '')
+                    +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '"'
+                    +     ' title="' + (isAbsent ? '欠席を解除' : '欠席にする') + '">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                     +   '<div class="sub-row-done' + (st ? ' ok' : '') + '">' + (st ? '✓' : '') + '</div>'
                     +   '<input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '>'
                     + '</div>'
                     + '<div class="sub-status-btns">'
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'
                     +   '<button class="sub-status-btn' + (st === 'resubmit' ? ' sel-resubmit' : '') + '" data-idx="' + i + '" data-status="resubmit">△</button>'
-                    +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                     + '</div>'
                     + '</div>';
             });
@@ -11320,6 +11355,13 @@
                 });
             });
         }
+        // v1.14.1: 欠席ボタン（氏名の隣の小ボタン）の見た目を一箇所で切り替える
+        function subSetAbsentBtn(btn, on) {
+            if (!btn) return;
+            btn.classList.toggle('absent-on', !!on);
+            btn.textContent = on ? '欠席中' : '欠席';
+            btn.title = on ? '欠席を解除' : '欠席にする';
+        }
         function subSelectStatus(idx, status, lateOverride) {
             if (!subCurrentAssign) { showToast('課題を選択してください', 'warning'); return; }
             var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + idx + '"]');
@@ -11342,11 +11384,8 @@
                     if (wasSubmitted) chk.checked = false;
                 }
             }
-            // 欠席バッジ・ボタンをクリア
-            var absentTag = row.querySelector('.sub-absent-tag');
-            if (absentTag) absentTag.remove();
-            var absentBtn = row.querySelector('.sub-absent-btn');
-            if (absentBtn) { absentBtn.classList.remove('absent-on'); absentBtn.textContent = '欠席'; }
+            // 欠席ボタンをクリア
+            subSetAbsentBtn(row.querySelector('.sub-absent-btn'), false);
             var numBtn = row.querySelector('.sub-row-num');
             if (numBtn) {
                 if (status === 'submitted' || status === 'resubmit') {

@@ -8926,6 +8926,7 @@
                     '<button class="btn-rec-small goto" onclick="recSelectTestGoto(&quot;' + test.id + '&quot;)">入力</button>' +
                     '<button class="btn-rec-small edit" onclick="recEditTest(&quot;' + test.id + '&quot;)">編集</button>' +
                     (kenteiGetConfig(test) ? '<button class="btn-rec-small" onclick="recEditKenteiTable(&quot;' + test.id + '&quot;)">換算表</button>' : '') +
+                    (peRubricGetConfig(test) ? '<button class="btn-rec-small" onclick="recEditPeRubricConfig(&quot;' + test.id + '&quot;)">採点基準</button>' : '') +
                     '<button class="btn-rec-small del" onclick="recDeleteTest(&quot;' + test.id + '&quot;)">削除</button>' +
                     '</div></div>';
             }).join('');
@@ -9041,6 +9042,154 @@
             if (modal) modal.remove();
             _kenteiTableTestId = null;
         };
+
+        // ============================================================
+        // PeRubric 採点基準編集モーダル (Phase1, v1.15.0)
+        // recEditKenteiTable/recSaveKenteiTable/recKenteiRecalcScores と同じパターン。
+        // ============================================================
+        var _peRubricConfigTestId = null;
+
+        // 該当課題の全児童のscore10を再計算する。書き込みは必ずpeRubricApplyScore()を
+        // 経由し、ここで独自にsc.score10へ代入しない(完了ゲートの迂回経路を作らないため)。
+        // rubricDataを持たないレコード(未入力)はスキップする。
+        function peRubricRecalcScores(test) {
+            var cfg = peRubricGetConfig(test);
+            if (!cfg) return;
+            var scores = recGetScores();
+            var changed = false;
+            scores.forEach(function(sc) {
+                if (sc.testId !== test.id) return;
+                if (!sc.rubricData) return;
+                var result = peRubricCalcScore10(cfg, sc.rubricData);
+                peRubricApplyScore(sc, result);
+                changed = true;
+            });
+            if (changed) recSaveScores(scores);
+        }
+        window.peRubricRecalcScores = peRubricRecalcScores;
+
+        window.recEditPeRubricConfig = function(testId) {
+            testId = recParseTestId(testId);
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === testId; });
+            if (!test) return;
+            if (!test.peRubric) {
+                var pid = peRubricGetPresetId(test.peUnit);
+                if (!pid) return;
+                test.peRubric = peRubricBuildFromPreset(pid);
+                recSaveTests(tests);
+            }
+            var config = test.peRubric;
+            _peRubricConfigTestId = testId;
+
+            var inputStyle = 'width:64px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:0.82rem;';
+            var rowsHtml = '';
+            if (config.combine === 'table') {
+                rowsHtml = '<table style="width:100%;border-collapse:collapse;">' +
+                    '<thead><tr>' +
+                    '<th style="padding:4px 8px;font-size:0.78rem;color:var(--text-light);font-weight:500;">成功数</th>' +
+                    '<th style="padding:4px 8px;font-size:0.78rem;color:var(--text-light);font-weight:500;">10点換算</th>' +
+                    '</tr></thead><tbody>' +
+                    (config.conversionTable || []).map(function(row) {
+                        return '<tr>' +
+                            '<td style="padding:4px 8px;text-align:center;font-size:0.82rem;">' + row.count + '</td>' +
+                            '<td style="padding:4px 8px;text-align:center;">' +
+                            '<input type="number" min="0" max="10" step="0.1" inputmode="decimal" value="' + (row.score10 != null ? row.score10 : '') + '" ' +
+                            'data-kind="table" data-count="' + row.count + '" style="' + inputStyle + '">' +
+                            '</td></tr>';
+                    }).join('') + '</tbody></table>';
+            } else {
+                var levelRow = function(kind, itemId, lv, i) {
+                    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">' +
+                        '<span style="flex:1;font-size:0.76rem;color:var(--text-light);">' + escapeHtml(lv.label || ('レベル' + i)) + '</span>' +
+                        '<input type="number" min="0" max="10" step="0.1" inputmode="decimal" value="' + (lv.score != null ? lv.score : '') + '" ' +
+                        'data-kind="' + kind + '" data-item-id="' + itemId + '" data-level-idx="' + i + '" style="' + inputStyle + '">' +
+                        '</div>';
+                };
+                rowsHtml = (config.items || []).map(function(item) {
+                    return '<div style="margin-bottom:10px;">' +
+                        '<div style="font-weight:600;font-size:0.8rem;margin-bottom:4px;">' + escapeHtml(item.name || item.id) + '</div>' +
+                        (item.levels || []).map(function(lv, i) { return levelRow('item', item.id, lv, i); }).join('') +
+                        '</div>';
+                }).join('');
+                if (config.bonus && config.bonus.length) {
+                    rowsHtml += '<div style="font-weight:700;font-size:0.82rem;margin:8px 0 4px;color:#1565C0;">加点</div>' +
+                        config.bonus.map(function(b) {
+                            return '<div style="margin-bottom:10px;">' +
+                                '<div style="font-weight:600;font-size:0.8rem;margin-bottom:4px;">' + escapeHtml(b.name || b.id) + '</div>' +
+                                (b.levels || []).map(function(lv, i) { return levelRow('bonus', b.id, lv, i); }).join('') +
+                                '</div>';
+                        }).join('');
+                }
+            }
+
+            var existing = document.getElementById('peRubricConfigModal');
+            if (existing) existing.remove();
+            var modal = document.createElement('div');
+            modal.id = 'peRubricConfigModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
+            modal.innerHTML =
+                '<div style="background:#fff;border-radius:12px;padding:20px;width:340px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">' +
+                '<div style="font-weight:700;font-size:1rem;">採点基準の編集</div>' +
+                '<div style="font-size:0.78rem;color:var(--text-light);">' + escapeHtml(test.name) + '</div>' +
+                '<div style="font-size:0.68rem;color:#999;">本校の実態に応じた目安であり、指導要領に明記された基準ではありません。</div>' +
+                '<div style="overflow-y:auto;flex:1;min-height:0;">' + rowsHtml + '</div>' +
+                '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">' +
+                '<button onclick="recResetPeRubricConfig()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">プリセットに戻す</button>' +
+                '<button onclick="recClosePeRubricConfigModal()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">閉じる</button>' +
+                '<button onclick="recSavePeRubricConfig()" style="padding:6px 14px;border:none;border-radius:6px;font-size:0.8rem;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;">保存</button>' +
+                '</div></div>';
+            document.body.appendChild(modal);
+        };
+
+        window.recSavePeRubricConfig = function() {
+            if (_peRubricConfigTestId === null) return;
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === _peRubricConfigTestId; });
+            if (!test || !test.peRubric) return;
+            document.querySelectorAll('#peRubricConfigModal input[data-kind]').forEach(function(inp) {
+                var val = parseFloat(inp.value);
+                if (isNaN(val)) return;
+                var clipped = Math.min(10, Math.max(0, Math.round(val * 10) / 10));
+                if (inp.dataset.kind === 'table') {
+                    var count = parseInt(inp.dataset.count);
+                    var row = (test.peRubric.conversionTable || []).find(function(r) { return r.count === count; });
+                    if (row) row.score10 = clipped;
+                } else {
+                    var arr = inp.dataset.kind === 'item' ? test.peRubric.items : test.peRubric.bonus;
+                    var item = (arr || []).find(function(it) { return it.id === inp.dataset.itemId; });
+                    var idx = parseInt(inp.dataset.levelIdx);
+                    if (item && item.levels && item.levels[idx]) item.levels[idx].score = clipped;
+                }
+            });
+            recSaveTests(tests);
+            peRubricRecalcScores(test);
+            recClosePeRubricConfigModal();
+            recRenderTestList();
+        };
+
+        window.recResetPeRubricConfig = function() {
+            if (_peRubricConfigTestId === null) return;
+            var tests = recGetTests();
+            var test = tests.find(function(t) { return t.id === _peRubricConfigTestId; });
+            if (!test || !test.peRubric) return;
+            var pid = test.peRubric._presetId || test.peRubric.presetId;
+            if (!pid) return;
+            test.peRubric = peRubricBuildFromPreset(pid);
+            recSaveTests(tests);
+            peRubricRecalcScores(test);
+            recClosePeRubricConfigModal();
+            recEditPeRubricConfig(_peRubricConfigTestId);
+        };
+
+        window.recClosePeRubricConfigModal = function() {
+            var modal = document.getElementById('peRubricConfigModal');
+            if (modal) modal.remove();
+            _peRubricConfigTestId = null;
+        };
+        // ============================================================
+        // PeRubric 採点基準編集モーダル ここまで
+        // ============================================================
 
         // ============================================================
         // 初期化（view-records が表示された時）

@@ -5005,10 +5005,10 @@
     }
 
     function updateSettingsUI() {
-        var ci = master.classInfo;
-        document.getElementById('setYear').value = ci.year;
-        document.getElementById('setGrade').value = ci.grade;
-        document.getElementById('setClass').value = ci.class;
+        var ci = master.classInfo || {};
+        document.getElementById('setYear').value = ci.year || '';
+        document.getElementById('setGrade').value = ci.grade || '';
+        document.getElementById('setClass').value = ci.class || '';
         document.getElementById('setTeacher').value = ci.teacher || '';
         document.getElementById('setTermSystem').value = ci.termSystem || 3;
         var _t2El = document.getElementById('setTerm2Start'); if (_t2El) _t2El.value = ci.term2Start || '09-01';
@@ -5136,11 +5136,11 @@
     // ダッシュボード
     // ================================================================
     function updateDashboard() {
-        var ci = master.classInfo;
+        var ci = master.classInfo || {};
         document.getElementById('statStudentCount').textContent = master.students.length;
         document.getElementById('statClassInfo').textContent =
             master.students.length > 0
-                ? ci.year + '年度 ' + ci.grade + '年' + ci.class + '組'
+                ? (ci.year || '') + '年度 ' + (ci.grade || '') + '年' + (ci.class || '') + '組'
                 : '未設定';
 
         // ① 本日の出席率

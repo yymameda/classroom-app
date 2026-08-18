@@ -1,11 +1,11 @@
 // 体育「実技ルーブリック採点」(PE_RUBRIC_SPEC.md) Phase1 の機械検証。
 //
 // §1〜4は共通基盤(peRubricCalcScore10/peRubricApplyScore/入力UI/peRubricRecalcScores)を
-// 合成config直接注入で検証する(マットのプリセットはcommit5まで未実装のため)。
-// §5はソフトバレーのプリセット実配線(recAddTest()→peRubricGetPresetId→
-// peRubricBuildFromPreset経路)を実際の課題登録フォーム操作で検証する。
-// マットのプリセット実装(commit5)完了後、§1〜4のマット合成config注入ブロックも
-// §5と同様の実配線検証(recAddTest経由)に置き換えて拡張すること。
+// 合成config直接注入(MAT_CONFIG/VOLLEY_CONFIG)で検証する高速な単体テスト。
+// §5・§6はソフトバレー/マットそれぞれのプリセット実配線(recAddTest()→
+// peRubricGetPresetId→peRubricBuildFromPreset経路)を実際の課題登録フォーム
+// 操作で検証する結合テスト。単体テストは残し、実配線テストを追加する方針
+// (§1〜4を置き換えるのではなく§5・§6を積み増す)。
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
 // 実行: cd tests && node pe-rubric.test.js
@@ -293,6 +293,81 @@ const VOLLEY_CONFIG = {
         JSON.stringify(tapResult));
     check('実配線UI: 4/5タップ時点でscore10未保存、5/5成功でscore10=10',
         tapResult.partialHasScore10 === false && tapResult.fullScore10 === 10, JSON.stringify(tapResult));
+
+    // ================================================================
+    // 6. プリセット実配線検証(commit5: マット運動)
+    // ================================================================
+    const matCreated = await page.evaluate(() => {
+        document.getElementById('recTestSubject').value = '体育';
+        document.getElementById('recTestType').value = '実技記録';
+        recOnTestTypeChange();
+        document.getElementById('recTestName').value = 'マット運動(実プリセット)';
+        document.getElementById('recTestDate').value = '2026-08-19';
+        document.getElementById('recTestPeUnit').value = '実技:mat';
+        recOnPeUnitChange();
+        var catEl = document.getElementById('recTestCategory');
+        var wrap = document.getElementById('recPeDirTrialWrap');
+        var noConvertHint = document.getElementById('recPeNoConvertHint');
+        var uiState = {
+            catValue: catEl.value, catDisabled: catEl.disabled,
+            wrapHidden: wrap.style.display === 'none',
+            noConvertHintHidden: noConvertHint.style.display !== 'block'
+        };
+        recAddTest();
+        var tests = JSON.parse(StorageManager.getRaw(KEYS.tests));
+        var test = tests.find(function(t){ return t.name === 'マット運動(実プリセット)'; });
+        return { uiState: uiState, test: test };
+    });
+    check('フォーム: 実技:mat選択でカテゴリ固定・方向欄が隠れる・未対応警告なし(option追加のみで動くことの確認)',
+        matCreated.uiState.catValue === '知識・技能' && matCreated.uiState.catDisabled === true &&
+        matCreated.uiState.wrapHidden && matCreated.uiState.noConvertHintHidden, JSON.stringify(matCreated.uiState));
+    const matPr = matCreated.test.peRubric;
+    check('recAddTest(): peRubricがマットプリセットから生成される', matCreated.test && !!matPr && (matPr.presetId==='mat'||matPr._presetId==='mat'));
+    check('§4.2一致: combine=average, bonusMode=each, 4項目', matPr.combine==='average' && matPr.bonusMode==='each' && matPr.items.length===4, JSON.stringify({combine:matPr.combine,bonusMode:matPr.bonusMode,n:matPr.items.length}));
+    check('§4.2一致: ①②④のlevelsが0/6/10', ['g1','g2','g4'].every(function(id){
+        var it = matPr.items.find(function(i){return i.id===id;});
+        return JSON.stringify(it.levels.map(function(l){return l.score;})) === JSON.stringify([0,6,10]);
+    }), JSON.stringify(matPr.items.map(function(i){return {id:i.id, scores:i.levels.map(function(l){return l.score;})};})));
+    check('§4.2一致: ③のlevelsが0/10の2段階', (function(){ var g3=matPr.items.find(function(i){return i.id==='g3';}); return JSON.stringify(g3.levels.map(function(l){return l.score;}))===JSON.stringify([0,10]); })());
+    check('levelsラベル: §4.2の文言(未達成/基本安定/発展安定)と一致', matPr.items[0].levels[0].label === '未達成（3回中0〜1回成功）' &&
+        matPr.items[0].levels[1].label === '基本の技が安定してできる（3回中2回以上成功）' &&
+        matPr.items[0].levels[2].label === '発展技が安定してできる（3回中2回以上成功）',
+        JSON.stringify(matPr.items[0].levels));
+    check('§4.2一致: 加点2つ(大きな前転/前方倒立回転跳び)、各mode:level、+0.5', matPr.bonus.length===2 &&
+        matPr.bonus[0].name==='大きな前転' && matPr.bonus[0].mode==='level' && matPr.bonus[0].levels[1].score===0.5 &&
+        matPr.bonus[1].name==='前方倒立回転跳び' && matPr.bonus[1].mode==='level' && matPr.bonus[1].levels[1].score===0.5,
+        JSON.stringify(matPr.bonus));
+    check('§8受け入れ基準6: マットにも「本校の実態に応じた目安」注記', /本校の実態に応じた目安/.test(matPr.note||''));
+
+    const matTap = await page.evaluate((testId) => {
+        recSelectTestGoto(testId);
+        recPeRubricSelectLevel(1, 'items', 'g1', 1); // 6
+        recPeRubricSelectLevel(1, 'items', 'g2', 2); // 10
+        recPeRubricSelectLevel(1, 'items', 'g3', 1); // 10
+        var partial = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===1 && s.testId===testId;});
+        var partialHasScore10 = partial ? ('score10' in partial) : false;
+        recPeRubricSelectLevel(1, 'items', 'g4', 0); // 0 → 4/4完了、bonus未タップ
+        var noBonus = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===1 && s.testId===testId;});
+        var noBonusScore10 = noBonus.score10;
+        recPeRubricSelectLevel(1, 'bonus', 'b1', 1); // +0.5
+        var withBonus = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===1 && s.testId===testId;});
+        return { partialHasScore10: partialHasScore10, noBonusScore10: noBonusScore10, withBonusScore10: withBonus.score10 };
+    }, matCreated.test.id);
+    check('§7.2/一部入力: 3/4項目時点でscore10未保存(実配線)', matTap.partialHasScore10 === false, JSON.stringify(matTap));
+    check('bonus未タップでも4項目完了でcomplete扱い(実配線, score10=6.5)', matTap.noBonusScore10 === 6.5, 'got='+matTap.noBonusScore10);
+    check('§7.1検算(実配線): ①6②10③10④0+加点①のみ→7', matTap.withBonusScore10 === 7, 'got='+matTap.withBonusScore10);
+
+    const matCap = await page.evaluate((testId) => {
+        recPeRubricSelectLevel(0, 'items', 'g1', 2); // 10 (児童0は空いているのでcap検証に使う)
+        recPeRubricSelectLevel(0, 'items', 'g2', 2);
+        recPeRubricSelectLevel(0, 'items', 'g3', 1);
+        recPeRubricSelectLevel(0, 'items', 'g4', 2);
+        recPeRubricSelectLevel(0, 'bonus', 'b1', 1);
+        recPeRubricSelectLevel(0, 'bonus', 'b2', 1); // 合計11のはずが10にクリップ
+        var sr = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===0 && s.testId===testId;});
+        return { score10: sr.score10 };
+    }, matCreated.test.id);
+    check('§7.2 cap(実配線): 全項目10+加点2つ→10で頭打ち', matCap.score10 === 10, 'got='+matCap.score10);
 
     const realErrors = consoleErrors;
     check('ページ読み込み・全操作中にコンソールエラーなし(favicon.ico除く)', realErrors.length === 0, realErrors.join(' | '));

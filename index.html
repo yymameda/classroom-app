@@ -2700,6 +2700,7 @@
                                         <option value="なわとびカード">🪢 なわとびカード（級判定）</option>
                                         <option value="検定:swimming">🏊 泳力検定カード（級判定）</option>
                                         <option value="実技:volley">🏐 ソフトバレー（実技ルーブリック）</option>
+                                        <option value="実技:mat">🤸 マット運動（実技ルーブリック）</option>
                                     </select>
                                     <span id="recPeDirTrialWrap" style="display:contents;">
                                     <label style="font-size:0.78rem;">方向:</label>
@@ -7609,8 +7610,72 @@
                     { count: 0, score10: 1 }
                 ],
                 note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
+            },
+            // マットは4項目すべてmode:'level'。加点(大きな前転/前方倒立回転跳び)も
+            // level(2択)でモデル化する(§2.3の例はmode:'trial'だが、主要4項目と操作感を
+            // 揃えるため。3回試技+stableAt判定によるtrialベースの加点はvault/bar(Phase2以降)
+            // のbonusMode:'any'で必要になった時に導入する)。
+            mat: {
+                name: 'マット運動',
+                emoji: '🤸',
+                combine: 'average',
+                bonusMode: 'each',
+                cap: 10,
+                items: [
+                    {
+                        id: 'g1', name: '①前転グループ', mode: 'level',
+                        hint: '基本：前転／発展：開脚前転・倒立前転(補助あり)',
+                        levels: [
+                            { label: '未達成（3回中0〜1回成功）', score: 0 },
+                            { label: '基本の技が安定してできる（3回中2回以上成功）', score: 6 },
+                            { label: '発展技が安定してできる（3回中2回以上成功）', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'g2', name: '②後転グループ', mode: 'level',
+                        hint: '基本：後転／発展：開脚後転・伸しつ後転',
+                        levels: [
+                            { label: '未達成（3回中0〜1回成功）', score: 0 },
+                            { label: '基本の技が安定してできる（3回中2回以上成功）', score: 6 },
+                            { label: '発展技が安定してできる（3回中2回以上成功）', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'g3', name: '③倒立回転グループ', mode: 'level',
+                        hint: '側方倒立回転とび',
+                        levels: [
+                            { label: '未達成（3回中0〜1回成功）', score: 0 },
+                            { label: '安定してできる（3回中2回以上成功）', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'g4', name: '④平均立ちグループ', mode: 'level',
+                        hint: '基本：壁倒立／発展：頭倒立',
+                        levels: [
+                            { label: '未達成（3回中0〜1回成功）', score: 0 },
+                            { label: '基本の技が安定してできる（3回中2回以上成功）', score: 6 },
+                            { label: '発展技が安定してできる（3回中2回以上成功）', score: 10 }
+                        ]
+                    }
+                ],
+                bonus: [
+                    {
+                        id: 'b1', name: '大きな前転', mode: 'level',
+                        levels: [
+                            { label: '未達成', score: 0 },
+                            { label: '安定してできる（3回中2回以上成功）', score: 0.5 }
+                        ]
+                    },
+                    {
+                        id: 'b2', name: '前方倒立回転跳び', mode: 'level',
+                        levels: [
+                            { label: '未達成', score: 0 },
+                            { label: '安定してできる（3回中2回以上成功）', score: 0.5 }
+                        ]
+                    }
+                ],
+                note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
             }
-            // マット運動(4.2)は後続コミットで追加
         };
 
         // peUnit文字列 → プリセットID。'実技:xxx' 形式のみ対象('検定:'はkenteiGetPresetId側)。

@@ -1037,6 +1037,55 @@
             padding: 0;
         }
 
+        /* ===== PeRubric(実技ルーブリック採点) CSS (Phase1, v1.15.0) ===== */
+        /* PE_RUBRIC_SPEC.md §3.1: 児童1人＝1カード、タップ対象は最低44px四方 */
+        .rec-list.pr-mode { grid-template-columns: 1fr !important; gap: 10px; padding: 8px; }
+        .rec-pr-card {
+            background: #FAFAFA; border: 2px solid var(--border); border-radius: 10px;
+            padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+        }
+        .rec-pr-card.complete { background: #E8F5E9; border-color: #4CAF50; }
+        .rec-pr-hd { display: flex; align-items: center; gap: 8px; }
+        .rec-pr-num {
+            color: #fff; background: #90A4AE; border-radius: 50%;
+            width: 22px; height: 22px; min-width: 22px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+        }
+        .rec-pr-num.has { background: #4CAF50; }
+        .rec-pr-name { font-size: 0.85rem; font-weight: 700; flex: 1; }
+        .rec-pr-badge {
+            font-size: 0.66rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; flex-shrink: 0;
+        }
+        .rec-pr-badge.done { background: #4CAF50; color: #fff; }
+        .rec-pr-badge.pending { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; }
+        .rec-pr-item { border-top: 1px solid #eee; padding-top: 6px; }
+        .rec-pr-item-name { font-size: 0.78rem; font-weight: 600; color: #444; margin-bottom: 4px; }
+        .rec-pr-score { font-size: 0.7rem; color: #666; font-weight: 700; margin-left: 6px; }
+        .rec-pr-item-hint { font-size: 0.66rem; color: #888; margin-bottom: 4px; }
+        .rec-pr-level-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .rec-pr-level-btn {
+            min-width: 44px; min-height: 44px; padding: 6px 10px; border: 2px solid #ddd;
+            border-radius: 8px; background: #fff; font-size: 0.72rem; cursor: pointer;
+            font-family: inherit;
+        }
+        .rec-pr-level-btn.sel { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
+        .rec-pr-trial-block { margin-bottom: 4px; }
+        .rec-pr-trial-label { font-size: 0.68rem; color: #666; margin-bottom: 2px; }
+        .rec-pr-trial-row { display: flex; gap: 4px; flex-wrap: wrap; }
+        .rec-pr-trial-btn {
+            width: 44px; height: 44px; border: 2px solid #ddd; border-radius: 8px;
+            background: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; font-family: inherit;
+        }
+        .rec-pr-trial-btn.ok { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; }
+        .rec-pr-trial-btn.ng { background: #EEEEEE; border-color: #BDBDBD; color: #757575; }
+        .rec-pr-bonus-label { font-size: 0.68rem; color: #1565C0; font-weight: 700; margin-top: 2px; }
+        .rec-pr-note { font-size: 0.62rem; color: #999; }
+        .rec-pr-summary { font-size: 0.8rem; font-weight: 700; text-align: right; padding-top: 6px; border-top: 2px solid #eee; }
+        .rec-pr-summary.pending { color: #E65100; }
+        .rec-pr-summary.done { color: #2E7D32; }
+
         /* ===== 机間巡視 CSS ===== */
         .patrol-container { max-width: 900px; margin: 0 auto; padding: 0.5rem; }
         .patrol-header { background: var(--white); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
@@ -6879,28 +6928,37 @@
             var isMatome = test.type === 'matome';
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && kenteiGetPresetId(test.peUnit) !== null;
+            var isPeRubric = isPE && peRubricGetPresetId(test.peUnit) !== null;
             // v1.14.3: 「点」以外の非検定単位はpeRecordToScore10()で10点換算が未実装(null=未評価)。
             // 入力自体はできるが成績に反映されないため、入力画面で警告する。
             var peUnconvertedBanner = document.getElementById('recPeNoConvertBanner');
-            if (peUnconvertedBanner) peUnconvertedBanner.style.display = (isPE && !isNawatobi && test.peUnit !== '点') ? '' : 'none';
-            // nw-modeクラスで列数レイアウト制御
+            if (peUnconvertedBanner) peUnconvertedBanner.style.display = (isPE && !isNawatobi && !isPeRubric && test.peUnit !== '点') ? '' : 'none';
+            // nw-mode/pr-modeクラスで列数レイアウト制御
             var bw = document.getElementById('recBulkWrap');
             var subInput = document.getElementById('rec-sub-input');
             var viewRec = document.getElementById('view-records');
             if (isNawatobi) {
                 list.classList.add('nw-mode');
+                list.classList.remove('pr-mode');
                 if (bw) bw.classList.add('nw-active');
                 if (subInput) subInput.classList.add('nw-fullscreen');
                 if (viewRec) viewRec.classList.add('nw-view');
+            } else if (isPeRubric) {
+                list.classList.add('pr-mode');
+                list.classList.remove('nw-mode');
+                if (bw) bw.classList.remove('nw-active');
+                if (subInput) subInput.classList.remove('nw-fullscreen');
+                if (viewRec) viewRec.classList.remove('nw-view');
             } else {
                 list.classList.remove('nw-mode');
+                list.classList.remove('pr-mode');
                 if (bw) bw.classList.remove('nw-active');
                 if (subInput) subInput.classList.remove('nw-fullscreen');
                 if (viewRec) viewRec.classList.remove('nw-view');
             }
             list.style.gridTemplateColumns = '';
 
-            var _recIsRegular = !isNawatobi && !isABC && !isMatome;
+            var _recIsRegular = !isNawatobi && !isPeRubric && !isABC && !isMatome;
             list.innerHTML = students.map(function(stu, idx) {
                 var existingSc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
                 var hasSc = existingSc !== undefined;
@@ -6928,6 +6986,8 @@
                         dispVal + '</button>' + catHtml + '</div>';
                 } else if (isNawatobi) {
                     return recBuildNawatobiCard(test, scores, idx, stu);
+                } else if (isPeRubric) {
+                    return recBuildPeRubricCard(test, scores, idx, stu);
                 } else if (isABC) {
                     var curAbc = existingSc ? existingSc.score : '';
                     var isAbsent = !!(existingSc && existingSc.absent);
@@ -7648,9 +7708,25 @@
             return { itemScores: itemScores, bonus: bonusTotal, total: total, complete: allComplete };
         }
 
+        // peRubricCalcScore10()の結果をscoreレコードに反映する唯一の書き込み口。
+        // 責務は「completeを見てscore10/scoreを書く、または削除する」だけに限定する。
+        // 計算(peRubricCalcScore10)も再描画もここでは行わない(呼び出し側の責務)。
+        // タップハンドラ・peRubricRecalcScores()の両方が必ずこれを経由すること
+        // (書き込み判定が分岐ごとに重複すると、どちらかだけ完了ゲートを迂回する経路ができるため)。
+        function peRubricApplyScore(sr, result) {
+            if (result && result.complete) {
+                sr.score10 = result.total;
+                sr.score = result.total;
+            } else {
+                delete sr.score10;
+                delete sr.score;
+            }
+        }
+
         window.peRubricGetConfig = peRubricGetConfig;
         window.peRubricGetPresetId = peRubricGetPresetId;
         window.peRubricCalcScore10 = peRubricCalcScore10;
+        window.peRubricApplyScore = peRubricApplyScore;
         // ============================================================
         // PeRubric 共通モジュール ここまで
         // ============================================================
@@ -7783,6 +7859,139 @@
                 });
             });
         }
+
+        // ============================================================
+        // PeRubric 入力UI (Phase1, v1.15.0)
+        // recBuildNawatobiCard()のパターン(○×タップ)を流用しつつ、level/trialモードの
+        // 汎用レンダラとして拡張。児童1人＝1カード(PE_RUBRIC_SPEC.md §3.1)。
+        // ============================================================
+
+        // item(またはbonus)1件のスコア表示付き入力行を描画する。
+        function recPeRubricRenderItemRow(studentIndex, section, item, idata, scoreInfo) {
+            var scoreLabel = (scoreInfo && scoreInfo.complete && typeof scoreInfo.score === 'number')
+                ? ('<span class="rec-pr-score">' + scoreInfo.score + '点</span>')
+                : '<span class="rec-pr-score">—</span>';
+            var body = '';
+            if (item.mode === 'level') {
+                body = '<div class="rec-pr-level-row">' + (item.levels || []).map(function(lv, i) {
+                    var sel = (idata === i) ? ' sel' : '';
+                    var label = lv.label || (lv.score + '点');
+                    return '<button type="button" class="rec-pr-level-btn' + sel + '"' +
+                        ' onclick="recPeRubricSelectLevel(' + studentIndex + ',\x27' + section + '\x27,\x27' + item.id + '\x27,' + i + ')">' +
+                        escapeHtml(label) + '</button>';
+                }).join('') + '</div>';
+            } else if (item.mode === 'trial') {
+                body = (item.blocks || []).map(function(b) {
+                    var arr = (idata && idata[b.id]) || [];
+                    var btns = '';
+                    for (var i = 0; i < b.trials; i++) {
+                        var v = arr[i];
+                        var cls = v === 1 ? ' ok' : v === 0 ? ' ng' : '';
+                        var label = v === 1 ? '○' : v === 0 ? '×' : '';
+                        btns += '<button type="button" class="rec-pr-trial-btn' + cls + '"' +
+                            ' onclick="recPeRubricToggleTrial(' + studentIndex + ',\x27' + section + '\x27,\x27' + item.id + '\x27,\x27' + b.id + '\x27,' + i + ')">' +
+                            label + '</button>';
+                    }
+                    return '<div class="rec-pr-trial-block">' +
+                        (b.name ? '<div class="rec-pr-trial-label">' + escapeHtml(b.name) + '</div>' : '') +
+                        '<div class="rec-pr-trial-row">' + btns + '</div></div>';
+                }).join('');
+            }
+            return '<div class="rec-pr-item">' +
+                '<div class="rec-pr-item-name">' + escapeHtml(item.name || '') + scoreLabel + '</div>' +
+                (item.hint ? '<div class="rec-pr-item-hint">' + escapeHtml(item.hint) + '</div>' : '') +
+                body +
+                '</div>';
+        }
+
+        function recBuildPeRubricCard(test, scores, idx, stu) {
+            var config = peRubricGetConfig(test);
+            if (!config) return '';
+            var sr = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+            var rubricData = (sr && sr.rubricData) || { items: {}, bonus: {} };
+            var result = peRubricCalcScore10(config, rubricData);
+
+            var itemsHtml = (config.items || []).map(function(item, i) {
+                var idata = (rubricData.items || {})[item.id];
+                return recPeRubricRenderItemRow(idx, 'items', item, idata, result.itemScores[i]);
+            }).join('');
+
+            var bonusHtml = '';
+            if (config.bonus && config.bonus.length) {
+                var bonusRows = config.bonus.map(function(b) {
+                    var bd = (rubricData.bonus || {})[b.id];
+                    var r = peRubricCalcItemScore(b, bd);
+                    return recPeRubricRenderItemRow(idx, 'bonus', b, bd, r);
+                }).join('');
+                bonusHtml = '<div class="rec-pr-bonus-label">加点（挑戦した子だけでOK。挑戦しなくても確定に影響しません）</div>' + bonusRows;
+            }
+
+            var summaryText = result.complete
+                ? ('確定: ' + result.total + '点')
+                : (result.total !== null ? ('入力中(未完了・参考値): ' + result.total + '点') : '未入力');
+            var summaryClass = result.complete ? 'done' : 'pending';
+
+            return '<div class="rec-pr-card' + (result.complete ? ' complete' : '') + '" id="rec-row-' + idx + '">' +
+                '<div class="rec-pr-hd">' +
+                '<div class="rec-pr-num' + (result.complete ? ' has' : '') + '">' + (idx + 1) + '</div>' +
+                '<div class="rec-pr-name">' + escapeHtml(stu.name || '') + '</div>' +
+                '<div class="rec-pr-badge ' + (result.complete ? 'done' : 'pending') + '">' + (result.complete ? '✓ 確定' : '入力中') + '</div>' +
+                '</div>' +
+                itemsHtml + bonusHtml +
+                (config.note ? '<div class="rec-pr-note">' + escapeHtml(config.note) + '</div>' : '') +
+                '<div class="rec-pr-summary ' + summaryClass + '">' + summaryText + '</div>' +
+                '</div>';
+        }
+
+        // rubricDataの変更(mutateFn)→再計算→保存(peRubricApplyScore経由)→該当カードのみ再描画、
+        // という一連の流れを一箇所に集約する。level選択・trialタップの両ハンドラがこれを経由する。
+        function recPeRubricUpdate(studentIndex, mutateFn) {
+            if (!recCurrentTestId) return;
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!test) return;
+            var config = peRubricGetConfig(test);
+            if (!config) return;
+            var scores = recGetScores();
+            var ei = scores.findIndex(function(s) { return s.studentIndex === studentIndex && s.testId === recCurrentTestId; });
+            var sr = ei >= 0 ? scores[ei] : { id: Date.now(), studentIndex: studentIndex, testId: recCurrentTestId, createdAt: new Date().toISOString() };
+            if (!sr.rubricData) sr.rubricData = { items: {}, bonus: {} };
+            mutateFn(sr.rubricData);
+            var result = peRubricCalcScore10(config, sr.rubricData);
+            peRubricApplyScore(sr, result);
+            if (ei >= 0) scores[ei] = sr; else scores.push(sr);
+            recSaveScores(scores);
+
+            var card = document.getElementById('rec-row-' + studentIndex);
+            var stu = recGetStudents()[studentIndex];
+            if (card && stu) card.outerHTML = recBuildPeRubricCard(test, scores, studentIndex, stu);
+            recUpdateProgressByCount();
+        }
+
+        // levelモードのボタンタップ。1タップで即確定(3状態サイクルは不要)。
+        window.recPeRubricSelectLevel = function(studentIndex, section, itemId, levelIndex) {
+            recPeRubricUpdate(studentIndex, function(rd) {
+                rd[section] = rd[section] || {};
+                rd[section][itemId] = levelIndex;
+            });
+        };
+
+        // trialモードのタップ。3状態サイクル: 未実施(未定義) → ○(1) → ×(0) → 未実施。
+        // 2状態トグルにしないのは、未実施と×(明示的な失敗)を区別するため
+        // (PE_RUBRIC_SPEC.md §2.6: これを怠ると部分入力の生カウントが完了時の値と混同される)。
+        window.recPeRubricToggleTrial = function(studentIndex, section, itemId, blockId, trialIndex) {
+            recPeRubricUpdate(studentIndex, function(rd) {
+                rd[section] = rd[section] || {};
+                rd[section][itemId] = rd[section][itemId] || {};
+                var arr = (rd[section][itemId][blockId] || []).slice();
+                var cur = arr[trialIndex];
+                var next = (cur === 1) ? 0 : (cur === 0) ? null : 1;
+                arr[trialIndex] = next;
+                rd[section][itemId][blockId] = arr;
+            });
+        };
+        // ============================================================
+        // PeRubric 入力UI ここまで
+        // ============================================================
 
         window.recOnScoreInput = function(idx) {
             var input = document.getElementById('rec-sc-' + idx);

@@ -2551,6 +2551,7 @@
                                     <button onclick="recClearAllScores()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--text-light);border-radius:6px;color:var(--text-light);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">全クリア</button>
                                 </div>
                             </div>
+                            <div id="recPeNoConvertBanner" style="display:none;background:#FFF3E0;color:#E65100;border:1.5px solid #FFCC80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;">⚠️ この単位（秒・回・m・cm）は現在10点換算に未対応です。記録は保存されますが、成績には反映されません。</div>
                             <div class="rec-list" id="recList"></div>
                             <div class="rec-save-bar">
                                 <button class="btn-rec-primary" onclick="recSaveAllScores()">💾 まとめて保存</button>
@@ -2644,7 +2645,7 @@
                                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                                     <label style="font-size:0.78rem;">単位:</label>
                                     <select id="recTestPeUnit" onchange="recOnPeUnitChange()" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
-                                        <option value="秒">タイム（秒）</option><option value="分秒">タイム（分:秒）</option>
+                                        <option value="秒">タイム（秒）</option>
                                         <option value="回">回数（回）</option><option value="m">距離（m）</option>
                                         <option value="cm">距離（cm）</option><option value="点">得点（点）</option>
                                         <option value="なわとびカード">🪢 なわとびカード（級判定）</option>
@@ -2662,6 +2663,7 @@
                                     <span style="font-size:0.78rem;">回</span>
                                     </span>
                                     <span id="recPeKenteiHint" style="display:none;font-size:0.74rem;color:#2E7D32;">📋 技をタップで級判定→10点換算。観点は「知識・技能」に自動設定されます</span>
+                                    <span id="recPeNoConvertHint" style="display:none;font-size:0.74rem;color:#E65100;">⚠️ この単位はまだ10点換算に未対応です。入力値は保存されますが成績には反映されません（今後のアップデートで対応予定）</span>
                                 </div>
                             </div>
                             <!-- ルーブリック入力フィールド -->
@@ -6867,6 +6869,10 @@
             var isMatome = test.type === 'matome';
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && kenteiGetPresetId(test.peUnit) !== null;
+            // v1.14.3: 「点」以外の非検定単位はpeRecordToScore10()で10点換算が未実装(null=未評価)。
+            // 入力自体はできるが成績に反映されないため、入力画面で警告する。
+            var peUnconvertedBanner = document.getElementById('recPeNoConvertBanner');
+            if (peUnconvertedBanner) peUnconvertedBanner.style.display = (isPE && !isNawatobi && test.peUnit !== '点') ? '' : 'none';
             // nw-modeクラスで列数レイアウト制御
             var bw = document.getElementById('recBulkWrap');
             var subInput = document.getElementById('rec-sub-input');
@@ -7189,26 +7195,35 @@
                 var avg = (vals.reduce(function(a,b){return a+b;},0)/vals.length).toFixed(1);
                 var maxV = Math.max.apply(null,vals);
                 var minV = Math.min.apply(null,vals);
-                var perfectCount = present.filter(function(s){return s.score===test.maxScore;}).length;
+                // v1.14.3: 実技記録(検定型以外)は recAddTest() が maxScore を常に9999で保存するため、
+                // 「満点」判定・100点満点前提の分布バーはどちらも無意味(旧BUG: 7211行 pct=maxScore/100 が9999で破綻)。
+                var isPeNoMax = test.testType === '実技記録';
+                var perfectCount = isPeNoMax ? 0 : present.filter(function(s){return s.score===test.maxScore;}).length;
 
                 grid.innerHTML = statCard(avg,'平均点') + statCard(maxV,'最高点','#27AE60') +
                     statCard(minV,'最低点','#E74C3C') + statCard(present.length+'/'+students.length,'入力済み') +
-                    statCard(perfectCount+'人','満点','#27AE60') +
+                    (isPeNoMax ? '' : statCard(perfectCount+'人','満点','#27AE60')) +
                     (absentCount > 0 ? statCard(absentCount+'人','欠席','#9E9E9E') : '');
 
-                // 点数分布
-                var ranges = [
-                    {label:'0-49',min:0,max:49},{label:'50-59',min:50,max:59},
-                    {label:'60-69',min:60,max:69},{label:'70-79',min:70,max:79},
-                    {label:'80-89',min:80,max:89},{label:'90-100',min:90,max:100}
-                ];
-                var pct = test.maxScore/100;
-                var dist = ranges.map(function(r){
-                    return {label:r.label, count:vals.filter(function(v){return v>=r.min*pct&&v<=r.max*pct;}).length};
-                });
-                var maxBar = Math.max.apply(null, dist.map(function(d){return d.count;}).concat([1]));
-                bar.innerHTML = dist.map(function(d){return barItem(d.count,d.label,maxBar);}).join('');
-                chartWrap.style.display = '';
+                if (isPeNoMax) {
+                    // 実技記録は単位によって値のスケールがバラバラ(秒/回/m/cm/点)で、100点満点前提の区分分けが成立しない。
+                    // 分布バーそのものを非表示にする。
+                    chartWrap.style.display = 'none';
+                } else {
+                    // 点数分布
+                    var ranges = [
+                        {label:'0-49',min:0,max:49},{label:'50-59',min:50,max:59},
+                        {label:'60-69',min:60,max:69},{label:'70-79',min:70,max:79},
+                        {label:'80-89',min:80,max:89},{label:'90-100',min:90,max:100}
+                    ];
+                    var pct = test.maxScore/100;
+                    var dist = ranges.map(function(r){
+                        return {label:r.label, count:vals.filter(function(v){return v>=r.min*pct&&v<=r.max*pct;}).length};
+                    });
+                    var maxBar = Math.max.apply(null, dist.map(function(d){return d.count;}).concat([1]));
+                    bar.innerHTML = dist.map(function(d){return barItem(d.count,d.label,maxBar);}).join('');
+                    chartWrap.style.display = '';
+                }
                 if (devWrap) {
                     devWrap.innerHTML = recRenderDeviationList(recDeviationStats(testId));
                     devWrap.style.display = '';
@@ -7360,11 +7375,23 @@
                     if (stage >= 19) return 'マスター' + (25 - stage);  // 19→M6 ... 24→M1
                     return (19 - stage) + '級';                          // 1→18級 ... 18→1級
                 },
-                // 換算表プリセット: 倍率1(上から10、下を0)
+                // 換算表プリセット v1.14.3: 体育科実技ルーブリック仕様書4.6の段階表に準拠。
+                // 0:1点 / 1-6(18-13級):2点 / 7-12(12-7級):4点 / 13-14(6-5級):7点 /
+                // 15-16(4-3級):8点 / 17-18(2-1級):9点 / 19-24(マスター6-1):10点
+                // 本校の実態に応じた目安であり、指導要領に明記された基準ではない(3.4の編集UIで調整可能)。
                 defaultConversionTable: function() {
                     var self = this; var table = []; var maxStage = 24;
+                    function bandScore10(stage) {
+                        if (stage <= 0) return 1;
+                        if (stage <= 6) return 2;
+                        if (stage <= 12) return 4;
+                        if (stage <= 14) return 7;
+                        if (stage <= 16) return 8;
+                        if (stage <= 18) return 9;
+                        return 10;
+                    }
                     for (var stage = 0; stage <= maxStage; stage++) {
-                        var score10 = Math.round((stage / maxStage) * 10 * 10) / 10;
+                        var score10 = bandScore10(stage);
                         table.push({ stage: stage, label: self.stageToLabel(stage), score10: score10 });
                     }
                     return table;
@@ -8017,8 +8044,11 @@
             var isKentei = kenteiGetPresetId(unitEl.value) !== null;
             var wrap = document.getElementById('recPeDirTrialWrap');
             var hint = document.getElementById('recPeKenteiHint');
+            var noConvertHint = document.getElementById('recPeNoConvertHint');
             if (wrap) wrap.style.display = isKentei ? 'none' : 'contents';
             if (hint) hint.style.display = isKentei ? 'block' : 'none';
+            // v1.14.3: 「点」以外の非検定単位は10点換算が未実装(peRecordToScore10)。黙って0点にせずUIで警告する。
+            if (noConvertHint) noConvertHint.style.display = (!isKentei && unitEl.value !== '点') ? 'block' : 'none';
             var catEl = document.getElementById('recTestCategory');
             if (catEl && document.getElementById('recTestType').value === '実技記録') {
                 if (isKentei) {
@@ -8383,7 +8413,18 @@
             recOnTestTypeChange();
             if (test.testType === '実技記録') {
                 // バグ修正: 編集時に単位・方向・計測が復元されず「秒」に戻っていた
-                var _uEl = document.getElementById('recTestPeUnit');      if (_uEl) _uEl.value = test.peUnit || '秒';
+                var _uEl = document.getElementById('recTestPeUnit');
+                if (_uEl) {
+                    // v1.14.3: 「分秒」は number入力+parseFloatでは "1:20"→誤値になるため選択肢から削除。
+                    // 既存データがこの単位で残っていた場合に備え、編集画面でだけ選択肢を復元して表示を維持する。
+                    if (test.peUnit === '分秒' && !_uEl.querySelector('option[value="分秒"]')) {
+                        var _legacyOpt = document.createElement('option');
+                        _legacyOpt.value = '分秒';
+                        _legacyOpt.textContent = 'タイム（分:秒）※廃止・編集非推奨';
+                        _uEl.appendChild(_legacyOpt);
+                    }
+                    _uEl.value = test.peUnit || '秒';
+                }
                 var _dEl = document.getElementById('recTestPeDirection'); if (_dEl) _dEl.value = test.peDirection || 'lower';
                 var _tEl = document.getElementById('recTestPeTrials');    if (_tEl) _tEl.value = test.peTrials || 1;
                 recOnPeUnitChange();
@@ -12716,8 +12757,20 @@
             }
             // === 以下、従来の実技記録ロジック(変更なし) ===
             if (sr.score === null || sr.score === undefined) return null;
+            // レガシー経路・新規作成不可: recTestPeUnit セレクトに「タイム差」の選択肢は無く、
+            // 2026-08時点でコード上に代入箇所も無い(grep確認済)。過去バージョンで作成された
+            // 既存データが実機に残っている可能性を排除できないため、ロジックには一切触れない。
             if (test.peUnit === 'タイム差') { var s = sr.finalScore !== undefined ? sr.finalScore : sr.score; return s !== null ? Math.min(10, s) : null; }
             if (test.peUnit === '回' && sr.peManualABC) return sr.peManualABC === 'A' ? 10 : sr.peManualABC === 'B' ? 7 : 3;
+            if (test.testType === '実技記録') {
+                // v1.14.3: recAddTest() は実技記録の maxScore を常に9999で保存するため(検定カード以外)、
+                // 下の generic 除算(score/max*10)を使うと実質すべて0点になっていた(旧BUG)。
+                // 「点」は10点満点の値として直接入力される単位なのでそのまま採用する。
+                if (test.peUnit === '点' && typeof sr.score === 'number') return Math.min(10, Math.round(sr.score * 10) / 10);
+                // 秒・回(ABC未入力)・m・cm・分秒(廃止): 10点換算方法が未定義。
+                // 黙って0点として平均に混入させないよう、未評価(null)として扱う。UI側は recPeNoConvertHint で警告表示。
+                return null;
+            }
             var max = test.maxScore || 10;
             if (max > 0 && typeof sr.score === 'number') return Math.min(10, Math.round(sr.score / max * 10 * 10) / 10);
             return null;
@@ -14016,18 +14069,31 @@
                 { key: 'thinking',  label: '📙 思考・判断・表現', items: defs.thinking,  color: '#E65100', bg: '#FFF3E0' },
                 { key: 'attitude',  label: '📗 主体性', items: defs.attitude,  color: '#2E7D32', bg: '#E8F5E9' }
             ];
+            // v1.14.3: 実技記録で検定型でなく単位が「点」でない項目は peRecordToScore10() が常にnullを返す(10点換算未対応)。
+            // 重みを設定しても成績に反映されないため、傾斜配分タブ(教員向けのライブ画面。印刷帳票ではない)でその場で警告する。
+            // 判定ロジックは grdItemConversionDesc() (index.html:14021) と同じ grdFindTestByItemKey() + kenteiGetConfig() を再利用。
+            function _isPeUnconverted(item) {
+                if (item.type !== '実技記録') return false;
+                var t = grdFindTestByItemKey(subject, item.itemKey);
+                return !!(t && !kenteiGetConfig(t) && t.peUnit !== '点');
+            }
             var html = '';
             cats.forEach(function(cat) {
                 if (!cat.items.length) return;
                 var eq = Math.round(100 / cat.items.length * 10) / 10;
+                var noConvertCount = cat.items.filter(_isPeUnconverted).length;
                 html += '<div style="margin-bottom:16px;">';
                 html += '<div style="padding:7px 10px;border-radius:6px;background:'+cat.bg+';color:'+cat.color+';font-size:0.88rem;font-weight:700;margin-bottom:6px;">'+cat.label+'（'+cat.items.length+'項目 / 均等'+eq+'%）</div>';
+                if (noConvertCount > 0) {
+                    html += '<div style="padding:5px 10px;border-radius:6px;background:#FFF3E0;color:#E65100;font-size:0.78rem;margin-bottom:6px;">⚠️ 換算未対応の項目が'+noConvertCount+'件あります（重みを設定しても成績には反映されません）</div>';
+                }
                 var lastType = null;
                 cat.items.forEach(function(item) {
                     if (item.type !== lastType) { lastType = item.type; html += '<div style="font-size:0.72rem;font-weight:600;color:var(--text-light);padding:3px 6px;background:var(--bg);border-bottom:1px solid var(--border);">'+(item.type||'その他')+'</div>'; }
                     var dw = item.weight !== null ? item.weight : eq;
+                    var noConvertBadge = _isPeUnconverted(item) ? ' <span style="font-size:0.72rem;color:#E65100;" title="この単位は10点換算に未対応です。重みを設定しても成績には反映されません">⚠️換算未対応</span>' : '';
                     html += '<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;border-bottom:1px solid #f0f0f0;flex-wrap:wrap;">';
-                    html += '<span style="flex:1;min-width:80px;font-size:0.82rem;">'+escapeHtml(item.name)+'</span>';
+                    html += '<span style="flex:1;min-width:80px;font-size:0.82rem;">'+escapeHtml(item.name)+noConvertBadge+'</span>';
                     html += '<input type="range" min="0" max="100" step="1" value="'+dw+'" data-cat="'+cat.key+'" data-key="'+item.itemKey+'" class="grd-w-sl" style="flex:0 0 90px;accent-color:'+cat.color+';">';
                     html += '<input type="number" min="0" max="100" step="0.1" inputmode="decimal" value="'+dw+'" data-cat="'+cat.key+'" data-key="'+item.itemKey+'" class="grd-w-inp" style="width:50px;padding:3px;border:1px solid var(--border);border-radius:4px;text-align:center;font-size:0.82rem;">';
                     html += '<span style="font-size:0.8rem;">%</span></div>';

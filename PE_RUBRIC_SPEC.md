@@ -598,6 +598,7 @@ Phase 1のルーブリックカードには実装しない（§7.3参照）。
 ### 別タスク（PE機能とは無関係・未着手の既知不具合）
 - `recToggleAbsent()` の破壊的挙動（欠席化でレコード全体を置換、解除で削除。ルーブリックの `rubricData` に限らず既存の全カードで、欠席往復により入力途中のデータが失われる）
 - `saveMasterRoster()` の既定値捏造（学年・組の入力欄が空欄のまま保存されると、`parseInt(...) || 4` / `parseInt(...) || 1` により「4年1組」が実際の学級と無関係に `master.classInfo` へ書き込まれ、`saveMaster()` で永続化される。修正には空欄バリデーションとUI変更が必要。`loadMaster()`（v1.14.5）はこの問題を再現していない — `classInfo` を空オブジェクトに正規化するのみで、既定値は代入しない）
+- `tests/emptystate.test.js` のpuppeteer-core方式への書き換え（現状 `jsdom` 未インストールで実行不能。undo機構の配線・実データ往復5系統・`emptyState()` のHTMLエスケープ含む15ケースを他テストと同じ `page.evaluate()` 方式に移植する。PE機能とは無関係のため別タスクとする）
 
 ### コミット分割
 0. `docs: PE_RUBRIC_SPEC.md 改訂(完了ゲート/未完了一覧/Phase1範囲拡大)`

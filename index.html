@@ -7606,7 +7606,9 @@
                 var r = peRubricCalcItemScore(b, bdata);
                 return { id: b.id, score: r.score, complete: r.complete };
             });
-            var bonusAllComplete = bonusResults.every(function(r) { return r.complete; });
+            // v1.15.0: bonusは完了条件に含めない(PE_RUBRIC_SPEC.md §2.6参照)。
+            // 加点技は全員が挑戦するとは限らず、未評価を「未完了」にすると挑戦しなかった
+            // 児童が永久にcomplete=falseのままになり、score10が保存されなくなる。
             var bonusTotal = 0;
             if (config.bonusMode === 'each') {
                 bonusResults.forEach(function(r) { if (r.complete && r.score) bonusTotal += r.score; });
@@ -7620,11 +7622,10 @@
                 var idata = itemsData[item.id];
                 var t = peRubricTrialStatus(item, idata);
                 var row = (config.conversionTable || []).find(function(r) { return r.count === t.successCount; });
-                var complete = t.complete && bonusAllComplete;
                 var total = t.complete && row ? Math.min(config.cap || 10, Math.round((row.score10 + bonusTotal) * 100) / 100) : null;
                 return {
                     itemScores: [{ id: item.id, successCount: t.successCount, complete: t.complete }],
-                    bonus: bonusTotal, total: complete ? total : null, complete: complete
+                    bonus: bonusTotal, total: t.complete ? total : null, complete: t.complete
                 };
             }
 
@@ -7640,7 +7641,7 @@
                 else { sum += r.score; n++; }
             });
             var avg = n > 0 ? sum / n : null;
-            var allComplete = itemsAllComplete && bonusAllComplete;
+            var allComplete = itemsAllComplete;
             var total = (allComplete && avg !== null)
                 ? Math.min(config.cap || 10, Math.round((avg + bonusTotal) * 100) / 100)
                 : null;

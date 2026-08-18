@@ -203,6 +203,8 @@ test.peRubric = {
 > - テスト全体としては、`test.peRubric.items` の**全item**が完了して初めて「全項目完了」
 >
 > **確定値の保存条件**: `peRubricCalcScore10()` は常に `{ itemScores, bonus, total, complete }` を返す。`complete` が false でも `total` は計算する（§3.3のリアルタイム表示用プレビュー）。**`sr.score10`／`sr.score` に書き込むのは `complete === true` のときのみ。** `complete === false` の間はこの2キーを保存しない。既存の値があれば、入力を取り消して未完了に戻した時点で削除する。一部入力時の平均値はUIのプレビュー表示にのみ使い、確定値としては一切保存・出力しない。
+>
+> **bonus は完了条件に含めない**（加点技は全員が実施するとは限らないため。未評価は加点なしとして扱う）。主要itemと違い、加点は「できる子だけが挑戦する」性質のものであり、これを完了条件に含めると挑戦しなかった児童が永久に `complete=false` のままになり、`score10` が保存されなくなる（＝知識・技能の母数から静かに外れる）。`complete` は `test.peRubric.items` の全item完了のみで判定し、`config.bonus` の各エントリは未評価なら単に加点0として扱う。
 
 ---
 

@@ -7509,6 +7509,151 @@
         // KenteiCard 共通モジュール ここまで
         // ============================================================
 
+        // ============================================================
+        // PeRubric 共通モジュール (Phase 1, v1.15.0)
+        // 体育「実技ルーブリック採点」(ソフトバレー・マット運動など)の汎用基盤。
+        // PE_RUBRIC_SPEC.md 参照。プリセット定義は §4 のフェーズごとに追加していく
+        // (Phase1: volley/mat。number/compositeモードはPhase3/4で追加)。
+        // ============================================================
+        var PeRubricPresets = {
+            // ソフトバレー(4.1)・マット運動(4.2)は後続コミットで追加
+        };
+
+        // peUnit文字列 → プリセットID。'実技:xxx' 形式のみ対象('検定:'はkenteiGetPresetId側)。
+        function peRubricGetPresetId(peUnit) {
+            if (!peUnit) return null;
+            if (peUnit.indexOf('実技:') === 0) return peUnit.substring(3);
+            return null;
+        }
+
+        // テストオブジェクト → peRubric config。test.peRubricがあれば優先(課題ごとのスナップショット)、
+        // なければプリセットから構築(kenteiGetConfig()と同じパターン)。
+        function peRubricGetConfig(test) {
+            if (!test) return null;
+            if (test.peRubric) return test.peRubric;
+            var pid = peRubricGetPresetId(test.peUnit);
+            if (pid && PeRubricPresets[pid]) return peRubricBuildFromPreset(pid);
+            return null;
+        }
+
+        function peRubricBuildFromPreset(presetId) {
+            var preset = PeRubricPresets[presetId];
+            if (!preset) return null;
+            return {
+                presetId: presetId,
+                name: preset.name,
+                emoji: preset.emoji,
+                combine: preset.combine,
+                items: JSON.parse(JSON.stringify(preset.items || [])),
+                bonus: JSON.parse(JSON.stringify(preset.bonus || [])),
+                bonusMode: preset.bonusMode || 'any',
+                cap: preset.cap || 10,
+                conversionTable: preset.combine === 'table' ? JSON.parse(JSON.stringify(preset.conversionTable || [])) : null,
+                note: preset.note || '',
+                _presetId: presetId
+            };
+        }
+
+        // trialモード item の入力状況を集計する。
+        // idata = { blockId: [0|1|null, ...], ... }。null=未実施、0=×、1=○(3状態を明確に区別する)。
+        function peRubricTrialStatus(item, idata) {
+            idata = idata || {};
+            var total = 0, filled = 0, success = 0;
+            (item.blocks || []).forEach(function(b) {
+                var arr = idata[b.id] || [];
+                for (var i = 0; i < b.trials; i++) {
+                    total++;
+                    var v = arr[i];
+                    if (v === 0 || v === 1) { filled++; if (v === 1) success++; }
+                }
+            });
+            return { total: total, filled: filled, complete: total > 0 && filled === total, successCount: success };
+        }
+
+        // 単一item(またはbonus)のスコア・完了判定。mode別に分岐する。
+        // number/compositeはPhase3/4(ハードル・鉄棒)で追加するまで未対応。
+        function peRubricCalcItemScore(item, idata) {
+            if (item.mode === 'level') {
+                if (idata === undefined || idata === null) return { score: null, complete: false };
+                var lv = (item.levels || [])[idata];
+                if (!lv) return { score: null, complete: false };
+                return { score: lv.score, complete: true };
+            }
+            if (item.mode === 'trial') {
+                var t = peRubricTrialStatus(item, idata);
+                if (!t.complete) return { score: null, complete: false };
+                if (item.resolver && typeof PeRubricResolvers !== 'undefined' && PeRubricResolvers[item.resolver]) {
+                    return { score: PeRubricResolvers[item.resolver](item, idata), complete: true };
+                }
+                // resolverを持たないtrial item(例: ソフトバレー)はcombine:'table'側で
+                // successCountを直接使うため、ここには通常到達しない。
+                return { score: null, complete: false };
+            }
+            throw new Error('peRubricCalcItemScore: 未対応のmode "' + item.mode + '"(number/compositeはPhase3/4で実装)');
+        }
+
+        // config(test.peRubric) + rubricData → { itemScores, bonus, total, complete }。
+        // completeがtrueのときのみtotalが確定値として意味を持つ(呼び出し側はcomplete===trueの
+        // ときだけsr.score10/sr.scoreへ書き込むこと。PE_RUBRIC_SPEC.md §2.6参照)。
+        function peRubricCalcScore10(config, rubricData) {
+            if (!config) return { itemScores: [], bonus: 0, total: null, complete: false };
+            var data = rubricData || {};
+            var itemsData = data.items || {};
+            var items = config.items || [];
+
+            var bonusResults = (config.bonus || []).map(function(b) {
+                var bdata = (data.bonus || {})[b.id];
+                var r = peRubricCalcItemScore(b, bdata);
+                return { id: b.id, score: r.score, complete: r.complete };
+            });
+            var bonusAllComplete = bonusResults.every(function(r) { return r.complete; });
+            var bonusTotal = 0;
+            if (config.bonusMode === 'each') {
+                bonusResults.forEach(function(r) { if (r.complete && r.score) bonusTotal += r.score; });
+            } else { // 'any'
+                bonusResults.forEach(function(r) { if (r.complete && r.score > bonusTotal) bonusTotal = r.score; });
+            }
+
+            if (config.combine === 'table') {
+                // Phase1: 単一item・trialモードのみ対応(ソフトバレー)。
+                var item = items[0];
+                var idata = itemsData[item.id];
+                var t = peRubricTrialStatus(item, idata);
+                var row = (config.conversionTable || []).find(function(r) { return r.count === t.successCount; });
+                var complete = t.complete && bonusAllComplete;
+                var total = t.complete && row ? Math.min(config.cap || 10, Math.round((row.score10 + bonusTotal) * 100) / 100) : null;
+                return {
+                    itemScores: [{ id: item.id, successCount: t.successCount, complete: t.complete }],
+                    bonus: bonusTotal, total: complete ? total : null, complete: complete
+                };
+            }
+
+            // combine === 'average'
+            var itemScores = [];
+            var itemsAllComplete = true;
+            var sum = 0, n = 0;
+            items.forEach(function(item) {
+                var idata = itemsData[item.id];
+                var r = peRubricCalcItemScore(item, idata);
+                itemScores.push({ id: item.id, score: r.score, complete: r.complete });
+                if (!r.complete) itemsAllComplete = false;
+                else { sum += r.score; n++; }
+            });
+            var avg = n > 0 ? sum / n : null;
+            var allComplete = itemsAllComplete && bonusAllComplete;
+            var total = (allComplete && avg !== null)
+                ? Math.min(config.cap || 10, Math.round((avg + bonusTotal) * 100) / 100)
+                : null;
+            return { itemScores: itemScores, bonus: bonusTotal, total: total, complete: allComplete };
+        }
+
+        window.peRubricGetConfig = peRubricGetConfig;
+        window.peRubricGetPresetId = peRubricGetPresetId;
+        window.peRubricCalcScore10 = peRubricCalcScore10;
+        // ============================================================
+        // PeRubric 共通モジュール ここまで
+        // ============================================================
+
         function recNwCalcGrade(passData) {
             var catOrder = ['hop', 'step', 'jump', 'high'];
             var total = 0;
@@ -8345,8 +8490,24 @@
                     }
                     if (!test.kenteiConfig) test.kenteiConfig = kenteiBuildFromPreset(_pid);
                 } else {
-                    test.peDirection = document.getElementById('recTestPeDirection').value;
-                    test.peTrials = parseInt(document.getElementById('recTestPeTrials').value) || 1;
+                    var _rpid = peRubricGetPresetId(test.peUnit);
+                    if (_rpid) {
+                        // 実技ルーブリック型(Phase1 v1.15.0): 検定カードと同様、観点は知識・技能に統一。
+                        test.peDirection = 'higher';
+                        test.peTrials = 1;
+                        test.category = '知識・技能';
+                        // 編集時: 単位が同じ種目なら既存peRubric(カスタム基準値含む)を引き継ぐ
+                        if (recEditingTestId !== null) {
+                            var _old2 = tests.find(function(t) { return t.id === recEditingTestId; });
+                            if (_old2 && _old2.peRubric && peRubricGetPresetId(_old2.peUnit) === _rpid) {
+                                test.peRubric = _old2.peRubric;
+                            }
+                        }
+                        if (!test.peRubric) test.peRubric = peRubricBuildFromPreset(_rpid);
+                    } else {
+                        test.peDirection = document.getElementById('recTestPeDirection').value;
+                        test.peTrials = parseInt(document.getElementById('recTestPeTrials').value) || 1;
+                    }
                 }
             }
 
@@ -12748,6 +12909,11 @@
         }
         function peRecordToScore10(sr, test) {
             if (!sr) return null;
+            // === 実技ルーブリック型(ソフトバレー・マット運動など、Phase1 v1.15.0) ===
+            // score10は「全item・全bonus完了」時にのみ書き込まれる値(peRubricCalcScore10のcomplete
+            // ゲート、PE_RUBRIC_SPEC.md §2.6)。ここでは保存済みsr.score10をそのまま返すのみで、
+            // rubricDataから再計算はしない(未完了の生データが誤って確定値扱いされないようにするため)。
+            if (test.peRubric) return (sr && typeof sr.score10 === 'number') ? sr.score10 : null;
             // === 検定カード型(なわとび・泳力など) ===
             var kConfig = kenteiGetConfig(test);
             if (kConfig) {

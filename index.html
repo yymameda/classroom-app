@@ -4996,7 +4996,17 @@
     function loadMaster() {
         var saved = StorageManager.getRaw(KEYS.master);
         if (saved) {
-            try { master = JSON.parse(saved); } catch (e) { console.error('master load error:', e); }
+            try {
+                master = JSON.parse(saved);
+                // v1.14.5: classInfo/studentsを欠いた(破損・旧形式)バックアップ復元時、
+                // 呼び出し側(updateSettingsUI/updateDashboard等、master.students前提の箇所多数)が
+                // 軒並み例外になるため、読み込み直後にここで正規化する。
+                // classInfoは空オブジェクトに留め、学年・組等の既定値をここで捏造しない
+                // (表示側のci.grade||''等が偽値以外では効かず、でっち上げの値がsaveMaster()経由で
+                //  永続化される事故になるため。未設定は空表示のまま教員に入力させる)。
+                if (!master.classInfo) master.classInfo = {};
+                if (!Array.isArray(master.students)) master.students = [];
+            } catch (e) { console.error('master load error:', e); }
         }
     }
     function saveMaster() {

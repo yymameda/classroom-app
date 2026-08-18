@@ -2699,6 +2699,7 @@
                                         <option value="cm">距離（cm）</option><option value="点">得点（点）</option>
                                         <option value="なわとびカード">🪢 なわとびカード（級判定）</option>
                                         <option value="検定:swimming">🏊 泳力検定カード（級判定）</option>
+                                        <option value="実技:volley">🏐 ソフトバレー（実技ルーブリック）</option>
                                     </select>
                                     <span id="recPeDirTrialWrap" style="display:contents;">
                                     <label style="font-size:0.78rem;">方向:</label>
@@ -7576,7 +7577,40 @@
         // (Phase1: volley/mat。number/compositeモードはPhase3/4で追加)。
         // ============================================================
         var PeRubricPresets = {
-            // ソフトバレー(4.1)・マット運動(4.2)は後続コミットで追加
+            // ソフトバレーは5方向を「1試技のblock」×5個としてモデル化する(1blockに5試技ではない)。
+            // これによりtrialモードの汎用レンダラ(commit2, recPeRubricRenderItemRow)が
+            // 各方向を個別ラベル付きボタンとして描画でき、UI側の変更が一切不要になる。
+            volley: {
+                name: 'ソフトバレーボール',
+                emoji: '🏐',
+                combine: 'table',
+                bonusMode: 'any',
+                cap: 10,
+                items: [
+                    {
+                        id: 'v1', name: '5方向への返球', mode: 'trial',
+                        hint: 'センターサークル内(線上含む)にノーバウンドで返球できれば成功。パスの種類は問わない。投げ手は児童から5m、山なりで胸〜顔の高さ(床から約1.5〜1.8m)。',
+                        blocks: [
+                            { id: 'front', name: '①真正面', trials: 1 },
+                            { id: 'right', name: '②右', trials: 1 },
+                            { id: 'left', name: '③左', trials: 1 },
+                            { id: 'forward', name: '④前寄り', trials: 1 },
+                            { id: 'back', name: '⑤後ろ寄り', trials: 1 }
+                        ]
+                    }
+                ],
+                bonus: [],
+                conversionTable: [
+                    { count: 5, score10: 10 },
+                    { count: 4, score10: 9 },
+                    { count: 3, score10: 7 },
+                    { count: 2, score10: 5 },
+                    { count: 1, score10: 3 },
+                    { count: 0, score10: 1 }
+                ],
+                note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
+            }
+            // マット運動(4.2)は後続コミットで追加
         };
 
         // peUnit文字列 → プリセットID。'実技:xxx' 形式のみ対象('検定:'はkenteiGetPresetId側)。
@@ -8407,19 +8441,23 @@
             var unitEl = document.getElementById('recTestPeUnit');
             if (!unitEl) return;
             var isKentei = kenteiGetPresetId(unitEl.value) !== null;
+            // v1.15.0: 実技ルーブリック型(実技:xxx)も検定カードと同様、方向/計測は不要・
+            // 観点は知識・技能固定・「未対応」警告は出さない(既に換算に対応しているため)。
+            // これを追加しないと新option「実技:volley」選択時にrecPeNoConvertHintが誤表示される。
+            var isRubricUnit = peRubricGetPresetId(unitEl.value) !== null;
             var wrap = document.getElementById('recPeDirTrialWrap');
             var hint = document.getElementById('recPeKenteiHint');
             var noConvertHint = document.getElementById('recPeNoConvertHint');
-            if (wrap) wrap.style.display = isKentei ? 'none' : 'contents';
+            if (wrap) wrap.style.display = (isKentei || isRubricUnit) ? 'none' : 'contents';
             if (hint) hint.style.display = isKentei ? 'block' : 'none';
             // v1.14.3: 「点」以外の非検定単位は10点換算が未実装(peRecordToScore10)。黙って0点にせずUIで警告する。
-            if (noConvertHint) noConvertHint.style.display = (!isKentei && unitEl.value !== '点') ? 'block' : 'none';
+            if (noConvertHint) noConvertHint.style.display = (!isKentei && !isRubricUnit && unitEl.value !== '点') ? 'block' : 'none';
             var catEl = document.getElementById('recTestCategory');
             if (catEl && document.getElementById('recTestType').value === '実技記録') {
-                if (isKentei) {
+                if (isKentei || isRubricUnit) {
                     catEl.value = '知識・技能';
                     catEl.disabled = true;
-                    catEl.title = '検定カードは知識・技能に自動設定されます';
+                    catEl.title = isKentei ? '検定カードは知識・技能に自動設定されます' : '実技ルーブリックは知識・技能に自動設定されます';
                 } else {
                     catEl.disabled = false; catEl.title = '';
                 }

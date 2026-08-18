@@ -1,11 +1,11 @@
 // 体育「実技ルーブリック採点」(PE_RUBRIC_SPEC.md) Phase1 の機械検証。
 //
-// Phase1初回コミット時点ではプリセット(PeRubricPresets.volley/mat)が未実装のため、
-// test.peRubric へ合成config(仕様書§4.1/§4.2相当)を直接注入して共通基盤
-// (peRubricCalcScore10 / peRubricApplyScore / 入力UI / peRubricRecalcScores)を検証する。
-// プリセット実装(commit 4:ソフトバレー, commit 5:マット)完了後、対応ブロックを
-// 「合成config直接注入」から「recAddTest()経由でのpeUnit='実技:xxx'指定」に置き換えて
-// 実配線(peRubricGetConfig→peRubricBuildFromPreset経路)まで検証すること。
+// §1〜4は共通基盤(peRubricCalcScore10/peRubricApplyScore/入力UI/peRubricRecalcScores)を
+// 合成config直接注入で検証する(マットのプリセットはcommit5まで未実装のため)。
+// §5はソフトバレーのプリセット実配線(recAddTest()→peRubricGetPresetId→
+// peRubricBuildFromPreset経路)を実際の課題登録フォーム操作で検証する。
+// マットのプリセット実装(commit5)完了後、§1〜4のマット合成config注入ブロックも
+// §5と同様の実配線検証(recAddTest経由)に置き換えて拡張すること。
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
 // 実行: cd tests && node pe-rubric.test.js
@@ -222,6 +222,77 @@ const VOLLEY_CONFIG = {
         return { score10: item ? item.score10 : null };
     }, matTestId);
     check('grdCalculate経由で確定値が知識・技能itemに反映される(児童0のマット7点)', grd.score10 === 7, JSON.stringify(grd));
+
+    // ================================================================
+    // 5. プリセット実配線検証(commit4: ソフトバレー)
+    //    合成config直接注入ではなく、実際の課題登録フォーム→recAddTest()→
+    //    peRubricGetPresetId→peRubricBuildFromPreset の経路そのものを検証する。
+    // ================================================================
+    const created = await page.evaluate(() => {
+        showView('records');
+        recShowSub('tests');
+        document.getElementById('recTestSubject').value = '体育';
+        document.getElementById('recTestType').value = '実技記録';
+        recOnTestTypeChange();
+        document.getElementById('recTestName').value = 'ソフトバレー(実プリセット)';
+        document.getElementById('recTestDate').value = '2026-08-19';
+        document.getElementById('recTestPeUnit').value = '実技:volley';
+        recOnPeUnitChange();
+        var catEl = document.getElementById('recTestCategory');
+        var wrap = document.getElementById('recPeDirTrialWrap');
+        var noConvertHint = document.getElementById('recPeNoConvertHint');
+        var uiState = {
+            catValue: catEl.value, catDisabled: catEl.disabled,
+            wrapHidden: wrap.style.display === 'none',
+            noConvertHintHidden: noConvertHint.style.display !== 'block'
+        };
+        recAddTest();
+        var tests = JSON.parse(StorageManager.getRaw(KEYS.tests));
+        var test = tests.find(function(t){ return t.name === 'ソフトバレー(実プリセット)'; });
+        return { uiState: uiState, test: test };
+    });
+    check('フォーム: 実技:volley選択でカテゴリが知識・技能に自動固定・方向欄が隠れる・未対応警告が出ない',
+        created.uiState.catValue === '知識・技能' && created.uiState.catDisabled === true &&
+        created.uiState.wrapHidden && created.uiState.noConvertHintHidden, JSON.stringify(created.uiState));
+    check('recAddTest(): categoryが知識・技能に強制され、peRubricがプリセットから自動生成される',
+        created.test && created.test.category === '知識・技能' && !!created.test.peRubric, JSON.stringify(created.test && created.test.category));
+    check('プリセット一致(§4.1): combine=table、加点なし、presetId=volley',
+        created.test.peRubric.combine === 'table' && created.test.peRubric.bonus.length === 0 &&
+        (created.test.peRubric.presetId === 'volley' || created.test.peRubric._presetId === 'volley'),
+        JSON.stringify({combine:created.test.peRubric.combine, bonus:created.test.peRubric.bonus}));
+    check('プリセット一致(§4.1): 換算表が5→10/4→9/3→7/2→5/1→3/0→1',
+        JSON.stringify(created.test.peRubric.conversionTable) === JSON.stringify([
+            {count:5,score10:10},{count:4,score10:9},{count:3,score10:7},{count:2,score10:5},{count:1,score10:3},{count:0,score10:1}
+        ]), JSON.stringify(created.test.peRubric.conversionTable));
+    check('プリセット一致: 5方向×各1試技、①〜⑤のラベル順',
+        created.test.peRubric.items[0].blocks.length === 5 &&
+        JSON.stringify(created.test.peRubric.items[0].blocks.map(function(b){return b.name;})) === JSON.stringify(['①真正面','②右','③左','④前寄り','⑤後ろ寄り']),
+        JSON.stringify(created.test.peRubric.items[0].blocks.map(function(b){return b.name;})));
+    check('§8受け入れ基準6: 「本校の実態に応じた目安」注記がpeRubric.noteに存在',
+        /本校の実態に応じた目安/.test(created.test.peRubric.note || ''), created.test.peRubric.note);
+    check('§4.1判定基準: センターサークル/5m/山なり等の注記がitem.hintに存在',
+        /センターサークル/.test(created.test.peRubric.items[0].hint || '') && /5m/.test(created.test.peRubric.items[0].hint || '') && /山なり/.test(created.test.peRubric.items[0].hint || ''),
+        created.test.peRubric.items[0].hint);
+
+    const tapResult = await page.evaluate((testId) => {
+        recSelectTestGoto(testId);
+        var card = document.getElementById('rec-row-0');
+        var hintCount = card.querySelectorAll('.rec-pr-item-hint').length;
+        var trialLabels = Array.from(card.querySelectorAll('.rec-pr-trial-label')).map(function(el){return el.textContent;});
+        recPeRubricToggleTrial(0, 'items', 'v1', 'front', 0);
+        recPeRubricToggleTrial(0, 'items', 'v1', 'right', 0);
+        recPeRubricToggleTrial(0, 'items', 'v1', 'left', 0);
+        recPeRubricToggleTrial(0, 'items', 'v1', 'forward', 0);
+        var partial = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===0 && s.testId===testId;});
+        recPeRubricToggleTrial(0, 'items', 'v1', 'back', 0); // 5/5に
+        var full = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===0 && s.testId===testId;});
+        return { hintCount: hintCount, trialLabels: trialLabels, partialHasScore10: 'score10' in partial, fullScore10: full.score10 };
+    }, created.test.id);
+    check('実配線UI: 注記(hint)・5方向ラベル(①〜⑤)がカードに表示される',
+        tapResult.hintCount > 0 && JSON.stringify(tapResult.trialLabels) === JSON.stringify(['①真正面','②右','③左','④前寄り','⑤後ろ寄り']),
+        JSON.stringify(tapResult));
+    check('実配線UI: 4/5タップ時点でscore10未保存、5/5成功でscore10=10',
+        tapResult.partialHasScore10 === false && tapResult.fullScore10 === 10, JSON.stringify(tapResult));
 
     const realErrors = consoleErrors;
     check('ページ読み込み・全操作中にコンソールエラーなし(favicon.ico除く)', realErrors.length === 0, realErrors.join(' | '));

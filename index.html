@@ -9501,17 +9501,18 @@
                 return recTestSortAsc ? a.id - b.id : b.id - a.id;
             });
             var students = recGetStudents();
-            container.innerHTML = sorted.map(function(test) {
+            function testCardHtml(test) {
                 var cnt = scores.filter(function(s) { return s.testId === test.id; }).length;
                 var isMatome = test.type === 'matome';
                 var isPE = test.testType === '実技記録';
                 var scoreInfo = (test.category === '主体性' || test.testType === 'ルーブリック') ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
+                var termBadge = (typeof window.grdTermBadgeHtml === 'function') ? window.grdTermBadgeHtml(test) : '';
                 return '<div class="rec-test-item' + (test.id === recCurrentTestId ? ' selected' : '') +
                     (isPE ? ' pe-item' : '') + (isMatome ? ' matome-item' : '') + '">' +
                     '<div class="rec-test-item-info" onclick="recSelectTestGoto(&quot;' + test.id + '&quot;)">' +
                     '<div class="rec-test-item-name">' + (isPE?'🏃 ':'') + (isMatome?'📝 ':'') +
                     escapeHtml(test.subject) + '　' + (test.testType||'') + '　' + escapeHtml(test.name) +
-                    ((test.rubricA || test.rubricB || test.rubricC) ? '<span class="rubric-has-badge">📐</span>' : '') + '</div>' +
+                    ((test.rubricA || test.rubricB || test.rubricC) ? '<span class="rubric-has-badge">📐</span>' : '') + termBadge + '</div>' +
                     '<div class="rec-test-item-meta">' + test.category + ' ｜ ' + scoreInfo + ' ｜ ' + (test.date||'') + ' ｜ 入力済: ' + cnt + '/' + students.length + '</div>' +
                     '</div>' +
                     '<div class="rec-test-item-acts">' +
@@ -9521,7 +9522,33 @@
                     (peRubricGetConfig(test) ? '<button class="btn-rec-small" onclick="recEditPeRubricConfig(&quot;' + test.id + '&quot;)">採点基準</button>' : '') +
                     '<button class="btn-rec-small del" onclick="recDeleteTest(&quot;' + test.id + '&quot;)">削除</button>' +
                     '</div></div>';
-            }).join('');
+            }
+            // v1.17.0: 記録画面には学期セレクタが無いため、常時学期でグルーピングする。
+            // ソート順(sorted)は維持したまま、一度だけ走査して1/2/3/未判定の受け皿に振り分ける
+            // （振り分け済みかどうかをbucketsで管理するため、二重表示・取りこぼしは起きない）。
+            var html = '';
+            if (typeof window.grdItemTerm === 'function') {
+                var buckets = { '1': [], '2': [], '3': [], other: [] };
+                sorted.forEach(function(test) {
+                    var t = window.grdItemTerm(test);
+                    if (t === '1' || t === '2' || t === '3') buckets[t].push(test);
+                    else buckets.other.push(test); // grdItemTermの戻り値が3値のいずれでもなかった場合の受け皿
+                });
+                ['1', '2', '3'].forEach(function(t) {
+                    if (!buckets[t].length) return;
+                    html += '<div style="font-size:0.78rem;font-weight:700;color:var(--text-light);margin:10px 0 4px;">'
+                        + t + '学期（' + buckets[t].length + '件）</div>';
+                    buckets[t].forEach(function(test) { html += testCardHtml(test); });
+                });
+                if (buckets.other.length) {
+                    html += '<div style="font-size:0.78rem;font-weight:700;color:var(--text-light);margin:10px 0 4px;">'
+                        + '学期未判定（' + buckets.other.length + '件）</div>';
+                    buckets.other.forEach(function(test) { html += testCardHtml(test); });
+                }
+            } else {
+                sorted.forEach(function(test) { html += testCardHtml(test); });
+            }
+            container.innerHTML = html;
         }
 
         // ============================================================
@@ -12272,17 +12299,17 @@
             var sorted = subSortAssigns(termAssigns);
             var subs = subGetSubmissions();
             var stuCount = subGetStudents().length;
-            var html = '';
-            sorted.forEach(function(a) {
+            function assignCardHtml(a) {
                 var asSubs = subs.filter(function(s) { return s.assignmentId === a.id; });
                 var okCnt = asSubs.filter(function(s) { return s.status === 'submitted'; }).length;
                 var reCnt = asSubs.filter(function(s) { return s.status === 'resubmit'; }).length;
                 var ngCnt = Math.max(0, stuCount - okCnt - reCnt);
                 var d = a.date ? new Date(a.date) : null;
                 var dateStr = d ? (d.getMonth()+1) + '/' + d.getDate() : '';
-                html += '<div class="sub-assign-item" data-aid="' + a.id + '">'
+                var termBadge = (typeof window.grdTermBadgeHtml === 'function') ? window.grdTermBadgeHtml(a) : '';
+                return '<div class="sub-assign-item" data-aid="' + a.id + '">'
                     + '<div class="sub-assign-info">'
-                    + '<div class="sub-assign-name"><span class="sub-assign-cat">' + escapeHtml(a.subject) + '</span>' + escapeHtml(a.name) + '</div>'
+                    + '<div class="sub-assign-name"><span class="sub-assign-cat">' + escapeHtml(a.subject) + '</span>' + escapeHtml(a.name) + termBadge + '</div>'
                     + '<div class="sub-assign-meta">📅 ' + dateStr + '　○' + okCnt + ' △' + reCnt + ' ×' + ngCnt + '</div>'
                     + '</div>'
                     + '<div class="sub-assign-acts">'
@@ -12291,7 +12318,32 @@
                     + '<button class="btn-rec-small del sub-assign-del-btn" data-aid="' + a.id + '">削除</button>'
                     + '</div>'
                     + '</div>';
-            });
+            }
+            var html = '';
+            // v1.17.0: 「通年」選択時のみ学期でグルーピングする。ソート順(sorted)は維持したまま
+            // 一度だけ走査して1/2/3/未判定の受け皿に振り分ける
+            // （振り分け済みかどうかをbucketsで管理するため、二重表示・取りこぼしは起きない）。
+            if (subCurrentTermFilter === 'all' && typeof window.grdItemTerm === 'function') {
+                var buckets = { '1': [], '2': [], '3': [], other: [] };
+                sorted.forEach(function(a) {
+                    var t = window.grdItemTerm(a);
+                    if (t === '1' || t === '2' || t === '3') buckets[t].push(a);
+                    else buckets.other.push(a); // grdItemTermの戻り値が3値のいずれでもなかった場合の受け皿
+                });
+                ['1', '2', '3'].forEach(function(t) {
+                    if (!buckets[t].length) return;
+                    html += '<div style="font-size:0.78rem;font-weight:700;color:var(--text-light);margin:10px 0 4px;">'
+                        + t + '学期（' + buckets[t].length + '件）</div>';
+                    buckets[t].forEach(function(a) { html += assignCardHtml(a); });
+                });
+                if (buckets.other.length) {
+                    html += '<div style="font-size:0.78rem;font-weight:700;color:var(--text-light);margin:10px 0 4px;">'
+                        + '学期未判定（' + buckets.other.length + '件）</div>';
+                    buckets.other.forEach(function(a) { html += assignCardHtml(a); });
+                }
+            } else {
+                sorted.forEach(function(a) { html += assignCardHtml(a); });
+            }
             list.innerHTML = html;
             list.querySelectorAll('.sub-assign-del-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subDeleteAssign(parseInt(btn.dataset.aid)); });
@@ -14614,6 +14666,20 @@
             return '3';
         }
 
+        // v1.17.0: テスト一覧・課題一覧に表示する学期バッジ（表示専用）。
+        // 学期の判定は常にgrdItemTermに一本化し、ここでは新たな判定を行わない。
+        // 上書きの判定条件はgrdItemTerm冒頭のitem.termチェックと同一のものを流用する。
+        function grdTermBadgeHtml(item) {
+            var t = grdItemTerm(item);
+            if (t !== '1' && t !== '2' && t !== '3') return '';
+            var overridden = !!(item && (item.term === '1' || item.term === '2' || item.term === '3'));
+            var label = t + '学期' + (overridden ? '↑' : '');
+            var title = overridden ? '学期を個別指定' : '実施日から自動判定';
+            var style = 'display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;font-size:0.7rem;font-weight:700;vertical-align:middle;' +
+                (overridden ? 'background:#FFF3E0;color:#E65100;' : 'background:#ECEFF1;color:#546E7A;');
+            return '<span style="' + style + '" title="' + title + '">' + escapeHtml(label) + '</span>';
+        }
+
         // 提出物→10点
         function grdGetSubmissionScore10(studentIndex, subject, term) {
             term = term || grdCurrentTermFilter || grdGetCurrentTerm();
@@ -15978,6 +16044,7 @@
         window.grdGetAvailableSubjects = grdGetAvailableSubjects;
         window.grdItemTerm = grdItemTerm; // v1.16.0: 提出物モジュール（学期フィルタ）と共有
         window.grdGetCurrentTerm = grdGetCurrentTerm; // 同上
+        window.grdTermBadgeHtml = grdTermBadgeHtml; // v1.17.0: 提出物モジュール・記録モジュールの一覧表示と共有
 
     })();
     // ▲▲▲ MODULE:GRADES ▲▲▲

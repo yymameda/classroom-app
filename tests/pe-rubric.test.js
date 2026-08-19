@@ -451,6 +451,96 @@ const VOLLEY_CONFIG = {
         badgeStates.empty.className !== badgeStates.done.className, JSON.stringify(badgeStates));
 
     // ================================================================
+    // 6.6 モーダル内スクロール解消(v1.15.4: 案A[max-height 94vh]+B[hintを持たない項目の
+    //     折りたたみ]+C-2[余白圧縮]、#recPeRubricModal限定)。iPad Air 11"横向き実寸
+    //     (1180x820)で、はみ出しが無いこと・主要4項目(hintを持つ)は畳まれず全文表示のまま
+    //     であること・加点(hintを持たない)は既定で閉じ、入力済みなら閉じた状態でも
+    //     分かることを固定する。
+    // ================================================================
+    await page.setViewport({ width: 1180, height: 820 });
+    const scrollTestId = now + 200;
+    const scrollStudents = [{ name: '児童X' }, { name: '児童Y' }];
+    const scrollTests = [
+        { id: scrollTestId, subject: '体育', testType: '実技記録', category: '知識・技能', type: 'standard', maxScore: 9999, peUnit: '実技:mat', date: '2026-08-19', createdAt: new Date().toISOString() }
+    ];
+    // 児童1(index1)は加点(大きな前転)だけ入力済み。閉じた状態でもそれが分かるかの確認用
+    const scrollScores = [
+        { id: 1, studentIndex: 1, testId: scrollTestId, rubricData: { items: {}, bonus: { b1: 1 } }, createdAt: new Date().toISOString() }
+    ];
+    await page.evaluate(({ students, tests, scores }) => {
+        StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year: 2026, grade: 5, class: 1, termSystem: 3 } }));
+        StorageManager.set(KEYS.tests, JSON.stringify(tests));
+        StorageManager.set(KEYS.scores, JSON.stringify(scores));
+    }, { students: scrollStudents, tests: scrollTests, scores: scrollScores });
+    await page.reload({ waitUntil: 'networkidle0' });
+
+    const scrollCheck = await page.evaluate((testId) => {
+        showView('records');
+        recSelectTestGoto(testId);
+        recOpenPeRubricModal(0);
+
+        var body = document.getElementById('recPeRubricModalBody').closest('.rec-matome-modal-body');
+        var overflow = body.scrollHeight - body.clientHeight;
+
+        // 主要4項目は折りたたみコンテナの外(カード直下)にあるはず
+        var directItems = document.querySelectorAll('#recPeRubricModalBody .rec-pr-card > .rec-pr-item');
+        var hints = Array.from(directItems).map(function(el) {
+            var h = el.querySelector('.rec-pr-item-hint');
+            return h ? h.textContent : null;
+        });
+        var levelLabelsInMainItems = Array.from(directItems)
+            .map(function(el) { return Array.from(el.querySelectorAll('.rec-pr-level-btn')).map(function(b) { return b.textContent; }); })
+            .reduce(function(a, b) { return a.concat(b); }, []);
+
+        var toggle = document.querySelector('#recPeRubricModalBody .rec-pr-collapsible-toggle');
+        var collapsibleBody = document.querySelector('#recPeRubricModalBody .rec-pr-collapsible-body');
+        var closedByDefault = collapsibleBody ? getComputedStyle(collapsibleBody).display === 'none' : null;
+        var toggleHeight = toggle ? toggle.getBoundingClientRect().height : null;
+        if (toggle) toggle.click();
+        var afterOpen = collapsibleBody ? getComputedStyle(collapsibleBody).display !== 'none' : null;
+        recClosePeRubricModal();
+
+        recOpenPeRubricModal(1); // 加点だけ入力済みの児童
+        var summary1 = document.querySelector('#recPeRubricModalBody .rec-pr-collapsible-summary');
+        var collapsibleBody1 = document.querySelector('#recPeRubricModalBody .rec-pr-collapsible-body');
+        var closedButSummaryVisible = {
+            closed: collapsibleBody1 ? getComputedStyle(collapsibleBody1).display === 'none' : null,
+            summaryText: summary1 ? summary1.textContent : null
+        };
+        recClosePeRubricModal();
+
+        return {
+            overflow: overflow, directItemCount: directItems.length, hints: hints,
+            levelLabelsInMainItems: levelLabelsInMainItems,
+            closedByDefault: closedByDefault, toggleHeight: toggleHeight, afterOpen: afterOpen,
+            closedButSummaryVisible: closedButSummaryVisible
+        };
+    }, scrollTestId);
+
+    check('モーダルスクロール解消(1180x820, v1.15.4): はみ出し量が0以下',
+        scrollCheck.overflow <= 0, 'overflow=' + scrollCheck.overflow);
+    check('主要4項目は折りたたまれない(カード直下に4件そのまま)',
+        scrollCheck.directItemCount === 4, JSON.stringify(scrollCheck.directItemCount));
+    check('主要4項目のhintが全文表示のまま(短縮されていない)',
+        scrollCheck.hints[0] === '基本：前転／発展：開脚前転・倒立前転(補助あり)' &&
+        scrollCheck.hints[2] === '側方倒立回転とび',
+        JSON.stringify(scrollCheck.hints));
+    check('主要4項目のlevelラベルが全文表示のまま(短縮されていない)',
+        scrollCheck.levelLabelsInMainItems.indexOf('発展技が安定してできる（3回中2回以上成功）') !== -1,
+        JSON.stringify(scrollCheck.levelLabelsInMainItems));
+    check('加点(hintを持たない項目)の折りたたみ: 既定で閉じている',
+        scrollCheck.closedByDefault === true, JSON.stringify(scrollCheck.closedByDefault));
+    check('加点の折りたたみトグル: タップ域44px以上',
+        scrollCheck.toggleHeight >= 44, 'height=' + scrollCheck.toggleHeight);
+    check('加点の折りたたみトグル: タップすると開く',
+        scrollCheck.afterOpen === true, JSON.stringify(scrollCheck.afterOpen));
+    check('加点が入力済みのとき、閉じた状態でもサマリで分かる',
+        scrollCheck.closedButSummaryVisible.closed === true && /大きな前転/.test(scrollCheck.closedButSummaryVisible.summaryText || ''),
+        JSON.stringify(scrollCheck.closedButSummaryVisible));
+
+    await page.setViewport({ width: 1180, height: 900 });
+
+    // ================================================================
     // 7. 未確定スコアの教員向け一覧(commit6): recPeRubricUpdatePendingBanner
     //    呼び出し元はrecRenderList()とrecPeRubricUpdate()の2箇所のみ(教員向け
     //    記録入力画面)。grdExt*/htmlPagesToPdf系(帳票・保護者面談PDF生成)からは

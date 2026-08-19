@@ -1155,6 +1155,42 @@
         .rec-pr-tile-badge.pending { color: #E65100; background: #FFF3E0; }
         .rec-pr-tile-badge.done { color: #2E7D32; background: #E8F5E9; }
 
+        /* v1.15.4: モーダル内スクロール解消(実機確認、案A+B+C-2)。#recPeRubricModal限定の
+           セレクタでのみ上書きし、recMatomeModal(まとめ課題)本体・pr-modeグリッド表示には
+           一切影響させない。
+           実測(iPad Air 11"横向き1180x820、PeRubricPresets.mat実データ):
+           修正前のはみ出し量258px。98vh(上下余白がほぼ無くなりオーバーレイ外側タップでの
+           閉じる操作やホームインジケータと干渉するため実機確認で不採用)ではなく94vhを採用した
+           分、C-2側の余白圧縮を追加で効かせて0px以下まで詰めている。文言(item.hint・
+           levels[].label)は一切変更していない。 */
+        #recPeRubricModal .rec-matome-modal { max-height: 94vh; }
+        #recPeRubricModal .rec-matome-modal-hd { padding: 8px 14px; }
+        #recPeRubricModal .rec-matome-modal-footer { padding: 6px 12px; }
+        #recPeRubricModal .rec-matome-modal-body { padding: 6px 8px; }
+        #recPeRubricModal .rec-pr-card { gap: 4px; padding: 6px 8px; }
+        #recPeRubricModal .rec-pr-item { padding-top: 3px; }
+        #recPeRubricModal .rec-pr-item-name { margin-bottom: 2px; }
+        #recPeRubricModal .rec-pr-item-hint { margin-bottom: 2px; }
+
+        /* v1.15.4: hintを持たない項目の折りたたみ。
+           判断基準は「item.hint(判定基準文)を持つかどうか」のみであり、「主要項目か加点か」
+           「項目数が多いか」では判断しない。hintを持つ項目は、採点の根拠となる基準文の全文
+           表示が必須なので絶対に畳まない(§3.1相当の全文表示維持)。hintを持たない項目は
+           名前と選択肢だけで判断できるため、既定で畳んでよい、という一点のみが理由。
+           Phase2以降で項目数が増えても「多いから畳む」という拡大解釈をしないこと。
+           開閉状態は_peRubricCollapsibleOpen(JS変数、モジュールスコープ)にのみ保持し、
+           rubricData/localStorageには一切書き込まない(セッション内の表示状態のみ)。
+           このCSSはグリッド表示(pr-modeのフォールバックカード)にも及ぶが、判断基準は
+           hintの有無だけなので文脈(モーダルかグリッドか)によらず一貫している。 */
+        .rec-pr-collapsible { margin-top: 4px; }
+        .rec-pr-collapsible-toggle {
+            width: 100%; min-height: 44px; padding: 8px 10px; border: 1.5px dashed #90A4AE;
+            border-radius: 8px; background: #F5F5F5; color: #607D8B; font-size: 0.72rem;
+            font-weight: 600; cursor: pointer; font-family: inherit; text-align: left;
+        }
+        .rec-pr-collapsible-summary { font-size: 0.66rem; color: #1565C0; margin-top: 4px; padding: 0 2px; }
+        .rec-pr-collapsible-body { margin-top: 4px; }
+
         /* ===== 机間巡視 CSS ===== */
         .patrol-container { max-width: 900px; margin: 0 auto; padding: 0.5rem; }
         .patrol-header { background: var(--white); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
@@ -8144,6 +8180,69 @@
                 '</div>';
         }
 
+        // v1.15.4: hintを持たない項目(=判定基準の説明が無く、名前だけで判断できる項目)を
+        // 折りたたみ候補として分離する。判断基準はitem.hintの有無だけであり、
+        // 「加点だから」「項目数が多いから」ではない。hintを持つ項目は判断材料として
+        // 全文表示が必須なので、rows(呼び出し側)に混ざっていても常にvisibleへ入る。
+        // rows[].hasScoreText/nameは、畳んだ状態でも入力済みの値が分かるようにするための
+        // サマリ生成用(下記recPeRubricRenderCollapsibleGroup参照)。
+        // 呼び出し元はrecBuildPeRubricCard()のみで、これはdisplayMode:'modal'のモーダル本文
+        // (recRenderPeRubricModalBody経由)だけでなく、displayMode未指定のときのpr-mode
+        // フォールバックカード(グリッドに直接描画される、Phase2以降の種目向け)からも
+        // 呼ばれる。モーダル専用の仕組みではなく、recBuildPeRubricCard()が描画される
+        // どの文脈でも同じhint基準で効く。
+        function recPeRubricSplitByHint(rows) {
+            var visible = [], collapsible = [], summary = [];
+            rows.forEach(function(r) {
+                if (r.hasHint) { visible.push(r.html); return; }
+                collapsible.push(r.html);
+                if (r.scoreText) summary.push(r.name + ': ' + r.scoreText);
+            });
+            return { visibleHtml: visible.join(''), collapsibleHtml: collapsible.join(''), collapsibleCount: collapsible.length, summary: summary };
+        }
+
+        // v1.15.4: 折りたたみの開閉はページ内の一時状態のみで保持する(rubricData/
+        // localStorageには一切書き込まない)。{ studentIndex: { groupKey: bool } }。
+        var _peRubricCollapsibleOpen = {};
+
+        // hintを持たない項目群(split.collapsible*)を、既定=閉のトグル1本にまとめて描画する。
+        // 入力済みの項目があれば、閉じた状態でもsummary行で分かるようにする
+        // (折りたたみで入力済みデータが見えなくなる事故を防ぐため)。
+        function recPeRubricRenderCollapsibleGroup(idx, groupKey, split, labelPrefix) {
+            if (!split.collapsibleCount) return '';
+            var open = !!(_peRubricCollapsibleOpen[idx] && _peRubricCollapsibleOpen[idx][groupKey]);
+            var toggleLabel = (labelPrefix || 'その他の項目') + '（' + split.collapsibleCount + '件・タップで' + (open ? '閉じる' : '表示') + '）';
+            var summaryHtml = split.summary.length
+                ? '<div class="rec-pr-collapsible-summary">入力済み: ' + escapeHtml(split.summary.join('、')) + '</div>'
+                : '';
+            return '<div class="rec-pr-collapsible">' +
+                '<button type="button" class="rec-pr-collapsible-toggle" onclick="recPeRubricToggleCollapsible(' + idx + ',\x27' + groupKey + '\x27)">' +
+                (open ? '▼ ' : '▶ ') + escapeHtml(toggleLabel) +
+                '</button>' +
+                summaryHtml +
+                '<div class="rec-pr-collapsible-body" style="display:' + (open ? '' : 'none') + ';">' + split.collapsibleHtml + '</div>' +
+                '</div>';
+        }
+
+        // 開閉トグルのタップハンドラ。データは一切変更しない(完了ゲート・保存経路に無関係)。
+        // 対象カードを再構築するだけで、_peRubricCollapsibleOpenを介して開閉状態を
+        // 引き継ぐ(recBuildPeRubricCard()が毎回この変数を読むため)。
+        window.recPeRubricToggleCollapsible = function(idx, groupKey) {
+            if (!_peRubricCollapsibleOpen[idx]) _peRubricCollapsibleOpen[idx] = {};
+            _peRubricCollapsibleOpen[idx][groupKey] = !_peRubricCollapsibleOpen[idx][groupKey];
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!test) return;
+            var modal = document.getElementById('recPeRubricModal');
+            if (modal && modal.classList.contains('active') && recPeRubricModalStudentIndex === idx) {
+                recRenderPeRubricModalBody(test, idx);
+                return;
+            }
+            var scores = recGetScores();
+            var stu = recGetStudents()[idx];
+            var card = document.getElementById('rec-row-' + idx);
+            if (card && stu) card.outerHTML = recBuildPeRubricCard(test, scores, idx, stu);
+        };
+
         function recBuildPeRubricCard(test, scores, idx, stu) {
             var config = peRubricGetConfig(test);
             if (!config) return '';
@@ -8151,19 +8250,36 @@
             var rubricData = (sr && sr.rubricData) || { items: {}, bonus: {} };
             var result = peRubricCalcScore10(config, rubricData);
 
-            var itemsHtml = (config.items || []).map(function(item, i) {
+            var itemRows = (config.items || []).map(function(item, i) {
                 var idata = (rubricData.items || {})[item.id];
-                return recPeRubricRenderItemRow(idx, 'items', item, idata, result.itemScores[i]);
-            }).join('');
+                var scoreInfo = result.itemScores[i];
+                return {
+                    html: recPeRubricRenderItemRow(idx, 'items', item, idata, scoreInfo),
+                    hasHint: !!item.hint, name: item.name || '',
+                    scoreText: (scoreInfo && scoreInfo.complete && typeof scoreInfo.score === 'number') ? (scoreInfo.score + '点') : null
+                };
+            });
+            var itemsSplit = recPeRubricSplitByHint(itemRows);
+            var itemsHtml = itemsSplit.visibleHtml;
+            var itemsCollapsibleHtml = recPeRubricRenderCollapsibleGroup(idx, 'items-extra', itemsSplit, 'その他の項目');
 
             var bonusHtml = '';
+            var bonusCollapsibleHtml = '';
             if (config.bonus && config.bonus.length) {
                 var bonusRows = config.bonus.map(function(b) {
                     var bd = (rubricData.bonus || {})[b.id];
                     var r = peRubricCalcItemScore(b, bd);
-                    return recPeRubricRenderItemRow(idx, 'bonus', b, bd, r);
-                }).join('');
-                bonusHtml = '<div class="rec-pr-bonus-label">加点（挑戦した子だけでOK。挑戦しなくても確定に影響しません）</div>' + bonusRows;
+                    return {
+                        html: recPeRubricRenderItemRow(idx, 'bonus', b, bd, r),
+                        hasHint: !!b.hint, name: b.name || '',
+                        scoreText: (r.complete && typeof r.score === 'number') ? (r.score + '点') : null
+                    };
+                });
+                var bonusSplit = recPeRubricSplitByHint(bonusRows);
+                if (bonusSplit.visibleHtml) {
+                    bonusHtml = '<div class="rec-pr-bonus-label">加点（挑戦した子だけでOK。挑戦しなくても確定に影響しません）</div>' + bonusSplit.visibleHtml;
+                }
+                bonusCollapsibleHtml = recPeRubricRenderCollapsibleGroup(idx, 'bonus', bonusSplit, '加点');
             }
 
             var summaryText = result.complete
@@ -8177,7 +8293,7 @@
                 '<div class="rec-pr-name">' + escapeHtml(stu.name || '') + '</div>' +
                 '<div class="rec-pr-badge ' + (result.complete ? 'done' : 'pending') + '">' + (result.complete ? '✓ 確定' : '入力中') + '</div>' +
                 '</div>' +
-                itemsHtml + bonusHtml +
+                itemsHtml + itemsCollapsibleHtml + bonusHtml + bonusCollapsibleHtml +
                 (config.note ? '<div class="rec-pr-note">' + escapeHtml(config.note) + '</div>' : '') +
                 '<div class="rec-pr-summary ' + summaryClass + '">' + summaryText + '</div>' +
                 '</div>';

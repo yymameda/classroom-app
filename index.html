@@ -1117,15 +1117,43 @@
         .rec-pr-dense-summary.pending { color: #E65100; }
 
         /* ===== PeRubric displayMode:'modal' (案B, マット) ===== */
-        /* タイル本体は.rec-row/.rec-row-hd/.rec-row-name/.rec-row-score-area(通常の得点入力と同じ
-           密グリッド行)をそのまま再利用する。新規CSSは以下の2クラスのみ。 */
-        .rec-pr-tile-badge { font-size: 0.55rem; font-weight: 700; flex-shrink: 0; margin-left: auto; }
-        .rec-pr-tile-badge.done { color: #2E7D32; }
-        .rec-pr-tile-badge.pending { color: #E65100; }
-        /* min-height:44pxはisMatome分岐のスコアボタン(min-height:22px)より大きい値を意図的に採用。
-           タップ域44px以上の要件を満たすため、matomeの前例をそのまま踏襲しない。 */
-        .rec-pr-tile-btn { width: 100%; min-height: 44px; padding: 4px 6px; border: 2px solid var(--border); border-radius: 6px; background: #fff; font-size: 0.85rem; font-weight: 700; font-family: inherit; cursor: pointer; }
-        .rec-pr-tile-btn.has-val { border-color: var(--primary); background: #E8F5E9; color: #2E7D32; }
+        /* v1.15.2: タイルは丸ごと1つのタップ対象(onclickは.rec-pr-tile自体)にし、
+           [番号][氏名][バッジ]を1行で並べる単一行レイアウトにした。
+           旧構成(.rec-row-hd + .rec-row-score-area + 内部button の2行構成)は、
+           .rec-row-nameが持つoverflow:hidden(横方向の省略記号用)によりflexboxの
+           自動最小サイズが0になり、button側のmin-height:44pxとの高さの取り合いで
+           氏名が数pxに圧縮される不具合が実機で確認されたため撤回した。
+           1行構成ならこの競合が起きない。
+           height:autoは必須: 横向き1000px以上のメディアクエリ(1904行付近)が
+           .rec-rowに height:80px を指定しており、.rec-row.rec-pr-tile側でheightを
+           何も宣言しないとこの80pxが競合なくそのまま適用されてタイルが必要以上に
+           大きくなる(flex-direction/min-height等は本ルールの詳細度で上書きできても、
+           height は宣言していないプロパティなので上書きされない。実機確認で発覚)。 */
+        .rec-row.rec-pr-tile {
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 6px;
+            min-height: 48px;
+            height: auto;
+            padding: 4px 8px;
+        }
+        .rec-row.rec-pr-tile .rec-row-num { flex-shrink: 0; }
+        .rec-pr-tile-name {
+            flex: 1; min-width: 0; text-align: left;
+            font-size: 0.7rem; font-weight: 600; color: var(--text);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        /* 3状態: empty(未入力・グレー) / pending(入力途中・オレンジ) / done(確定・緑)。
+           判定はpeRubricTileState()が既存のpeRubricCalcScore10().completeを見るだけで、
+           新しい完了ロジックは持たない(完了ゲート・保存経路は無改修)。 */
+        .rec-pr-tile-badge {
+            flex-shrink: 0; font-size: 0.64rem; font-weight: 700;
+            padding: 3px 8px; border-radius: 10px; white-space: nowrap;
+        }
+        .rec-pr-tile-badge.empty { color: #9E9E9E; background: #F5F5F5; }
+        .rec-pr-tile-badge.pending { color: #E65100; background: #FFF3E0; }
+        .rec-pr-tile-badge.done { color: #2E7D32; background: #E8F5E9; }
 
         /* ===== 机間巡視 CSS ===== */
         .patrol-container { max-width: 900px; margin: 0 auto; padding: 0.5rem; }
@@ -8198,30 +8226,54 @@
                 '</div>';
         }
 
+        // v1.15.2: タイルの3状態判定(未入力/入力途中/確定)。既存の完了判定
+        // (peRubricCalcScore10().complete)を「確定」に使うだけで、新しい完了ロジックは
+        // 持たない(完了ゲート・保存経路は無改修)。「未入力」はrubricData.itemsにキーが
+        // 1つも無い状態(=1タップもされていない)で判定する。levelモードは一度タップすると
+        // 必ず数値インデックスが入り、未タップ(null)に戻ることはないデータモデルのため
+        // (recPeRubricSelectLevel参照)、キーの有無だけで「未入力」と「入力途中」を
+        // 区別できる。
+        //
+        // 【重要】この「キーの有無」判定はmode:'level'専用の前提に依存している。
+        // displayMode:'modal'の種目にmode:'trial'が混在すると、rubricData.items[itemId]は
+        // タップした時点でキー自体は作られる(値は{ blockId: [null,...] }のような形。
+        // §2.6実装確定: 3状態サイクルの「未実施」はnullで表現するが、キー自体は最初のタップで
+        // 生成される)。つまり全トライアルが未実施(全null)でもキーは存在してしまい、
+        // 本関数のuntouched判定は false になる(=「未入力」ではなく「入力途中」と誤表示される)。
+        // Phase2以降でtrialモードを含む種目にdisplayMode:'modal'を採用する場合は、
+        // 「未入力」の判定方法自体を見直すこと(例: 各itemのmode別に「実質未入力」を
+        // 判定する関数を用意し、trialならblock内の全trialがnullかどうかを見る、等)。
+        // 現状(mode:'level'のみのマット)ではこの前提は成立しているため、判定ロジック自体は
+        // 変更しない。
+        function peRubricTileState(config, rubricData) {
+            var items = (rubricData && rubricData.items) || {};
+            var untouched = Object.keys(items).length === 0;
+            var result = peRubricCalcScore10(config, rubricData);
+            if (result.complete) return { state: 'done', result: result };
+            if (untouched) return { state: 'empty', result: result };
+            return { state: 'pending', result: result };
+        }
+
         // v1.15.x: displayMode:'modal'専用のタイル(案B、マット)。
-        // isMatome分岐(recRenderList内、番号/ドット/氏名/ボタンの並び)と同じ密グリッド行の型を踏襲し、
-        // 番号・氏名・未完了バッジ・確定点(or―)ボタンのみを置く。タップで詳細はrecOpenPeRubricModal()へ。
-        // 欠席ボタンは実装しない(PE_RUBRIC_SPEC.md §7.3: recToggleAbsent()は欠席化時にレコード全体を
-        // 置換し解除時は削除する破壊的な実装で、rubricDataを保持できない。recToggleAbsent()自体には
-        // 一切手を入れない方針のため、なわとび/泳力カードと同じく本タイルにも欠席ボタンを置かない)。
+        // 番号・氏名・3状態バッジ(未入力/入力途中/確定)のみを1行で置く。タイル全体が
+        // タップ対象(onclickは.rec-pr-tile自体)で、詳細はrecOpenPeRubricModal()へ。
+        // 欠席ボタンは実装しない(PE_RUBRIC_SPEC.md §7.3: recToggleAbsent()は欠席化時に
+        // レコード全体を置換し解除時は削除する破壊的な実装で、rubricDataを保持できない。
+        // recToggleAbsent()自体には一切手を入れない方針のため、なわとび/泳力カードと
+        // 同じく本タイルにも欠席ボタンを置かない)。
         function recBuildPeRubricTile(test, scores, idx, stu) {
             var config = peRubricGetConfig(test);
             if (!config) return '';
             var sr = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
             var rubricData = (sr && sr.rubricData) || { items: {}, bonus: {} };
-            var result = peRubricCalcScore10(config, rubricData);
-            var hasSc = result.complete === true;
-            var dispVal = result.complete ? (result.total + '点') : '―';
+            var st = peRubricTileState(config, rubricData);
+            var badgeText = st.state === 'done' ? (st.result.total + '点')
+                : st.state === 'pending' ? '入力中' : '未';
 
-            return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">' +
-                '<div class="rec-row-hd">' +
+            return '<div class="rec-row rec-pr-tile' + (st.state === 'done' ? ' has-score' : '') + '" id="rec-row-' + idx + '" onclick="recOpenPeRubricModal(' + idx + ')">' +
                 '<span class="rec-row-num">' + (idx + 1) + '</span>' +
-                '<span class="rec-pr-tile-badge ' + (hasSc ? 'done' : 'pending') + '">' + (hasSc ? '✓確定' : '入力中') + '</span>' +
-                '</div>' +
-                '<div class="rec-row-name">' + escapeHtml(stu.name || '') + '</div>' +
-                '<div class="rec-row-score-area">' +
-                '<button type="button" class="rec-pr-tile-btn' + (hasSc ? ' has-val' : '') + '" onclick="recOpenPeRubricModal(' + idx + ')">' + dispVal + '</button>' +
-                '</div>' +
+                '<span class="rec-pr-tile-name">' + escapeHtml(stu.name || '') + '</span>' +
+                '<span class="rec-pr-tile-badge ' + st.state + '">' + badgeText + '</span>' +
                 '</div>';
         }
 

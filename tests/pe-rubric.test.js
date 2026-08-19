@@ -369,6 +369,82 @@ const VOLLEY_CONFIG = {
     }, matCreated.test.id);
     check('§7.2 cap(実配線): 全項目10+加点2つ→10で頭打ち', matCap.score10 === 10, 'got='+matCap.score10);
 
+    // ================================================================
+    // 7. 未確定スコアの教員向け一覧(commit6): recPeRubricUpdatePendingBanner
+    //    呼び出し元はrecRenderList()とrecPeRubricUpdate()の2箇所のみ(教員向け
+    //    記録入力画面)。grdExt*/htmlPagesToPdf系(帳票・保護者面談PDF生成)からは
+    //    呼ばれていないことをソースgrepで確認済み(このテストファイルでは
+    //    grdExtExportRadarPDF等がIIFEクロージャ内部関数でwindow露出しておらず
+    //    page.evaluate()から参照できないため、静的grepのみが確認手段)。
+    // ================================================================
+    const pendingTestId = now + 100;
+    const pendingConfig = {
+        presetId: 'mat', _presetId: 'mat', combine: 'average', bonusMode: 'each', cap: 10,
+        items: [
+            { id: 'g1', name: '①前転グループ', mode: 'level', levels: [{label:'未達成',score:0},{label:'基本',score:6},{label:'発展',score:10}] },
+            { id: 'g2', name: '②後転グループ', mode: 'level', levels: [{label:'未達成',score:0},{label:'基本',score:6},{label:'発展',score:10}] },
+            { id: 'g3', name: '③倒立回転グループ', mode: 'level', levels: [{label:'未達成',score:0},{label:'できる',score:10}] },
+            { id: 'g4', name: '④平均立ちグループ', mode: 'level', levels: [{label:'未達成',score:0},{label:'基本',score:6},{label:'発展',score:10}] }
+        ],
+        bonus: [ { id: 'b1', name: '大きな前転', mode: 'level', levels: [{label:'未達成',score:0},{label:'達成',score:0.5}] } ]
+    };
+    const pendingStudents = [{name:'児童A'},{name:'児童B'},{name:'児童C'}];
+    const pendingTests = [
+        { id: pendingTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動(未確定一覧テスト)', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: JSON.parse(JSON.stringify(pendingConfig)), date:'2026-08-19', createdAt:new Date().toISOString() }
+    ];
+    // 児童0=完了, 児童1=未完了(3/4項目), 児童2=全未入力(レコードなし)
+    const pendingScores = [
+        { id: 1, studentIndex: 0, testId: pendingTestId, rubricData: { items: { g1:1,g2:2,g3:1,g4:0 }, bonus: {} }, score10: 6.5, score: 6.5, createdAt: new Date().toISOString() },
+        { id: 2, studentIndex: 1, testId: pendingTestId, rubricData: { items: { g1:1,g2:2,g3:1 }, bonus: {} }, createdAt: new Date().toISOString() }
+    ];
+    await page.evaluate(({ tests, students, scores }) => {
+        StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year:2026, grade:5, class:1, termSystem:3 } }));
+        StorageManager.set(KEYS.tests, JSON.stringify(tests));
+        StorageManager.set(KEYS.scores, JSON.stringify(scores));
+    }, { tests: pendingTests, students: pendingStudents, scores: pendingScores });
+    await page.reload({ waitUntil: 'networkidle0' });
+
+    const bannerInitial = await page.evaluate((testId) => {
+        showView('records');
+        recSelectTestGoto(testId);
+        var banner = document.getElementById('recPeRubricPendingBanner');
+        return { visible: banner.style.display !== 'none', text: banner.textContent };
+    }, pendingTestId);
+    check('未確定一覧: 初期表示でバナーが出て未完了2名(児童B・児童C)が挙がる', bannerInitial.visible &&
+        bannerInitial.text.indexOf('児童B') !== -1 && bannerInitial.text.indexOf('児童C') !== -1, bannerInitial.text);
+    check('未確定一覧: 完了済みの児童Aはバナーに含まれない', bannerInitial.text.indexOf('児童A') === -1, bannerInitial.text);
+    check('未確定一覧: 「成績には反映されません」の説明文を含む', /成績には反映されません/.test(bannerInitial.text), bannerInitial.text);
+
+    const bannerAfterOne = await page.evaluate(() => {
+        recPeRubricSelectLevel(1, 'items', 'g4', 0); // 児童1が4/4完了
+        var banner = document.getElementById('recPeRubricPendingBanner');
+        return { visible: banner.style.display !== 'none', text: banner.textContent };
+    });
+    check('未確定一覧: 1人完了させるとバナーから消え、残り1人(児童C)だけになる',
+        bannerAfterOne.visible && bannerAfterOne.text.indexOf('児童B') === -1 && bannerAfterOne.text.indexOf('児童C') !== -1, bannerAfterOne.text);
+
+    const bannerAllDone = await page.evaluate(() => {
+        recPeRubricSelectLevel(2, 'items', 'g1', 1);
+        recPeRubricSelectLevel(2, 'items', 'g2', 1);
+        recPeRubricSelectLevel(2, 'items', 'g3', 1);
+        recPeRubricSelectLevel(2, 'items', 'g4', 1);
+        var banner = document.getElementById('recPeRubricPendingBanner');
+        return { visible: banner.style.display !== 'none' };
+    });
+    check('未確定一覧: 全児童完了でバナーが非表示になる(常時表示にしない)', bannerAllDone.visible === false, JSON.stringify(bannerAllDone));
+
+    const bannerOtherTest = await page.evaluate(() => {
+        var tests = JSON.parse(StorageManager.getRaw(KEYS.tests));
+        var t2 = { id: Date.now()+999, subject:'国語', testType:'小テスト', category:'知識・技能', name:'漢字', type:'standard', maxScore:100, date:'2026-08-19', createdAt:new Date().toISOString() };
+        tests.push(t2);
+        StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
+        recInvalidateCache();
+        recSelectTestGoto(t2.id);
+        var banner = document.getElementById('recPeRubricPendingBanner');
+        return { visible: banner.style.display !== 'none' };
+    });
+    check('未確定一覧: 実技ルーブリック以外のテスト選択中はバナーが出ない', bannerOtherTest.visible === false, JSON.stringify(bannerOtherTest));
+
     const realErrors = consoleErrors;
     check('ページ読み込み・全操作中にコンソールエラーなし(favicon.ico除く)', realErrors.length === 0, realErrors.join(' | '));
 

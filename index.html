@@ -2601,6 +2601,10 @@
                                 </div>
                             </div>
                             <div id="recPeNoConvertBanner" style="display:none;background:#FFF3E0;color:#E65100;border:1.5px solid #FFCC80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;">⚠️ この単位（秒・回・m・cm）は現在10点換算に未対応です。記録は保存されますが、成績には反映されません。</div>
+                            <!-- v1.15.0: 実技ルーブリックの未確定児童一覧。教員向け入力画面のみに表示する
+                                 (通知表・保護者面談PDF・児童向け画面には一切出さない。recPeRubricUpdatePendingBanner()
+                                 参照。全児童が確定済みのときはdisplay:noneのまま)。 -->
+                            <div id="recPeRubricPendingBanner" style="display:none;background:#FFF3E0;color:#E65100;border:1.5px solid #FFCC80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;"></div>
                             <div class="rec-list" id="recList"></div>
                             <div class="rec-save-bar">
                                 <button class="btn-rec-primary" onclick="recSaveAllScores()">💾 まとめて保存</button>
@@ -6935,6 +6939,7 @@
             // 入力自体はできるが成績に反映されないため、入力画面で警告する。
             var peUnconvertedBanner = document.getElementById('recPeNoConvertBanner');
             if (peUnconvertedBanner) peUnconvertedBanner.style.display = (isPE && !isNawatobi && !isPeRubric && test.peUnit !== '点') ? '' : 'none';
+            if (isPeRubric) recPeRubricUpdatePendingBanner(test); else { var _prb = document.getElementById('recPeRubricPendingBanner'); if (_prb) _prb.style.display = 'none'; }
             // nw-mode/pr-modeクラスで列数レイアウト制御
             var bw = document.getElementById('recBulkWrap');
             var subInput = document.getElementById('rec-sub-input');
@@ -8064,6 +8069,31 @@
             var stu = recGetStudents()[studentIndex];
             if (card && stu) card.outerHTML = recBuildPeRubricCard(test, scores, studentIndex, stu);
             recUpdateProgressByCount();
+            recPeRubricUpdatePendingBanner(test);
+        }
+
+        // v1.15.0: 未確定(score10未保存)の児童一覧を教員向け入力画面のバナーに表示する。
+        // 【重要】この関数はrecRenderList()/recPeRubricUpdate()からのみ呼ばれる(教員向けの
+        // 記録入力画面)。通知表・保護者面談PDF・帳票生成のどの経路からも呼ばれていないこと。
+        // sr.score10の有無は既にpeRubricApplyScore()のcomplete判定と等価なので、ここで
+        // peRubricCalcScore10()を再計算する必要はない。
+        function recPeRubricUpdatePendingBanner(test) {
+            var banner = document.getElementById('recPeRubricPendingBanner');
+            if (!banner) return;
+            var students = recGetStudents();
+            var scores = recGetScores();
+            var pendingNames = [];
+            students.forEach(function(stu, idx) {
+                var sr = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+                if (!sr || typeof sr.score10 !== 'number') pendingNames.push(stu.name || ((idx + 1) + '番'));
+            });
+            if (pendingNames.length === 0) {
+                banner.style.display = 'none';
+                banner.textContent = '';
+                return;
+            }
+            banner.textContent = '⚠️ ' + pendingNames.length + '人が未確定です（成績には反映されません）: ' + pendingNames.join('、');
+            banner.style.display = '';
         }
 
         // levelモードのボタンタップ。1タップで即確定(3状態サイクルは不要)。

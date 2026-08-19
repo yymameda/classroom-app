@@ -1086,6 +1086,47 @@
         .rec-pr-summary.pending { color: #E65100; }
         .rec-pr-summary.done { color: #2E7D32; }
 
+        /* ===== PeRubric displayMode:'dense' (案A, ソフトバレー) ===== */
+        /* 列数4は実測(iPad Air 11"横向き1180x820、#recList実測幅1086〜1088px)で
+           トライアルボタン47.2px(タップ域44px以上)を確保できる最大列数として算出した値。
+           なわとびの6列を踏襲しなかった理由: なわとび自身の正方形ボタンは6列時26.2pxしかなく、
+           44px基準を満たしていないため前例として採用できない(5列=36.4pxも同様に不足)。 */
+        .rec-list.pr-mode-dense { gap: 6px; padding: 6px; border: none; box-sizing: border-box; width: 100%; height: auto; overflow-y: auto; align-content: start; }
+        @media (orientation: landscape) and (min-width: 900px) {
+            .rec-list.pr-mode-dense { grid-template-columns: repeat(4, 1fr) !important; }
+        }
+        @media (orientation: portrait) {
+            .rec-list.pr-mode-dense { grid-template-columns: repeat(4, 1fr) !important; }
+        }
+        .rec-pr-dense-card { background: #FAFAFA; border: 2px solid var(--border); border-radius: 8px; padding: 3px 4px; display: flex; flex-direction: column; gap: 3px; }
+        .rec-pr-dense-card.complete { background: #E8F5E9; border-color: #4CAF50; }
+        .rec-pr-dense-hd { display: flex; align-items: center; gap: 3px; }
+        .rec-pr-dense-num { color: #fff; background: #90A4AE; border-radius: 50%; width: 16px; height: 16px; min-width: 16px; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: 700; flex-shrink: 0; }
+        .rec-pr-dense-num.has { background: #4CAF50; }
+        .rec-pr-dense-name { font-size: 0.62rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .rec-pr-dense-badge { font-size: 0.55rem; flex-shrink: 0; }
+        .rec-pr-dense-badge.done { color: #2E7D32; font-weight: 700; }
+        .rec-pr-dense-badge.pending { color: #E65100; }
+        /* 5=ソフトバレーの5方向決め打ち(recBuildPeRubricDenseCardの例外チェックと対応) */
+        .rec-pr-dense-trials { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        .rec-pr-dense-trial-btn { border: 2px solid #ddd; border-radius: 6px; background: #fff; width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; box-sizing: border-box; font-family: inherit; cursor: pointer; padding: 0; }
+        .rec-pr-dense-trial-btn.ok { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; }
+        .rec-pr-dense-trial-btn.ng { background: #EEEEEE; border-color: #BDBDBD; color: #757575; }
+        .rec-pr-dense-summary { font-size: 0.65rem; font-weight: 700; text-align: right; }
+        .rec-pr-dense-summary.done { color: #2E7D32; }
+        .rec-pr-dense-summary.pending { color: #E65100; }
+
+        /* ===== PeRubric displayMode:'modal' (案B, マット) ===== */
+        /* タイル本体は.rec-row/.rec-row-hd/.rec-row-name/.rec-row-score-area(通常の得点入力と同じ
+           密グリッド行)をそのまま再利用する。新規CSSは以下の2クラスのみ。 */
+        .rec-pr-tile-badge { font-size: 0.55rem; font-weight: 700; flex-shrink: 0; margin-left: auto; }
+        .rec-pr-tile-badge.done { color: #2E7D32; }
+        .rec-pr-tile-badge.pending { color: #E65100; }
+        /* min-height:44pxはisMatome分岐のスコアボタン(min-height:22px)より大きい値を意図的に採用。
+           タップ域44px以上の要件を満たすため、matomeの前例をそのまま踏襲しない。 */
+        .rec-pr-tile-btn { width: 100%; min-height: 44px; padding: 4px 6px; border: 2px solid var(--border); border-radius: 6px; background: #fff; font-size: 0.85rem; font-weight: 700; font-family: inherit; cursor: pointer; }
+        .rec-pr-tile-btn.has-val { border-color: var(--primary); background: #E8F5E9; color: #2E7D32; }
+
         /* ===== 机間巡視 CSS ===== */
         .patrol-container { max-width: 900px; margin: 0 auto; padding: 0.5rem; }
         .patrol-header { background: var(--white); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
@@ -2601,6 +2642,14 @@
                                 </div>
                             </div>
                             <div id="recPeNoConvertBanner" style="display:none;background:#FFF3E0;color:#E65100;border:1.5px solid #FFCC80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;">⚠️ この単位（秒・回・m・cm）は現在10点換算に未対応です。記録は保存されますが、成績には反映されません。</div>
+                            <!-- v1.15.x: 実技ルーブリックの説明バナー(config.note+単一項目時のitem.hint統合)。
+                                 教員向けの常設説明であり、未確定警告(recPeRubricPendingBanner)とは別要素にする
+                                 (警告色と混在させると警告が埋もれるため。バナーは「説明(中立色)」「警告(暖色)」の
+                                 2種類までとし、3本以上並べて密度改善分のスペースを消費しないこと)。
+                                 max-height:74pxは実測(config.note+item.hintを結合した121文字で2行=53.8px、
+                                 1行あたり約18.9px換算)に1行ぶんの余裕を足した3行分の値。超過分は内部スクロールにし、
+                                 種目追加で文言が伸びてもグリッドの表示行数を削らないようにする。 -->
+                            <div id="recPeRubricInfoBanner" style="display:none;background:#ECEFF1;color:#455A64;border:1.5px solid #CFD8DC;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;line-height:1.4;max-height:74px;overflow-y:auto;"></div>
                             <!-- v1.15.0: 実技ルーブリックの未確定児童一覧。教員向け入力画面のみに表示する
                                  (通知表・保護者面談PDF・児童向け画面には一切出さない。recPeRubricUpdatePendingBanner()
                                  参照。全児童が確定済みのときはdisplay:noneのまま)。 -->
@@ -2871,6 +2920,27 @@
                     <button class="rec-matome-nav-btn" onclick="recMatomeModalPrev()">◀ 前の児童</button>
                     <button class="btn-rec-primary" onclick="recMatomeModalSave()" style="flex:1;margin:0 6px;">💾 保存</button>
                     <button class="rec-matome-nav-btn" onclick="recMatomeModalNext()">次の児童 ▶</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- v1.15.x: 実技ルーブリック displayMode:'modal'(案B、マット)用モーダル。
+             外枠CSSはrecMatomeModal(.rec-matome-modal-overlay等)をそのまま流用する(新規CSS不要)。
+             本文(recPeRubricModalBody)にはrecBuildPeRubricCard()の出力をそのまま差し込むため、
+             hint/levelラベルの全文表示・完了ゲート・保存経路は無改修のまま。 -->
+        <div class="rec-matome-modal-overlay" id="recPeRubricModal">
+            <div class="rec-matome-modal">
+                <div class="rec-matome-modal-hd">
+                    <h3 id="recPeRubricModalTitle"></h3>
+                    <button class="rec-matome-modal-close" onclick="recClosePeRubricModal()">×</button>
+                </div>
+                <div class="rec-matome-modal-body">
+                    <div id="recPeRubricModalBody"></div>
+                </div>
+                <div class="rec-matome-modal-footer">
+                    <button class="rec-matome-nav-btn" onclick="recPeRubricModalPrev()">◀ 前の児童</button>
+                    <button class="btn-rec-primary" onclick="recClosePeRubricModal()" style="flex:1;margin:0 6px;">閉じる</button>
+                    <button class="rec-matome-nav-btn" onclick="recPeRubricModalNext()">次の児童 ▶</button>
                 </div>
             </div>
         </div>
@@ -6935,11 +7005,17 @@
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && kenteiGetPresetId(test.peUnit) !== null;
             var isPeRubric = isPE && peRubricGetPresetId(test.peUnit) !== null;
+            // v1.15.x: displayMode('dense'=案A/ソフトバレー、'modal'=案B/マット)。
+            // 未指定のときはPhase1のフルカード(recBuildPeRubricCard・pr-mode)のまま=
+            // Phase2以降の種目(跳び箱・ハードル・鉄棒)に一切手を触れないためのフォールバック。
+            var _prConfig = isPeRubric ? peRubricGetConfig(test) : null;
+            var prDisplayMode = _prConfig ? _prConfig.displayMode : null;
             // v1.14.3: 「点」以外の非検定単位はpeRecordToScore10()で10点換算が未実装(null=未評価)。
             // 入力自体はできるが成績に反映されないため、入力画面で警告する。
             var peUnconvertedBanner = document.getElementById('recPeNoConvertBanner');
             if (peUnconvertedBanner) peUnconvertedBanner.style.display = (isPE && !isNawatobi && !isPeRubric && test.peUnit !== '点') ? '' : 'none';
             if (isPeRubric) recPeRubricUpdatePendingBanner(test); else { var _prb = document.getElementById('recPeRubricPendingBanner'); if (_prb) _prb.style.display = 'none'; }
+            recPeRubricUpdateInfoBanner(_prConfig);
             // nw-mode/pr-modeクラスで列数レイアウト制御
             var bw = document.getElementById('recBulkWrap');
             var subInput = document.getElementById('rec-sub-input');
@@ -6947,11 +7023,29 @@
             if (isNawatobi) {
                 list.classList.add('nw-mode');
                 list.classList.remove('pr-mode');
+                list.classList.remove('pr-mode-dense');
                 if (bw) bw.classList.add('nw-active');
                 if (subInput) subInput.classList.add('nw-fullscreen');
                 if (viewRec) viewRec.classList.add('nw-view');
+            } else if (isPeRubric && prDisplayMode === 'dense') {
+                // 案A(ソフトバレー): なわとびと同じ「多列×小カード」戦略。1列固定のpr-modeとは別クラス
+                list.classList.add('pr-mode-dense');
+                list.classList.remove('pr-mode');
+                list.classList.remove('nw-mode');
+                if (bw) bw.classList.remove('nw-active');
+                if (subInput) subInput.classList.remove('nw-fullscreen');
+                if (viewRec) viewRec.classList.remove('nw-view');
+            } else if (isPeRubric && prDisplayMode === 'modal') {
+                // 案B(マット): 通常の得点入力と同じ密グリッドをそのまま使う(専用クラス不要)
+                list.classList.remove('pr-mode');
+                list.classList.remove('pr-mode-dense');
+                list.classList.remove('nw-mode');
+                if (bw) bw.classList.remove('nw-active');
+                if (subInput) subInput.classList.remove('nw-fullscreen');
+                if (viewRec) viewRec.classList.remove('nw-view');
             } else if (isPeRubric) {
                 list.classList.add('pr-mode');
+                list.classList.remove('pr-mode-dense');
                 list.classList.remove('nw-mode');
                 if (bw) bw.classList.remove('nw-active');
                 if (subInput) subInput.classList.remove('nw-fullscreen');
@@ -6959,6 +7053,7 @@
             } else {
                 list.classList.remove('nw-mode');
                 list.classList.remove('pr-mode');
+                list.classList.remove('pr-mode-dense');
                 if (bw) bw.classList.remove('nw-active');
                 if (subInput) subInput.classList.remove('nw-fullscreen');
                 if (viewRec) viewRec.classList.remove('nw-view');
@@ -6993,6 +7088,10 @@
                         dispVal + '</button>' + catHtml + '</div>';
                 } else if (isNawatobi) {
                     return recBuildNawatobiCard(test, scores, idx, stu);
+                } else if (isPeRubric && prDisplayMode === 'dense') {
+                    return recBuildPeRubricDenseCard(test, scores, idx, stu);
+                } else if (isPeRubric && prDisplayMode === 'modal') {
+                    return recBuildPeRubricTile(test, scores, idx, stu);
                 } else if (isPeRubric) {
                     return recBuildPeRubricCard(test, scores, idx, stu);
                 } else if (isABC) {
@@ -7592,6 +7691,9 @@
                 combine: 'table',
                 bonusMode: 'any',
                 cap: 10,
+                // v1.15.x: 表示形式を種目ごとに明示指定する(案A=多列一覧)。items.length等からの
+                // 自動判定はしない(Phase2以降の種目追加時に意図せず切り替わることを避けるため)。
+                displayMode: 'dense',
                 items: [
                     {
                         id: 'v1', name: '5方向への返球', mode: 'trial',
@@ -7626,6 +7728,8 @@
                 combine: 'average',
                 bonusMode: 'each',
                 cap: 10,
+                // v1.15.x: 案B=一覧タイル+モーダル。volley側のコメントと同じ理由で明示指定する。
+                displayMode: 'modal',
                 items: [
                     {
                         id: 'g1', name: '①前転グループ', mode: 'level',
@@ -7714,6 +7818,10 @@
                 cap: preset.cap || 10,
                 conversionTable: preset.combine === 'table' ? JSON.parse(JSON.stringify(preset.conversionTable || [])) : null,
                 note: preset.note || '',
+                // v1.15.x: displayModeは他フィールドと同じくホワイトリストコピーの対象に含める。
+                // 未指定(Phase2以降の跳び箱/ハードル/鉄棒)はnullのままとし、recRenderList()側の
+                // フォールバック(既存のフルカード・pr-mode)に自然に落ちる。
+                displayMode: preset.displayMode || null,
                 _presetId: presetId
             };
         }
@@ -8047,6 +8155,133 @@
                 '</div>';
         }
 
+        // v1.15.x: displayMode:'dense'専用の圧縮カード(案A、ソフトバレー)。
+        // なわとびカード(recBuildNawatobiCard)と同じ「多列グリッド×正方形ボタン」戦略を踏襲し、
+        // recBuildPeRubricCard()の常時可視hint/levelラベル文は持たない
+        // (基準文はrecPeRubricInfoBanner側、画面上部に1回だけ表示する)。
+        // 現状はmode:'trial'かつ各blockがtrials:1(ソフトバレーの5方向)の形のみ対応。
+        // 対応外のconfigが渡された場合はサイレントに崩れたUIを出さず、ここで即座に例外を投げる。
+        function recBuildPeRubricDenseCard(test, scores, idx, stu) {
+            var config = peRubricGetConfig(test);
+            if (!config) return '';
+            var sr = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+            var rubricData = (sr && sr.rubricData) || { items: {}, bonus: {} };
+            var result = peRubricCalcScore10(config, rubricData);
+
+            var trialsHtml = (config.items || []).map(function(item) {
+                if (item.mode !== 'trial') throw new Error('recBuildPeRubricDenseCard: 未対応のmode "' + item.mode + '"(denseはtrialのみ対応)');
+                if ((item.blocks || []).length !== 5) throw new Error('recBuildPeRubricDenseCard: blocks.length!==5は未対応(5方向決め打ちのCSS、.rec-pr-dense-trials参照)');
+                var idata = (rubricData.items || {})[item.id] || {};
+                return (item.blocks || []).map(function(b) {
+                    if (b.trials !== 1) throw new Error('recBuildPeRubricDenseCard: block.trials!==1は未対応(1試技/blockのみ)');
+                    var v = (idata[b.id] || [])[0];
+                    var cls = v === 1 ? ' ok' : v === 0 ? ' ng' : '';
+                    var label = v === 1 ? '○' : v === 0 ? '×' : (b.name || '').charAt(0);
+                    return '<button type="button" class="rec-pr-dense-trial-btn' + cls + '"' +
+                        ' onclick="recPeRubricToggleTrial(' + idx + ',\x27items\x27,\x27' + item.id + '\x27,\x27' + b.id + '\x27,0)">' +
+                        label + '</button>';
+                }).join('');
+            }).join('');
+
+            var summaryText = result.complete ? (result.total + '点')
+                : (result.total !== null ? ('(' + result.total + '点)') : '―');
+            var summaryClass = result.complete ? 'done' : 'pending';
+
+            return '<div class="rec-pr-dense-card' + (result.complete ? ' complete' : '') + '" id="rec-row-' + idx + '">' +
+                '<div class="rec-pr-dense-hd">' +
+                '<div class="rec-pr-dense-num' + (result.complete ? ' has' : '') + '">' + (idx + 1) + '</div>' +
+                '<div class="rec-pr-dense-name">' + escapeHtml(stu.name || '') + '</div>' +
+                '<div class="rec-pr-dense-badge ' + summaryClass + '">' + (result.complete ? '✓ 確定' : '入力中') + '</div>' +
+                '</div>' +
+                '<div class="rec-pr-dense-trials">' + trialsHtml + '</div>' +
+                '<div class="rec-pr-dense-summary ' + summaryClass + '">' + summaryText + '</div>' +
+                '</div>';
+        }
+
+        // v1.15.x: displayMode:'modal'専用のタイル(案B、マット)。
+        // isMatome分岐(recRenderList内、番号/ドット/氏名/ボタンの並び)と同じ密グリッド行の型を踏襲し、
+        // 番号・氏名・未完了バッジ・確定点(or―)ボタンのみを置く。タップで詳細はrecOpenPeRubricModal()へ。
+        // 欠席ボタンは実装しない(PE_RUBRIC_SPEC.md §7.3: recToggleAbsent()は欠席化時にレコード全体を
+        // 置換し解除時は削除する破壊的な実装で、rubricDataを保持できない。recToggleAbsent()自体には
+        // 一切手を入れない方針のため、なわとび/泳力カードと同じく本タイルにも欠席ボタンを置かない)。
+        function recBuildPeRubricTile(test, scores, idx, stu) {
+            var config = peRubricGetConfig(test);
+            if (!config) return '';
+            var sr = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+            var rubricData = (sr && sr.rubricData) || { items: {}, bonus: {} };
+            var result = peRubricCalcScore10(config, rubricData);
+            var hasSc = result.complete === true;
+            var dispVal = result.complete ? (result.total + '点') : '―';
+
+            return '<div class="rec-row' + (hasSc ? ' has-score' : '') + '" id="rec-row-' + idx + '">' +
+                '<div class="rec-row-hd">' +
+                '<span class="rec-row-num">' + (idx + 1) + '</span>' +
+                '<span class="rec-pr-tile-badge ' + (hasSc ? 'done' : 'pending') + '">' + (hasSc ? '✓確定' : '入力中') + '</span>' +
+                '</div>' +
+                '<div class="rec-row-name">' + escapeHtml(stu.name || '') + '</div>' +
+                '<div class="rec-row-score-area">' +
+                '<button type="button" class="rec-pr-tile-btn' + (hasSc ? ' has-val' : '') + '" onclick="recOpenPeRubricModal(' + idx + ')">' + dispVal + '</button>' +
+                '</div>' +
+                '</div>';
+        }
+
+        // v1.15.x: displayMode:'modal'用モーダル(案B、マット)。recOpenMatomeModal()と同型
+        // (1人ずつ開いて◀前/次▶で移動)。本文はrecBuildPeRubricCard()の出力をそのまま差し込み、
+        // hint・levels[].labelの全文表示・完了ゲート・保存経路は無改修のまま流用する。
+        var recPeRubricModalStudentIndex = null;
+
+        window.recOpenPeRubricModal = function(studentIndex) {
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!test) return;
+            recPeRubricModalStudentIndex = studentIndex;
+            var stu = recGetStudents()[studentIndex] || {};
+            var titleEl = document.getElementById('recPeRubricModalTitle');
+            if (titleEl) titleEl.textContent = (studentIndex + 1) + '番 ' + (stu.name || '');
+            recRenderPeRubricModalBody(test, studentIndex);
+            var modal = document.getElementById('recPeRubricModal');
+            if (modal) modal.classList.add('active');
+        };
+
+        function recRenderPeRubricModalBody(test, studentIndex) {
+            var body = document.getElementById('recPeRubricModalBody');
+            if (!body) return;
+            var scores = recGetScores();
+            var stu = recGetStudents()[studentIndex] || {};
+            body.innerHTML = recBuildPeRubricCard(test, scores, studentIndex, stu);
+            // recBuildPeRubricCard()が付与するid="rec-row-N"はグリッド側のタイルと重複するため、
+            // モーダル内では除去する(モーダル内の操作はonclickのstudentIndex引数のみで完結し、
+            // id参照を必要としない)。
+            var inner = body.firstElementChild;
+            if (inner) inner.removeAttribute('id');
+        }
+
+        window.recClosePeRubricModal = function() {
+            var modal = document.getElementById('recPeRubricModal');
+            if (modal) modal.classList.remove('active');
+            recPeRubricModalStudentIndex = null;
+        };
+
+        window.recPeRubricModalNext = function() {
+            var students = recGetStudents();
+            if (recPeRubricModalStudentIndex !== null && recPeRubricModalStudentIndex < students.length - 1) {
+                recOpenPeRubricModal(recPeRubricModalStudentIndex + 1);
+            }
+        };
+        window.recPeRubricModalPrev = function() {
+            if (recPeRubricModalStudentIndex !== null && recPeRubricModalStudentIndex > 0) {
+                recOpenPeRubricModal(recPeRubricModalStudentIndex - 1);
+            }
+        };
+
+        // recPeRubricUpdate()から呼ばれる。タップ即保存後、モーダルが開いていて対象児童と
+        // 一致する場合のみ本文を再描画する(閉じている/別の児童のときは何もしない)。
+        function recPeRubricModalRefreshIfOpen(studentIndex, test) {
+            if (recPeRubricModalStudentIndex !== studentIndex) return;
+            var modal = document.getElementById('recPeRubricModal');
+            if (!modal || !modal.classList.contains('active')) return;
+            recRenderPeRubricModalBody(test, studentIndex);
+        }
+
         // rubricDataの変更(mutateFn)→再計算→保存(peRubricApplyScore経由)→該当カードのみ再描画、
         // という一連の流れを一箇所に集約する。level選択・trialタップの両ハンドラがこれを経由する。
         function recPeRubricUpdate(studentIndex, mutateFn) {
@@ -8067,7 +8302,14 @@
 
             var card = document.getElementById('rec-row-' + studentIndex);
             var stu = recGetStudents()[studentIndex];
-            if (card && stu) card.outerHTML = recBuildPeRubricCard(test, scores, studentIndex, stu);
+            if (config.displayMode === 'dense') {
+                if (card && stu) card.outerHTML = recBuildPeRubricDenseCard(test, scores, studentIndex, stu);
+            } else if (config.displayMode === 'modal') {
+                if (card && stu) card.outerHTML = recBuildPeRubricTile(test, scores, studentIndex, stu);
+                recPeRubricModalRefreshIfOpen(studentIndex, test);
+            } else {
+                if (card && stu) card.outerHTML = recBuildPeRubricCard(test, scores, studentIndex, stu);
+            }
             recUpdateProgressByCount();
             recPeRubricUpdatePendingBanner(test);
         }
@@ -8093,6 +8335,23 @@
                 return;
             }
             banner.textContent = '⚠️ ' + pendingNames.length + '人が未確定です（成績には反映されません）: ' + pendingNames.join('、');
+            banner.style.display = '';
+        }
+
+        // v1.15.x: 実技ルーブリックの説明バナー(config.note + 単一項目時のitem.hint)。
+        // 教員向け常設説明であり、未確定警告(recPeRubricPendingBanner)とは別要素として扱う。
+        // 項目が複数(マット等、displayMode:'modal')の場合は各項目のhintをここに集約せず、
+        // カード/モーダル内の既存表示(recPeRubricRenderItemRow、無改修)に委ねる。
+        // 集約すると「どの項目の基準か」が画面上部だけでは分からなくなるため。
+        function recPeRubricUpdateInfoBanner(config) {
+            var banner = document.getElementById('recPeRubricInfoBanner');
+            if (!banner) return;
+            if (!config) { banner.style.display = 'none'; banner.textContent = ''; return; }
+            var parts = [];
+            if (config.note) parts.push(config.note);
+            if (config.items && config.items.length === 1 && config.items[0].hint) parts.push(config.items[0].hint);
+            if (!parts.length) { banner.style.display = 'none'; banner.textContent = ''; return; }
+            banner.textContent = parts.join(' ');
             banner.style.display = '';
         }
 

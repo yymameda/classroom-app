@@ -3019,6 +3019,12 @@
                 <button class="sub-subnav-btn" data-sub="stats">📊 提出課題の統計</button>
                 <button class="sub-subnav-btn" data-sub="diary">📔 修養日誌</button>
                 <button class="sub-subnav-btn" data-sub="assign">📋 提出課題の管理</button>
+                <select id="subTermSel" title="対象学期（入力（個人）・統計・課題管理タブに適用）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                    <option value="1">1学期</option>
+                    <option value="2">2学期</option>
+                    <option value="3">3学期</option>
+                    <option value="all">通年</option>
+                </select>
             </div>
 
             <!-- ── 入力タブ ── -->
@@ -3080,6 +3086,7 @@
                         </select>
                         <button class="btn-rec-small" id="subPsnReloadBtn" style="min-height:38px;">🔄 再集計</button>
                     </div>
+                    <div id="subPsnTermNotice" style="display:none;font-size:0.78rem;color:var(--text-light);padding:0 2px 6px;"></div>
                     <div class="student-grid" id="subPsnGrid"></div>
                 </div>
                 <div id="subPsnDetail"></div>
@@ -3098,6 +3105,7 @@
                             <option value="resubmit">再提出あり</option>
                         </select>
                     </div>
+                    <div id="subStatsTermNotice" style="display:none;font-size:0.78rem;color:var(--text-light);padding:0 2px 8px;"></div>
                     <div class="sub-stats-cards" id="subStatsCards"></div>
                     <div id="subBarSection">
                         <div style="font-size:0.8rem;font-weight:700;color:var(--text-light);margin-bottom:8px;">課題別提出状況（最新10件）</div>
@@ -3170,6 +3178,7 @@
                         <span class="sub-panel-title" style="margin:0;">📋 課題一覧</span>
                         <div class="rec-sort-bar" id="subSortBar"></div>
                     </div>
+                    <div id="subAssignTermNotice" style="display:none;font-size:0.78rem;color:var(--text-light);padding:0 2px 8px;"></div>
                     <div class="sub-assign-list" id="subAssignList"></div>
                 </div>
             </div>
@@ -12115,6 +12124,34 @@
         var subModalIdx = null; // 状態選択モーダル：対象児童index
         var subAutoSaveTimer = null;
         var subFilterSubject = ''; // 教科フィルター
+        // v1.16.0: 学期フィルタ（入力（個人）・統計・課題管理タブに適用。画面表示のみ、localStorageには保存しない）
+        var subCurrentTermFilter = null; // '1'|'2'|'3'|'all'|null（null=未初期化＝絞り込みなし扱い）
+        // 学期の判定は成績モジュールの grdItemTerm(window公開) に一本化する。新規の学期判定ロジックはここに書かない。
+        function subPassesTermFilter(item) {
+            if (!subCurrentTermFilter || subCurrentTermFilter === 'all') return true;
+            if (typeof window.grdItemTerm !== 'function') return true; // 成績モジュール未初期化時はフィルタしない
+            return window.grdItemTerm(item) === subCurrentTermFilter;
+        }
+        // 学期フィルタで除外された件数を「他の学期の課題 N件は表示していません」として表示する
+        function subSetTermNotice(elId, excludedCount) {
+            var el = document.getElementById(elId);
+            if (!el) return;
+            if (!subCurrentTermFilter || subCurrentTermFilter === 'all' || !excludedCount) {
+                el.style.display = 'none';
+                el.textContent = '';
+                return;
+            }
+            el.style.display = '';
+            el.textContent = '他の学期の課題 ' + excludedCount + '件は表示していません';
+        }
+        function subOnTermChange() {
+            var sel = document.getElementById('subTermSel');
+            subCurrentTermFilter = sel ? sel.value : null;
+            var act = function(n) { var el = document.getElementById('sub-sub-' + n); return el && el.classList.contains('active'); };
+            if (act('person')) subPsnRender();
+            if (act('stats'))  subRenderStats();
+            if (act('assign')) subRenderAssignList();
+        }
 
         // --- フィルターバー ---
         function subRenderFilterBar() {
@@ -12227,9 +12264,12 @@
             var assigns = subGetAssignments();
             if (!assigns.length) {
                 list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-light);font-size:0.85rem;">課題が登録されていません</div>';
+                subSetTermNotice('subAssignTermNotice', 0);
                 return;
             }
-            var sorted = subSortAssigns(assigns);
+            var termAssigns = assigns.filter(subPassesTermFilter);
+            subSetTermNotice('subAssignTermNotice', assigns.length - termAssigns.length);
+            var sorted = subSortAssigns(termAssigns);
             var subs = subGetSubmissions();
             var stuCount = subGetStudents().length;
             var html = '';
@@ -12907,7 +12947,9 @@
         // ================================================================
         function subRenderStats() {
             subUpdateAssignSelects();
-            var assigns = subGetAssignments();
+            var assignsAll = subGetAssignments();
+            var assigns = assignsAll.filter(subPassesTermFilter);
+            subSetTermNotice('subStatsTermNotice', assignsAll.length - assigns.length);
             var subs = subGetSubmissions();
             var students = subGetStudents();
             var n = students.length;
@@ -12971,8 +13013,12 @@
             // 児童別
             var stuEl = document.getElementById('subStudentStats');
             if (stuEl) {
+                // 分子(ss)を分母(assigns.length)と同じ学期フィルタ基準に揃える
+                // （揃えないと、学期を絞った直後は未提出が過小に出て見えなくなる）
+                var assignIdSet = {};
+                assigns.forEach(function(a) { assignIdSet[a.id] = true; });
                 var stuData = students.map(function(stu, i) {
-                    var ss = subs.filter(function(s) { return s.studentIndex === i; });
+                    var ss = subs.filter(function(s) { return s.studentIndex === i && assignIdSet[s.assignmentId]; });
                     var sok = 0, sre = 0, scr = 0;
                     ss.forEach(function(s) {
                         if (s.status === 'submitted') sok++;
@@ -13232,6 +13278,7 @@
         function subPsnFilteredAssigns() {
             var arr = subGetAssignments();
             if (subPsnSubject) arr = arr.filter(function(a) { return a.subject === subPsnSubject; });
+            arr = arr.filter(subPassesTermFilter);
             return subPsnSortAssigns(arr);
         }
 
@@ -13599,6 +13646,9 @@
             var snap = subPsnSnapshot();
             subPsnRenderGrid(snap);
             subPsnRenderDetail(snap);
+            // 学期フィルタで除外された件数（教科フィルタは揃えた上で学期の有無だけを比較）
+            var _beforeTerm = subGetAssignments().filter(function(a) { return !subPsnSubject || a.subject === subPsnSubject; }).length;
+            subSetTermNotice('subPsnTermNotice', _beforeTerm - snap.assigns.length);
         }
 
         // ================================================================
@@ -13611,6 +13661,13 @@
             root.querySelectorAll('.sub-subnav-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() { subShowSub(btn.dataset.sub); });
             });
+            // 学期フィルタ（v1.16.0）。初期値は成績モジュールの「現在の学期」に揃える。localStorageには保存しない。
+            var termSel = document.getElementById('subTermSel');
+            if (termSel) {
+                if (typeof window.grdGetCurrentTerm === 'function') termSel.value = window.grdGetCurrentTerm();
+                subCurrentTermFilter = termSel.value;
+                termSel.addEventListener('change', subOnTermChange);
+            }
             // 課題追加
             var addBtn = document.getElementById('subAssignAddBtn');
             if (addBtn) addBtn.addEventListener('click', subAddAssign);
@@ -15919,6 +15976,8 @@
         // Phase 8 から参照できるよう公開
         window.grdCalculate = grdCalculate;
         window.grdGetAvailableSubjects = grdGetAvailableSubjects;
+        window.grdItemTerm = grdItemTerm; // v1.16.0: 提出物モジュール（学期フィルタ）と共有
+        window.grdGetCurrentTerm = grdGetCurrentTerm; // 同上
 
     })();
     // ▲▲▲ MODULE:GRADES ▲▲▲

@@ -392,10 +392,10 @@ const VOLLEY_CONFIG = {
         recSelectTestGoto(testId);
         recOpenPeRubricModal(2); // 児童C(index2、他のcheckで未使用)のモーダルを開く
         var beforeTile = document.getElementById('rec-row-2');
-        var beforeTileIsTile = beforeTile.classList.contains('rec-row') && !!beforeTile.querySelector('.rec-pr-tile-btn');
+        var beforeTileIsTile = beforeTile.classList.contains('rec-pr-tile');
         recPeRubricSelectLevel(2, 'items', 'g1', 2); // モーダル内のタップを想定(10点)。モーダルは開いたまま
         var afterTile = document.getElementById('rec-row-2');
-        var afterTileIsTile = afterTile.classList.contains('rec-row') && !!afterTile.querySelector('.rec-pr-tile-btn');
+        var afterTileIsTile = afterTile.classList.contains('rec-pr-tile');
         var afterTileReplacedByModalCard = !!afterTile.querySelector('.rec-pr-card');
         var modalBody = document.getElementById('recPeRubricModalBody');
         var modalReflectsTap = modalBody.textContent.indexOf('10点') !== -1;
@@ -418,6 +418,37 @@ const VOLLEY_CONFIG = {
         modalRefresh.modalReflectsTap, JSON.stringify(modalRefresh));
     check('モーダル再描画(案B): モーダル内にid="rec-row-2"が残らない(グリッド側と重複しない)',
         modalRefresh.idsInModal === 0 && modalRefresh.duplicateIdInDocument === 1, JSON.stringify(modalRefresh));
+
+    // ================================================================
+    // 6.6 タイルの3状態バッジ(未入力/入力途中/確定、displayMode:'modal')。
+    //     判定はpeRubricCalcScore10().completeを見るだけの表示ロジックなので、
+    //     完了ゲート自体の検証は§1/§6で別途済み。ここでは表示(バッジ)だけを見る。
+    //     児童3(index3)はここまでの他checkで未使用のため、未入力→入力途中→確定と
+    //     単独で状態遷移させて検証できる。
+    // ================================================================
+    const badgeStates = await page.evaluate((testId) => {
+        recSelectTestGoto(testId);
+        var out = {};
+        var badge = function() { return document.getElementById('rec-row-3').querySelector('.rec-pr-tile-badge'); };
+        out.empty = { text: badge().textContent, className: badge().className };
+        recPeRubricSelectLevel(3, 'items', 'g1', 1); // 1/4項目のみ → 入力途中
+        out.pending = { text: badge().textContent, className: badge().className };
+        recPeRubricSelectLevel(3, 'items', 'g2', 2);
+        recPeRubricSelectLevel(3, 'items', 'g3', 1);
+        recPeRubricSelectLevel(3, 'items', 'g4', 2); // 4/4完了 → 確定
+        out.done = { text: badge().textContent, className: badge().className };
+        return out;
+    }, matCreated.test.id);
+    check('タイル3状態: 未入力バッジは"未"かつemptyクラス',
+        badgeStates.empty.text === '未' && /\bempty\b/.test(badgeStates.empty.className), JSON.stringify(badgeStates.empty));
+    check('タイル3状態: 入力途中バッジは"入力中"かつpendingクラス',
+        badgeStates.pending.text === '入力中' && /\bpending\b/.test(badgeStates.pending.className), JSON.stringify(badgeStates.pending));
+    check('タイル3状態: 確定バッジは点数表示かつdoneクラス',
+        /点$/.test(badgeStates.done.text) && /\bdone\b/.test(badgeStates.done.className), JSON.stringify(badgeStates.done));
+    check('タイル3状態: 3状態それぞれでクラスが異なる(未入力/入力途中/確定を区別できる)',
+        badgeStates.empty.className !== badgeStates.pending.className &&
+        badgeStates.pending.className !== badgeStates.done.className &&
+        badgeStates.empty.className !== badgeStates.done.className, JSON.stringify(badgeStates));
 
     // ================================================================
     // 7. 未確定スコアの教員向け一覧(commit6): recPeRubricUpdatePendingBanner

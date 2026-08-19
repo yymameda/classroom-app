@@ -274,11 +274,17 @@ const VOLLEY_CONFIG = {
         /センターサークル/.test(created.test.peRubric.items[0].hint || '') && /5m/.test(created.test.peRubric.items[0].hint || '') && /山なり/.test(created.test.peRubric.items[0].hint || ''),
         created.test.peRubric.items[0].hint);
 
+    // v1.15.1(案A/dense化): hintはカードから廃止しrecPeRubricInfoBannerへ集約された。
+    // カード側は.rec-pr-item-hintを持たないことと、5方向ぶんの.rec-pr-dense-trial-btnが
+    // 5個あることを検証する(DOM構造が変わってもテストが緩んで通ってしまわないようにする)。
     const tapResult = await page.evaluate((testId) => {
         recSelectTestGoto(testId);
         var card = document.getElementById('rec-row-0');
-        var hintCount = card.querySelectorAll('.rec-pr-item-hint').length;
-        var trialLabels = Array.from(card.querySelectorAll('.rec-pr-trial-label')).map(function(el){return el.textContent;});
+        var banner = document.getElementById('recPeRubricInfoBanner');
+        var bannerText = banner ? banner.textContent : '';
+        var bannerVisible = !!banner && banner.style.display !== 'none';
+        var trialBtnCount = card.querySelectorAll('.rec-pr-dense-trial-btn').length;
+        var hintInCard = card.querySelectorAll('.rec-pr-item-hint').length;
         recPeRubricToggleTrial(0, 'items', 'v1', 'front', 0);
         recPeRubricToggleTrial(0, 'items', 'v1', 'right', 0);
         recPeRubricToggleTrial(0, 'items', 'v1', 'left', 0);
@@ -286,11 +292,19 @@ const VOLLEY_CONFIG = {
         var partial = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===0 && s.testId===testId;});
         recPeRubricToggleTrial(0, 'items', 'v1', 'back', 0); // 5/5に
         var full = JSON.parse(StorageManager.getRaw(KEYS.scores)).find(function(s){return s.studentIndex===0 && s.testId===testId;});
-        return { hintCount: hintCount, trialLabels: trialLabels, partialHasScore10: 'score10' in partial, fullScore10: full.score10 };
+        return {
+            bannerText: bannerText, bannerVisible: bannerVisible,
+            trialBtnCount: trialBtnCount, hintInCard: hintInCard,
+            partialHasScore10: 'score10' in partial, fullScore10: full.score10
+        };
     }, created.test.id);
-    check('実配線UI: 注記(hint)・5方向ラベル(①〜⑤)がカードに表示される',
-        tapResult.hintCount > 0 && JSON.stringify(tapResult.trialLabels) === JSON.stringify(['①真正面','②右','③左','④前寄り','⑤後ろ寄り']),
-        JSON.stringify(tapResult));
+    check('実配線UI(dense/案A): 判定基準(hint)がrecPeRubricInfoBannerに表示される(センターサークル/5m/山なり)',
+        tapResult.bannerVisible && /センターサークル/.test(tapResult.bannerText) && /5m/.test(tapResult.bannerText) && /山なり/.test(tapResult.bannerText),
+        JSON.stringify({bannerVisible: tapResult.bannerVisible, bannerText: tapResult.bannerText}));
+    check('実配線UI(dense/案A): denseカードに5方向ぶんのトライアルボタン(.rec-pr-dense-trial-btn)が5個ある',
+        tapResult.trialBtnCount === 5, 'got=' + tapResult.trialBtnCount);
+    check('実配線UI(dense/案A): denseカードに.rec-pr-item-hintが存在しない(バナーへ移動済みの確認)',
+        tapResult.hintInCard === 0, 'got=' + tapResult.hintInCard);
     check('実配線UI: 4/5タップ時点でscore10未保存、5/5成功でscore10=10',
         tapResult.partialHasScore10 === false && tapResult.fullScore10 === 10, JSON.stringify(tapResult));
 
@@ -368,6 +382,42 @@ const VOLLEY_CONFIG = {
         return { score10: sr.score10 };
     }, matCreated.test.id);
     check('§7.2 cap(実配線): 全項目10+加点2つ→10で頭打ち', matCap.score10 === 10, 'got='+matCap.score10);
+
+    // ================================================================
+    // 6.5 モーダル開状態での再描画(displayMode:'modal', 案B) — グリッド側タイル(rec-row-N)と
+    //     モーダル本文(recPeRubricModalBody内)が同じidを取り合いやすい構造なので、
+    //     モーダルを開いたままlevelボタンをタップし、双方が正しく分離更新されることを確認する。
+    // ================================================================
+    const modalRefresh = await page.evaluate((testId) => {
+        recSelectTestGoto(testId);
+        recOpenPeRubricModal(2); // 児童C(index2、他のcheckで未使用)のモーダルを開く
+        var beforeTile = document.getElementById('rec-row-2');
+        var beforeTileIsTile = beforeTile.classList.contains('rec-row') && !!beforeTile.querySelector('.rec-pr-tile-btn');
+        recPeRubricSelectLevel(2, 'items', 'g1', 2); // モーダル内のタップを想定(10点)。モーダルは開いたまま
+        var afterTile = document.getElementById('rec-row-2');
+        var afterTileIsTile = afterTile.classList.contains('rec-row') && !!afterTile.querySelector('.rec-pr-tile-btn');
+        var afterTileReplacedByModalCard = !!afterTile.querySelector('.rec-pr-card');
+        var modalBody = document.getElementById('recPeRubricModalBody');
+        var modalReflectsTap = modalBody.textContent.indexOf('10点') !== -1;
+        var idsInModal = modalBody.querySelectorAll('[id="rec-row-2"]').length;
+        var duplicateIdInDocument = document.querySelectorAll('#rec-row-2').length;
+        recClosePeRubricModal();
+        return {
+            beforeTileIsTile: beforeTileIsTile,
+            afterTileIsTile: afterTileIsTile,
+            afterTileReplacedByModalCard: afterTileReplacedByModalCard,
+            modalReflectsTap: modalReflectsTap,
+            idsInModal: idsInModal,
+            duplicateIdInDocument: duplicateIdInDocument
+        };
+    }, matCreated.test.id);
+    check('モーダル再描画(案B): タップ後もグリッド側はタイルのまま(モーダル本文に置き換わらない)',
+        modalRefresh.beforeTileIsTile && modalRefresh.afterTileIsTile && !modalRefresh.afterTileReplacedByModalCard,
+        JSON.stringify(modalRefresh));
+    check('モーダル再描画(案B): モーダル本文がタップ後の最新値(10点)で再描画される',
+        modalRefresh.modalReflectsTap, JSON.stringify(modalRefresh));
+    check('モーダル再描画(案B): モーダル内にid="rec-row-2"が残らない(グリッド側と重複しない)',
+        modalRefresh.idsInModal === 0 && modalRefresh.duplicateIdInDocument === 1, JSON.stringify(modalRefresh));
 
     // ================================================================
     // 7. 未確定スコアの教員向け一覧(commit6): recPeRubricUpdatePendingBanner

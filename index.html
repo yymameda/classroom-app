@@ -8490,6 +8490,10 @@
             }
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
+            // v1.15.3: 欠席行のinputはdisabledのため通常操作では到達しないが、保険として
+            // recSaveAllScores()と同じガードを入れておく(recToggleAbsent()がscoreを保持する
+            // 仕様に変更されたため)。
+            if (ei >= 0 && scores[ei].absent === true) return;
             var numBtnBlur = document.querySelector('#rec-row-' + idx + ' .sub-row-num[data-idx]');
             var isLateBlur = numBtnBlur ? numBtnBlur.classList.contains('late-on') : (ei >= 0 ? !!scores[ei].lateSubmit : false);
             var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: v, lateSubmit: isLateBlur, createdAt: new Date().toISOString() };
@@ -8502,6 +8506,9 @@
             if (!test) return;
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
+            // v1.15.3: ABCボタンは欠席行でdisabledのため通常操作では到達しないが、
+            // recOnScoreBlur()と同じ理由で保険のガードを入れておく。
+            if (ei >= 0 && scores[ei].absent === true) return;
             var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: value, createdAt: new Date().toISOString() };
             if (ei >= 0) scores[ei] = rec; else scores.push(rec);
             recSaveScores(scores);
@@ -8516,11 +8523,23 @@
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
             var nowAbsent = !(ei >= 0 && scores[ei].absent === true);
+            // v1.15.3: 欠席化/解除のどちらも、score/score10/rubricData等の既存フィールドを
+            // 破壊しない。旧実装は欠席化時にレコードを{score:'',absent:true}のみへ全置換し、
+            // 解除時にレコードごと削除していたため、欠席往復1回で入力済みデータが消えていた。
+            // このレコードを読む側(grdCalculate/recSaveAllScores等)は、以前は「欠席レコードの
+            // scoreは必ず空」という前提に暗黙に依存していたため、absentフラグを明示的に見る
+            // ガードを先に入れてある(このコミットの他の変更点を参照)。
             if (nowAbsent) {
-                var rec = { id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: '', absent: true, createdAt: new Date().toISOString() };
-                if (ei >= 0) scores[ei] = rec; else scores.push(rec);
+                // 既存レコードがあれば全フィールドを保持したままabsent:trueを立てるだけにする。
+                // 既存レコードが無い場合のみ、空のscoreを持つ新規レコードを作る。
+                if (ei >= 0) {
+                    scores[ei] = Object.assign({}, scores[ei], { absent: true });
+                } else {
+                    scores.push({ id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: '', absent: true, createdAt: new Date().toISOString() });
+                }
             } else {
-                if (ei >= 0) scores.splice(ei, 1);
+                // 解除: absentフラグを外すのみ。レコード自体は削除しない。
+                delete scores[ei].absent;
             }
             recSaveScores(scores);
             recRenderList(test);
@@ -8556,6 +8575,10 @@
                 if (isNaN(v) || v < 0) return;
                 v = Math.round(v * 100) / 100;
                 var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === test.id; });
+                // v1.15.3: 欠席行はinputがdisabledでも値(保持されたscore)が残っている場合があるため、
+                // 「値が空なら飛ばす」だけでは欠席フラグが黙って消えてしまう。欠席中は一律スキップする
+                // (recToggleAbsent()がscoreを保持する仕様に変更されたことに伴う対応)。
+                if (ei >= 0 && scores[ei].absent === true) return;
                 var numBtnAll = document.querySelector('#rec-row-' + idx + ' .sub-row-num[data-idx]');
                 var isLateAll = numBtnAll ? numBtnAll.classList.contains('late-on') : (ei >= 0 ? !!scores[ei].lateSubmit : false);
                 var rec = { id: Date.now() + idx, studentIndex: idx, testId: test.id, score: v, lateSubmit: isLateAll, createdAt: new Date().toISOString() };
@@ -13712,6 +13735,11 @@
         }
         function peRecordToScore10(sr, test) {
             if (!sr) return null;
+            // v1.15.3: 欠席時はscoreが残っていても集計に混入させない。recToggleAbsent()を
+            // 「absentフラグを付け外しするだけ(scoreは保持)」に変更したため、以前のように
+            // scoreが''に潰れることを前提に判定することができない。呼び出し元はgrdCalculate()の
+            // 1箇所のみなので、ここに1回書けば知識・技能の実技記録分岐すべてをカバーできる。
+            if (sr.absent === true) return null;
             // === 実技ルーブリック型(ソフトバレー・マット運動など、Phase1 v1.15.0) ===
             // score10は「全item・全bonus完了」時にのみ書き込まれる値(peRubricCalcScore10のcomplete
             // ゲート、PE_RUBRIC_SPEC.md §2.6)。ここでは保存済みsr.score10をそのまま返すのみで、
@@ -14489,6 +14517,9 @@
                     var sr = ss.find(function(s) { return s.testId === test.id; });
                     var ik = 'k_' + test.id, w = grdGetItemWeight(subject, 'knowledge', ik);
                     if (!sr) { kItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, itemKey: ik, weight: w }); return; }
+                    // v1.15.3: 欠席は「未評価」として扱う(recToggleAbsent()がscoreを保持するため、
+                    // 型判定だけでは弾けない。以前はscoreが''に潰されることに暗黙に依存していた)。
+                    if (sr.absent === true) { kItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, itemKey: ik, weight: w }); return; }
                     var s10 = null, raw = null;
                     if (test.testType === '実技記録') { s10 = peRecordToScore10(sr, test); raw = sr.score; }
                     else if (typeof sr.score === 'number') { s10 = scoreTo10(sr.score, test.maxScore || 100); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * LATE_SUBMIT_FACTOR * 10) / 10; raw = sr.score; }
@@ -14510,6 +14541,8 @@
                     var ik = 't_'+test.id, w = grdGetItemWeight(subject,'thinking',ik);
                     var isPeR = peReflections.some(function(r) { return r.id === test.id; });
                     if (!sr) { tItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, isPeReflection: isPeR, itemKey: ik, weight: w }); return; }
+                    // v1.15.3: 知識・技能と同様、欠席は「未評価」として扱う。
+                    if (sr.absent === true) { tItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: test.maxScore, isPeReflection: isPeR, itemKey: ik, weight: w }); return; }
                     var s10 = null;
                     if (typeof sr.score === 'number' && test.maxScore > 0) { s10 = scoreTo10(sr.score, test.maxScore); if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * LATE_SUBMIT_FACTOR * 10) / 10; }
                     else if (typeof sr.score === 'string') s10 = abcTo10(sr.score);
@@ -14531,6 +14564,8 @@
                     var sr = ss.find(function(s) { return s.testId === test.id; });
                     var ik = 'a_'+test.id, w = grdGetItemWeight(subject,'attitude',ik);
                     if (!sr) { aItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: null, itemKey: ik, weight: w }); return; }
+                    // v1.15.3: 知識・技能/思考と同様、欠席は「未評価」として扱う。
+                    if (sr.absent === true) { aItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: null, itemKey: ik, weight: w }); return; }
                     var sv = sr.score;
                     if (test.testType === '授業態度') { if (sv === '○') sv = 'A'; else if (sv === '－') sv = 'B'; else if (sv === '×') sv = 'C'; }
                     var s10 = abcTo10(sv);

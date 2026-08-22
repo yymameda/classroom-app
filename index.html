@@ -3500,6 +3500,14 @@
                 </div>
                 <div class="card">
                     <h3>📋 出力するセクション</h3>
+                    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+                        <select id="kvTermSel" onchange="kvOutputOnTermChange()" title="出力する学期（生活記録・保護者対応・提出物に適用。出席・漢字チェック・学習配慮・身体配慮は対象外）" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                            <option value="1">1学期</option>
+                            <option value="2">2学期</option>
+                            <option value="3">3学期</option>
+                            <option value="all">通年</option>
+                        </select>
+                    </div>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;">
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_grades"> 📈 成績（観点別・評定）</label>
                         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="kvSec_attendance"> 📅 出欠席</label>
@@ -10253,6 +10261,15 @@
         // 👤 個人カルテ ビュー（統合カルテ出力センター）
         // ================================================================
         function karteViewInit() {
+            // 出力(PDF)専用の学期フィルタの初期化（v1.20.4）。karteCurrentTermFilterとは独立して保持する。
+            if (kvOutputTermFilter === null) {
+                var kvTermSelEl = document.getElementById('kvTermSel');
+                if (kvTermSelEl) {
+                    if (typeof window.grdGetCurrentTerm === 'function') kvTermSelEl.value = window.grdGetCurrentTerm();
+                    kvOutputTermFilter = kvTermSelEl.value;
+                }
+            }
+
             var students = (StorageManager.get(KEYS.master, {}).students || []);
             var container = document.getElementById('kvStudentList');
             if (!container) return;
@@ -10342,7 +10359,7 @@
             var attAll      = secAttendance  ? StorageManager.get(KEYS.attendance, {})              : {};
             var noticeAll   = secAttendance  ? StorageManager.get(KEYS.attendance_notice, {})       : {}; // v1.8.95
             var allAssigns  = secSubmissions ? StorageManager.get(KEYS.submissions_assignments, []) : [];
-            var assigns     = secSubmissions ? allAssigns.filter(function(a) { return selectedSubjects.indexOf(a.subject) >= 0; }) : [];
+            var assigns     = secSubmissions ? allAssigns.filter(function(a) { return selectedSubjects.indexOf(a.subject) >= 0 && kvOutputPassesTermFilter(a); }) : []; // v1.20.4: 学期フィルタ適用
             var subsData    = secSubmissions ? StorageManager.get(KEYS.submissions_data, [])        : [];
             var lifeAll     = secLife        ? StorageManager.get(KEYS.karte_life, {})              : {};
             var parentAll   = secParent      ? StorageManager.get(KEYS.karte_parent, {})            : {};
@@ -10391,9 +10408,14 @@
             var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';box-sizing:border-box;background:#fff;">';
 
             // ── ヘッダー ──────────────────────────────────────────
+            // v1.20.4: 学期を絞って出力した場合のみ、年度行の下に対象期間を一言添える（通年時は何も足さない）
+            var kvTermChildLine = (kvOutputTermFilter && kvOutputTermFilter !== 'all')
+                ? '<div style="font-size:7pt;opacity:0.85;margin-top:2pt;">' + (KV_TERM_ZENKAKU[kvOutputTermFilter] || '') + '学期のきろくです</div>'
+                : '';
             html += '<div style="background:linear-gradient(135deg,#1a2332 0%,#2D7D9A 100%);border-radius:12pt;padding:10pt 14pt;margin-bottom:6pt;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
                 + '<div>'
                 + '<div style="font-size:7pt;opacity:0.75;letter-spacing:0.1em;margin-bottom:3pt;">' + escapeHtml(String(ci.year||'') + '年度　' + String(ci.grade||'') + '年' + String(ci.class||'') + '組') + '</div>'
+                + kvTermChildLine
                 + '<div style="font-size:20pt;font-weight:900;letter-spacing:0.05em;">' + escapeHtml(s.name) + '</div>'
                 + '<div style="font-size:8pt;opacity:0.8;margin-top:3pt;">出席番号 ' + (idx + 1) + '番</div>'
                 + '</div>'
@@ -10450,7 +10472,8 @@
                 var attPct  = att.rate !== null ? att.rate : 100;
                 var barW = attPct;
                 html += '<div style="margin-bottom:5pt;">'
-                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #27AE60;">📅 出席</div>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:2pt;padding-left:6pt;border-left:4pt solid #27AE60;">📅 出席</div>'
+                    + '<div style="font-size:6.5pt;color:#888;padding-left:6pt;margin-bottom:3pt;">出席は１年間の記録をのせています</div>'
                     + '<div style="background:#F0FFF4;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:12pt;">'
                     + '<div style="flex:1;">'
                     + '<div style="font-size:7pt;color:#555;margin-bottom:3pt;">出席率</div>'
@@ -10481,7 +10504,8 @@
                     var kjStars = '★'.repeat(kjStarFull) + '☆'.repeat(5 - kjStarFull);
                     var kjBarColor = kjRate >= 100 ? '#27AE60' : kjRate >= 80 ? '#1565C0' : kjRate >= 60 ? '#F9A825' : '#E67E22';
                     html += '<div style="margin-bottom:5pt;">'
-                        + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2E7D32;">✍️ 漢字チェック</div>'
+                        + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:2pt;padding-left:6pt;border-left:4pt solid #2E7D32;">✍️ 漢字チェック</div>'
+                        + '<div style="font-size:6.5pt;color:#888;padding-left:6pt;margin-bottom:3pt;">１年間の きろくです</div>'
                         + '<div style="background:#F9FFF9;border:1pt solid #C8E6C9;border-radius:8pt;padding:5pt 7pt;max-width:160pt;">'
                         + '<div style="background:#e0e0e0;border-radius:10pt;height:5pt;overflow:hidden;margin-bottom:2pt;">'
                         + '<div style="background:' + kjBarColor + ';height:100%;width:' + kjRate + '%;border-radius:10pt;"></div>'
@@ -10522,7 +10546,7 @@
 
             // ── 生活記録（成長エピソード） ─────────────────────────
             if (sec.secLife) {
-                var lifeRecs = Array.isArray(data.lifeAll[String(idx)]) ? data.lifeAll[String(idx)] : [];
+                var lifeRecs = (Array.isArray(data.lifeAll[String(idx)]) ? data.lifeAll[String(idx)] : []).filter(kvOutputPassesTermFilter); // v1.20.4: 学期フィルタ適用
                 var growthRecs = lifeRecs.filter(function(r) { return r.categories && r.categories.indexOf('growth') >= 0; });
                 var sorted = lifeRecs.slice().sort(function(a, b) { return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||''); });
                 html += '<div style="margin-bottom:5pt;">'
@@ -10604,6 +10628,7 @@
                 var early   = att2.early;
                 var special = att2.excused; // v1.8.95: 出席停止・忌引等（常時5枚目に別掲）
                 body += '<div style="' + CARD + '"><div style="' + TITLE + '">📅 出欠席</div>'
+                    + '<div style="font-size:6.5pt;color:#888;margin-bottom:4pt;">※出席は学期にかかわらず年間で集計</div>'
                     + '<div style="display:flex;gap:6pt;margin-bottom:6pt;">'
                     + [['出席',present,'#27AE60'],['欠席',absent,'#E74C3C'],['遅刻',late,'#E67E22'],['早退',early,'#E67E22'],['出席停止・忌引等',special,'#7F8C8D']].map(function(c){
                         return '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
@@ -10662,7 +10687,7 @@
             }
 
             if (sec.secLife) {
-                var lifeRecs=(Array.isArray(data.lifeAll[String(idx)])?data.lifeAll[String(idx)]:[]).slice().sort(function(a,b){return(b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');});
+                var lifeRecs=(Array.isArray(data.lifeAll[String(idx)])?data.lifeAll[String(idx)]:[]).filter(kvOutputPassesTermFilter).slice().sort(function(a,b){return(b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');}); // v1.20.4: 学期フィルタ適用
                 body+='<div style="'+CARD+'"><div style="'+TITLE+'">📔 生活記録（'+lifeRecs.length+'件）</div>';
                 if(lifeRecs.length){
                     body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
@@ -10673,7 +10698,9 @@
             }
 
             if (sec.secParent) {
-                var parentRecs=(Array.isArray(data.parentAll[String(idx)])?data.parentAll[String(idx)]:[]).slice().sort(function(a,b){return(b.datetime||b.date||'').localeCompare(a.datetime||a.date||'');});
+                var parentRecs=(Array.isArray(data.parentAll[String(idx)])?data.parentAll[String(idx)]:[])
+                    .filter(function(r){ return kvOutputPassesTermFilter(karteParentTermItem(r)); }) // v1.20.4: 学期フィルタ適用
+                    .slice().sort(function(a,b){return(b.datetime||b.date||'').localeCompare(a.datetime||a.date||'');});
                 body+='<div style="'+CARD+'"><div style="'+TITLE+'">👨‍👩‍👧 保護者対応（'+parentRecs.length+'件）</div>';
                 if(parentRecs.length){
                     body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">';
@@ -10710,7 +10737,8 @@
 
             if (sec.secKanji) {
                 var kjChars2=data.kanjiData.chars||[];
-                body+='<div style="'+CARD+'"><div style="'+TITLE+'">✍️ 漢字チェック</div>';
+                body+='<div style="'+CARD+'"><div style="'+TITLE+'">✍️ 漢字チェック</div>'
+                    +'<div style="font-size:6.5pt;color:#888;margin-bottom:4pt;">※漢字チェックは通年の累積</div>';
                 if(kjChars2.length){
                     var sc=(data.kanjiData.checks||{})[String(idx)]||{};
                     var done=0;
@@ -10724,10 +10752,18 @@
                 body+='</div>';
             }
 
+            // v1.20.4: 対象期間は常に表示する。日付レンジ(grdGetTermRange)は呼ばない
+            // （学期境界は設定値であり、この設定には既知の不具合が残っているため紙面に出す段階ではない）
+            var kvTermTeacherLabel = (kvOutputTermFilter && kvOutputTermFilter !== 'all')
+                ? (KV_TERM_ZENKAKU[kvOutputTermFilter] || '') + '学期'
+                : '通年';
             return '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:10mm 12mm;box-sizing:border-box;">'
                 + '<div style="border-bottom:3pt solid #1a1a2e;padding-bottom:5pt;margin-bottom:8pt;display:flex;justify-content:space-between;align-items:flex-end;">'
                 + '<div style="font-size:16pt;font-weight:900;color:#1a1a2e;">個人カルテ</div>'
-                + '<div style="font-size:7.5pt;color:#555;">' + classLabel + '</div></div>'
+                + '<div style="text-align:right;">'
+                + '<div style="font-size:7.5pt;color:#555;">' + classLabel + '</div>'
+                + '<div style="font-size:7.5pt;color:#555;margin-top:2pt;">対象期間：' + kvTermTeacherLabel + '</div>'
+                + '</div></div>'
                 + '<div style="background:#f4f6f9;border-radius:8pt;padding:6pt 10pt;margin-bottom:8pt;display:flex;align-items:center;gap:14pt;">'
                 + '<span style="font-size:8pt;color:#555;font-weight:700;">番号</span>'
                 + '<span style="font-size:13pt;font-weight:900;color:#1a1a2e;">' + (idx+1) + '</span>'
@@ -11094,6 +11130,23 @@
             if (!karteCurrentTermFilter || karteCurrentTermFilter === 'all' || !excludedCount) return '';
             return '<div class="karte-term-notice">他の学期の記録 ' + excludedCount + '件は表示していません</div>';
         }
+
+        // --- 出力(PDF)専用の学期フィルタ（v1.20.4） ---
+        // 画面(karteCurrentTermFilter)とは完全に独立させる。見るモードは1人を閲覧中、出力モードは
+        // 複数人を一括PDF化という作業単位が異なり、閲覧中の学期をそのまま出力に引き継ぐと
+        // 「見ていた学期と違う学期のPDFが出た」という事故のもとになるため。
+        var kvOutputTermFilter = null; // '1'|'2'|'3'|'all'|null（null=未初期化。localStorageには保存しない）
+        function kvOutputOnTermChange() {
+            var sel = document.getElementById('kvTermSel');
+            kvOutputTermFilter = sel ? sel.value : null;
+        }
+        // 判定はwindow.grdItemTermに委譲する。新規の学期判定ロジックはここに書かない。
+        function kvOutputPassesTermFilter(item) {
+            if (!kvOutputTermFilter || kvOutputTermFilter === 'all') return true;
+            if (typeof window.grdItemTerm !== 'function') return true;
+            return window.grdItemTerm(item) === kvOutputTermFilter;
+        }
+        var KV_TERM_ZENKAKU = { '1': '１', '2': '２', '3': '３' }; // 紙面の対象期間表記用（全角数字）
 
         // --- 初期化 ---
         function initKarteView() {

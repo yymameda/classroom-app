@@ -2855,7 +2855,14 @@
                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
                             <h3 style="color:var(--primary);margin:0;font-size:0.95rem;">📋 課題一覧</h3>
                             <div class="rec-sort-bar" id="recSortBar"></div>
+                            <select id="recTermSel" onchange="recOnTermChange()" title="対象学期" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                                <option value="1">1学期</option>
+                                <option value="2">2学期</option>
+                                <option value="3">3学期</option>
+                                <option value="all">通年</option>
+                            </select>
                         </div>
+                        <div id="recTermNotice" style="display:none;font-size:0.78rem;color:var(--text-light);padding:0 2px 8px;"></div>
                         <div class="rec-test-list" id="recTestList"></div>
                     </div>
                 </div>
@@ -6880,6 +6887,31 @@
         var recInputFilters = { subject: '', category: '', type: '' };
         var recTestSortKey = 'id';
         var recTestSortAsc = false;
+        // v1.18.0: 学期フィルタ（テスト一覧タブに適用。画面表示のみ、localStorageには保存しない）
+        var recCurrentTermFilter = null; // '1'|'2'|'3'|'all'|null（null=未初期化＝絞り込みなし扱い）
+        // 学期の判定は成績モジュールの grdItemTerm(window公開) に一本化する。新規の学期判定ロジックはここに書かない。
+        function recPassesTermFilter(item) {
+            if (!recCurrentTermFilter || recCurrentTermFilter === 'all') return true;
+            if (typeof window.grdItemTerm !== 'function') return true; // 成績モジュール未初期化時はフィルタしない
+            return window.grdItemTerm(item) === recCurrentTermFilter;
+        }
+        // 学期フィルタで除外された件数を「他の学期のテスト N件は表示していません」として表示する
+        function recSetTermNotice(elId, excludedCount) {
+            var el = document.getElementById(elId);
+            if (!el) return;
+            if (!recCurrentTermFilter || recCurrentTermFilter === 'all' || !excludedCount) {
+                el.style.display = 'none';
+                el.textContent = '';
+                return;
+            }
+            el.style.display = '';
+            el.textContent = '他の学期のテスト ' + excludedCount + '件は表示していません';
+        }
+        window.recOnTermChange = function() {
+            var sel = document.getElementById('recTermSel');
+            recCurrentTermFilter = sel ? sel.value : null;
+            recRenderTestList();
+        };
 
         // --- 名簿ヘルパー ---
         function recGetStudents() {
@@ -9489,7 +9521,11 @@
             var tests = recGetTests();
             var scores = recGetScores();
             recRenderSortBtns();
-            if (tests.length === 0) { container.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:20px;">課題がありません</div>'; return; }
+            if (tests.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:20px;">課題がありません</div>';
+                recSetTermNotice('recTermNotice', 0);
+                return;
+            }
             var sorted = tests.slice().sort(function(a, b) {
                 var av, bv;
                 if (recTestSortKey === 'date') { av = a.date||''; bv = b.date||''; }
@@ -9523,13 +9559,19 @@
                     '<button class="btn-rec-small del" onclick="recDeleteTest(&quot;' + test.id + '&quot;)">削除</button>' +
                     '</div></div>';
             }
-            // v1.17.0: 記録画面には学期セレクタが無いため、常時学期でグルーピングする。
-            // ソート順(sorted)は維持したまま、一度だけ走査して1/2/3/未判定の受け皿に振り分ける
+            var termTests = sorted.filter(recPassesTermFilter);
+            recSetTermNotice('recTermNotice', sorted.length - termTests.length);
+            if (termTests.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:20px;">この学期のテストはありません</div>';
+                return;
+            }
+            // v1.18.0: 「通年」選択時のみ学期でグルーピングする。ソート順(termTests)は維持したまま
+            // 一度だけ走査して1/2/3/未判定の受け皿に振り分ける
             // （振り分け済みかどうかをbucketsで管理するため、二重表示・取りこぼしは起きない）。
             var html = '';
-            if (typeof window.grdItemTerm === 'function') {
+            if (recCurrentTermFilter === 'all' && typeof window.grdItemTerm === 'function') {
                 var buckets = { '1': [], '2': [], '3': [], other: [] };
-                sorted.forEach(function(test) {
+                termTests.forEach(function(test) {
                     var t = window.grdItemTerm(test);
                     if (t === '1' || t === '2' || t === '3') buckets[t].push(test);
                     else buckets.other.push(test); // grdItemTermの戻り値が3値のいずれでもなかった場合の受け皿
@@ -9546,7 +9588,7 @@
                     buckets.other.forEach(function(test) { html += testCardHtml(test); });
                 }
             } else {
-                sorted.forEach(function(test) { html += testCardHtml(test); });
+                termTests.forEach(function(test) { html += testCardHtml(test); });
             }
             container.innerHTML = html;
         }
@@ -9815,6 +9857,15 @@
         // ============================================================
         window.recOnShowView = function() {
             _invalidate(); // v1.8.88: 他モジュール(新体力テスト取込等)の直接書込に追従
+            // 学期フィルタ（v1.18.0）。初期値は成績モジュールの「現在の学期」に揃える。
+            // 一度初期化したらセッション中は保持する（localStorageには保存しない）。
+            if (recCurrentTermFilter === null) {
+                var termSel = document.getElementById('recTermSel');
+                if (termSel) {
+                    if (typeof window.grdGetCurrentTerm === 'function') termSel.value = window.grdGetCurrentTerm();
+                    recCurrentTermFilter = termSel.value;
+                }
+            }
             recInitInput();
             recUpdateTestSelect();
             // 日付を今日に初期設定

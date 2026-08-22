@@ -2,8 +2,11 @@
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
 //   cd classroom-app && python3 -m http.server 8123
-// 実行: cd tests && node attendance-snapshot.js [出力先パス]
-//   省略時は tests/attendance-snapshot.json に書き込む（段階1以降の比較基準）
+// 実行: cd tests && node attendance-snapshot.js [出力先パス] [--update]
+//   引数なし: 既存の attendance-snapshot.json（省略時）と4経路を比較し、PASS/FAILのみ出力する。
+//             一致してもファイルは書き換えない（capturedAtも変化しない）。
+//   --update: 比較結果によらず基準ファイルを上書きする。既存の _note キーは保持される。
+//             基準ファイルが存在しない場合は --update の有無によらず初回取得として書き出す。
 //
 // 何を記録するか（出欠に関わる4経路）:
 //   1. 画面（👤カルテ「見る」サマリータブ）: #karteSummaryContent の innerHTML
@@ -19,16 +22,33 @@
 // ・段階1（kvBuildChildPage/kvBuildTeacherPageをcalcAttendanceStatsの新プロパティに置換）
 //   では数値が変わらない想定のため、この基準と一致することが正常。
 // ・段階2（renderKarteSummaryを置換）ではtotal・rateが新定義（忌停・休校を分母から除外）
-//   により変わるため、この基準との不一致が正常。この時点で本スクリプトを再実行して
-//   tests/attendance-snapshot.json を再取得し、以降の比較基準を更新すること。
-// ・再取得を忘れると、正しい変更が「不一致」として検出され続ける点に注意。
+//   により変わるため、この基準との不一致が正常。この時点で --update を付けて再実行し、
+//   tests/attendance-snapshot.json の基準を更新すること。
+// ・更新を忘れると、正しい変更が「不一致」として検出され続ける点に注意。
 
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
 const BASE_URL = 'http://localhost:8123/index.html';
-const outPath = process.argv[2] || path.join(__dirname, 'attendance-snapshot.json');
+
+// 引数解析: --update フラグと、任意の出力先パス上書きを分離する
+const rawArgs = process.argv.slice(2);
+const shouldUpdate = rawArgs.indexOf('--update') >= 0;
+const pathArg = rawArgs.filter(function(a) { return a !== '--update'; })[0];
+const outPath = pathArg || path.join(__dirname, 'attendance-snapshot.json');
+
+// 比較・保存の対象とする4経路（出欠に関わるキーのみ。consoleErrors/capturedAt/_noteは比較対象外）
+const SNAPSHOT_KEYS = ['screenSummaryHtml', 'kvChildPageHtml', 'kvTeacherPageHtml', 'printAllKarteAttendanceHtml'];
+
+// 2つの文字列が最初に異なる位置を返す（一致なら-1）
+function firstDiffIndex(a, b) {
+    var len = Math.min(a.length, b.length);
+    for (var i = 0; i < len; i++) {
+        if (a[i] !== b[i]) return i;
+    }
+    return a.length === b.length ? -1 : len;
+}
 
 const masterData = {
     students: [{ name: 'スナップショット太郎' }],
@@ -124,14 +144,60 @@ async function main() {
     });
 
     snapshot.consoleErrors = consoleErrors;
-    snapshot.capturedAt = new Date().toISOString();
 
-    fs.writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
+    const existing = fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf8')) : null;
 
-    console.log('スナップショットを書き込みました: ' + outPath);
-    ['screenSummaryHtml', 'kvChildPageHtml', 'kvTeacherPageHtml', 'printAllKarteAttendanceHtml'].forEach(function(k) {
-        console.log('  ' + k + ': ' + (snapshot[k] ? snapshot[k].length + '文字' : '(取得失敗)'));
-    });
+    // 基準ファイルが無い場合は --update の指定に関わらず初回取得として書き出す
+    if (!existing) {
+        snapshot.capturedAt = new Date().toISOString();
+        fs.writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
+        console.log('基準ファイルが存在しなかったため、初回取得として書き出しました: ' + outPath);
+        SNAPSHOT_KEYS.forEach(function(k) {
+            console.log('  ' + k + ': ' + (snapshot[k] ? snapshot[k].length + '文字' : '(取得失敗)'));
+        });
+        if (consoleErrors.length) console.log('consoleErrors:', consoleErrors);
+        await browser.close();
+        return;
+    }
+
+    const mismatches = SNAPSHOT_KEYS.filter(function(k) { return existing[k] !== snapshot[k]; });
+
+    if (!shouldUpdate) {
+        if (mismatches.length === 0) {
+            console.log('PASS: 4経路とも基準と一致しました（' + outPath + '）。ファイルは書き換えていません。');
+        } else {
+            console.log('FAIL: ' + mismatches.length + '経路が基準と不一致です（' + outPath + '）。ファイルは書き換えていません。');
+            mismatches.forEach(function(k) {
+                var a = existing[k] || '';
+                var b = snapshot[k] || '';
+                var diffAt = firstDiffIndex(a, b);
+                console.log('  --- ' + k + ' ---');
+                console.log('    基準の文字数: ' + a.length + ' / 今回取得の文字数: ' + b.length);
+                if (diffAt >= 0) {
+                    console.log('    最初に異なる位置: ' + diffAt + '文字目');
+                    console.log('    基準     : …' + a.slice(Math.max(0, diffAt - 30), diffAt + 30) + '…');
+                    console.log('    今回取得 : …' + b.slice(Math.max(0, diffAt - 30), diffAt + 30) + '…');
+                }
+            });
+            process.exitCode = 1;
+        }
+        if (consoleErrors.length) console.log('consoleErrors:', consoleErrors);
+        await browser.close();
+        return;
+    }
+
+    // --update指定: 比較結果によらず基準を更新する。既存の _note キーは保持する。
+    var ordered = {};
+    if (existing._note !== undefined) ordered._note = existing._note;
+    SNAPSHOT_KEYS.forEach(function(k) { ordered[k] = snapshot[k]; });
+    ordered.consoleErrors = snapshot.consoleErrors;
+    ordered.capturedAt = new Date().toISOString();
+
+    fs.writeFileSync(outPath, JSON.stringify(ordered, null, 2));
+    console.log('--update指定: 基準を更新しました: ' + outPath);
+    console.log(mismatches.length === 0
+        ? '  (内容は更新前の基準と同一でした。capturedAtのみ更新)'
+        : '  更新されたキー: ' + mismatches.join(', '));
     if (consoleErrors.length) console.log('consoleErrors:', consoleErrors);
 
     await browser.close();

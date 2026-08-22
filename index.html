@@ -10785,15 +10785,11 @@
 
                 // 出欠席
                 var att = calcAttendanceStats(idx, attAll);
-                var c = att.byCode;
-                var present = (c['○']||0) + (c['チ']||0) + (c['ソ']||0) + (c['チソ']||0);
-                var absent  = (c['×']||0) + (c['／']||0);
-                var late    = (c['チ']||0) + (c['チソ']||0);
-                var early   = (c['ソ']||0) + (c['チソ']||0);
+                var present = att.present, absent = att.absent, late = att.late, early = att.early;
                 L.push('');
                 L.push('【出欠席】');
                 L.push('出席 ' + present + '日／欠席 ' + absent + '日／遅刻 ' + late + '回／早退 ' + early + '回');
-                L.push('出席停止・忌引等 ' + ((c['忌']||0) + (c['停']||0)) + '日'); // v1.8.95
+                L.push('出席停止・忌引等 ' + att.excused + '日'); // v1.8.95
 
                 // 提出物（全教科）
                 var subOk = 0, subRe = 0, subMiss = 0, missList = [];
@@ -18945,18 +18941,9 @@
             if (!s || !s.name) return;
             pageNames.push(s.name);
             // 出席集計
-            var present = 0, absent = 0, late = 0, early = 0;
-            var attMonths = {};
-            Object.keys(attAll).forEach(function(dk) {
-                var st = (attAll[dk] || {})[String(idx)];
-                if (!st) return;
-                var mon = dk.slice(0, 7);
-                if (!attMonths[mon]) attMonths[mon] = { present: 0, absent: 0, late: 0 };
-                if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') { present++; attMonths[mon].present++; }
-                if (st === '×' || st === '／') { absent++; attMonths[mon].absent++; }
-                if (st === 'チ' || st === 'チソ') { late++; attMonths[mon].late++; }
-                if (st === 'ソ' || st === 'チソ') early++;
-            });
+            var attStats = calcAttendanceStats(idx, attAll);
+            var present = attStats.present, absent = attStats.absent, late = attStats.late, early = attStats.early;
+            var attMonths = attStats.byMonthGrouped; // present/absent/lateのキーは従来のattMonths[mon]と同一
             // 提出物集計
             var subDone = 0, subRe = 0;
             assigns.forEach(function(a) {

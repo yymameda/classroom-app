@@ -10971,6 +10971,7 @@
         var karteRecEditingId = null;
         var karteRecAbsent = false;
         var karteRecFilter = '';
+        var karteCurrentTermFilter = null; // '1'|'2'|'3'|'all'|null（null=未初期化＝絞り込みなし扱い。UI結線は段階Bで行う）
 
         // --- キー定義 ---
         var KK = {
@@ -11049,6 +11050,19 @@
         function karteGetStudentParent(idx)  { var a = karteGetParentContacts(); return Array.isArray(a[String(idx)]) ? a[String(idx)] : []; }
         function karteGetStudentHealth(idx)  { var a = karteGetHealthCare();     return a[String(idx)] || { allergies: [], medication: '', exerciseLimit: '', familyMemo: '' }; }
         function karteGetStudentLearning(idx){ var a = karteGetLearningCare();   return a[String(idx)] || { characteristics: '', readingWriting: '', classroomSupport: '', communication: '', assessment: '', supportKeywords: [] }; }
+
+        // --- 学期フィルタ（v1.20.0） ---
+        // 学期の判定は成績モジュールの grdItemTerm(window公開) に一本化する。新規の学期判定ロジックはここに書かない。
+        function kartePassesTermFilter(item) {
+            if (!karteCurrentTermFilter || karteCurrentTermFilter === 'all') return true;
+            if (typeof window.grdItemTerm !== 'function') return true; // 成績モジュール未初期化時はフィルタしない
+            return window.grdItemTerm(item) === karteCurrentTermFilter;
+        }
+        // 保護者対応(karte_parent)は date を持たず datetime のみのため、grdItemTerm が読める
+        // { date: ... } 形にフィールド名を橋渡しするだけのアダプタ。境界日ロジックは持たない。
+        function karteParentTermItem(rec) {
+            return { date: (rec && rec.datetime) || '' };
+        }
 
         // --- 初期化 ---
         function initKarteView() {

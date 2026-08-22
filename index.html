@@ -18819,8 +18819,21 @@
     // v1.8.94: 出欠ステータス解釈の共通化。コード別の生カウントを返し、
     // 「何を欠席と呼ぶか」は呼び出し側で定義する（出席簿画面とPDFで欠席の定義が正当に異なるため）。
     // byCode: { '○': n, '×': n, ... } / byMonth: { 'YYYY-MM': { '○': n, ... } }
+    //
+    // v1.19.0 段階0: 出席集計一本化に向け、指導要録の項目名に対応する集計値を追加。
+    // byCode/byMonthは既存呼び出し元（kvBuildChildPage/kvBuildTeacherPage/kvBuildConferenceText/
+    // printAllKarte）が読んでいるため計算方法を変更しない。新規プロパティのみ追加し、
+    // 段階0の時点ではどの呼び出し元もこれらを読まないため、画面・PDFの見た目は変化しない。
+    //
+    // ステータス10種の3群分類（指導要録の区分に対応）:
+    //   A. 登校日（分母に入る）        : '○' '×' '／' 'チ' 'ソ' 'チソ'
+    //   B. 出席停止・忌引等の日数      : '忌' '停'（要録の別項目。分母にも分子にも入れない）
+    //   C. 授業日でない日数            : '休'(学級閉鎖) '校'(休校)（分母から除外）
+    //   それ以外の未知文字列は other（データ破損時に分母を汚さず、件数のみ保持）
     window.calcAttendanceStats = function(idx, attAll) {
         var byCode = {}, byMonth = {};
+        var present = 0, absent = 0, late = 0, early = 0, excused = 0, noSchool = 0, other = 0, total = 0;
+        var byMonthGrouped = {};
         Object.keys(attAll || {}).forEach(function(dk) {
             var st = (attAll[dk] || {})[String(idx)];
             if (!st) return;
@@ -18828,8 +18841,36 @@
             var mon = dk.slice(0, 7);
             if (!byMonth[mon]) byMonth[mon] = {};
             byMonth[mon][st] = (byMonth[mon][st] || 0) + 1;
+
+            if (!byMonthGrouped[mon]) byMonthGrouped[mon] = { present: 0, absent: 0, late: 0, early: 0, excused: 0, noSchool: 0, other: 0, total: 0 };
+            var mg = byMonthGrouped[mon];
+
+            var isPresent  = (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ'); // 出席日数
+            var isAbsent   = (st === '×' || st === '／');
+            var isLate     = (st === 'チ' || st === 'チソ');
+            var isEarly    = (st === 'ソ' || st === 'チソ');
+            var isExcused  = (st === '忌' || st === '停'); // 出席停止・忌引等の日数
+            var isNoSchool = (st === '休' || st === '校'); // 授業日でない日数（学級閉鎖・休校）
+            var isOther    = !(isPresent || isAbsent || isExcused || isNoSchool);
+
+            if (isPresent)  { present++;  mg.present++; }
+            if (isAbsent)   { absent++;   mg.absent++; }
+            if (isLate)     { late++;     mg.late++; }
+            if (isEarly)    { early++;    mg.early++; }
+            if (isExcused)  { excused++;  mg.excused++; }
+            if (isNoSchool) { noSchool++; mg.noSchool++; }
+            if (isOther)    { other++;    mg.other++; }
+            // 出席すべき日数 = 値がある日 − excused − noSchool − other
+            if (!isExcused && !isNoSchool && !isOther) { total++; mg.total++; }
         });
-        return { byCode: byCode, byMonth: byMonth };
+        // 出席率 = 出席（'○','チ','ソ','チソ'）÷ 出席すべき日数。丸め方は既存画面と同一式。
+        var rate = total > 0 ? Math.round(present / total * 100) : null;
+        return {
+            byCode: byCode, byMonth: byMonth,
+            total: total, present: present, absent: absent, late: late, early: early,
+            excused: excused, noSchool: noSchool, other: other, rate: rate,
+            byMonthGrouped: byMonthGrouped
+        };
     };
     window.calcSubmissionStats = function(idx, assigns, subsData) {
         var st = { total: assigns.length, ok: 0, re: 0, miss: 0, missAbs: 0, rate: '-', rows: [] };

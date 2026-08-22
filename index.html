@@ -5464,13 +5464,9 @@
         // --- 出席率 ---
         try {
             var attAll  = StorageManager.get(KEYS.attendance, {});
-            var attData = attAll;
-            var total = 0, present = 0;
-            Object.keys(attData).forEach(function(dk) {
-                var st = (attData[dk] || {})[String(idx)];
-                if (st) { total++; if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') present++; }
-            });
-            var attPct = total > 0 ? Math.round(present / total * 100) : null;
+            var attStats2 = calcAttendanceStats(idx, attAll);
+            var total = attStats2.total, present = attStats2.present;
+            var attPct = attStats2.rate;
             html += dashKarteRow('📋 出席率', attPct !== null ? attPct + '%' : '—',
                 total > 0 ? present + '/' + total + '日' : 'データなし',
                 attPct !== null ? (attPct >= 95 ? '#27AE60' : attPct >= 80 ? '#B7950B' : '#E74C3C') : '#888');
@@ -11362,17 +11358,13 @@
             var attTotal = 0, attPresent = 0, attAbsent = 0, attLate = 0, attEarly = 0;
             try {
                 var att = karteSafeGet('spa_attendance', {});
-                var attData = att;
-                Object.keys(attData).forEach(function(dk) {
-                    var st = (attData[dk] || {})[String(idx)];
-                    if (!st) return;
-                    attTotal++;
-                    if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') attPresent++;
-                    if (st === '×' || st === '／') attAbsent++;
-                    if (st === 'チ' || st === 'チソ') attLate++;
-                    if (st === 'ソ' || st === 'チソ') attEarly++;
-                });
-                attRate = attTotal > 0 ? Math.round(attPresent / attTotal * 100) + '%' : '-';
+                var attStats = calcAttendanceStats(idx, att);
+                attTotal   = attStats.total;
+                attPresent = attStats.present;
+                attAbsent  = attStats.absent;
+                attLate    = attStats.late;
+                attEarly   = attStats.early;
+                attRate = attStats.rate !== null ? attStats.rate + '%' : '-';
             } catch(e) {}
 
             // 提出率・提出詳細

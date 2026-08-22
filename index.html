@@ -12350,6 +12350,9 @@
             if (typeof window.grdItemTerm !== 'function') return true; // 成績モジュール未初期化時はフィルタしない
             return window.grdItemTerm(item) === subCurrentTermFilter;
         }
+        // v1.20.5: printAllKarte(一括PDF)の提出物モードから参照するため公開する。
+        // 公開はこの関数のみとし、subCurrentTermFilter自体はモジュール内に閉じたままにする。
+        window.subPassesTermFilter = subPassesTermFilter;
         // 学期フィルタで除外された件数を「他の学期の課題 N件は表示していません」として表示する
         function subSetTermNotice(elId, excludedCount) {
             var el = document.getElementById(elId);
@@ -19076,6 +19079,15 @@
         var attAll = StorageManager.get(KEYS.attendance, {});
         var noticeAll = StorageManager.get(KEYS.attendance_notice, {});
         var assigns = StorageManager.get(KEYS.submissions_assignments, []);
+        var submissionsTermLabel = ''; // v1.20.5: submissionsモードの紙面「対象期間」表記用
+        if (mode === 'submissions') {
+            if (typeof window.subPassesTermFilter === 'function') {
+                assigns = assigns.filter(window.subPassesTermFilter); // 画面(提出物)の学期選択に従う
+            }
+            var subTermSelEl = document.getElementById('subTermSel');
+            var subTermVal = subTermSelEl ? subTermSelEl.value : '';
+            submissionsTermLabel = (subTermVal && subTermVal !== 'all') ? (KV_TERM_ZENKAKU[subTermVal] || subTermVal) + '学期' : '通年';
+        }
         var subs = StorageManager.get(KEYS.submissions_data, []);
         var fgtDaily = StorageManager.get(KEYS.forgotten_daily, {});
         var lifeAll = StorageManager.get(KEYS.karte_life, {});
@@ -19131,7 +19143,10 @@
             var pageHtml = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';padding:12mm 14mm;box-sizing:border-box;">'
                 + '<div style="border-bottom:3px solid #1a1a2e;padding-bottom:6pt;margin-bottom:10pt;display:flex;justify-content:space-between;align-items:flex-end;">'
                 + '<div style="font-size:18pt;font-weight:900;color:#1a1a2e;">個人カルテ' + titleSuffix + '</div>'
+                + '<div style="text-align:right;">'
                 + '<div style="font-size:8pt;color:#555;">' + escapeHtml(String(ci.grade || '')) + '年' + escapeHtml(String(ci.class || '')) + '組　担任：' + escapeHtml(ci.teacher || '') + '</div>'
+                + (mode === 'submissions' ? '<div style="font-size:8pt;color:#555;margin-top:2pt;">対象期間：' + submissionsTermLabel + '</div>' : '')
+                + '</div>'
                 + '</div>'
                 + '<div style="background:#f4f6f9;border-radius:8pt;padding:8pt 12pt;margin-bottom:10pt;display:flex;align-items:center;gap:16pt;">'
                 + '<span style="font-size:9pt;color:#555;font-weight:700;">番号</span>'

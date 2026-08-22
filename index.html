@@ -1285,6 +1285,7 @@
         .karte-student-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 600; }
         .karte-student-btn.has-records { border-color: #9B59B6; background: #F3E5F5; }
         .karte-student-btn.has-records.active { background: var(--primary); border-color: var(--primary); }
+        .karte-term-bar { display: flex; align-items: center; grid-column: 1 / -1; grid-row: 2; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); background: var(--white); }
         .karte-tabs { display: flex; flex-direction: column; border-right: 2px solid var(--border); background: #FAFCFD; grid-column: 1; grid-row: 3; overflow-y: auto; }
         .karte-tab-btn { flex: 0 0 auto; padding: 0.55rem 0.3rem; border: none; background: transparent; color: var(--text-light); font-size: 0.72rem; font-family: inherit; font-weight: 500; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; min-height: 48px; text-align: center; line-height: 1.25; }
         .karte-tab-btn.active { color: var(--primary); border-left-color: var(--primary); font-weight: 700; background: var(--white); }
@@ -1392,6 +1393,7 @@
         .karte-undo-bar { background: #FFF3E0; border: 1.5px solid #E67E22; border-radius: 8px; padding: 0.4rem 0.75rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #E65100; margin-bottom: 0.5rem; }
         .karte-undo-bar button { background: #E67E22; color: var(--white); border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; font-family: inherit; cursor: pointer; }
         .karte-empty { text-align: center; padding: 1.5rem; color: var(--text-light); font-size: 0.85rem; }
+        .karte-term-notice { font-size: 0.78rem; color: var(--text-light); padding: 0 2px 8px; }
         /* 記録フォーム */
         .rating-buttons { display: flex; gap: 0.35rem; }
         .rating-btn { flex: 1; min-height: 38px; padding: 0.4rem; font-size: 1.1rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); cursor: pointer; font-family: inherit; }
@@ -3438,6 +3440,14 @@
                 <div class="karte-container">
                     <div class="karte-student-bar">
                         <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>
+                    </div>
+                    <div class="karte-term-bar">
+                        <select id="karteTermSel" onchange="karteOnTermChange()" title="対象学期（児童記録・生活記録・保護者対応・提出物・成績に適用。出席・学習配慮・身体配慮は対象外）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                            <option value="1">1学期</option>
+                            <option value="2">2学期</option>
+                            <option value="3">3学期</option>
+                            <option value="all">通年</option>
+                        </select>
                     </div>
                     <div class="karte-tabs">
                         <button class="karte-tab-btn active" data-ktab="summary" onclick="switchKarteTab('summary')">サマリー</button>
@@ -11063,9 +11073,31 @@
         function karteParentTermItem(rec) {
             return { date: (rec && rec.datetime) || '' };
         }
+        // 学期セレクタ変更時（v1.20.2）。現在表示中のタブのみ再描画する。
+        function karteOnTermChange() {
+            var sel = document.getElementById('karteTermSel');
+            karteCurrentTermFilter = sel ? sel.value : null;
+            refreshKarteTab();
+        }
+        // 学期フィルタで除外された件数を「他の学期の記録 N件は表示していません」のHTML断片として返す。
+        // recSetTermNotice/subSetTermNoticeと同じ文言・条件だが、カルテの各タブは
+        // container.innerHTML を都度丸ごと差し替えるため、DOM要素を直接更新せずHTML文字列で返す。
+        function karteTermNoticeHtml(excludedCount) {
+            if (!karteCurrentTermFilter || karteCurrentTermFilter === 'all' || !excludedCount) return '';
+            return '<div class="karte-term-notice">他の学期の記録 ' + excludedCount + '件は表示していません</div>';
+        }
 
         // --- 初期化 ---
         function initKarteView() {
+            // 学期フィルタ（v1.20.2）。初期値は成績モジュールの「現在の学期」に揃える。
+            // 一度初期化したらセッション中は保持する（localStorageには保存しない。recOnShowViewと同じパターン）。
+            if (karteCurrentTermFilter === null) {
+                var termSel = document.getElementById('karteTermSel');
+                if (termSel) {
+                    if (typeof window.grdGetCurrentTerm === 'function') termSel.value = window.grdGetCurrentTerm();
+                    karteCurrentTermFilter = termSel.value;
+                }
+            }
             renderKarteStudentBar();
             applyKarteMode();
             if (karteSelectedStudent >= 0) refreshKarteTab();
@@ -11343,7 +11375,7 @@
 
         // ===== カルテ: 成績・偏差値セクション =====
         function karteRenderDeviationSection(idx) {
-            var tests = recGetTests();
+            var tests = recGetTests().filter(kartePassesTermFilter); // v1.20.2: 学期フィルタ適用
             var rows = [];
             tests.forEach(function(t) {
                 var ds = recDeviationStats(t.id);
@@ -11394,9 +11426,13 @@
             var subOk = 0, subRe = 0, subMiss = 0, subTotal = 0;
             var subMissList = [];
             var subLate = 0, subLateList = [];
+            var subAllTotal = 0, subExcludedCount = 0; // v1.20.3: 学期フィルタで除外された件数（課題＋テスト由来の提出遅れを合算）
             try {
-                var assigns = karteSafeGet(KEYS.submissions_assignments, []);
+                var allAssigns = karteSafeGet(KEYS.submissions_assignments, []);
                 var subs = karteSafeGet(KEYS.submissions_data, []);
+                var assigns = allAssigns.filter(kartePassesTermFilter);
+                subAllTotal = allAssigns.length;
+                subExcludedCount = subAllTotal - assigns.length;
                 subTotal = assigns.length;
                 assigns.forEach(function(a) {
                     var sub = subs.find(function(s2) {
@@ -11413,14 +11449,16 @@
                 recAllScores.forEach(function(sc) {
                     if (String(sc.studentIndex) === String(idx) && sc.lateSubmit === true) {
                         var t2 = recAllTests.find(function(t3) { return t3.id === sc.testId; });
+                        // v1.20.3: 課題側と学期の定義を揃える。testはdateを持つためgrdItemTermへそのまま渡せる
+                        if (!kartePassesTermFilter(t2)) { subExcludedCount++; return; }
                         subLate++;
                         subLateList.push({ name: t2 ? t2.name : '（不明）' });
                     }
                 });
             } catch(e) {}
 
-            // 生活記録件数
-            var lifeRecs = karteGetStudentLife(idx);
+            // 生活記録件数（学期フィルタ適用。件数・「最近の生活記録」プレビュー両方に反映される）
+            var lifeRecs = karteGetStudentLife(idx).filter(kartePassesTermFilter);
 
             // アンドゥバー
             var undoItems = karteDeletedBuffer.filter(function(d) { return d.studentIndex === idx; });
@@ -11445,8 +11483,8 @@
                 recentHtml += '</div>';
             }
 
-            // 最近の児童記録3件
-            var karteRecs = karteGetKarteRecs().filter(function(r) { return r.studentIndex === idx; });
+            // 最近の児童記録3件（学期フィルタ適用。件数・プレビュー両方に反映される）
+            var karteRecs = karteGetKarteRecs().filter(function(r) { return r.studentIndex === idx; }).filter(kartePassesTermFilter);
             var recentRecsHtml = '';
             if (karteRecs.length > 0) {
                 var sorted2 = karteRecs.slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
@@ -11474,6 +11512,7 @@
 
             var mpHtml = '<div class="ks-hub-section"><div class="ks-hub-header">'
                 + '<span class="ks-hub-title">🌅 朝の準備（間に合わなかった回数）</span>'
+                + '<span style="font-size:0.62rem;color:#888;margin-left:8px;">※通年の記録です</span>'
                 + '</div><div class="ks-hub-body">';
 
             if (mpTotal === 0) {
@@ -11544,7 +11583,7 @@
                 if (!hn) karteNoticeMissing++;
                 karteNoticeRecs.push({ date: dk, status: st, hasNotice: hn });
             });
-            var attDetailHtml = '<div class="ks-hub-section" data-ks="attendance"><div class="ks-hub-header"><span class="ks-hub-title">📋 出欠席詳細</span></div><div class="ks-hub-body">';
+            var attDetailHtml = '<div class="ks-hub-section" data-ks="attendance"><div class="ks-hub-header"><span class="ks-hub-title">📋 出欠席詳細</span><span style="font-size:0.62rem;color:#888;margin-left:8px;">※通年の記録です</span></div><div class="ks-hub-body">';
             if (attTotal === 0) {
                 attDetailHtml += '<span class="ks-hub-empty">記録なし</span>';
             } else {
@@ -11578,9 +11617,12 @@
             attDetailHtml += '</div></div>';
 
             // 提出状況セクション（submissions モード用）
-            var subDetailHtml = '<div class="ks-hub-section" data-ks="submissions"><div class="ks-hub-header"><span class="ks-hub-title">📚 提出状況</span></div><div class="ks-hub-body">';
-            if (subTotal === 0) {
+            var subDetailHtml = '<div class="ks-hub-section" data-ks="submissions"><div class="ks-hub-header"><span class="ks-hub-title">📚 提出状況</span></div><div class="ks-hub-body">'
+                + karteTermNoticeHtml(subExcludedCount);
+            if (subAllTotal === 0) {
                 subDetailHtml += '<span class="ks-hub-empty">課題なし</span>';
+            } else if (subTotal === 0) {
+                subDetailHtml += '<span class="ks-hub-empty">この学期の課題はありません</span>';
             } else {
                 subDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label">提出済み：</span><span class="ks-hub-val" style="color:var(--success);">' + subOk + '件</span></div>'
                     + (subRe > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">再提出：</span><span class="ks-hub-val" style="color:#B7950B;">' + subRe + '件</span></div>' : '')
@@ -11684,11 +11726,16 @@
             if (karteRecFilter) recs = recs.filter(function(r) { return r.category === karteRecFilter; });
             recs.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
 
+            var termRecs = recs.filter(kartePassesTermFilter);
+            html += karteTermNoticeHtml(recs.length - termRecs.length);
+
             if (recs.length === 0) {
                 html += '<div class="karte-empty">この児童の記録はありません</div>';
+            } else if (termRecs.length === 0) {
+                html += '<div class="karte-empty">この学期の記録はありません</div>';
             } else {
                 html += '<div style="margin-top:0.5rem;">';
-                recs.forEach(function(r) {
+                termRecs.forEach(function(r) {
                     var emoji = KARTE_RATINGS[r.rating] || '?';
                     var absentBadge = r.absent ? '<span style="font-size:0.6rem;font-weight:700;background:#757575;color:white;border-radius:3px;padding:1px 4px;line-height:1.4;">🏠欠席</span>' : '';
                     html += '<div class="klife-item' + (r.absent ? '" style="background:#F5F5F5;' : '"') + '><div class="klife-item-header"><div style="display:flex;align-items:center;gap:0.4rem;"><span style="font-size:1.1rem;">' + emoji + '</span><span class="klife-item-cat" style="background:var(--secondary);color:var(--primary);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.65rem;">' + escapeHtml(r.category || '') + '</span>' + absentBadge + '</div><span class="klife-item-date">' + (r.date || '') + '</span></div>';
@@ -11826,22 +11873,28 @@
             if (karteLifeFilter !== 'all') records = records.filter(function(r) { return (r.categories || []).indexOf(karteLifeFilter) >= 0; });
             records.sort(function(a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
 
-            var listHtml = '';
-            records.forEach(function(r) {
-                var cats = (r.categories || []).map(function(c) {
-                    var cat = KARTE_LIFE_CATEGORIES.find(function(x) { return x.id === c; });
-                    return cat ? '<span class="klife-item-cat ' + cat.cls + '">' + cat.label + '</span>' : '';
-                }).join('');
-                listHtml += '<div class="klife-item"><div class="klife-item-header"><div class="klife-item-cats">' + cats + '</div><span class="klife-item-date">' + (r.date || '') + '</span></div>';
-                if (r.summary) listHtml += '<div class="klife-item-text">' + escapeHtml(r.summary) + '</div>';
-                var detail = '';
-                if (r.fact)       detail += '<div>【事実】' + escapeHtml(r.fact) + '</div>';
-                if (r.response)   detail += '<div>【対応】' + escapeHtml(r.response) + '</div>';
-                if (r.impression) detail += '<div>【所感】' + escapeHtml(r.impression) + '</div>';
-                if (detail) listHtml += '<div class="klife-item-detail">' + detail + '</div>';
-                listHtml += '<div class="klife-item-actions"><button onclick="editKarteLife(' + r.id + ')">✏️編集</button><button onclick="deleteKarteLife(' + r.id + ')">🗑削除</button></div></div>';
-            });
-            if (records.length === 0) listHtml = '<div class="karte-empty">記録はまだありません</div>';
+            var termRecords = records.filter(kartePassesTermFilter);
+            var listHtml = karteTermNoticeHtml(records.length - termRecords.length);
+            if (records.length === 0) {
+                listHtml += '<div class="karte-empty">記録はまだありません</div>';
+            } else if (termRecords.length === 0) {
+                listHtml += '<div class="karte-empty">この学期の記録はありません</div>';
+            } else {
+                termRecords.forEach(function(r) {
+                    var cats = (r.categories || []).map(function(c) {
+                        var cat = KARTE_LIFE_CATEGORIES.find(function(x) { return x.id === c; });
+                        return cat ? '<span class="klife-item-cat ' + cat.cls + '">' + cat.label + '</span>' : '';
+                    }).join('');
+                    listHtml += '<div class="klife-item"><div class="klife-item-header"><div class="klife-item-cats">' + cats + '</div><span class="klife-item-date">' + (r.date || '') + '</span></div>';
+                    if (r.summary) listHtml += '<div class="klife-item-text">' + escapeHtml(r.summary) + '</div>';
+                    var detail = '';
+                    if (r.fact)       detail += '<div>【事実】' + escapeHtml(r.fact) + '</div>';
+                    if (r.response)   detail += '<div>【対応】' + escapeHtml(r.response) + '</div>';
+                    if (r.impression) detail += '<div>【所感】' + escapeHtml(r.impression) + '</div>';
+                    if (detail) listHtml += '<div class="klife-item-detail">' + detail + '</div>';
+                    listHtml += '<div class="klife-item-actions"><button onclick="editKarteLife(' + r.id + ')">✏️編集</button><button onclick="deleteKarteLife(' + r.id + ')">🗑削除</button></div></div>';
+                });
+            }
 
             container.innerHTML = formHtml + listHtml;
 
@@ -11950,16 +12003,22 @@
             formHtml += '</div></div>';
 
             var records = karteGetStudentParent(idx).slice().sort(function(a, b) { return (b.datetime || b.createdAt || '').localeCompare(a.datetime || a.createdAt || ''); });
-            var listHtml = '';
-            records.forEach(function(r) {
-                var m = KARTE_PARENT_METHODS.find(function(x) { return x.id === r.method; });
-                var badge = m ? '<span class="kparent-method-badge ' + m.cls + '">' + m.label + '</span>' : '';
-                var dt = r.datetime ? new Date(r.datetime).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                listHtml += '<div class="kparent-item"><div class="kparent-item-header">' + badge + '<span class="klife-item-date">' + dt + '</span></div>';
-                listHtml += '<div class="klife-item-text">' + escapeHtml(r.content || '') + '</div>';
-                listHtml += '<div class="klife-item-actions"><button onclick="editKarteParent(' + r.id + ')">✏️編集</button><button onclick="deleteKarteParent(' + r.id + ')">🗑削除</button></div></div>';
-            });
-            if (records.length === 0) listHtml = '<div class="karte-empty">記録はまだありません</div>';
+            var termRecords = records.filter(function(r) { return kartePassesTermFilter(karteParentTermItem(r)); });
+            var listHtml = karteTermNoticeHtml(records.length - termRecords.length);
+            if (records.length === 0) {
+                listHtml += '<div class="karte-empty">記録はまだありません</div>';
+            } else if (termRecords.length === 0) {
+                listHtml += '<div class="karte-empty">この学期の記録はありません</div>';
+            } else {
+                termRecords.forEach(function(r) {
+                    var m = KARTE_PARENT_METHODS.find(function(x) { return x.id === r.method; });
+                    var badge = m ? '<span class="kparent-method-badge ' + m.cls + '">' + m.label + '</span>' : '';
+                    var dt = r.datetime ? new Date(r.datetime).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                    listHtml += '<div class="kparent-item"><div class="kparent-item-header">' + badge + '<span class="klife-item-date">' + dt + '</span></div>';
+                    listHtml += '<div class="klife-item-text">' + escapeHtml(r.content || '') + '</div>';
+                    listHtml += '<div class="klife-item-actions"><button onclick="editKarteParent(' + r.id + ')">✏️編集</button><button onclick="deleteKarteParent(' + r.id + ')">🗑削除</button></div></div>';
+                });
+            }
 
             container.innerHTML = formHtml + listHtml;
 

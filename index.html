@@ -2499,6 +2499,9 @@
                         <div class="att-stat-item present"><div class="val" id="attStatPresent">0</div><div class="lbl">出席</div></div>
                         <div class="att-stat-item absent"> <div class="val" id="attStatAbsent">0</div> <div class="lbl">欠席</div></div>
                         <div class="att-stat-item late">   <div class="val" id="attStatLate">0</div>   <div class="lbl">遅刻</div></div>
+                        <div class="att-stat-item">        <div class="val" id="attStatEarly">0</div>    <div class="lbl">早退</div></div>
+                        <div class="att-stat-item">        <div class="val" id="attStatExcused">0</div>  <div class="lbl">出停・忌引</div></div>
+                        <div class="att-stat-item">        <div class="val" id="attStatNoSchool">0</div> <div class="lbl">学閉・休校</div></div>
                         <div class="att-stat-item">        <div class="val" id="attStatTotal">0/0</div><div class="lbl">入力済</div></div>
                     </div>
                     <div style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0;">
@@ -6501,24 +6504,33 @@
     }
 
     // ---- 統計更新 ----
+    // v1.19.4: calcAttendanceStatsと同一の分類定義。変更時は両方を揃えること。
+    // ここは「当日・クラス全員」の集計であり、calcAttendanceStatsの「1人・通年」とは
+    // 軸が異なるためcalcAttendanceStats自体は呼ばず、判定条件のみを揃えている。
     function attUpdateStats() {
         const students = attGetStudents();
         const dateKey  = attDateStr(attCurrentDate);
         const dayData  = (attGetAll()[dateKey]) || {};
-        let present = 0, absent = 0, late = 0, total = 0;
+        let present = 0, absent = 0, late = 0, early = 0, excused = 0, noSchool = 0, total = 0;
         students.forEach((_, i) => {
             const st = dayData[String(i)];
             if (!st) return;
             total++;
             if (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ') present++;
-            else if (st === '×' || st === '／' || st === '忌' || st === '停') absent++;
+            if (st === '×' || st === '／') absent++;
             if (st === 'チ' || st === 'チソ') late++;
+            if (st === 'ソ' || st === 'チソ') early++;
+            if (st === '忌' || st === '停') excused++;
+            if (st === '休' || st === '校') noSchool++;
         });
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-        set('attStatPresent', present);
-        set('attStatAbsent',  absent);
-        set('attStatLate',    late);
-        set('attStatTotal',   `${total}/${students.length}`);
+        set('attStatPresent',  present);
+        set('attStatAbsent',   absent);
+        set('attStatLate',     late);
+        set('attStatEarly',    early);
+        set('attStatExcused',  excused);
+        set('attStatNoSchool', noSchool);
+        set('attStatTotal',    `${total}/${students.length}`);
     }
 
     // ---- ステータス選択モーダル ----
@@ -18839,6 +18851,7 @@
             if (!byMonthGrouped[mon]) byMonthGrouped[mon] = { present: 0, absent: 0, late: 0, early: 0, excused: 0, noSchool: 0, other: 0, total: 0 };
             var mg = byMonthGrouped[mon];
 
+            // v1.19.4: attUpdateStats（出席簿画面の当日集計）と同一の分類定義。変更時は両方を揃えること。
             var isPresent  = (st === '○' || st === 'チ' || st === 'ソ' || st === 'チソ'); // 出席日数
             var isAbsent   = (st === '×' || st === '／');
             var isLate     = (st === 'チ' || st === 'チソ');

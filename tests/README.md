@@ -26,23 +26,26 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 既知の未整備テスト（段階的対応中）
+## 常時グリーンのテスト（合計218件）
 
-以下は現時点で全件グリーンになっていない、または実行環境が未整備のテストファイル。
-削除はせず残しているが、常時グリーンの対象には含めていない。
+| ファイル | 件数 |
+|---|---|
+| `pe-rubric.test.js` | 74 |
+| `pe-score10.test.js` | 23 |
+| `absent.test.js` | 14 |
+| `attendance-stats.test.js` | 22 |
+| `v1.8.49.test.js` | 24 |
+| `v1.8.51.test.js` | 8 |
+| `v1.8.51_commit3.test.js` | 14 |
+| `undo.test.js` | 32 |
+| `emptystate.test.js` | 7 |
+| **合計** | **218** |
 
-- `emptystate.test.js`（未追跡） … git 管理下に無い試作。jsdom 依存かつ
-  実行方式が他と異なるため、puppeteer-core 方式で書き直す予定
-- `undo.test.js`（未追跡） … git 管理下に無い試作。揮発する
-  `/tmp/helper_src.js` に依存。puppeteer でページ内の uiUndoable を
-  直接検証する形に書き直す予定
-- `v1.8.49.test.js` … 一部ケースが v1.8.63 の仕様変更（提出物「空欄＝未提出」統一）に未追随
-- `v1.8.51.test.js` … 検証7-2が1件失敗。移行直後のバックアップが
-  `cleanupOldKanjiBackups()` に即削除される挙動を「不具合」として期待している
-  が、フラット化移行は実運用上すでに完了しており、バックアップを残す方向の
-  変更はローカルストレージに児童データを増やすため採らない。テスト側の
-  期待値を現行挙動に合わせて修正する予定（index.html は変更しない）
-- `v1.8.51_commit3.test.js` … 一部ケースが色判定の優先順位変更（未提出優先化）に未追随
+上記すべてが全件PASSであることに加え、リポジトリ直下で
+`node attendance-snapshot.js`（引数なし）を実行して `PASS` になることも、
+push前の必須確認手順とする。`FAIL` の場合は `--update` せず、まず原因を
+報告すること（出欠の集計値が実際に変わったのか、テスト側の不備かを
+切り分けるまで基準ファイルを書き換えない）。
 
 ## 確立済みノウハウ
 
@@ -51,3 +54,23 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 - `StorageManager` の保存は `safeSetItem` により500msデバウンスで `localStorage` に書き込まれる。
   保存値を確認する際は、表示切替ボタンのクリック（`subFlushAutoSave`発火）→ 700ms程度待機してから
   `localStorage.getItem(...)` を読む。
+- 実データのキー（`KEYS.*` / `ATT_KEY` / 成績のrec系キー等）を触るテストは、
+  ケースごとに元の値を退避して `try/finally` で必ず復元し、節の最後に
+  「触れた全キーが元の値に戻っている」ことを確認する check を1件足す
+  （`undo.test.js`「実データ往復」節を参照）。
+- 実装の内部状態（`StorageManager._cacheLoaded`、`attCurrentDate` 等）に
+  一時的に依存する検証は、そのケースが落ちたときに「実装の退行」と
+  誤読されないよう、何に依存しているか・落ちたら何をまず疑うべきかを
+  コメントで明記する。
+- ストレージキー名をテストコード側に直書きする場合（`REC_KEYS` のように
+  実装側がモジュール内部のprivate変数でwindowから参照できない等）、
+  キーの存在確認だけでは実装側のキー名変更をすり抜けてPASSし続けてしまう。
+  必ず実装関数（`recDeleteTest`等）を実際に通し、その結果が直書きした
+  キーに反映されるかどうかで一致を確認すること。
+- トースト（`#toastUndoBtn`等）のクリックは、`.toast.show` のCSSトランジション
+  （0.3s）が完了してから行う。待たずにクリックすると要素がまだ画面外にあり
+  Puppeteerの `page.click()` が「Node is either not clickable」で失敗する。
+- 破棄関数・確定フックの例外耐性など、意図的に例外を発生させるテストは、
+  専用のマーカー文字列（例: `__uiUndoTest_intentional_throw__`）を仕込み、
+  末尾の「コンソールエラーなし」チェックからそのマーカーを含むエラーだけを
+  除外する。

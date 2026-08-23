@@ -245,10 +245,209 @@ function check(name, cond, detail) {
     }
 
     // ================================================================
+    // キャッシュ破棄の保証
+    // ================================================================
+    // UI_CACHE_RESETTERS / UI_PENDING_FLUSHERS には unregister が無いため、
+    // テスト用に登録した関数はケースごとに Array.prototype.length を
+    // 元の件数へ切り詰めて後始末する（関数はpage.evaluateの引数として
+    // Node側へシリアライズできないため、配列長を戻す方式を取る）。
+    // 一部のケースはキャッシュ破棄関数からわざと例外を投げるため、
+    // console.error('uiResetCaches:', e) が実機で発生する。これは
+    // uiResetCaches の例外耐性そのものを検証する意図的な発火であり、
+    // マーカー文字列 __uiUndoTest_intentional_throw__ で末尾の
+    // 「コンソールエラーなし」チェックから除外する。
+
+    // --- 8. 復元時に登録済みの破棄関数がすべて呼ばれる ---
+    {
+        const K = '__uiUndoTest_cache1';
+        await setKey(K, '1');
+        const baseLen = await page.evaluate(() => {
+            const n = UI_CACHE_RESETTERS.length;
+            window.__order8 = [];
+            uiRegisterCacheReset(function() { window.__order8.push('a'); });
+            uiRegisterCacheReset(function() { window.__order8.push('b'); });
+            return n;
+        });
+        await startUndo('undo-cache-1', [K]);
+        await setKey(K, '2');
+        await commitUndo();
+        await clickUndoBtn();
+        const order8 = await page.evaluate(() => window.__order8);
+        check('復元時に登録済みの破棄関数がすべて呼ばれる', JSON.stringify(order8) === JSON.stringify(['a', 'b']), JSON.stringify(order8));
+        await page.evaluate((n) => { UI_CACHE_RESETTERS.length = n; delete window.__order8; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 9. 競合で中止したときは破棄関数が呼ばれない ---
+    {
+        const K = '__uiUndoTest_cache2';
+        await setKey(K, '1');
+        const baseLen = await page.evaluate(() => {
+            const n = UI_CACHE_RESETTERS.length;
+            window.__called9 = 0;
+            uiRegisterCacheReset(function() { window.__called9++; });
+            return n;
+        });
+        await startUndo('undo-cache-2', [K]);
+        await setKey(K, '2');
+        await commitUndo();
+        await setKey(K, '3'); // 取り消し可能時間中の割り込みで競合させる
+        await clickUndoBtn();
+        const called9 = await page.evaluate(() => window.__called9);
+        check('競合で中止したときは破棄関数が呼ばれない', called9 === 0, 'called9=' + called9);
+        await page.evaluate((n) => { UI_CACHE_RESETTERS.length = n; delete window.__called9; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 10. 破棄関数が例外を投げても後続が止まらない ---
+    {
+        const K = '__uiUndoTest_cache3';
+        await setKey(K, '1');
+        const baseLen = await page.evaluate(() => {
+            const n = UI_CACHE_RESETTERS.length;
+            window.__order10 = [];
+            uiRegisterCacheReset(function() { throw new Error('__uiUndoTest_intentional_throw__'); });
+            uiRegisterCacheReset(function() { window.__order10.push('後続'); });
+            return n;
+        });
+        await startUndo('undo-cache-3', [K]);
+        await setKey(K, '2');
+        await commitUndo();
+        await clickUndoBtn();
+        const order10 = await page.evaluate(() => window.__order10);
+        check('破棄関数が例外を投げても後続が止まらない', JSON.stringify(order10) === JSON.stringify(['後続']), JSON.stringify(order10));
+        await page.evaluate((n) => { UI_CACHE_RESETTERS.length = n; delete window.__order10; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 11. 再描画関数はキャッシュ破棄より後に呼ばれる（順序保証） ---
+    {
+        const K = '__uiUndoTest_cache4';
+        await setKey(K, '1');
+        const baseLen = await page.evaluate((k) => {
+            const n = UI_CACHE_RESETTERS.length;
+            window.__order11 = [];
+            uiRegisterCacheReset(function() { window.__order11.push('cache'); });
+            window.__undoCommit = uiUndoable('undo-cache-4', [k], function() { window.__order11.push('render'); });
+            return n;
+        }, K);
+        await setKey(K, '2');
+        await commitUndo();
+        await clickUndoBtn();
+        const order11 = await page.evaluate(() => window.__order11);
+        check('再描画関数はキャッシュ破棄より後に呼ばれる（順序保証）', JSON.stringify(order11) === JSON.stringify(['cache', 'render']), JSON.stringify(order11));
+        await page.evaluate((n) => { UI_CACHE_RESETTERS.length = n; delete window.__order11; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 12. 再描画関数を省略しても落ちない ---
+    {
+        const K = '__uiUndoTest_cache5';
+        await setKey(K, '1');
+        await startUndo('undo-cache-5', [K]); // afterRestore省略
+        await setKey(K, '2');
+        await commitUndo();
+        await clickUndoBtn();
+        const v12 = await getKey(K);
+        check('再描画関数を省略しても落ちない', v12 === '1', 'v12=' + v12);
+        await removeKey(K);
+    }
+
+    // ================================================================
+    // 保留書き込みの確定
+    // ================================================================
+
+    // --- 13. 保留中の入力が確定され、それが競合として検出される ---
+    {
+        const K = '__uiUndoTest_pend1';
+        await setKey(K, 'A');
+        await startUndo('undo-pending-1', [K]);
+        await setKey(K, 'B'); // 一括操作の保存
+        await commitUndo(); // committed = 'B'
+        const baseLen = await page.evaluate((k) => {
+            const n = UI_PENDING_FLUSHERS.length;
+            uiRegisterPendingFlush(function() { StorageManager.setImmediate(k, 'B+手入力'); });
+            return n;
+        }, K);
+        await clickUndoBtn();
+        const v13 = await getKey(K);
+        const cls13 = await toastClass();
+        check('保留中の入力が確定され、それが競合として検出される', v13 === 'B+手入力' && /warning/.test(cls13), 'v13=' + v13 + ' cls=' + cls13);
+        await page.evaluate((n) => { UI_PENDING_FLUSHERS.length = n; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 14. 保留が無ければ通常どおり書き戻せる ---
+    {
+        const K = '__uiUndoTest_pend2';
+        await setKey(K, 'A');
+        await startUndo('undo-pending-2', [K]);
+        await setKey(K, 'B');
+        await commitUndo();
+        await clickUndoBtn(); // テスト用の保留フックは登録しない
+        const v14 = await getKey(K);
+        check('保留が無ければ通常どおり書き戻せる', v14 === 'A', 'v14=' + v14);
+        await removeKey(K);
+    }
+
+    // --- 15. 確定フックの例外で取り消し全体が落ちない ---
+    {
+        const K = '__uiUndoTest_pend3';
+        await setKey(K, 'A');
+        await startUndo('undo-pending-3', [K]);
+        await setKey(K, 'B');
+        await commitUndo();
+        const baseLen = await page.evaluate(() => {
+            const n = UI_PENDING_FLUSHERS.length;
+            uiRegisterPendingFlush(function() { throw new Error('__uiUndoTest_intentional_throw__'); });
+            return n;
+        });
+        await clickUndoBtn();
+        const v15 = await getKey(K);
+        check('確定フックの例外で取り消し全体が落ちない', v15 === 'A', 'v15=' + v15);
+        await page.evaluate((n) => { UI_PENDING_FLUSHERS.length = n; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 16. 確定フックは競合判定より前に走る（順序保証） ---
+    {
+        const K = '__uiUndoTest_pend4';
+        await setKey(K, 'A');
+        await page.evaluate((k) => {
+            window.__order16 = [];
+            window.__undoCommit = uiUndoable('undo-pending-4', [k], function() { window.__order16.push('render'); });
+        }, K);
+        await setKey(K, 'B');
+        await commitUndo();
+        const baseLen = await page.evaluate(() => {
+            const n = UI_PENDING_FLUSHERS.length;
+            uiRegisterPendingFlush(function() { window.__order16.push('flush'); });
+            return n;
+        });
+        await clickUndoBtn();
+        const order16 = await page.evaluate(() => window.__order16);
+        const v16 = await getKey(K);
+        check('確定フックは競合判定より前に走る（順序保証）', JSON.stringify(order16) === JSON.stringify(['flush', 'render']) && v16 === 'A', JSON.stringify({ order16, v16 }));
+        await page.evaluate((n) => { UI_PENDING_FLUSHERS.length = n; delete window.__order16; }, baseLen);
+        await removeKey(K);
+    }
+
+    // --- 17. セクション終了時、UI_CACHE_RESETTERS/UI_PENDING_FLUSHERSが元の件数(3/1)に戻っている ---
+    {
+        const finalCacheLen = await page.evaluate(() => UI_CACHE_RESETTERS.length);
+        const finalPendingLen = await page.evaluate(() => UI_PENDING_FLUSHERS.length);
+        check('セクション終了時にUI_CACHE_RESETTERS=3・UI_PENDING_FLUSHERS=1に戻っている',
+            finalCacheLen === 3 && finalPendingLen === 1, JSON.stringify({ finalCacheLen, finalPendingLen }));
+    }
+
+    // ================================================================
     // コンソールエラーなし
     // ================================================================
-    const realErrors = consoleErrors.filter(e => e.url.indexOf('favicon') === -1);
-    check('コンソールエラーなし（favicon 404除く）', realErrors.length === 0, JSON.stringify(realErrors));
+    const realErrors = consoleErrors.filter(e =>
+        e.url.indexOf('favicon') === -1 &&
+        e.text.indexOf('__uiUndoTest_intentional_throw__') === -1
+    );
+    check('コンソールエラーなし（favicon 404除く、意図的な例外投入を除く）', realErrors.length === 0, JSON.stringify(realErrors));
 
     await browser.close();
 

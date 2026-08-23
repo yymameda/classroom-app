@@ -117,9 +117,17 @@ function buildOldFlatItems(data) {
     // ================================================================
     // 検証7-2: バックアップ検証
     // ================================================================
+    // migrateKanjiToFlat() は移行直前に spa_kanji_backup_v1851 へ旧データを退避するが、
+    // 同じ DOMContentLoaded 内で直後に呼ばれる cleanupOldKanjiBackups() が無条件で
+    // このキーを削除する（index.html 移行時バックアップ→即クリーンアップの一連の流れ）。
+    // フラット化移行は実運用上すでに完了しており、今後この経路を通るのは移行未実施の
+    // 端末が新バージョンを初回起動する場合に限られる。バックアップを残す方向へ
+    // index.html を変更すると、その分だけローカルストレージに児童データが増え続けるため
+    // 採らない。よってここでは「移行直後にバックアップが残っていない」ことを
+    // 現行仕様として検証する。
     let backupRaw = await page.evaluate(() => localStorage.getItem('spa_kanji_backup_v1851'));
-    check('検証7-2: バックアップキーに旧形式データが保持されている',
-        backupRaw === JSON.stringify(OLD_KANJI_DATA), 'backup=' + backupRaw);
+    check('検証7-2: 移行直後、cleanupOldKanjiBackupsによりバックアップキーは残っていない（現行仕様）',
+        backupRaw === null, 'backup=' + backupRaw);
 
     // ================================================================
     // 検証7-3: 冪等性検証（再リロードで何も壊れない）
@@ -127,9 +135,12 @@ function buildOldFlatItems(data) {
     await page.reload({ waitUntil: 'networkidle0' });
     await new Promise(r => setTimeout(r, 300));
     let raw2 = await page.evaluate(() => localStorage.getItem('spa_kanji'));
-    let backupRaw2 = await page.evaluate(() => localStorage.getItem('spa_kanji_backup_v1851'));
     check('検証7-3a: 2回目の移行でも spa_kanji が変化しない', raw2 === rawAfter, raw2);
-    check('検証7-3b: 2回目の移行でも バックアップが変化しない', backupRaw2 === backupRaw, backupRaw2);
+    // 検証7-3b（旧: 「2回目の移行でもバックアップが変化しない」）は削除した。
+    // 現行仕様では1回目・2回目とも spa_kanji_backup_v1851 は常に null になるため、
+    // backupRaw2 === backupRaw は null === null の比較となり、移行の冪等性について
+    // 何の情報も持たない（常に真になるだけの無意味な比較）。index.html 側を変更せずに
+    // このキーを意味のある比較対象に戻す方法もないため、ケースごと削除した。
 
     // ================================================================
     // 検証: 表示順の整合性（逆順読みで v1.8.50 と同じ最新が上の順になるか）

@@ -15,15 +15,18 @@ function check(name, cond, detail) {
 }
 
 // ---- 新形式（フラット）テストデータ ----
-// 児童0: △あり(st-resubmit) / 児童1: 全完了(st-done) / 児童2: 一部未チェック(neutral) / 児童3: 未チェックのみ / 児童4: 完全未着手
+// a79f3a4（未提出を最優先にする）以降、unchecked>0 の場合は retry の有無に関わらず無色(neutral)。
+// st-resubmit が付くのは unchecked=0 かつ retry>0 のときだけ。
+// 児童0: 未チェックあり+△あり(neutral、未チェック優先) / 児童1: 全完了(st-done) / 児童2: 一部未チェック(neutral)
+// / 児童3: 未チェックのみ(neutral) / 児童4: 未チェックあり+△1件のみ(neutral、未チェック優先)
 const NEW_KANJI_DATA = {
     chars: ['一','二','三','四','五','六','七','八','九','十','百','千','万','億','円','銭','分','厘','毛','糸','忽','微'],
     checks: {
-        '0': { '0': 'o', '1': 'd', '9': 'o', '21': 'd' }, // unchecked=18, retry=2 -> st-resubmit
+        '0': { '0': 'o', '1': 'd', '9': 'o', '21': 'd' }, // unchecked=18, retry=2 -> neutral（未チェック優先）
         '1': (function() { var o = {}; for (let i = 0; i < 22; i++) o[String(i)] = 'o'; return o; })(), // unchecked=0, retry=0 -> st-done
         '2': { '5': 'o', '6': 'o' }, // unchecked=20, retry=0 -> neutral
         '3': {}, // unchecked=22, retry=0 -> neutral
-        '4': { '0': 'd' } // unchecked=21, retry=1 -> st-resubmit
+        '4': { '0': 'd' } // unchecked=21, retry=1 -> neutral（未チェック優先）
     }
 };
 const TOTAL_CHARS = NEW_KANJI_DATA.chars.length; // 22
@@ -106,11 +109,11 @@ async function backToList(page) {
     // ================================================================
     // アクセント表示：△>0 -> st-resubmit / unchecked=0 -> st-done / それ以外 neutral
     // ================================================================
-    check('検証: 児童0(△2件)はst-resubmitクラス', tiles[0].classList.indexOf('st-resubmit') >= 0, JSON.stringify(tiles[0].classList));
+    check('検証: 児童0(未チェック18+△2件)は未チェックがあるので無色（st-resubmitより優先）', tiles[0].classList.indexOf('st-resubmit') === -1 && tiles[0].classList.indexOf('st-done') === -1, JSON.stringify(tiles[0].classList));
     check('検証: 児童1(全完了・△0)はst-doneクラス', tiles[1].classList.indexOf('st-done') >= 0, JSON.stringify(tiles[1].classList));
     check('検証: 児童2(未チェックあり・△0)はst-resubmit/st-doneどちらも持たない', tiles[2].classList.indexOf('st-resubmit') === -1 && tiles[2].classList.indexOf('st-done') === -1, JSON.stringify(tiles[2].classList));
     check('検証: 児童3(全未チェック)はst-resubmit/st-doneどちらも持たない', tiles[3].classList.indexOf('st-resubmit') === -1 && tiles[3].classList.indexOf('st-done') === -1, JSON.stringify(tiles[3].classList));
-    check('検証: 児童4(△1件のみ、unchecked>0)はst-resubmitクラス(st-doneより優先)', tiles[4].classList.indexOf('st-resubmit') >= 0 && tiles[4].classList.indexOf('st-done') === -1, JSON.stringify(tiles[4].classList));
+    check('検証: 児童4(△1件のみ、unchecked>0)は未チェックがあるので無色（st-resubmitより優先されない）', tiles[4].classList.indexOf('st-resubmit') === -1 && tiles[4].classList.indexOf('st-done') === -1, JSON.stringify(tiles[4].classList));
 
     // ================================================================
     // タップ領域サイズ：44pt以上

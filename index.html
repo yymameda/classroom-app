@@ -2831,6 +2831,7 @@
                                         <option value="検定:swimming">🏊 泳力検定カード（級判定）</option>
                                         <option value="実技:volley">🏐 ソフトバレー（実技ルーブリック）</option>
                                         <option value="実技:mat">🤸 マット運動（実技ルーブリック）</option>
+                                        <option value="実技:hurdle">🏃 ハードル走（実技ルーブリック）</option>
                                     </select>
                                     <span id="recPeDirTrialWrap" style="display:contents;">
                                     <label style="font-size:0.78rem;">方向:</label>
@@ -7922,6 +7923,49 @@
                         ]
                     }
                 ],
+                note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
+            },
+            // Phase2 第1弾: ハードル走。3項目すべてmode:'level'、加点なし(bonus:[])。
+            // displayMode:'modal'を明示指定(volley/matと同じ理由で自動判定はしない)。
+            hurdle: {
+                name: 'ハードル走',
+                emoji: '🏃',
+                combine: 'average',
+                bonusMode: 'each',
+                cap: 10,
+                displayMode: 'modal',
+                items: [
+                    {
+                        id: 'h1', name: '①インターバルのリズム', mode: 'level',
+                        hint: '決めた歩数（3歩または5歩）で走り越せているかを見る',
+                        levels: [
+                            { label: 'ハードルに向かって走っている', score: 1 },
+                            { label: 'ハードルを走り越せる', score: 3 },
+                            { label: '決めた歩数で走り越せる', score: 6 },
+                            { label: '最後のハードルまで同じリズムを保てる', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'h2', name: '②踏み切りと走り越し', mode: 'level',
+                        hint: '遠くから決めた足で踏み切り、低く走り越せているかを見る',
+                        levels: [
+                            { label: 'ハードルに向かって走っている', score: 1 },
+                            { label: '手前で止まらずに走り越せる', score: 3 },
+                            { label: '遠くから踏み切り、低く越えられる', score: 6 },
+                            { label: '上下動が小さく、着地後すぐ走り出せる', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'h3', name: '③接近度（タイム差）', mode: 'level',
+                        hint: '40mハードル走のタイム − 40m走のタイム。目標は0.3秒×4台＝1.2秒以内',
+                        levels: [
+                            { label: '記録が取れている', score: 3 },
+                            { label: '2.0秒以内', score: 6 },
+                            { label: '1.2秒以内', score: 10 }
+                        ]
+                    }
+                ],
+                bonus: [],
                 note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
             }
         };

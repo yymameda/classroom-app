@@ -441,6 +441,369 @@ function check(name, cond, detail) {
     }
 
     // ================================================================
+    // 実データ往復
+    // ================================================================
+    // ここから先は実データのキー（KEYS.* / ATT_KEY / 成績のrec系キー）を扱う。
+    // 各ケースは「元の値を退避 → 合成データを1件だけ追加/使用 → 実際の削除・
+    // 取り消し操作 → 検証 → finallyで元の値に厳密に復元」の形を徹底する。
+    // 合成データは日付・IDとも実データと衝突しない極端な値（2099年や
+    // Date.now()ベースの巨大ID、'__uiUndoTest_'接頭辞）を使うことで、
+    // 「実行環境に元々データが有る/無い」のどちらでも成立するようにしている
+    // （既存配列やオブジェクトを丸ごと上書きせず、常に「追加してから
+    // 取り除く」形にすることで、元のデータの有無に依存しない）。
+    // 出欠のケースは attGetAll/attSave/attClearDay など既存の読み書き・
+    // 画面更新関数を素通りさせるのみで、calcAttendanceStats等の集計ロジック
+    // には一切触れていない。
+
+    async function restoreKey(k, raw) {
+        if (raw === null || raw === undefined) await removeKey(k);
+        else await setKey(k, raw);
+    }
+
+    // 実データ往復セクションで触れる全キーの「本当の元の値」を、どのケースよりも
+    // 先に一度だけ退避しておく（各ケース内のtry/finallyとは独立した最終確認用）。
+    const REAL_KEYS = await page.evaluate(() => ({
+        patrol: KEYS.patrol,
+        att: ATT_KEY,
+        notice: KEYS.attendance_notice,
+        morningPrep: KEYS.morning_prep,
+        diary: KEYS.submissions_diary,
+        assignments: KEYS.submissions_assignments,
+        subData: KEYS.submissions_data
+    }));
+    // REC_KEYS は成績モジュールのIIFE内部のprivate変数でwindowから参照できないため、
+    // 安定したストレージキー名を直接指定する（emptystate.test.js旧版と同じ方式）。
+    const REC_KEYS_STR = { tests: 'spa_tests', scores: 'spa_scores', mq: 'spa_matome_questions' };
+    const ALL_REAL_KEYS = Object.assign({}, REAL_KEYS, REC_KEYS_STR);
+    const masterBackup = {};
+    for (const key of Object.values(ALL_REAL_KEYS)) {
+        masterBackup[key] = await getKey(key);
+    }
+
+    // --- REC_KEYS_STR（'spa_tests'/'spa_scores'/'spa_matome_questions'の直書き）が
+    //     実装の内部キー名と一致していることを確認する ---
+    // REC_KEYSは成績モジュールのIIFE内部のprivate変数でwindowから参照できないため、
+    // このファイルでは文字列を直書きしている。実装側でキー名が変わっても、
+    // このセクションの他ケースは「存在しないキーを退避して復元するだけ」になり
+    // 何も検証しないままPASSしてしまう。そこで、キーの存在チェックではなく
+    // window.recDeleteTest（実装関数）を実際に通し、その結果が直書きしたキーに
+    // 反映されるかどうかで一致を確認する。キー名がズレていれば
+    // recGetTests()がcanaryを見つけられず「課題が見つかりません」で早期returnし、
+    // tests/scores/matomeQのいずれも変化しない（＝このcheckが必ず落ちる）。
+    {
+        const { tests: TK, scores: SK, mq: MQK } = REC_KEYS_STR;
+        const [testsBackup0, scoresBackup0, mqBackup0] = [await getKey(TK), await getKey(SK), await getKey(MQK)];
+        try {
+            const testsArr0 = testsBackup0 ? JSON.parse(testsBackup0) : [];
+            const scoresArr0 = scoresBackup0 ? JSON.parse(scoresBackup0) : [];
+            const mqObj0 = mqBackup0 ? JSON.parse(mqBackup0) : {};
+            const canaryId = Date.now() + 900000;
+            testsArr0.push({ id: canaryId, name: '__uiUndoTest_canary', subject: '国語' });
+            scoresArr0.push({ id: 'uiUndoTest_canary_score', studentIndex: 0, testId: canaryId, score: 77 });
+            mqObj0[canaryId] = [{ points: 1 }];
+            await setKey(TK, JSON.stringify(testsArr0));
+            await setKey(SK, JSON.stringify(scoresArr0));
+            await setKey(MQK, JSON.stringify(mqObj0));
+            await page.evaluate(() => { if (typeof recInvalidateCache === 'function') recInvalidateCache(); });
+
+            await page.evaluate((id) => { window.recDeleteTest(id); }, canaryId);
+            await new Promise(r => setTimeout(r, 100));
+
+            const toastMsg = await page.evaluate(() => {
+                var el = document.getElementById('toastMsg');
+                return el ? el.textContent : '';
+            });
+            const afterTests = JSON.parse(await getKey(TK));
+            const afterScores = JSON.parse(await getKey(SK));
+            const afterMq = JSON.parse(await getKey(MQK));
+            const allRemoved = !afterTests.some(function(t) { return t.id === canaryId; })
+                && !afterScores.some(function(s) { return s.testId === canaryId; })
+                && !afterMq[canaryId];
+
+            check('REC_KEYS_STR（spa_tests/spa_scores/spa_matome_questions）が実装のキー名と一致している',
+                allRemoved && !/見つかりません/.test(toastMsg),
+                JSON.stringify({ toastMsg, allRemoved }));
+        } finally {
+            await restoreKey(TK, testsBackup0);
+            await restoreKey(SK, scoresBackup0);
+            await restoreKey(MQK, mqBackup0);
+            await page.evaluate(() => { if (typeof recInvalidateCache === 'function') recInvalidateCache(); });
+        }
+    }
+
+    // --- 18. 机間巡視（KEYS.patrol）: 削除→取り消しでデータが戻る ---
+    {
+        const K = REAL_KEYS.patrol;
+        const backup = await getKey(K);
+        try {
+            const existing = backup ? JSON.parse(backup) : [];
+            const synthetic = { sessionKey: '__uiUndoTest_S1', studentIndex: 0, evals: { '発言': '○' }, date: '2099-01-01' };
+            await setKey(K, JSON.stringify(existing.concat([synthetic])));
+            await page.evaluate(() => uiResetCaches());
+
+            const beforeLen = await page.evaluate(() => getPatrolData().length);
+            await startUndo('undo-real-patrol', [K]);
+            await page.evaluate(() => {
+                savePatrolData(getPatrolData().filter(function(d) { return d.sessionKey !== '__uiUndoTest_S1'; }));
+            });
+            const midLen = await page.evaluate(() => getPatrolData().length);
+            await commitUndo();
+            await clickUndoBtn();
+            const afterLen = await page.evaluate(() => getPatrolData().length);
+
+            check('机間巡視（KEYS.patrol）: 削除→取り消しでデータが戻る',
+                beforeLen === existing.length + 1 && midLen === existing.length && afterLen === existing.length + 1,
+                JSON.stringify({ beforeLen, midLen, afterLen, originalLen: existing.length }));
+        } finally {
+            await restoreKey(K, backup);
+            await page.evaluate(() => uiResetCaches());
+        }
+    }
+
+    // --- 19. 出欠（ATT_KEY / KEYS.attendance_notice / KEYS.morning_prep）: attClearDay実行→取り消しで3キーとも戻る ---
+    // attCurrentDate を直接書き換えているのは、特定日付の出欠データを作るための
+    // モジュール内部状態への依存である（ケース7でStorageManager._cacheLoadedを
+    // 操作したのと同種の手法）。ここが落ちた場合、出欠機能そのものの退行ではなく
+    // attCurrentDate の宣言位置・初期化タイミングの変更をまず疑うこと。
+    // 出欠は「通年固定・calcAttendanceStats不変」という設計ルールがあるため、
+    // この失敗を根拠に集計側（calcAttendanceStats等）を触らないこと。
+    {
+        const { att: AK, notice: NK, morningPrep: MK } = REAL_KEYS;
+        const [attBackup, noticeBackup, mpBackup] = [await getKey(AK), await getKey(NK), await getKey(MK)];
+        const originalAttDateIso = await page.evaluate(() => attCurrentDate.toISOString());
+        try {
+            await page.evaluate(() => { attCurrentDate = new Date(2099, 0, 1); });
+            const dateKey = await page.evaluate(() => attDateStr(attCurrentDate));
+
+            await page.evaluate((dk) => {
+                var allData = attGetAll(); allData[dk] = { '0': '○' }; attSave(allData);
+                var nd = attGetAllNotice(); nd[dk] = { '0': true }; attSaveNotice(nd);
+                var mp = StorageManager.get(KEYS.morning_prep, {}); mp[dk] = { '0': true };
+                StorageManager.setImmediate(KEYS.morning_prep, JSON.stringify(mp));
+            }, dateKey);
+
+            await page.evaluate(() => { attClearDay(); });
+            await new Promise(r => setTimeout(r, 350));
+
+            const midState = await page.evaluate((dk) => ({
+                att: attGetAll()[dk] || null,
+                notice: attGetAllNotice()[dk] || null,
+                mp: (StorageManager.get(KEYS.morning_prep, {}))[dk] || null
+            }), dateKey);
+
+            await clickUndoBtn();
+
+            const afterState = await page.evaluate((dk) => ({
+                att: attGetAll()[dk] || null,
+                notice: attGetAllNotice()[dk] || null,
+                mp: (StorageManager.get(KEYS.morning_prep, {}))[dk] || null
+            }), dateKey);
+
+            check('出欠（ATT_KEY/attendance_notice/morning_prep）: attClearDay実行→取り消しで3キーとも戻る',
+                !midState.att && !midState.notice && !midState.mp &&
+                afterState.att && afterState.att['0'] === '○' &&
+                afterState.notice && afterState.notice['0'] === true &&
+                afterState.mp && afterState.mp['0'] === true,
+                JSON.stringify({ midState, afterState }));
+        } finally {
+            await restoreKey(AK, attBackup);
+            await restoreKey(NK, noticeBackup);
+            await restoreKey(MK, mpBackup);
+            await page.evaluate((iso) => { attCurrentDate = new Date(iso); }, originalAttDateIso);
+        }
+    }
+
+    // --- 20. 成績（window.recDeleteTest経由）: 課題削除→取り消しでtests/scores/matomeQが戻る ---
+    {
+        const { tests: TK, scores: SK, mq: MQK } = REC_KEYS_STR;
+        const [testsBackup, scoresBackup, mqBackup] = [await getKey(TK), await getKey(SK), await getKey(MQK)];
+        try {
+            const testsArr = testsBackup ? JSON.parse(testsBackup) : [];
+            const scoresArr = scoresBackup ? JSON.parse(scoresBackup) : [];
+            const mqObj = mqBackup ? JSON.parse(mqBackup) : {};
+            const syntheticId = Date.now() + 600000; // 実データと衝突しない巨大ID
+            testsArr.push({ id: syntheticId, name: '__uiUndoTest_課題', subject: '国語' });
+            scoresArr.push({ id: 'uiUndoTest_score', studentIndex: 0, testId: syntheticId, score: 88 });
+            mqObj[syntheticId] = [{ points: 2 }];
+            await setKey(TK, JSON.stringify(testsArr));
+            await setKey(SK, JSON.stringify(scoresArr));
+            await setKey(MQK, JSON.stringify(mqObj));
+            await page.evaluate(() => { if (typeof recInvalidateCache === 'function') recInvalidateCache(); });
+
+            await page.evaluate((id) => { window.recDeleteTest(id); }, syntheticId);
+            await new Promise(r => setTimeout(r, 350));
+
+            const midTests = JSON.parse(await getKey(TK));
+            const midHasSynthetic = midTests.some(function(t) { return t.id === syntheticId; });
+
+            await clickUndoBtn();
+
+            const afterTests = JSON.parse(await getKey(TK));
+            const afterScores = JSON.parse(await getKey(SK));
+            const afterMq = JSON.parse(await getKey(MQK));
+            const restoredOk = afterTests.some(function(t) { return t.id === syntheticId; })
+                && afterScores.some(function(s) { return s.testId === syntheticId; })
+                && !!afterMq[syntheticId];
+
+            check('成績（recDeleteTest経由）: 課題削除→取り消しでtests/scores/matomeQが戻る',
+                !midHasSynthetic && restoredOk,
+                JSON.stringify({ midHasSynthetic, restoredOk }));
+        } finally {
+            await restoreKey(TK, testsBackup);
+            await restoreKey(SK, scoresBackup);
+            await restoreKey(MQK, mqBackup);
+            await page.evaluate(() => { if (typeof recInvalidateCache === 'function') recInvalidateCache(); });
+        }
+    }
+
+    // --- 21. 提出物（.sub-assign-del-btn実クリック）: 削除→取り消しで課題と提出記録が戻る ---
+    {
+        const { assignments: AGK, subData: SDK } = REAL_KEYS;
+        const [assignBackup, dataBackup] = [await getKey(AGK), await getKey(SDK)];
+        let originalTermVal = null;
+        try {
+            const assignArr = assignBackup ? JSON.parse(assignBackup) : [];
+            const dataArr = dataBackup ? JSON.parse(dataBackup) : [];
+            const syntheticId = Date.now() + 700000;
+            assignArr.push({ id: syntheticId, name: '__uiUndoTest_課題', subject: '国語', date: '2099-01-01' });
+            dataArr.push({ assignmentId: syntheticId, studentIndex: 0, status: 'submitted' });
+            await setKey(AGK, JSON.stringify(assignArr));
+            await setKey(SDK, JSON.stringify(dataArr));
+
+            await page.evaluate(() => { showView('submissions'); });
+            await new Promise(r => setTimeout(r, 100));
+
+            // 学期フィルタ（subTermSel）が現在の学期に固定されていると、2099年の
+            // 合成課題は学期未一致でリストから除外され描画されない。実際に描画で
+            // 使われている「通年」選択に切り替えてから一覧を開く（後で元の値に戻す）。
+            originalTermVal = await page.evaluate(() => {
+                var el = document.getElementById('subTermSel');
+                return el ? el.value : null;
+            });
+            await page.evaluate(() => {
+                var el = document.getElementById('subTermSel');
+                if (el) { el.value = 'all'; el.dispatchEvent(new Event('change')); }
+            });
+
+            // subShowSub はモジュール内部関数でwindowから呼べないため、実際のナビボタンをクリックする
+            await page.evaluate(() => {
+                var nav = document.querySelector('#view-submissions .sub-subnav-btn[data-sub="assign"]');
+                if (nav) nav.click();
+            });
+            await new Promise(r => setTimeout(r, 100));
+
+            const delBtnFound = await page.evaluate((id) => !!document.querySelector('.sub-assign-del-btn[data-aid="' + id + '"]'), syntheticId);
+            if (!delBtnFound) {
+                check('提出物（.sub-assign-del-btn実クリック）: 削除→取り消しで課題と提出記録が戻る',
+                    false, '削除ボタンが描画されていない（syntheticId=' + syntheticId + '）');
+            } else {
+                await page.click('.sub-assign-del-btn[data-aid="' + syntheticId + '"]');
+                await new Promise(r => setTimeout(r, 350));
+
+                const midAssign = JSON.parse(await getKey(AGK));
+                const midHasSynthetic = midAssign.some(function(a) { return a.id === syntheticId; });
+
+                await clickUndoBtn();
+
+                const afterAssign = JSON.parse(await getKey(AGK));
+                const afterData = JSON.parse(await getKey(SDK));
+                const restoredOk = afterAssign.some(function(a) { return a.id === syntheticId; })
+                    && afterData.some(function(d) { return d.assignmentId === syntheticId; });
+
+                check('提出物（.sub-assign-del-btn実クリック）: 削除→取り消しで課題と提出記録が戻る',
+                    !midHasSynthetic && restoredOk,
+                    JSON.stringify({ midHasSynthetic, restoredOk }));
+            }
+        } finally {
+            await restoreKey(AGK, assignBackup);
+            await restoreKey(SDK, dataBackup);
+            if (originalTermVal !== null) {
+                await page.evaluate((v) => {
+                    var el = document.getElementById('subTermSel');
+                    if (el) { el.value = v; el.dispatchEvent(new Event('change')); }
+                }, originalTermVal);
+            }
+        }
+    }
+
+    // --- 22. 日記（KEYS.submissions_diary）: 全員+1→取り消しで元の値に戻る ---
+    {
+        const K = REAL_KEYS.diary;
+        const backup = await getKey(K);
+        try {
+            const diaryObj = backup ? JSON.parse(backup) : {};
+            const syntheticDate = '2099-01-01';
+            diaryObj[syntheticDate] = { '0': 5, '1': 3 };
+            await setKey(K, JSON.stringify(diaryObj));
+
+            await startUndo('undo-real-diary', [K]);
+            const bumped = JSON.parse(await getKey(K));
+            bumped[syntheticDate]['0'] = 6; bumped[syntheticDate]['1'] = 4;
+            await setKey(K, JSON.stringify(bumped));
+            await commitUndo();
+            await clickUndoBtn();
+
+            const restored = JSON.parse(await getKey(K));
+            const entry = restored[syntheticDate];
+            check('日記（KEYS.submissions_diary）: 全員+1→取り消しで元の値に戻る',
+                entry && entry['0'] === 5 && entry['1'] === 3,
+                JSON.stringify(entry));
+        } finally {
+            await restoreKey(K, backup);
+        }
+    }
+
+    // --- 23. 競合時（実キー）: 割り込み変更があれば書き戻さない ---
+    {
+        const K = REAL_KEYS.patrol;
+        const backup = await getKey(K);
+        try {
+            const existing = backup ? JSON.parse(backup) : [];
+            const synthetic = { sessionKey: '__uiUndoTest_conflict', studentIndex: 0, evals: {}, date: '2099-01-01' };
+            await setKey(K, JSON.stringify(existing.concat([synthetic])));
+            await page.evaluate(() => uiResetCaches());
+
+            await startUndo('undo-real-conflict', [K]);
+            await page.evaluate(() => {
+                savePatrolData(getPatrolData().filter(function(d) { return d.sessionKey !== '__uiUndoTest_conflict'; }));
+            });
+            await commitUndo();
+            // 取り消し可能時間中に別の操作が割り込んだ体を作る
+            await page.evaluate(() => {
+                var arr = getPatrolData();
+                arr.push({ sessionKey: '__uiUndoTest_interfere', studentIndex: 9, evals: {}, date: '2099-01-02' });
+                savePatrolData(arr);
+            });
+            await clickUndoBtn();
+
+            const finalArr = JSON.parse(await getKey(K));
+            const hasInterfere = finalArr.some(function(d) { return d.sessionKey === '__uiUndoTest_interfere'; });
+            const hasSynthetic = finalArr.some(function(d) { return d.sessionKey === '__uiUndoTest_conflict'; });
+            const cls = await toastClass();
+
+            check('競合時（実キー）: 割り込み変更があれば書き戻さない',
+                hasInterfere && !hasSynthetic && /warning/.test(cls),
+                JSON.stringify({ hasInterfere, hasSynthetic, cls }));
+        } finally {
+            await restoreKey(K, backup);
+            await page.evaluate(() => uiResetCaches());
+        }
+    }
+
+    // --- 24. 実データ往復セクションで触れた全キーが元の値に戻っている ---
+    {
+        const finalState = {};
+        let allMatch = true;
+        for (const key of Object.keys(masterBackup)) {
+            const cur = await getKey(key);
+            finalState[key] = cur;
+            if (cur !== masterBackup[key]) allMatch = false;
+        }
+        check('実データ往復セクションで触れた全キーが元の値に戻っている', allMatch,
+            allMatch ? 'OK' : JSON.stringify({ expected: masterBackup, actual: finalState }));
+    }
+
+    // ================================================================
     // コンソールエラーなし
     // ================================================================
     const realErrors = consoleErrors.filter(e =>

@@ -10467,20 +10467,26 @@
                 // presentにもabsentにも属さないA群の値を作ると、この等価性は崩れる。
                 // その場合はatt.total（出席すべき日数）の方が正しい。
                 var total   = att.total;
-                // 旧挙動の維持。出欠データが1件もない場合（att.rate===null）に100%と
-                // 表示される点は段階3以降で別途見直す。
-                var attPct  = att.rate !== null ? att.rate : 100;
-                var barW = attPct;
+                // att.rate === null（出欠データが1件もない）は「達成」ではないため、
+                // 数値・バーは出さず「まだ記録がありません」のみを表示する。
+                var attBarHtml = '';
+                var attTextHtml;
+                if (att.rate !== null) {
+                    attBarHtml = '<div style="background:#ddd;border-radius:20pt;height:7pt;overflow:hidden;">'
+                        + '<div style="background:linear-gradient(90deg,#27AE60,#2ECC71);height:100%;width:' + att.rate + '%;border-radius:20pt;"></div>'
+                        + '</div>';
+                    attTextHtml = '<div style="font-size:7pt;color:#888;margin-top:2pt;">' + att.rate + '% (' + present + '日出席 / ' + total + '日)</div>';
+                } else {
+                    attTextHtml = '<div style="font-size:7pt;color:#888;margin-top:2pt;">まだ記録がありません</div>';
+                }
                 html += '<div style="margin-bottom:5pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:2pt;padding-left:6pt;border-left:4pt solid #27AE60;">📅 出席</div>'
                     + '<div style="font-size:6.5pt;color:#888;padding-left:6pt;margin-bottom:3pt;">出席は１年間の記録をのせています</div>'
                     + '<div style="background:#F0FFF4;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:12pt;">'
                     + '<div style="flex:1;">'
                     + '<div style="font-size:7pt;color:#555;margin-bottom:3pt;">出席率</div>'
-                    + '<div style="background:#ddd;border-radius:20pt;height:7pt;overflow:hidden;">'
-                    + '<div style="background:linear-gradient(90deg,#27AE60,#2ECC71);height:100%;width:' + barW + '%;border-radius:20pt;"></div>'
-                    + '</div>'
-                    + '<div style="font-size:7pt;color:#888;margin-top:2pt;">' + attPct + '% (' + present + '日出席 / ' + total + '日)</div>'
+                    + attBarHtml
+                    + attTextHtml
                     + '</div>'
                     + '<div style="display:flex;gap:8pt;">'
                     + [['欠席', absent, '#E74C3C'],['遅刻', late, '#E67E22'],['早退', early, '#F39C12']].map(function(col) {

@@ -65,8 +65,19 @@ async function tapCell(page, idx) {
     await new Promise(r => setTimeout(r, 50));
 }
 async function modalSelect(page, dataS) {
-    await page.click('#subStatusModal .att-status-opt[data-s="' + dataS + '"]');
-    await new Promise(r => setTimeout(r, 50));
+    // 要素未検出・クリック不能のどちらでもプロセス全体を落とさず、FAILとして記録して後続へ進む。
+    // 失敗時はモーダルを開いたまま放置すると後続のタップ操作まで巻き添えで壊れるため、
+    // 可能なら閉じるボタンでモーダルを閉じてから返す。
+    try {
+        await page.click('#subStatusModal .att-status-opt[data-s="' + dataS + '"]');
+        await new Promise(r => setTimeout(r, 50));
+    } catch (e) {
+        check('modalSelect(\'' + dataS + '\'): クリックできない', false, e.message.split('\n')[0]);
+        try {
+            await page.click('#subStatusModalClose');
+            await new Promise(r => setTimeout(r, 50));
+        } catch (e2) { /* 閉じるボタンも押せない場合はそのまま後続へ進む */ }
+    }
 }
 async function getModalLateToggle(page) {
     return page.evaluate(() => document.getElementById('subModalLateToggle').checked);
@@ -155,26 +166,26 @@ async function flushAndGetRec(page, idx) {
     check('検証1c: 提出日なし課題 lateOnDue=false', rec && rec.lateOnDue === false, JSON.stringify(rec));
 
     // ================================================================
-    // 検証2: 欠席遷移検証（同一セッション内、idx0/1/2で並行検証）
+    // 検証2: 欠席遷移検証（同一セッション内、idx0/2で並行検証）
     // ================================================================
+    // 旧idx1「当日『未提出』にする（タップ→○提出、再タップ→モーダル→×）」は削除した。
+    // v1.8.63「空欄＝未提出（A案）」への統一以降、モーダルに×(missing)相当の選択肢は無く、
+    // 一度○提出した行を明示的に「未提出」へ戻す唯一の手段は「空欄に戻す」(空セルへの
+    // クリア)であり、これは subClearStatus() でレコードごと削除される（index.html:13022-13040）。
+    // つまり「提出後に未提出へ明示的に戻した状態」と「一度も入力していない状態」を
+    // 区別する手段が現行仕様には存在せず、idx2（当日入力なし）と検証内容が同一になって
+    // しまうため、idx1のケース（旧・検証2b）はテスト対象が消滅したものとして削除した。
     await setup(page, DUE_DATE);
     await setMockDate(page, ON_DUE_TS);
     // idx0: 当日「欠席」にする（タップ→○提出、再タップ→モーダル→欠）
     await tapCell(page, 0);
     await tapCell(page, 0);
     await modalSelect(page, 'absent');
-    // idx1: 当日「未提出」にする（タップ→○提出、再タップ→モーダル→×）
-    await tapCell(page, 1);
-    await tapCell(page, 1);
-    await modalSelect(page, 'missing');
     // idx2: 当日は入力なし
 
     await setMockDate(page, NEXT_DAY_TS);
     // idx0: 翌日、モーダル→○提出（欠席からの上書き：lateOnDue=false 期待）
     await tapCell(page, 0);
-    await modalSelect(page, 'submitted');
-    // idx1: 翌日、モーダル→○提出（未提出からの上書き：lateOnDue=true 期待）
-    await tapCell(page, 1);
     await modalSelect(page, 'submitted');
     // idx2: 翌日、空セルタップ→○提出（入力なしからの記録：lateOnDue=true 期待）
     await tapCell(page, 2);
@@ -183,10 +194,8 @@ async function flushAndGetRec(page, idx) {
     await new Promise(r => setTimeout(r, 700));
     let arr2 = JSON.parse(await page.evaluate(() => localStorage.getItem('spa_submissions_data')) || '[]');
     let rec0 = arr2.find(r => r.studentIndex === 0);
-    let rec1 = arr2.find(r => r.studentIndex === 1);
     let rec2 = arr2.find(r => r.studentIndex === 2);
     check('検証2a: 当日「欠席」→翌日○提出(モーダル) lateOnDue=false', rec0 && rec0.lateOnDue === false && rec0.status === 'submitted', JSON.stringify(rec0));
-    check('検証2b: 当日「未提出」→翌日○提出(モーダル) lateOnDue=true', rec1 && rec1.lateOnDue === true && rec1.status === 'submitted', JSON.stringify(rec1));
     check('検証2c: 当日入力なし→翌日○提出(空セル) lateOnDue=true', rec2 && rec2.lateOnDue === true && rec2.status === 'submitted', JSON.stringify(rec2));
 
     // ================================================================
@@ -274,17 +283,23 @@ async function flushAndGetRec(page, idx) {
     check('追加①-ON: トグルONのまま○再選択 lateOnDue=true', rec && rec.lateOnDue === true, JSON.stringify(rec));
 
     // ================================================================
-    // 追加②: 欠席の児童に再度「欠」を選択→absent維持
+    // 追加②: 欠席の児童に再度「欠」を選択→欠席解除（v1.8.89仕様）
     // ================================================================
+    // v1.8.89でボタンの意味が変わった（index.html:13317, 13343-13350）。
+    // 既にabsentな行に対して同じ「欠」ボタン（表示ラベルは「欠席解除」）を選ぶと
+    // subToggleAbsent()の解除分岐に入る。今回のように○提出→欠、で status が
+    // 'missing' になっている行（×由来扱い）は、解除時に subClearStatus() で
+    // レコードごと空欄に戻る（index.html:13054-13055）。「absent維持」という
+    // 旧テストの前提は現行仕様と逆で、実際は「欠席解除→空欄化」が正しい。
     await setup(page, DUE_DATE);
     await setMockDate(page, ON_DUE_TS);
     await tapCell(page, 2);            // 空セル→○提出
     await tapCell(page, 2);            // 再タップ→モーダル
     await modalSelect(page, 'absent'); // 欠席化
-    await tapCell(page, 2);            // 再タップ→モーダル（curStatus=absent）
-    await modalSelect(page, 'absent'); // 再度「欠」を選択
+    await tapCell(page, 2);            // 再タップ→モーダル（curStatus=absent、ラベルは「欠席解除」）
+    await modalSelect(page, 'absent'); // 再度選択→欠席解除
     rec = await flushAndGetRec(page, 2);
-    check('追加②: 欠席児童に再度「欠」→absent維持', rec && rec.absent === true && rec.status === 'missing', JSON.stringify(rec));
+    check('追加②: 欠席児童に再度「欠」(欠席解除)→レコードごと空欄に戻る', !rec, JSON.stringify(rec));
 
     // ================================================================
     // 追加③: 締切日に○提出(late=false)→翌日モーダルを開く→トグルOFF初期化
@@ -320,9 +335,10 @@ async function flushAndGetRec(page, idx) {
     // idx0: 再タップ→モーダル→△
     await tapCell(page, 0);
     await modalSelect(page, 'resubmit');
-    // idx1: 再タップ→モーダル→×
-    await tapCell(page, 1);
-    await modalSelect(page, 'missing');
+    // 旧idx1「再タップ→モーダル→×」は削除した。v1.8.63以降モーダルに×(missing)相当の
+    // 選択肢は無く、○提出済みの行を未提出に戻す唯一の手段は「空欄に戻す」だが、
+    // それは次の「検証5: 空欄に戻す→マーク消去」(idx0)と同一内容の検証になり重複するため。
+    // idx1は本セクションでは変更せず○のまま据え置く。
     // idx2: 再タップ→モーダル→欠
     await tapCell(page, 2);
     await modalSelect(page, 'absent');
@@ -330,7 +346,7 @@ async function flushAndGetRec(page, idx) {
         const get = (i) => document.querySelector('#subContGrid .sub-cont-cell[data-cidx="' + i + '"] .sub-cont-mark').textContent;
         return { c0: get(0), c1: get(1), c2: get(2) };
     });
-    check('検証5: モーダル経由で△/×/欠に変更', marks.c0 === '△' && marks.c1 === '×' && marks.c2 === '欠', JSON.stringify(marks));
+    check('検証5: モーダル経由で△/欠に変更', marks.c0 === '△' && marks.c2 === '欠', JSON.stringify(marks));
 
     // idx0: 再タップ→モーダル→空欄に戻す
     await tapCell(page, 0);

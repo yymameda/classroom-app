@@ -8655,6 +8655,11 @@
             // id参照を必要としない)。
             var inner = body.firstElementChild;
             if (inner) inner.removeAttribute('id');
+            // モーダルヘッダー(recPeRubricModalTitle)に児童名が既に表示されており重複するため、
+            // カードヘッダー側の氏名(.rec-pr-name)だけをモーダル内では消す。番号(.rec-pr-num)と
+            // 入力中/確定バッジ(.rec-pr-badge)は残す。
+            var nameEl = inner && inner.querySelector('.rec-pr-name');
+            if (nameEl) nameEl.remove();
         }
 
         window.recClosePeRubricModal = function() {

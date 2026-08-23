@@ -2832,6 +2832,7 @@
                                         <option value="実技:volley">🏐 ソフトバレー（実技ルーブリック）</option>
                                         <option value="実技:mat">🤸 マット運動（実技ルーブリック）</option>
                                         <option value="実技:hurdle">🏃 ハードル走（実技ルーブリック）</option>
+                                        <option value="実技:vault">📦 跳び箱運動（実技ルーブリック）</option>
                                     </select>
                                     <span id="recPeDirTrialWrap" style="display:contents;">
                                     <label style="font-size:0.78rem;">方向:</label>
@@ -7966,6 +7967,59 @@
                     }
                 ],
                 bonus: [],
+                note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
+            },
+            // Phase2 第2弾: 跳び箱運動。3項目すべてmode:'level'(4段階)、加点(首はね跳び・
+            // 頭はね跳び)は1項目のみ(bonusMode:'each'、hurdleと同じくmatを踏襲)。
+            // displayMode:'modal'を明示指定(volley/mat/hurdleと同じ理由で自動判定はしない)。
+            vault: {
+                name: '跳び箱運動',
+                emoji: '📦',
+                combine: 'average',
+                bonusMode: 'each',
+                cap: 10,
+                displayMode: 'modal',
+                items: [
+                    {
+                        id: 'vt1', name: '①開脚跳び', mode: 'level',
+                        hint: '4段以上で実施。3回中2回以上成功で安定。発展技は大きな開脚跳び',
+                        levels: [
+                            { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                            { label: '片方向（縦または横）で安定', score: 6 },
+                            { label: '縦・横とも安定', score: 8 },
+                            { label: '大きな開脚跳びが安定', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'vt2', name: '②かかえ込み跳び', mode: 'level',
+                        hint: '4段以上で実施。3回中2回以上成功で安定。発展技は屈伸跳び',
+                        levels: [
+                            { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                            { label: '片方向（縦または横）で安定', score: 6 },
+                            { label: '縦・横とも安定', score: 8 },
+                            { label: '屈伸跳びが安定', score: 10 }
+                        ]
+                    },
+                    {
+                        id: 'vt3', name: '③台上前転', mode: 'level',
+                        hint: '4段以上で実施。3回中2回以上成功で安定。発展技は伸膝台上前転（大きな台上前転）',
+                        levels: [
+                            { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                            { label: '片方向（縦または横）で安定', score: 6 },
+                            { label: '縦・横とも安定', score: 8 },
+                            { label: '伸膝台上前転が安定', score: 10 }
+                        ]
+                    }
+                ],
+                bonus: [
+                    {
+                        id: 'b1', name: '首はね跳び・頭はね跳び', mode: 'level',
+                        levels: [
+                            { label: '未達成', score: 0 },
+                            { label: '安定してできる（4段以上、3回中2回以上成功）', score: 0.5 }
+                        ]
+                    }
+                ],
                 note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
             }
         };

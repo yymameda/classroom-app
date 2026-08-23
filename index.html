@@ -5517,7 +5517,7 @@
                 if (sub && sub.status === 'submitted') ok2++;
                 else if (sub && sub.status === 'resubmit') re2++;
             });
-            var subPct2 = assigns2.length ? Math.round((ok2 + re2 * 0.8) / assigns2.length * 100) : null;
+            var subPct2 = assigns2.length ? Math.round((ok2 + re2) / assigns2.length * 100) : null;
             html += dashKarteRow('📚 提出率', subPct2 !== null ? subPct2 + '%' : '—',
                 ok2 + '件提出 / ' + assigns2.length + '課題',
                 subPct2 !== null ? (subPct2 >= 80 ? '#27AE60' : subPct2 >= 60 ? '#B7950B' : '#E74C3C') : '#888');

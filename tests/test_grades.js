@@ -1,155 +1,322 @@
-// ===== 抽出した純粋関数のテストハーネス =====
-function abcTo10(val) {
-    if (val === 'A' || val === '◎') return 10;
-    if (val === 'B' || val === '○') return 7;
-    if (val === 'C' || val === '△') return 3;
-    if (val === 3) return 10; if (val === 2) return 7; if (val === 1) return 3;
-    return null;
+// 成績換算ロジック 機械検証（段階0、成績入力形式統一プロジェクトの前提整備）
+//
+// 旧 test_grades.js は abcTo10 等を index.html からファイル内に「手動コピー」して
+// 単体検証していたが、実装側の変更（A/B+/B/B-/C の5段階拡張）に追随できず、
+// 気づかれないまま乖離していた（コピー側は A/B/C の3段階のままだった）。
+// tests/README.md の方針（ロジック切り出しをせず index.html をそのまま動かす）に
+// 合わせ、puppeteer-core で実ページを操作し、window に公開された実装関数
+// （grdCalculate / grdGetCurrentTerm）を経由して実装本体を直接検証する方式に
+// 書き換える。以後の「成績入力形式の全アプリ標準化」作業（段階1〜8）は、
+// このファイルが abcTo10 等の換算値を守るという前提で進める。
+//
+// 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
+//   cd classroom-app && python3 -m http.server 8123
+// 実行: cd tests && node test_grades.js
+//
+// --- 今回のスコープ外（意図的に検証しないもの。理由を明記） ---
+// - nawatobiToScore10: コメント(index.html 7641, 7720)により
+//   kenteiConfig の conversionTable へ「写経」済みで、呼び出し箇所が
+//   コード中に存在しない（実質的に死んでいる）。実際に使われている
+//   なわとび/泳力の換算表は pe-score10.test.js が検証済み。
+// - grdGetTermRange: 定義(index.html 14992)はあるが、実際の呼び出し箇所が
+//   コメント中の言及以外に見つからない（未使用）。
+// - calcPfEval/convertEval（新体力テストのA〜E 5段階）: abcTo10とは無関係の
+//   別系統（今回の「A/B+/B/B-/C」統一の対象外と既に確認済み）。
+// - calcWeightedScore の「itemにweightフィールドが無い(undefined)場合は
+//   w=0扱いにする」という分岐: grdCalculate は必ず grdGetItemWeight() で
+//   数値化した weight を各itemに付けてから calcWeightedScore に渡すため、
+//   実運用経路では発生しない（純粋関数としての境界仕様であり、実データ
+//   経由では再現できない）。
+// - grdGetCurrentTerm の2学期制(termSystem=2)の境界: 今回は3学期制のみ検証。
+//
+// これらは「実装から呼べないので検証しない」であって、「削除してよい」
+// という判断ではない。将来これらの関数が実際に呼ばれるようになった場合は
+// 別途検証を追加すること。
+
+const puppeteer = require('puppeteer-core');
+
+const BASE_URL = 'http://localhost:8123/index.html';
+
+const results = [];
+function check(name, cond, detail) {
+    results.push({ name, pass: !!cond, detail });
+    console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
-function scoreTo10(score, maxScore) {
-    if (score === null || score === undefined || !maxScore || maxScore <= 0) return null;
-    return Math.min(10, (score / maxScore) * 10);
+function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (eps || 0.05); }
+
+async function setMockDate(page, ts) {
+    await page.evaluate((fixed, enable) => {
+        if (!window.__RealDate) window.__RealDate = Date;
+        if (!enable) { window.Date = window.__RealDate; return; }
+        const RealDate = window.__RealDate;
+        class MockDate extends RealDate {
+            constructor(...args) {
+                if (args.length === 0) return new RealDate(fixed);
+                return new RealDate(...args);
+            }
+            static now() { return fixed; }
+        }
+        window.Date = MockDate;
+    }, ts || 0, ts !== null && ts !== undefined);
 }
-function score10ToABC(score10, aThresh, bThresh) {
-    if (score10 === null || score10 === undefined) return '';
-    var pct = score10 / 10 * 100;
-    if (pct >= aThresh) return 'A';
-    if (pct >= bThresh) return 'B';
-    return 'C';
-}
-function abcToNum(abc) { return abc === 'A' ? 3 : abc === 'B' ? 2 : abc === 'C' ? 1 : 0; }
-function calcWeightedScore(items) {
-    if (!items || !items.length) return null;
-    var valid = items.filter(function(it) { return it.score10 !== null && it.score10 !== undefined; });
-    if (!valid.length) return null;
-    var hasW = valid.some(function(it) { return it.weight !== null && it.weight !== undefined; });
-    if (!hasW) { var s = 0; valid.forEach(function(it) { s += it.score10; }); return s / valid.length; }
-    var wS = 0, sS = 0;
-    valid.forEach(function(it) { var w = (it.weight !== null && it.weight !== undefined) ? it.weight : 0; wS += w; sS += it.score10 * w; });
-    if (wS <= 0) { var s2 = 0; valid.forEach(function(it) { s2 += it.score10; }); return s2 / valid.length; }
-    return sS / wS;
-}
-function nawatobiToScore10(grade) {
-    if (grade === undefined || grade === null) return null;
-    if (grade <= 0) return 10;
-    if (grade > 20) return 0;
-    if (grade <= 7)  return Math.round(10 - (grade - 1) * (2 / 6));
-    if (grade <= 17) return Math.round(7  - (grade - 8) * (3 / 9));
-    return Math.round(3 - (grade - 18) * (2 / 2));
-}
-var PF_EVAL_TABLE_LOCAL = {6:[39,33,27,22],7:[47,41,34,27],8:[53,46,39,32],9:[59,52,45,38],10:[65,58,50,42],11:[71,63,55,46]};
-function calcPfEval(total, grade) {
-    var age = parseInt(grade) + 5;
-    var th = PF_EVAL_TABLE_LOCAL[age] || PF_EVAL_TABLE_LOCAL[10];
-    if (total >= th[0]) return 'A';
-    if (total >= th[1]) return 'B';
-    if (total >= th[2]) return 'C';
-    if (total >= th[3]) return 'D';
-    return 'E';
-}
-function grdExtSuggestHyoutei(k, t, a) {
-    var total = abcToNum(k) + abcToNum(t) + abcToNum(a);
-    if (!k || !t || !a) return '';
-    return total >= 8 ? 3 : total >= 5 ? 2 : 1;
-}
-// 学期判定（master をパラメータ化）
-function grdGetCurrentTerm(master, now) {
-    var ts = (master && master.classInfo && master.classInfo.termSystem) || 3;
-    var m = now.getMonth() + 1;
-    if (Number(ts) === 2) { return (m >= 4 && m <= 9) ? '1' : '2'; }
-    if (m >= 4 && m <= 8) return '1';
-    if (m >= 9 && m <= 12) return '2';
-    return '3';
-}
-function grdGetTermRange(term, master, now) {
-    var ts = (master && master.classInfo && master.classInfo.termSystem) || 3;
-    var fy = now.getFullYear();
-    if (now.getMonth() + 1 <= 3) fy--;
-    if (Number(ts) === 2) {
-        if (term === '1') return { start: fy+'-04-01', end: fy+'-09-30' };
-        return { start: fy+'-10-01', end: (fy+1)+'-03-31' };
+
+(async () => {
+    const browser = await puppeteer.launch({
+        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        headless: 'new',
+        defaultViewport: { width: 1180, height: 820 }
+    });
+    const page = await browser.newPage();
+    const consoleErrors = [];
+    page.on('console', msg => {
+        if (msg.type() !== 'error') return;
+        const loc = msg.location() || {};
+        // favicon.ico の404は python3 -m http.server にfaviconが無いだけの既知ノイズ。
+        if ((loc.url || '').indexOf('favicon.ico') !== -1) return;
+        consoleErrors.push(msg.text() + (loc.url ? ' [' + loc.url + ']' : ''));
+    });
+    page.on('pageerror', err => consoleErrors.push('PAGEERROR: ' + err.message));
+
+    await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
+    await new Promise(r => setTimeout(r, 300));
+
+    // ---- 実データキーの退避（tests/README.md「確立済みノウハウ」に従う） ----
+    const REAL_KEYS = await page.evaluate(() => ({
+        master: KEYS.master, tests: KEYS.tests, scores: KEYS.scores,
+        gradesExternal: KEYS.grades_external, gradeWeights: KEYS.grade_weights
+    }));
+    async function getKey(k) { return page.evaluate((kk) => StorageManager.getRaw(kk), k); }
+    async function setKey(k, v) { await page.evaluate((kk, vv) => { StorageManager.setImmediate(kk, vv); }, k, v); }
+    async function restoreKey(k, raw) {
+        if (raw === null || raw === undefined) await page.evaluate((kk) => { StorageManager.remove(kk); }, k);
+        else await setKey(k, raw);
     }
-    if (term === '1') return { start: fy+'-04-01', end: fy+'-08-31' };
-    if (term === '2') return { start: fy+'-09-01', end: fy+'-12-31' };
-    return { start: (fy+1)+'-01-01', end: (fy+1)+'-03-31' };
-}
+    const backup = {};
+    for (const k of Object.values(REAL_KEYS)) backup[k] = await getKey(k);
 
-var pass=0, fail=0;
-function eq(name, got, want) {
-    var ok = JSON.stringify(got) === JSON.stringify(want);
-    if (ok) pass++; else { fail++; console.log('❌', name, '→ got', JSON.stringify(got), 'want', JSON.stringify(want)); }
-}
+    try {
+        const now = Date.now();
 
-// --- abcTo10 ---
-eq('A→10', abcTo10('A'), 10); eq('◎→10', abcTo10('◎'), 10);
-eq('B→7', abcTo10('B'), 7); eq('C→3', abcTo10('C'), 3);
-eq('数値3→10', abcTo10(3), 10); eq('数値1→3', abcTo10(1), 3);
-eq('不正値→null', abcTo10('D'), null);
-eq('空文字→null', abcTo10(''), null);
-eq('小文字a→null(要確認)', abcTo10('a'), null);   // 小文字は変換されない
-eq('文字列"3"→null(要確認)', abcTo10('3'), null); // 文字列数字は変換されない
+        // 学級名簿は8名。教科が異なれば集計は独立するため、同じ studentIndex を
+        // 別教科のケースで使い回しても互いに汚染しない。
+        const students = [];
+        for (let i = 0; i < 8; i++) students.push({ name: '児童' + (i + 1) });
 
-// --- scoreTo10 ---
-eq('80/100→8', scoreTo10(80,100), 8);
-eq('0点→0', scoreTo10(0,100), 0);
-eq('満点超過はクランプ', scoreTo10(120,100), 10);
-eq('max=0→null', scoreTo10(50,0), null);
-eq('負の点数(検証なし)', scoreTo10(-10,100), -1);  // ← 下限クランプなし
+        function T(id, subject, category, testType, maxScore, extra) {
+            return Object.assign({ id, subject, category, testType, type: 'standard', maxScore, date: '2026-06-01', createdAt: new Date().toISOString() }, extra || {});
+        }
 
-// --- score10ToABC 境界 ---
-eq('8.0/A閾値80→A', score10ToABC(8.0,80,50), 'A');
-eq('7.9→B', score10ToABC(7.9,80,50), 'B');
-eq('5.0→B', score10ToABC(5.0,80,50), 'B');
-eq('4.9→C', score10ToABC(4.9,80,50), 'C');
-eq('0→C(空でない)', score10ToABC(0,80,50), 'C');
-eq('null→空', score10ToABC(null,80,50), '');
-// 丸め起因の境界: 平均7.95→四捨五入で8.0→A になる
-eq('7.95を丸めてから判定するとA', score10ToABC(Math.round(7.95*10)/10,80,50), 'A');
+        const ID = {
+            houtei5: now + 1,                          // 家庭: abcTo10 5段階の実値そのもの
+            jpBoundary: now + 2, jpClamp: now + 3, jpNegative: now + 4, // 国語: scoreTo10/score10ToABC境界
+            mathK: now + 5, mathT: now + 6, mathA: now + 7,             // 算数: abcToNum/最終評定
+            scienceW1: now + 8, scienceW2: now + 9,                     // 理科: calcWeightedScore(重み付き)
+            socialZ1: now + 10, socialZ2: now + 11, socialSolo: now + 12, // 社会: 全重み0/null除外
+            peAttitude: now + 13, pePractical: now + 14                 // 体育: 授業態度記号 / peManualABC直書き
+        };
 
-// --- calcWeightedScore ---
-eq('全員重みなし→単純平均', calcWeightedScore([{score10:10},{score10:5}]), 7.5);
-eq('重み付き', calcWeightedScore([{score10:10,weight:2},{score10:4,weight:1}]), 8);
-eq('重み0の項目は除外扱い', calcWeightedScore([{score10:10,weight:1},{score10:0,weight:0}]), 10);
-eq('全重み0→単純平均へフォールバック', calcWeightedScore([{score10:10,weight:0},{score10:4,weight:0}]), 7);
-eq('null項目は除外', calcWeightedScore([{score10:null},{score10:6}]), 6);
-eq('空→null', calcWeightedScore([]), null);
-// ⚠️ 混在ケース: 一部だけ重み指定→未指定はw=0扱い
-eq('重み一部指定: 未指定はw=0扱い', calcWeightedScore([{score10:10,weight:2},{score10:4}]), 10);
+        const tests = [
+            T(ID.houtei5, '家庭', '主体性', 'ルーブリック', 0),
+            T(ID.jpBoundary, '国語', '知識・技能', '小テスト', 100),
+            T(ID.jpClamp, '国語', '知識・技能', '授業課題', 100),
+            T(ID.jpNegative, '国語', '知識・技能', '授業課題', 100),
+            T(ID.mathK, '算数', '知識・技能', '小テスト', 0),
+            T(ID.mathT, '算数', '思考・判断・表現', '小テスト', 0),
+            T(ID.mathA, '算数', '主体性', 'ルーブリック', 0),
+            T(ID.scienceW1, '理科', '知識・技能', '小テスト', 100),
+            T(ID.scienceW2, '理科', '知識・技能', '小テスト', 100),
+            T(ID.socialZ1, '社会', '知識・技能', '小テスト', 100),
+            T(ID.socialZ2, '社会', '知識・技能', '小テスト', 100),
+            T(ID.socialSolo, '社会', '知識・技能', '小テスト', 100),
+            T(ID.peAttitude, '体育', '主体性', '授業態度', 10),
+            T(ID.pePractical, '体育', '知識・技能', '実技記録', 9999, { peUnit: '回' })
+        ];
 
-// --- nawatobi (B-2修正確認: 級が小さい=上手→高得点) ---
-eq('1級→10', nawatobiToScore10(1), 10);
-eq('7級→8', nawatobiToScore10(7), 8);
-eq('8級→7', nawatobiToScore10(8), 7);
-eq('17級→4', nawatobiToScore10(17), 4);
-eq('18級→3', nawatobiToScore10(18), 3);
-eq('20級→1', nawatobiToScore10(20), 1);
-eq('21級→0', nawatobiToScore10(21), 0);
-eq('0級→10', nawatobiToScore10(0), 10);
+        const scores = [
+            // 家庭: A/B+/B/B-/C の実値 (abcTo10 の全アプリ標準値を保護する最重要ケース)
+            { testId: ID.houtei5, studentIndex: 0, score: 'A' },
+            { testId: ID.houtei5, studentIndex: 1, score: 'B+' },
+            { testId: ID.houtei5, studentIndex: 2, score: 'B' },
+            { testId: ID.houtei5, studentIndex: 3, score: 'B-' },
+            { testId: ID.houtei5, studentIndex: 4, score: 'C' },
 
-// --- 新体力テスト評価(5年生=10歳) ---
-eq('65点→A', calcPfEval(65,5), 'A');
-eq('64点→B', calcPfEval(64,5), 'B');
-eq('42点→D', calcPfEval(42,5), 'D');
-eq('41点→E', calcPfEval(41,5), 'E');
-eq('6年生(11歳)71点→A', calcPfEval(71,6), 'A');
+            // 国語: score10ToABC 境界 (閾値80/50%はデフォルト値、KEYS.grade_thresholds未設定時)
+            { testId: ID.jpBoundary, studentIndex: 0, score: 80 }, // 8.0/80→A
+            { testId: ID.jpBoundary, studentIndex: 1, score: 79 }, // 7.9→B
+            { testId: ID.jpBoundary, studentIndex: 2, score: 50 }, // 5.0→B
+            { testId: ID.jpBoundary, studentIndex: 3, score: 49 }, // 4.9→C
+            { testId: ID.jpBoundary, studentIndex: 4, score: 0 },  // 0→C(空文字ではない)
+            { testId: ID.jpClamp, studentIndex: 5, score: 120 },   // 満点超過はクランプ
+            { testId: ID.jpNegative, studentIndex: 6, score: -10 }, // 下限クランプなし(現状の既知の仕様)
 
-// --- 専科評定提案 ---
-eq('AAA(9)→3', grdExtSuggestHyoutei('A','A','A'), 3);
-eq('AAB(8)→3', grdExtSuggestHyoutei('A','A','B'), 3);
-eq('ABB(7)→2', grdExtSuggestHyoutei('A','B','B'), 2);
-eq('BBC(5)→2', grdExtSuggestHyoutei('B','B','C'), 2);
-eq('BCC(4)→1', grdExtSuggestHyoutei('B','C','C'), 1);
-eq('未入力→空', grdExtSuggestHyoutei('A','','A'), '');
+            // 算数: abcToNum / 最終評定(hyoutei)の閾値 (デフォルト grade3=8 / grade2=5)
+            { testId: ID.mathK, studentIndex: 0, score: 'A' }, { testId: ID.mathT, studentIndex: 0, score: 'A' }, { testId: ID.mathA, studentIndex: 0, score: 'A' }, // AAA(9)→3
+            { testId: ID.mathK, studentIndex: 1, score: 'A' }, { testId: ID.mathT, studentIndex: 1, score: 'A' }, { testId: ID.mathA, studentIndex: 1, score: 'B' }, // AAB(8)→3
+            { testId: ID.mathK, studentIndex: 2, score: 'A' }, { testId: ID.mathT, studentIndex: 2, score: 'B' }, { testId: ID.mathA, studentIndex: 2, score: 'B' }, // ABB(7)→2
+            { testId: ID.mathK, studentIndex: 3, score: 'B' }, { testId: ID.mathT, studentIndex: 3, score: 'B' }, { testId: ID.mathA, studentIndex: 3, score: 'C' }, // BBC(5)→2
+            { testId: ID.mathK, studentIndex: 4, score: 'B' }, { testId: ID.mathT, studentIndex: 4, score: 'C' }, { testId: ID.mathA, studentIndex: 4, score: 'C' }, // BCC(4)→1
+            { testId: ID.mathK, studentIndex: 5, score: 'A' }, { testId: ID.mathT, studentIndex: 5, score: 'A' }, // 主体性未入力→評定なし('')
 
-// --- 学期判定・期間 ---
-var m3 = {classInfo:{termSystem:3}}, m2 = {classInfo:{termSystem:2}};
-eq('3学期制 7月→1学期', grdGetCurrentTerm(m3, new Date(2026,6,5)), '1');
-eq('3学期制 9月→2学期', grdGetCurrentTerm(m3, new Date(2026,8,1)), '2');
-eq('3学期制 1月→3学期', grdGetCurrentTerm(m3, new Date(2027,0,15)), '3');
-eq('2学期制 9月→前期', grdGetCurrentTerm(m2, new Date(2026,8,30)), '1');
-eq('2学期制 10月→後期', grdGetCurrentTerm(m2, new Date(2026,9,1)), '2');
-eq('1学期範囲(3学期制)', grdGetTermRange('1', m3, new Date(2026,6,5)), {start:'2026-04-01',end:'2026-08-31'});
-eq('3学期範囲: 1月に見ると正しい年度', grdGetTermRange('3', m3, new Date(2027,0,15)), {start:'2027-01-01',end:'2027-03-31'});
-eq('2学期範囲: 1月に見ても前年9-12月', grdGetTermRange('2', m3, new Date(2027,0,15)), {start:'2026-09-01',end:'2026-12-31'});
+            // 理科: 重み付き平均 (2:1 → (10*2+4*1)/3=8)
+            { testId: ID.scienceW1, studentIndex: 0, score: 100 }, // score10=10
+            { testId: ID.scienceW2, studentIndex: 0, score: 40 },  // score10=4
 
-console.log('\n===== 結果: PASS ' + pass + ' / FAIL ' + fail + ' =====');
+            // 社会: 全重み0→単純平均フォールバック(idx0) / 未評価null項目は除外(idx1)
+            { testId: ID.socialZ1, studentIndex: 0, score: 100 }, // score10=10, weight=0
+            { testId: ID.socialZ2, studentIndex: 0, score: 40 },  // score10=4,  weight=0
+            { testId: ID.socialSolo, studentIndex: 1, score: 60 }, // score10=6, idx1はZ1/Z2の記録なし
+
+            // 体育: 授業態度(○/－/×→A/B/C) と 実技記録peManualABC直書き(14360, 段階4で置換予定)
+            { testId: ID.peAttitude, studentIndex: 0, score: '○' },
+            { testId: ID.peAttitude, studentIndex: 1, score: '－' },
+            { testId: ID.peAttitude, studentIndex: 2, score: '×' },
+            { testId: ID.pePractical, studentIndex: 0, score: 3, peManualABC: 'A' },
+            { testId: ID.pePractical, studentIndex: 1, score: 3, peManualABC: 'B' },
+            { testId: ID.pePractical, studentIndex: 2, score: 3, peManualABC: 'C' }
+        ];
+
+        const weights = {
+            '理科': { knowledge: { ['k_' + ID.scienceW1]: 2, ['k_' + ID.scienceW2]: 1 } },
+            '社会': { knowledge: { ['k_' + ID.socialZ1]: 0, ['k_' + ID.socialZ2]: 0 } }
+        };
+
+        await page.evaluate(({ tests, scores, students, weights }) => {
+            StorageManager.setImmediate(KEYS.master, JSON.stringify({
+                students: students,
+                classInfo: { year: 2026, grade: 5, class: 1, termSystem: 3 }
+            }));
+            StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
+            StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
+            // 専科(grdExtCalculate経由): k/t/aはA/B/Cのまま保持され、abcTo10による10点換算を経ない
+            // （発見1: 「専科C=4→C=3」に対応する計算経路自体が無い、という調査結果の裏付けにもなる）。
+            StorageManager.setImmediate(KEYS.grades_external, JSON.stringify({
+                subjects: ['音楽'],
+                data: { '音楽': { '0': { k: 'A', t: 'B', a: 'C', h: 2 } } }
+            }));
+            StorageManager.setImmediate(KEYS.grade_weights, JSON.stringify(weights));
+        }, { tests, scores, students, weights });
+
+        await page.reload({ waitUntil: 'networkidle0' });
+        await new Promise(r => setTimeout(r, 300));
+
+        async function calc(subject) { return page.evaluate((s) => grdCalculate(s, 'all'), subject); }
+        function itemOf(results, idx, prefix, testId) {
+            const r = results.find(x => x.index === idx);
+            if (!r) return null;
+            const bucket = prefix === 'k' ? r.knowledge : prefix === 't' ? r.thinking : r.attitude;
+            return bucket.items.find(it => it.itemKey === prefix + '_' + testId) || null;
+        }
+
+        // ================================================================
+        // abcTo10: 全アプリ標準の5段階換算値そのもの
+        // ================================================================
+        const houtei5 = await calc('家庭');
+        [['A', 0, 10], ['B+', 1, 8.5], ['B', 2, 7], ['B-', 3, 5], ['C', 4, 3]].forEach(([label, idx, expect]) => {
+            const it = itemOf(houtei5, idx, 'a', ID.houtei5);
+            check('abcTo10: ' + label + ' → ' + expect + '点', it && near(it.score10, expect), JSON.stringify(it));
+        });
+
+        // ================================================================
+        // scoreTo10 / score10ToABC
+        // ================================================================
+        const jp = await calc('国語');
+        function kABCof(idx) { const r = jp.find(x => x.index === idx); return r ? r.knowledge.abc : undefined; }
+        check('score10ToABC: 8.0/閾値80→A', kABCof(0) === 'A', kABCof(0));
+        check('score10ToABC: 7.9→B', kABCof(1) === 'B', kABCof(1));
+        check('score10ToABC: 5.0→B', kABCof(2) === 'B', kABCof(2));
+        check('score10ToABC: 4.9→C', kABCof(3) === 'C', kABCof(3));
+        check('score10ToABC: 0→C(空文字ではない)', kABCof(4) === 'C', kABCof(4));
+        const it7 = jp.find(x => x.index === 7);
+        check('score10ToABC: 対象テストなし→空文字', it7 && it7.knowledge.abc === '', JSON.stringify(it7 && it7.knowledge.abc));
+        const itClamp = itemOf(jp, 5, 'k', ID.jpClamp);
+        check('scoreTo10: 満点超過はクランプ(120/100→10)', itClamp && near(itClamp.score10, 10), JSON.stringify(itClamp));
+        const itNeg = itemOf(jp, 6, 'k', ID.jpNegative);
+        check('scoreTo10: 負の点数は下限クランプなし(既知の仕様、-10/100→-1)', itNeg && near(itNeg.score10, -1), JSON.stringify(itNeg));
+
+        // ================================================================
+        // abcToNum / 最終評定(hyoutei)
+        // ================================================================
+        const math = await calc('算数');
+        function hyouteiOf(idx) { const r = math.find(x => x.index === idx); return r ? { h: r.hyoutei, t: r.totalNum } : undefined; }
+        check('abcToNum/最終評定: AAA(9)→3', hyouteiOf(0).h === 3, JSON.stringify(hyouteiOf(0)));
+        check('abcToNum/最終評定: AAB(8)→3', hyouteiOf(1).h === 3, JSON.stringify(hyouteiOf(1)));
+        check('abcToNum/最終評定: ABB(7)→2', hyouteiOf(2).h === 2, JSON.stringify(hyouteiOf(2)));
+        check('abcToNum/最終評定: BBC(5)→2', hyouteiOf(3).h === 2, JSON.stringify(hyouteiOf(3)));
+        check('abcToNum/最終評定: BCC(4)→1', hyouteiOf(4).h === 1, JSON.stringify(hyouteiOf(4)));
+        check('abcToNum/最終評定: 主体性未入力→評定なし(空文字)', hyouteiOf(5).h === '', JSON.stringify(hyouteiOf(5)));
+
+        // ================================================================
+        // calcWeightedScore
+        // ================================================================
+        const science = await calc('理科');
+        const scienceAvg = science.find(x => x.index === 0).knowledge.avg;
+        check('calcWeightedScore: 重み2:1 → (10*2+4*1)/3=8', near(scienceAvg, 8), 'avg=' + scienceAvg);
+
+        const social = await calc('社会');
+        const socialAvg0 = social.find(x => x.index === 0).knowledge.avg;
+        check('calcWeightedScore: 全項目の重みが0→単純平均へフォールバック((10+4)/2=7)', near(socialAvg0, 7), 'avg=' + socialAvg0);
+        const socialAvg1 = social.find(x => x.index === 1).knowledge.avg;
+        check('calcWeightedScore: 未評価(null)項目は除外され、残り1件の値がそのまま採用される(=6)', near(socialAvg1, 6), 'avg=' + socialAvg1);
+
+        // ================================================================
+        // 授業態度(○/－/×) と 実技記録peManualABC直書き(14360)
+        // ================================================================
+        const pe = await calc('体育');
+        [['○', 'A', 0, 10], ['－', 'B', 1, 7], ['×', 'C', 2, 3]].forEach(([symbol, label, idx, expect]) => {
+            const it = itemOf(pe, idx, 'a', ID.peAttitude);
+            check('授業態度: ' + symbol + '→' + label + '→' + expect + '点(現行の記号解釈規則、段階7以降もこの解釈を維持)', it && near(it.score10, expect), JSON.stringify(it));
+        });
+        [['A', 0, 10], ['B', 1, 7], ['C', 2, 3]].forEach(([label, idx, expect]) => {
+            const it = itemOf(pe, idx, 'k', ID.pePractical);
+            check('実技記録peManualABC: ' + label + '→' + expect + '点(段階4でabcTo10呼び出しへ統一予定、値は不変であること)', it && near(it.score10, expect), JSON.stringify(it));
+        });
+
+        // ================================================================
+        // 専科(grdExtCalculate): k/t/aは10点換算されず、totalNumのみabcToNumで合算される
+        // ================================================================
+        const music = await calc('音楽');
+        const musicR = music.find(x => x.index === 0);
+        check('専科: k/t/aはA/B/Cのまま保持され10点換算されない', musicR && musicR.knowledge.abc === 'A' && musicR.thinking.abc === 'B' && musicR.attitude.abc === 'C', JSON.stringify(musicR));
+        check('専科: totalNumはabcToNum(A=3,B=2,C=1)の合算(3+2+1=6)', musicR && musicR.totalNum === 6, 'totalNum=' + (musicR && musicR.totalNum));
+        check('専科: hyouteiは自動算出されず保存値をそのまま返す(grdExtSuggestHyouteiは候補提示ボタン専用で、この経路には無関係)', musicR && musicR.hyoutei === 2, 'hyoutei=' + (musicR && musicR.hyoutei));
+
+        // ================================================================
+        // grdGetCurrentTerm (3学期制のみ、MockDateで固定)
+        // ================================================================
+        await setMockDate(page, new Date(2026, 6, 5).getTime());
+        const term1 = await page.evaluate(() => grdGetCurrentTerm());
+        check('grdGetCurrentTerm: 3学期制 7月→1学期', term1 === '1', term1);
+
+        await setMockDate(page, new Date(2026, 8, 1).getTime());
+        const term2 = await page.evaluate(() => grdGetCurrentTerm());
+        check('grdGetCurrentTerm: 3学期制 9月→2学期', term2 === '2', term2);
+
+        await setMockDate(page, new Date(2027, 0, 15).getTime());
+        const term3 = await page.evaluate(() => grdGetCurrentTerm());
+        check('grdGetCurrentTerm: 3学期制 1月→3学期', term3 === '3', term3);
+
+        await setMockDate(page, null);
+    } finally {
+        for (const k of Object.values(REAL_KEYS)) await restoreKey(k, backup[k]);
+        await setMockDate(page, null);
+    }
+
+    // ---- 触れた実データキーがすべて元の値に戻っていることの確認 ----
+    let allRestored = true;
+    const restoreDetail = {};
+    for (const k of Object.values(REAL_KEYS)) {
+        const cur = await getKey(k);
+        restoreDetail[k] = (cur === backup[k]);
+        if (cur !== backup[k]) allRestored = false;
+    }
+    check('触れた実データキーがすべて元の値に復元されている', allRestored, JSON.stringify(restoreDetail));
+
+    const realErrors = consoleErrors.filter(e => e.indexOf('favicon.ico') === -1);
+    check('検証中にコンソールエラーなし(favicon.ico除く)', realErrors.length === 0, realErrors.join(' | '));
+
+    await browser.close();
+
+    const fail = results.filter(r => !r.pass).length;
+    console.log('\n===== 結果: PASS ' + (results.length - fail) + ' / FAIL ' + fail + ' / 合計 ' + results.length + ' =====');
+    process.exit(fail > 0 ? 1 : 0);
+})();

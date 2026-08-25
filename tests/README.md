@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計218件）
+## 常時グリーンのテスト（合計254件）
 
 | ファイル | 件数 |
 |---|---|
@@ -39,7 +39,13 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 |
 | `undo.test.js` | 32 |
 | `emptystate.test.js` | 7 |
-| **合計** | **218** |
+| `test_grades.js` | 36 |
+| **合計** | **254** |
+
+`test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
+プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・
+abcToNum・calcWeightedScore・grdGetCurrentTerm など成績計算コア(grdCalculate)の
+換算値を、window公開済みの実装関数を直接呼ぶ形で検証する（ロジックのハードコピーはしない）。
 
 上記すべてが全件PASSであることに加え、リポジトリ直下で
 `node attendance-snapshot.js`（引数なし）を実行して `PASS` になることも、

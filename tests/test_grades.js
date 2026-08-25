@@ -115,7 +115,12 @@ async function setMockDate(page, ts) {
             scienceW1: now + 8, scienceW2: now + 9,                     // 理科: calcWeightedScore(重み付き)
             socialZ1: now + 10, socialZ2: now + 11, socialSolo: now + 12, // 社会: 全重み0/null除外
             peAttitude: now + 13, pePractical: now + 14,                // 体育: 授業態度記号 / peManualABC直書き
-            jpValidate: now + 15                                        // 国語: recSaveAllScores(段階1)の範囲外拒否
+            jpValidate: now + 15,                                       // 国語: recSaveAllScores(段階1)の範囲外拒否
+            // 段階2: 得点セルの「／満点 (割合%)」表示
+            pctNormal: now + 16,   // 通常テスト: 端数を含む割合の丸め確認(13/15→87%)
+            pctNoMax: now + 17,    // maxScore=0(通常テストの異常系)→割合を出さない
+            pctMarker: now + 18,   // maxScore=9999(実技記録の変換不要マーカー)→割合を出さない
+            pctMatome: now + 19    // まとめテスト: 満点が設問配点合計(3点)の小さいケース
         };
 
         const tests = [
@@ -133,7 +138,11 @@ async function setMockDate(page, ts) {
             T(ID.socialSolo, '社会', '知識・技能', '小テスト', 100),
             T(ID.peAttitude, '体育', '主体性', '授業態度', 10),
             T(ID.pePractical, '体育', '知識・技能', '実技記録', 9999, { peUnit: '回' }),
-            T(ID.jpValidate, '国語', '知識・技能', '小テスト', 100)
+            T(ID.jpValidate, '国語', '知識・技能', '小テスト', 100),
+            T(ID.pctNormal, '国語', '知識・技能', '小テスト', 15),
+            T(ID.pctNoMax, '国語', '知識・技能', '小テスト', 0),
+            T(ID.pctMarker, '体育', '知識・技能', '実技記録', 9999, { peUnit: '点' }),
+            T(ID.pctMatome, '国語', '複合', 'まとめテスト', 3, { type: 'matome', matomePoints: [1, 1, 1] })
         ];
 
         const scores = [
@@ -182,7 +191,16 @@ async function setMockDate(page, ts) {
             { testId: ID.peAttitude, studentIndex: 2, score: '×' },
             { testId: ID.pePractical, studentIndex: 0, score: 3, peManualABC: 'A' },
             { testId: ID.pePractical, studentIndex: 1, score: 3, peManualABC: 'B' },
-            { testId: ID.pePractical, studentIndex: 2, score: 3, peManualABC: 'C' }
+            { testId: ID.pePractical, studentIndex: 2, score: 3, peManualABC: 'C' },
+
+            // 段階2: 得点セルの「／満点 (割合%)」表示
+            // idx0-7は国語の既存ケース(jpBoundary等)で使用中のため、集計汚染を避けてidx8/9を使う
+            { testId: ID.pctNormal, studentIndex: 8, score: 13 },   // 13/15 → 86.66...% を87%に丸める
+            { testId: ID.pctNoMax, studentIndex: 9, score: 10 },    // maxScore=0 → 割合は出ない
+            { testId: ID.pctMarker, studentIndex: 0, score: 8 },    // maxScore=9999(マーカー) → 割合は出ない
+            // idx0だと_matomeExtract()が category='複合'/型未設定を「知識・技能」扱いする
+            // 既存挙動により国語の知識・技能集計(idx0-4)を汚染するため、idx8を使う
+            { testId: ID.pctMatome, studentIndex: 8, answers: [1, 1, 0] } // 2/3 → 67%
         ];
 
         const weights = {
@@ -348,6 +366,54 @@ async function setMockDate(page, ts) {
             return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
         }, ID.jpValidate);
         check('直した値(50)が保存されている', savedAfterSecond.some(function(s) { return s.studentIndex === 8 && s.score === 50; }), JSON.stringify(savedAfterSecond));
+
+        // ================================================================
+        // recRenderList(段階2): 得点セルの「／満点 (割合%)」表示
+        // 実際の点数入力画面をrecSelectTestGotoで開き、DOMの表示テキストを直接確認する。
+        // ================================================================
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctNormal);
+        await new Promise(r => setTimeout(r, 150));
+        const pctNormalText = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-8');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: 13/15点は四捨五入で87%になる(端数の丸め方の確認)', pctNormalText === '／15(87%)', pctNormalText);
+
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctNoMax);
+        await new Promise(r => setTimeout(r, 150));
+        const pctNoMaxText = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-9');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: maxScore=0のテストでは割合(「(100%)」等)を一切表示しない', pctNoMaxText === '', JSON.stringify(pctNoMaxText));
+
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctMarker);
+        await new Promise(r => setTimeout(r, 150));
+        const pctMarkerText = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-0');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: maxScore=9999(実技記録の変換不要マーカー)では割合を表示しない', pctMarkerText === '', JSON.stringify(pctMarkerText));
+
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctMatome);
+        await new Promise(r => setTimeout(r, 150));
+        const pctMatomeText = await page.evaluate(() => {
+            var btn = document.querySelector('#rec-row-8 .rec-row-score-area button');
+            return btn ? btn.textContent : null;
+        });
+        check('割合表示: まとめテスト(満点3点の小さいケース)でも「2/3点 (67%)」のように破綻しない', pctMatomeText === '2/3点 (67%)', JSON.stringify(pctMatomeText));
+
+        // --- ライブ更新: 保存前でも入力中の値で割合が更新されること ---
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctNormal);
+        await new Promise(r => setTimeout(r, 150));
+        await page.evaluate(() => { document.getElementById('rec-sc-1').value = ''; });
+        await page.click('#rec-sc-1');
+        await page.type('#rec-sc-1', '9'); // 9/15 = 60%
+        const liveP = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-1');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: 保存前(入力中)でもoninputでライブ更新される(9/15→60%)', liveP === '／15(60%)', liveP);
 
         // ================================================================
         // abcToNum / 最終評定(hyoutei)

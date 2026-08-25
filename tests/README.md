@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計290件）
+## 常時グリーンのテスト（合計295件）
 
 | ファイル | 件数 |
 |---|---|
@@ -39,9 +39,9 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 |
 | `undo.test.js` | 32 |
 | `emptystate.test.js` | 7 |
-| `test_grades.js` | 52 |
+| `test_grades.js` | 57 |
 | `audit-range-check.test.js` | 20 |
-| **合計** | **290** |
+| **合計** | **295** |
 
 `test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
 プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・
@@ -81,6 +81,16 @@ push前の必須確認手順とする。`FAIL` の場合は `--update` せず、
   専用のマーカー文字列（例: `__uiUndoTest_intentional_throw__`）を仕込み、
   末尾の「コンソールエラーなし」チェックからそのマーカーを含むエラーだけを
   除外する。
+- `grdCalculate`は同じ`subject`の全テストを`studentIndex`単位で集計するため、
+  test_grades.jsに新しいテストケースを追加する際、既存ケースが使っている
+  `studentIndex`を同じ教科で再利用すると、既存の集計結果(kAvg/kABC等)が
+  無言で汚染される。特にまとめテスト(`type:'matome'`)は要注意で、
+  `matomeQuestionTypes`を設定しない場合、`_matomeExtract()`は
+  `category`が「思考・判断・表現」「主体性」のいずれでもなければ
+  「知識・技能」として計上してしまう（category:'複合'でも同様）。
+  新しいケースは、その教科で未使用のstudentIndexを使うこと
+  （grdCalculateを呼ばずrecRenderList側のDOM表示だけを見るテストケースでも、
+  同じstorageを共有する以上この汚染は起きる）。
 - 同じ入力欄を複数のイベントハンドラ（`onblur`と保存ボタンの`onclick`等）が
   扱う機能を検証する際は、実際のユーザー操作の順序を再現すること。保存ボタンの
   クリックは、押す前にフォーカスされていた入力欄の`blur`を必ず先に発火させる。

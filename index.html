@@ -767,13 +767,23 @@
         }
         .rec-row.abc-row .rec-abc-btn:disabled { opacity: 0.4; cursor: default; }
         .rec-row.sc-row .rec-row-score-area input[type="number"] {
-            max-width: none; height: 48px; font-size: 1.15rem;
+            /* v1.21.12 (段階2): 「／満点 (割合%)」表示ぶんの横幅を確保するため、
+               noneだった上限をここで復活させる(4桁+小数まで余裕を持たせた値)。 */
+            max-width: 82px; height: 48px; font-size: 1.15rem;
             border-radius: 8px; padding: 0 4px;
+        }
+        /* v1.21.12 (段階2): 得点セルの「／満点 (割合%)」。素点(入力欄)を主、割合を従とする
+           視覚的な階層をつけるため、小さく薄い文字にする。入力欄なしのまとめテスト行
+           (ボタン内のspan)にも同じクラスを使う。 */
+        .rec-sc-pct {
+            font-size: 0.68rem; color: var(--text-light); white-space: nowrap;
+            flex-shrink: 0; line-height: 1.2;
         }
         @media (max-width: 700px) {
             .rec-row.abc-row .rec-abc-btns { gap: 2px; }
             .rec-row.abc-row .rec-abc-btn { height: 44px; font-size: 0.8rem; border-radius: 6px; }
-            .rec-row.sc-row .rec-row-score-area input[type="number"] { height: 44px; }
+            .rec-row.sc-row .rec-row-score-area input[type="number"] { height: 44px; max-width: 72px; }
+            .rec-sc-pct { font-size: 0.62rem; }
         }
         .rec-save-bar {
             margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); flex-shrink: 0;
@@ -7215,7 +7225,13 @@
                 var scoreArea = '';
                 if (isMatome) {
                     var matomeTotal = recCalcMatomeTotal(test, scores, idx);
-                    var dispVal = matomeTotal !== null ? matomeTotal + '点' : '—';
+                    var matomeMax = recMatomeMaxTotal(test);
+                    // 例: 「6/6点 (100%)」。まとめテストは満点が設問配点合計(3点・6点等の
+                    // 小さい値も実在)のため、素点/満点の並びは共有ヘルパーと合わせつつ、
+                    // 既存の「○点」単位表記(dispVal)にはここだけ個別に組み込む。
+                    var dispVal = matomeTotal !== null
+                        ? matomeTotal + '/' + matomeMax + '点' + (matomeMax > 0 ? ' <span class="rec-sc-pct">(' + Math.round(matomeTotal / matomeMax * 100) + '%)</span>' : '')
+                        : '—';
                     var catHtml = '';
                     if (matomeTotal !== null) {
                         var _sc = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
@@ -7284,6 +7300,7 @@
                         +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
                         +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
+                        +   '<span class="rec-sc-pct" id="rec-pct-' + idx + '">' + recScorePctHtml(test.maxScore, curVal) + '</span>'
                         + '</div>'
                         + '</div>';
                 }
@@ -7330,6 +7347,32 @@
             var r = REC_ABC5_RATIO[grade];
             if (r === undefined) return '';
             return Math.round((pt || 0) * r * 10) / 10;
+        }
+
+        // v1.21.12 (段階2): 得点セルの「／満点 (割合%)」表示。四捨五入(Math.round)で
+        // 1点刻みの%にする(小数第1位まで出すと27名分並んだ画面で窮屈になるため)。
+        // maxScoreが無効(0/欠損)、またはPE実技記録の「変換不要」マーカー(9999)の場合は
+        // 割合を出さない(段階0.5の監査診断が検出する||100フォールバックの値を
+        // 画面に見せて誤解を招くのを避けるため)。
+        function recScorePctHtml(maxScore, rawValue) {
+            if (!maxScore || maxScore <= 0 || maxScore === 9999) return '';
+            var text = '／' + maxScore;
+            var v = parseFloat(rawValue);
+            if (rawValue !== '' && rawValue !== undefined && rawValue !== null && !isNaN(v)) {
+                text += '(' + Math.round(v / maxScore * 100) + '%)';
+            }
+            return text;
+        }
+
+        // まとめテストの満点(設問配点合計)。test.maxScoreにも同じ値が保存されるが、
+        // 設問定義(recGetMatomeQ)を正とする既存の集計関数(recCalcMatomeCatTotals等)と
+        // 同じ計算元に揃えておく(test.maxScoreとのズレを気にしなくてよいようにする)。
+        function recMatomeMaxTotal(test) {
+            var questions = recGetMatomeQ(test.id);
+            var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
+            var total = 0;
+            points.forEach(function(p) { total += (Number(p) || 0); });
+            return total;
         }
 
         function recCalcMatomeTotal(test, scores, studentIndex) {
@@ -8797,6 +8840,13 @@
             if (!input) return;
             var v = input.value;
             input.classList.toggle('has-val', v !== '');
+            // v1.21.12 (段階2): 打鍵のたびに「／満点 (割合%)」表示をライブ更新する
+            // (保存前でも今の入力値がどのくらいの割合か分かるようにする)。
+            var pctEl = document.getElementById('rec-pct-' + idx);
+            if (pctEl && recCurrentTestId) {
+                var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+                if (test) pctEl.textContent = recScorePctHtml(test.maxScore, v);
+            }
         };
 
         // v1.21.11: 範囲外(0未満/maxScore超過)の判定を1箇所に集約する。

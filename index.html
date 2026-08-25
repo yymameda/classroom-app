@@ -17985,6 +17985,32 @@
                        !(t.matomePoints && t.matomePoints.length > 0);
             }).length;
 
+            // v1.21.8 (段階0.5): 範囲外スコアの検出（読み取り専用、成績入力形式統一プロジェクトの事前診断用）。
+            // 氏名は含めず studentIndex のみを記録する（既存の「個人情報は表示・出力されない」方針を維持）。
+            var testMapFull = {};
+            tests.forEach(function(t) { testMapFull[t.id] = t; });
+            var negativeScoreList = [], overMaxScoreList = [], numericNoMaxList = [];
+            scores.forEach(function(sc) {
+                if (typeof sc.score !== 'number') return;
+                var t = testMapFull[sc.testId];
+                var detail = {
+                    testId: sc.testId, studentIndex: sc.studentIndex, score: sc.score,
+                    subject: t ? (t.subject || '(未設定)') : '(テストなし)',
+                    testType: t ? (t.testType || '(未設定)') : '(テストなし)'
+                };
+                if (sc.score < 0) negativeScoreList.push(detail);
+                // maxScore===9999 は実技記録の「変換不要」マーカー(index.html 14360付近)のため完全一致で除外する。
+                // 範囲比較(< 9999)にすると本来のマーカーまで誤検出してしまうため使わない。
+                if (t && t.maxScore && t.maxScore !== 9999 && sc.score > t.maxScore) {
+                    overMaxScoreList.push(Object.assign({ maxScore: t.maxScore }, detail));
+                }
+                // maxScore欠損/0(まとめテストは仕様上0が正常なので除外)なのに数値スコアが入っている
+                // = grdCalculate の scoreTo10(sr.score, test.maxScore || 100) フォールバックで
+                //   意図せず「100点満点」として計算されてしまう危険地帯。
+                if (t && t.type !== 'matome' && (!t.maxScore || t.maxScore <= 0)) numericNoMaxList.push(detail);
+            });
+            var DETAIL_CAP = 100;
+
             return {
                 testIdDups:             testIdDups,
                 scoreOrphans:           scoreOrphans,
@@ -17996,7 +18022,13 @@
                 maxScoreMissing:        maxScoreMissing,
                 maxScoreEmptyBreakdown: maxScoreEmptyBreakdown,
                 matomeTotal:            matomeTests.length,
-                matomeNoQ:              matomeNoQ
+                matomeNoQ:              matomeNoQ,
+                negativeScores:               negativeScoreList.length,
+                negativeScoreDetail:          negativeScoreList.slice(0, DETAIL_CAP),
+                overMaxScores:                overMaxScoreList.length,
+                overMaxScoreDetail:           overMaxScoreList.slice(0, DETAIL_CAP),
+                numericScoreNoMaxScore:       numericNoMaxList.length,
+                numericScoreNoMaxScoreDetail: numericNoMaxList.slice(0, DETAIL_CAP)
             };
         }
 
@@ -18375,6 +18407,17 @@
                 warn.push('studentIndex 範囲超過スコア ' + result.structuralIntegrity.studentIndexOver + '件(児童数:' + result.structuralIntegrity.studentCount + ')');
             }
 
+            // --- 範囲外スコア(段階0.5) ---
+            if (result.structuralIntegrity.negativeScores > 0) {
+                critical.push('負の点数を持つスコアレコード ' + result.structuralIntegrity.negativeScores + '件(評価に直接影響)');
+            }
+            if (result.structuralIntegrity.overMaxScores > 0) {
+                critical.push('maxScore を超過したスコアレコード ' + result.structuralIntegrity.overMaxScores + '件(評価に直接影響)');
+            }
+            if (result.structuralIntegrity.numericScoreNoMaxScore > 0) {
+                warn.push('maxScore 欠損/0なのに数値スコアが入っているレコード ' + result.structuralIntegrity.numericScoreNoMaxScore + '件(100点満点扱いされる可能性、要確認)');
+            }
+
             // --- 旧 status 形式(注意) ---
             if (result.submissionStatus.legacyCount > 0) {
                 warn.push('提出物に旧形式 status (○/△/A/◎等) ' + result.submissionStatus.legacyCount + '件');
@@ -18452,6 +18495,18 @@
         }
 
         function _sts(ok) { return ok ? '<span class="audit-status-ok">✅</span>' : '<span class="audit-status-warn">⚠️</span>'; }
+
+        // 段階0.5: 範囲外スコアの内訳テーブル(氏名は含めず studentIndex のみ)。iPad幅でも
+        // 折り返せるよう既存の audit-detail-block(<details>)に収める運用を前提とする。
+        function _rangeDetailHtml(list, total, showMax) {
+            var html = '<table class="audit-table" style="margin-top:4px;"><tr><th>教科</th><th>テスト種別</th><th>testId</th><th>児童番号</th><th>score</th>' + (showMax ? '<th>maxScore</th>' : '') + '</tr>';
+            list.forEach(function(r) {
+                html += '<tr><td>' + escapeHtml(r.subject) + '</td><td>' + escapeHtml(r.testType) + '</td><td>' + r.testId + '</td><td>' + r.studentIndex + '</td><td>' + r.score + '</td>' + (showMax ? '<td>' + r.maxScore + '</td>' : '') + '</tr>';
+            });
+            html += '</table>';
+            if (total > list.length) html += '<div style="font-size:0.8em;color:var(--text-light);margin-top:4px;">先頭' + list.length + '件のみ表示(全' + total + '件)</div>';
+            return html;
+        }
 
         function renderAuditResult(result) {
             var d = result.dataVolume;
@@ -18562,6 +18617,26 @@
             }
             html += '<tr><td>' + _sts(si.maxScoreMissing === 0) + ' maxScore 欠損または0</td><td>' + maxScoreCell + '</td></tr>';
             html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめテスト問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
+
+            // 段階0.5: 範囲外スコアの検出（負の点数／maxScore超過／maxScore欠損なのに数値スコアあり）
+            var negCell = si.negativeScores === 0 ? '0件' : '<span class="audit-status-error">' + si.negativeScores + '件</span>';
+            if (si.negativeScores > 0) {
+                negCell += '<details class="audit-detail-block"><summary>詳細を表示</summary><div class="audit-detail-body">' + _rangeDetailHtml(si.negativeScoreDetail, si.negativeScores, false) + '</div></details>';
+            }
+            html += '<tr><td>' + _sts(si.negativeScores === 0) + ' 負の点数</td><td>' + negCell + '</td></tr>';
+
+            var overCell = si.overMaxScores === 0 ? '0件' : '<span class="audit-status-error">' + si.overMaxScores + '件</span>';
+            if (si.overMaxScores > 0) {
+                overCell += '<details class="audit-detail-block"><summary>詳細を表示</summary><div class="audit-detail-body">' + _rangeDetailHtml(si.overMaxScoreDetail, si.overMaxScores, true) + '</div></details>';
+            }
+            html += '<tr><td>' + _sts(si.overMaxScores === 0) + ' maxScore超過(9999マーカーは除外)</td><td>' + overCell + '</td></tr>';
+
+            var noMaxCell = si.numericScoreNoMaxScore === 0 ? 'なし' : '<span class="audit-status-warn">' + si.numericScoreNoMaxScore + '件</span>';
+            if (si.numericScoreNoMaxScore > 0) {
+                noMaxCell += '<details class="audit-detail-block"><summary>詳細を表示</summary><div class="audit-detail-body">' + _rangeDetailHtml(si.numericScoreNoMaxScoreDetail, si.numericScoreNoMaxScore, false) + '</div></details>';
+            }
+            html += '<tr><td>' + _sts(si.numericScoreNoMaxScore === 0) + ' maxScore欠損/0なのに数値スコアあり(100点満点扱いの危険)</td><td>' + noMaxCell + '</td></tr>';
+
             html += '</table></div>';
 
             // 5. まとめテストの観点バランス

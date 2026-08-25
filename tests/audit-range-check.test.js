@@ -53,7 +53,7 @@ function check(name, cond, detail) {
     await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
     await new Promise(r => setTimeout(r, 300));
 
-    const REAL_KEYS = await page.evaluate(() => ({ master: KEYS.master, tests: KEYS.tests, scores: KEYS.scores }));
+    const REAL_KEYS = await page.evaluate(() => ({ master: KEYS.master, tests: KEYS.tests, scores: KEYS.scores, submissions: KEYS.submissions_data }));
     async function getKey(k) { return page.evaluate((kk) => StorageManager.getRaw(kk), k); }
     async function setKey(k, v) { await page.evaluate((kk, vv) => { StorageManager.setImmediate(kk, vv); }, k, v); }
     async function restoreKey(k, raw) {
@@ -68,7 +68,7 @@ function check(name, cond, detail) {
         // 氏名は実データと紛れないよう識別しやすいダミー名にする(HTMLに漏れていないことの検証用)。
         const students = [{ name: '検証用A' }, { name: '検証用B' }, { name: '検証用C' }, { name: '検証用D' }, { name: '検証用E' }];
 
-        const ID = { normal: now + 1, negative: now + 2, overMax: now + 3, marker9999: now + 4, noMax: now + 5, matome: now + 6 };
+        const ID = { normal: now + 1, negative: now + 2, overMax: now + 3, marker9999: now + 4, noMax: now + 5, matome: now + 6, cScore: now + 7 };
 
         function T(id, subject, testType, maxScore, extra) {
             return Object.assign({ id, subject, category: '知識・技能', testType, type: 'standard', maxScore, date: '2026-06-01', createdAt: new Date().toISOString() }, extra || {});
@@ -80,7 +80,11 @@ function check(name, cond, detail) {
             T(ID.overMax, '国語', '小テスト', 50),
             T(ID.marker9999, '体育', '実技記録', 9999, { peUnit: '点' }),
             T(ID.noMax, '算数', '授業課題', 0),
-            T(ID.matome, '算数', 'まとめテスト', 0, { type: 'matome' })
+            T(ID.matome, '算数', 'まとめテスト', 0, { type: 'matome' }),
+            // 段階3: B-1(score='C')・B-5('late')の陳腐化した警告が削除されたことを、
+            // 実際にその状況を作った上で確認する(C評価・lateステータスとも0件だから
+            // 出ない、では検証にならないため)。
+            T(ID.cScore, '国語', 'ルーブリック', 0, { category: '主体性' })
         ];
 
         const scores = [
@@ -89,17 +93,23 @@ function check(name, cond, detail) {
             { testId: ID.overMax, studentIndex: 2, score: 70 },     // maxScore=50超過
             { testId: ID.marker9999, studentIndex: 3, score: 50000 }, // maxScore=9999は完全一致で除外されるべき
             { testId: ID.noMax, studentIndex: 4, score: 30 },       // maxScore=0なのに数値スコア
-            { testId: ID.matome, studentIndex: 4, score: 12 }       // まとめテストのmaxScore=0は正常(除外対象)
+            { testId: ID.matome, studentIndex: 4, score: 12 },      // まとめテストのmaxScore=0は正常(除外対象)
+            { testId: ID.cScore, studentIndex: 0, score: 'C' }      // B-1警告(削除対象)を発生させる材料
         ];
 
-        await page.evaluate(({ tests, scores, students }) => {
+        const submissions = [
+            { id: 'audit-range-late-1', assignmentId: 'audit-range-fake-assign', studentIndex: 0, status: 'late' } // B-5警告(削除対象)を発生させる材料
+        ];
+
+        await page.evaluate(({ tests, scores, students, submissions }) => {
             StorageManager.setImmediate(KEYS.master, JSON.stringify({
                 students: students,
                 classInfo: { year: 2026, grade: 5, class: 1, termSystem: 3 }
             }));
             StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
             StorageManager.setImmediate(KEYS.scores, JSON.stringify(scores));
-        }, { tests, scores, students });
+            StorageManager.setImmediate(KEYS.submissions_data, JSON.stringify(submissions));
+        }, { tests, scores, students, submissions });
 
         await page.reload({ waitUntil: 'networkidle0' });
         await new Promise(r => setTimeout(r, 300));
@@ -122,6 +132,8 @@ function check(name, cond, detail) {
         const si = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).structuralIntegrity);
         const anomalies = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).anomalies);
         const meta = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).meta);
+        const scoreTypes = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).scoreTypes);
+        const submissionStatus = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).submissionStatus);
         const html = await page.evaluate(() => {
             var el = document.getElementById('audit-result-container');
             return el ? el.innerHTML : '';
@@ -160,12 +172,23 @@ function check(name, cond, detail) {
             anomalies && anomalies.warn.some(function(m) { return m.indexOf('maxScore 欠損/0なのに数値スコア') >= 0; }),
             JSON.stringify(anomalies && anomalies.warn));
 
+        // ---- 段階3: B-1(score='C')・B-5('late')の陳腐化した警告が削除されていること ----
+        // まずデータが本当に存在すること(=削除対象の状況を実際に作れていること)を確認してから、
+        // その状況下でも警告文言が出ないことを確認する(0件だから出ない、という偽陰性を防ぐ)。
+        check('(前提) score=\'C\'のレコードが実際に1件存在する', scoreTypes && scoreTypes.abc.C === 1, JSON.stringify(scoreTypes && scoreTypes.abc));
+        check('(前提) \'late\'ステータスの提出記録が実際に1件存在する', submissionStatus && submissionStatus.byStatus.late === 1, JSON.stringify(submissionStatus && submissionStatus.byStatus));
+        check('B-1警告(score=\'C\'...)がcollectAnomaliesのinfoに含まれない',
+            anomalies && !anomalies.info.some(function(m) { return m.indexOf('B-1') >= 0; }), JSON.stringify(anomalies && anomalies.info));
+        check('B-5警告(\'late\'ステータス...)がcollectAnomaliesのinfoに含まれない',
+            anomalies && !anomalies.info.some(function(m) { return m.indexOf('B-5') >= 0; }), JSON.stringify(anomalies && anomalies.info));
+
         // ---- UI描画(iPadの実運用画面と同じHTML) ----
         check('監査結果HTMLに「負の点数」の行が描画される', html.indexOf('負の点数') >= 0, '');
         check('監査結果HTMLに「maxScore超過(9999マーカーは除外)」の行が描画される', html.indexOf('maxScore超過') >= 0, '');
         check('監査結果HTMLに「maxScore欠損/0なのに数値スコアあり」の行が描画される', html.indexOf('100点満点扱いの危険') >= 0, '');
         check('監査結果HTMLに氏名(検証用A〜E)が含まれない',
             ['検証用A', '検証用B', '検証用C', '検証用D', '検証用E'].every(function(n) { return html.indexOf(n) < 0; }), '');
+        check('監査結果HTML(画面表示)にB-1/B-5の警告文言が含まれない', html.indexOf('B-1') < 0 && html.indexOf('B-5') < 0, '');
 
         // ---- 段階0.6: データ量サマリーへのバージョン表示 ----
         check('sw.jsからCACHE_VERSIONを読み取れる(テスト自体の前提)', !!EXPECTED_VERSION, 'EXPECTED_VERSION=' + EXPECTED_VERSION);

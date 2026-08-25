@@ -3375,11 +3375,16 @@
                     <div id="grdSettingsContent"></div>
                     <div class="card" style="margin-top:12px;">
                         <div style="font-weight:600;margin-bottom:8px;">📐 10点換算の基準</div>
+                        <!-- v1.21.15 (段階3): このテーブルは静的HTMLのためabcTo10(index.html内)を
+                             直接呼べず、ABC行の値はハードコード。abcTo10のA/B+/B/B-/Cの値を
+                             変更したら、必ずこの行も合わせて直すこと(二重管理。動的に生成できる
+                             箇所(計算式タブ・xlsxエクスポート等)はgrdConversionRulesText()経由に
+                             統一済みだが、ここだけは構造上そうできない)。 -->
                         <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
                             <thead><tr><th style="padding:5px 8px;border:1px solid var(--border);background:var(--secondary);">元の評価</th><th style="padding:5px 8px;border:1px solid var(--border);background:var(--secondary);">10点換算</th></tr></thead>
                             <tbody>
                                 <tr><td style="padding:5px 8px;border:1px solid var(--border);">テスト（得点型）</td><td style="padding:5px 8px;border:1px solid var(--border);">得点÷満点×10</td></tr>
-                                <tr><td style="padding:5px 8px;border:1px solid var(--border);">ABC / 3段階評価</td><td style="padding:5px 8px;border:1px solid var(--border);">A=10 / B=7 / C=4</td></tr>
+                                <tr><td style="padding:5px 8px;border:1px solid var(--border);">ABC / 5段階評価</td><td style="padding:5px 8px;border:1px solid var(--border);">A=10 / B＋=8.5 / B=7 / B－=5 / C=3</td></tr>
                                 <tr><td style="padding:5px 8px;border:1px solid var(--border);">提出物</td><td style="padding:5px 8px;border:1px solid var(--border);">提出率% ÷ 10</td></tr>
                                 <tr><td style="padding:5px 8px;border:1px solid var(--border);">机間巡視</td><td style="padding:5px 8px;border:1px solid var(--border);">○÷（○+△）×10</td></tr>
                                 <tr><td style="padding:5px 8px;border:1px solid var(--border);">実技記録（なわとび）</td><td style="padding:5px 8px;border:1px solid var(--border);">級→ABC区分換算</td></tr>
@@ -14528,6 +14533,13 @@
             if (val === 'B' || val === '○') return 7;
             if (val === 'B-') return 5;
             if (val === 'C' || val === '△') return 3;
+            // 数値3/2/1の分岐: grdCalculateの主体性(attitude)カテゴリ(約15325行目)は
+            // 型チェックなしでsr.scoreをそのままここに渡すため、生の数値が来ると
+            // ここに到達する唯一の経路(知識・技能/思考・判断・表現側はtypeof==='string'で
+            // ガードされ数値は素通りするため、この分岐に来ない)。現在のUI(recSelectABC)は
+            // 常に文字列を書き込むため新規入力では発生しないが、数値で3段階入力していた
+            // 旧バージョンのデータを読む際の互換用と見られる(削除しないこと。段階3調査時点で
+            // 経路の生存は確認済みだが、コミット履歴での経緯特定はしていない)。
             if (val === 3) return 10; if (val === 2) return 7; if (val === 1) return 3;
             return null;
         }
@@ -15582,13 +15594,13 @@
             html += '<b>📙 思考・判断・表現</b>（A:'+cfg.thinking.aThreshold+'%以上 / B:'+cfg.thinking.bThreshold+'%以上）'+(subject==='体育'?'<br><small>※体育の振り返りシートは思考・判断・表現に加味</small>':'')+'</div>';
             if (tTests.length) {
                 html += '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:12px;"><thead><tr><th style="'+grdTH()+'">課題名</th><th style="'+grdTH()+'">種別</th><th style="'+grdTH()+'">満点</th><th style="'+grdTH()+'">換算</th></tr></thead><tbody>';
-                tTests.forEach(function(t) { html += '<tr><td style="'+grdTD()+'">'+escapeHtml(t.name)+'</td><td style="'+grdTD()+'">'+escapeHtml(t.testType||'—')+'</td><td style="'+grdTD()+'">'+(t.maxScore||'ABC')+'</td><td style="'+grdTD()+'"><code>'+(t.maxScore?'得点÷'+t.maxScore+'×10':'ABC→10/7/4')+'</code></td></tr>'; });
+                tTests.forEach(function(t) { html += '<tr><td style="'+grdTD()+'">'+escapeHtml(t.name)+'</td><td style="'+grdTD()+'">'+escapeHtml(t.testType||'—')+'</td><td style="'+grdTD()+'">'+(t.maxScore||'ABC')+'</td><td style="'+grdTD()+'"><code>'+(t.maxScore?'得点÷'+t.maxScore+'×10':'ABC→'+grdConversionRulesText())+'</code></td></tr>'; });
                 html += '<tr><td style="'+grdTD()+'background:#FFF3E0;">机間巡視（思考）</td><td style="'+grdTD()+'">机間巡視</td><td style="'+grdTD()+'">—</td><td style="'+grdTD()+'"><code>○率×10</code></td></tr></tbody></table>';
             }
             html += '<div style="'+IC+'#2E7D32;background:#E8F5E9;">';
             html += '<b>📗 主体的に学習に取り組む態度</b>（A:'+cfg.attitude.aThreshold+'%以上 / B:'+cfg.attitude.bThreshold+'%以上）<br><small>※提出物アプリの教科別提出率を10点満点に換算して加味</small></div>';
             html += '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:12px;"><thead><tr><th style="'+grdTH()+'">項目</th><th style="'+grdTH()+'">種別</th><th style="'+grdTH()+'">換算</th></tr></thead><tbody>';
-            aTests.forEach(function(t) { html += '<tr><td style="'+grdTD()+'">'+escapeHtml(t.name)+'</td><td style="'+grdTD()+'">'+escapeHtml(t.testType||'態度')+'</td><td style="'+grdTD()+'"><code>ABC→10/7/4</code></td></tr>'; });
+            aTests.forEach(function(t) { html += '<tr><td style="'+grdTD()+'">'+escapeHtml(t.name)+'</td><td style="'+grdTD()+'">'+escapeHtml(t.testType||'態度')+'</td><td style="'+grdTD()+'"><code>ABC→'+grdConversionRulesText()+'</code></td></tr>'; });
             html += '<tr><td style="'+grdTD()+'background:#E8F5E9;">提出物（'+escapeHtml(subject)+'）：'+assignments.length+'件</td><td style="'+grdTD()+'">提出物</td><td style="'+grdTD()+'"><code>提出率%÷10</code></td></tr>';
             html += '<tr><td style="'+grdTD()+'background:#E8F5E9;">机間巡視（主体性）</td><td style="'+grdTD()+'">机間巡視</td><td style="'+grdTD()+'"><code>○率×10</code></td></tr></tbody></table>';
             html += '<div style="'+IC+'#555;background:#F5F5F5;"><b>🏆 最終評定（3段階）</b><br>知技ABC＋思判ABC＋主体ABC → A=3/B=2/C=1 → 合計<br>評定3: 合計'+cfg.final.grade3+'以上 / 評定2: '+cfg.final.grade2+'以上 / 評定1: '+cfg.final.grade2+'未満</div>';
@@ -15788,8 +15800,10 @@
         // ================================================================
         // 🖨️ 算出根拠シート印刷用ヘルパー（実際の換算関数・定数から動的に説明文を生成）
         // ================================================================
+        // v1.21.15 (段階3): B＋/B－が抜けていたため追加。実際のabcTo10を呼ぶ設計
+        // （二重管理禁止）のため、abcTo10の値が変わればここも自動的に追従する。
         function grdConversionRulesText() {
-            return 'A=' + abcTo10('A') + '点 / B=' + abcTo10('B') + '点 / C=' + abcTo10('C') + '点（10点満点）';
+            return 'A=' + abcTo10('A') + '点 / B＋=' + abcTo10('B+') + '点 / B=' + abcTo10('B') + '点 / B－=' + abcTo10('B-') + '点 / C=' + abcTo10('C') + '点（10点満点）';
         }
         function grdSubmissionCreditText() {
             return '提出済み=' + Math.round(SUBMISSION_CREDIT_FULL*100) + '% / 再提出（お直し済み）=' + Math.round(SUBMISSION_CREDIT_FULL*100)
@@ -16222,7 +16236,11 @@
                     sheetRows.push(row);
                 });
                 sheetRows.push([]);
-                sheetRows.push(['【換算ルール】', '数値型：得点÷満点×10', 'ABC型：A=10 B=7 C=4', '3段階：3=10 2=7 1=4', '提出物：提出率×10', '机間巡視：○÷(○+△)×10']);
+                // v1.21.15 (段階3): ABC型の換算値はハードコードせずgrdConversionRulesText()
+                // 経由にする(二重管理禁止。abcTo10が変わればここも自動追従する)。
+                // 「3段階」列は数値入力(3/2/1)時の換算値(abcTo10の数値分岐、主体性カテゴリの
+                // 読み取り時のみ到達する互換経路。詳細はabcTo10定義部のコメント参照)。
+                sheetRows.push(['【換算ルール】', '数値型：得点÷満点×10', 'ABC型：' + grdConversionRulesText(), '3段階：3=10 2=7 1=3', '提出物：提出率×10', '机間巡視：○÷(○+△)×10']);
                 var aT = catKey === 'knowledge' ? cfg.knowledge.aThreshold : catKey === 'thinking' ? cfg.thinking.aThreshold : cfg.attitude.aThreshold;
                 sheetRows.push(['【A判定閾値】' + catLabel, aT + '%以上 → A']);
 
@@ -18589,17 +18607,11 @@
                 }
             });
 
-            // --- late レコード(情報) ---
-            var lateCount = result.submissionStatus.byStatus['late'] || 0;
-            if (lateCount > 0) {
-                info.push("'late' ステータス " + lateCount + '件(B-5修正の影響範囲)');
-            }
-
-            // --- C評価スコア(情報) ---
-            var cCount = result.scoreTypes.abc.C || 0;
-            if (cCount > 0) {
-                info.push("score='C' " + cCount + '件(B-1修正で評点変化の可能性)');
-            }
+            // v1.21.15 (段階3): 'lateステータス'(B-5修正)・'score=C'(B-1修正)の通知を削除。
+            // どちらもv1.8.20/v1.14.0時点の一時的な移行通知("この修正で値が変わった")が、
+            // 恒久的な構造チェックのように毎回表示され続けていた(値自体は正常で、
+            // 何のアクションも必要ない)。検定カードの migration_kenteiCard_v1 未完了チェック等、
+            // 「実行すべき移行が未完了か」を都度判定するタイプの警告は今も意味があるため残す。
 
             // --- 検定カードの整合性 ---
             var ki = result.kenteiIntegrity;

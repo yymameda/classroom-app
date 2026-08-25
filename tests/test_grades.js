@@ -33,9 +33,15 @@
 // という判断ではない。将来これらの関数が実際に呼ばれるようになった場合は
 // 別途検証を追加すること。
 
+const fs = require('fs');
+const path = require('path');
 const puppeteer = require('puppeteer-core');
 
 const BASE_URL = 'http://localhost:8123/index.html';
+// 段階3: 静的HTML(閾値設定タブ)・xlsx出力の文言はJSから呼べない/実行が重いため、
+// ソーステキストの存在確認で代用する(grdConversionRulesText()自体はUI経由の
+// 動的検証で別途カバーしている)。
+const INDEX_HTML_SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 const results = [];
 function check(name, cond, detail) {
@@ -43,6 +49,24 @@ function check(name, cond, detail) {
     console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
 function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (eps || 0.05); }
+
+// ================================================================
+// 段階3: ソーステキストの静的確認（ブラウザ起動不要）
+// ================================================================
+check('閾値設定タブ(静的HTML): 「A=10 / B=7 / C=4」の古い表記が残っていない',
+    INDEX_HTML_SRC.indexOf('A=10 / B=7 / C=4') === -1, '');
+check('閾値設定タブ(静的HTML): 5段階の正しい換算値が書かれている',
+    INDEX_HTML_SRC.indexOf('A=10 / B＋=8.5 / B=7 / B－=5 / C=3') >= 0, '');
+check('閾値設定タブ(静的HTML): abcTo10との二重管理を示すコメントが残っている',
+    INDEX_HTML_SRC.indexOf('二重管理') >= 0 && INDEX_HTML_SRC.indexOf('このテーブルは静的HTMLのためabcTo10') >= 0, '');
+check('xlsx算出根拠シート: 「ABC型：A=10 B=7 C=4」の古い表記が残っていない',
+    INDEX_HTML_SRC.indexOf('ABC型：A=10 B=7 C=4') === -1, '');
+check('xlsx算出根拠シート: ABC型がgrdConversionRulesText()経由に統一されている(ハードコードを残していない)',
+    INDEX_HTML_SRC.indexOf("'ABC型：' + grdConversionRulesText()") >= 0, '');
+check('xlsx算出根拠シート: 「3段階：3=10 2=7 1=4」の古い表記が残っていない(1=3に修正済み)',
+    INDEX_HTML_SRC.indexOf('3段階：3=10 2=7 1=4') === -1 && INDEX_HTML_SRC.indexOf('3段階：3=10 2=7 1=3') >= 0, '');
+check('B-1警告(score=\'C\'...)が削除されている', INDEX_HTML_SRC.indexOf('B-1修正で評点変化の可能性') === -1, '');
+check('B-5警告(\'late\'ステータス...)が削除されている', INDEX_HTML_SRC.indexOf('B-5修正の影響範囲') === -1, '');
 
 async function setMockDate(page, ts) {
     await page.evaluate((fixed, enable) => {
@@ -120,7 +144,8 @@ async function setMockDate(page, ts) {
             pctNormal: now + 16,   // 通常テスト: 端数を含む割合の丸め確認(13/15→87%)
             pctNoMax: now + 17,    // maxScore=0(通常テストの異常系)→割合を出さない
             pctMarker: now + 18,   // maxScore=9999(実技記録の変換不要マーカー)→割合を出さない
-            pctMatome: now + 19    // まとめテスト: 満点が設問配点合計(3点)の小さいケース
+            pctMatome: now + 19,   // まとめテスト: 満点が設問配点合計(3点)の小さいケース
+            attitudeNumeric: now + 20 // 段階3: abcTo10の数値分岐(val===3/2/1)の回帰確認
         };
 
         const tests = [
@@ -142,7 +167,8 @@ async function setMockDate(page, ts) {
             T(ID.pctNormal, '国語', '知識・技能', '小テスト', 15),
             T(ID.pctNoMax, '国語', '知識・技能', '小テスト', 0),
             T(ID.pctMarker, '体育', '知識・技能', '実技記録', 9999, { peUnit: '点' }),
-            T(ID.pctMatome, '国語', '複合', 'まとめテスト', 3, { type: 'matome', matomePoints: [1, 1, 1] })
+            T(ID.pctMatome, '国語', '複合', 'まとめテスト', 3, { type: 'matome', matomePoints: [1, 1, 1] }),
+            T(ID.attitudeNumeric, '理科', '主体性', 'ルーブリック', 0)
         ];
 
         const scores = [
@@ -200,7 +226,14 @@ async function setMockDate(page, ts) {
             { testId: ID.pctMarker, studentIndex: 0, score: 8 },    // maxScore=9999(マーカー) → 割合は出ない
             // idx0だと_matomeExtract()が category='複合'/型未設定を「知識・技能」扱いする
             // 既存挙動により国語の知識・技能集計(idx0-4)を汚染するため、idx8を使う
-            { testId: ID.pctMatome, studentIndex: 8, answers: [1, 1, 0] } // 2/3 → 67%
+            { testId: ID.pctMatome, studentIndex: 8, answers: [1, 1, 0] }, // 2/3 → 67%
+
+            // 段階3: abcTo10の数値分岐(val===3/2/1)。主体性カテゴリはgrdCalculateが
+            // 型チェックなしでsr.scoreをabcTo10に渡すため、生の数値でもこの経路に到達する
+            // (知識・技能/思考・判断・表現はtypeof==='string'ガードがあり数値は素通りする)。
+            { testId: ID.attitudeNumeric, studentIndex: 1, score: 3 }, // → 10点
+            { testId: ID.attitudeNumeric, studentIndex: 2, score: 2 }, // → 7点
+            { testId: ID.attitudeNumeric, studentIndex: 3, score: 1 }  // → 3点
         ];
 
         const weights = {
@@ -597,6 +630,37 @@ async function setMockDate(page, ts) {
         check('専科: k/t/aはA/B/Cのまま保持され10点換算されない', musicR && musicR.knowledge.abc === 'A' && musicR.thinking.abc === 'B' && musicR.attitude.abc === 'C', JSON.stringify(musicR));
         check('専科: totalNumはabcToNum(A=3,B=2,C=1)の合算(3+2+1=6)', musicR && musicR.totalNum === 6, 'totalNum=' + (musicR && musicR.totalNum));
         check('専科: hyouteiは自動算出されず保存値をそのまま返す(grdExtSuggestHyouteiは候補提示ボタン専用で、この経路には無関係)', musicR && musicR.hyoutei === 2, 'hyoutei=' + (musicR && musicR.hyoutei));
+
+        // ================================================================
+        // 段階3-1: abcTo10の数値分岐(val===3/2/1)の回帰確認。
+        // 主体性カテゴリのgrdCalculateは型チェックなしでsr.scoreをabcTo10に渡すため、
+        // 生の数値スコアでもこの経路(削除しないと決定)に到達することを確認する。
+        // ================================================================
+        const rika = await calc('理科');
+        const attNum3 = itemOf(rika, 1, 'a', ID.attitudeNumeric);
+        const attNum2 = itemOf(rika, 2, 'a', ID.attitudeNumeric);
+        const attNum1 = itemOf(rika, 3, 'a', ID.attitudeNumeric);
+        check('abcTo10の数値分岐: 主体性カテゴリで生の数値3→10点', attNum3 && near(attNum3.score10, 10), JSON.stringify(attNum3));
+        check('abcTo10の数値分岐: 主体性カテゴリで生の数値2→7点', attNum2 && near(attNum2.score10, 7), JSON.stringify(attNum2));
+        check('abcTo10の数値分岐: 主体性カテゴリで生の数値1→3点', attNum1 && near(attNum1.score10, 3), JSON.stringify(attNum1));
+
+        // ================================================================
+        // 段階3-2: grdConversionRulesText()のB＋/B－対応。「計算式」タブ
+        // (grdRenderOverview、window非公開)経由で、実際に表示される文言を確認する
+        // (算数はmathA=主体性・mathT=思考・判断・表現、どちらもmaxScore=0でABC分岐を通る)。
+        // ================================================================
+        await page.evaluate(() => { window.showView('grades'); });
+        await new Promise(r => setTimeout(r, 200));
+        await page.select('#grdOverviewSubj', '算数');
+        await new Promise(r => setTimeout(r, 200));
+        const overviewHtml = await page.evaluate(() => {
+            var el = document.getElementById('grdOverviewContent');
+            return el ? el.innerHTML : '';
+        });
+        check('計算式タブ: grdConversionRulesText()経由でB＋/B－を含む正しい換算値が表示される(旧A=10/B=7/C=4は消えている)',
+            overviewHtml.indexOf('A=10点 / B＋=8.5点 / B=7点 / B－=5点 / C=3点（10点満点）') >= 0
+                && overviewHtml.indexOf('10/7/4') === -1,
+            overviewHtml.length > 1500 ? '(長いため省略、B＋/B－の有無のみ判定)' : overviewHtml);
 
         // ================================================================
         // grdGetCurrentTerm (3学期制のみ、MockDateで固定)

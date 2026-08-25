@@ -97,10 +97,12 @@ async function setMockDate(page, ts) {
     try {
         const now = Date.now();
 
-        // 学級名簿は8名。教科が異なれば集計は独立するため、同じ studentIndex を
-        // 別教科のケースで使い回しても互いに汚染しない。
+        // 学級名簿は10名。教科が異なれば集計は独立するため、同じ studentIndex を
+        // 別教科のケースで使い回しても互いに汚染しない。idx8/9はrecSaveAllScores検証専用
+        // (国語の他ケースと同じ知識・技能カテゴリだが、既存のkAvg集計を汚染しないよう
+        // 新規テスト・新規studentIndexで完全に分離する)。
         const students = [];
-        for (let i = 0; i < 8; i++) students.push({ name: '児童' + (i + 1) });
+        for (let i = 0; i < 10; i++) students.push({ name: '児童' + (i + 1) });
 
         function T(id, subject, category, testType, maxScore, extra) {
             return Object.assign({ id, subject, category, testType, type: 'standard', maxScore, date: '2026-06-01', createdAt: new Date().toISOString() }, extra || {});
@@ -112,7 +114,8 @@ async function setMockDate(page, ts) {
             mathK: now + 5, mathT: now + 6, mathA: now + 7,             // 算数: abcToNum/最終評定
             scienceW1: now + 8, scienceW2: now + 9,                     // 理科: calcWeightedScore(重み付き)
             socialZ1: now + 10, socialZ2: now + 11, socialSolo: now + 12, // 社会: 全重み0/null除外
-            peAttitude: now + 13, pePractical: now + 14                 // 体育: 授業態度記号 / peManualABC直書き
+            peAttitude: now + 13, pePractical: now + 14,                // 体育: 授業態度記号 / peManualABC直書き
+            jpValidate: now + 15                                        // 国語: recSaveAllScores(段階1)の範囲外拒否
         };
 
         const tests = [
@@ -129,7 +132,8 @@ async function setMockDate(page, ts) {
             T(ID.socialZ2, '社会', '知識・技能', '小テスト', 100),
             T(ID.socialSolo, '社会', '知識・技能', '小テスト', 100),
             T(ID.peAttitude, '体育', '主体性', '授業態度', 10),
-            T(ID.pePractical, '体育', '知識・技能', '実技記録', 9999, { peUnit: '回' })
+            T(ID.pePractical, '体育', '知識・技能', '実技記録', 9999, { peUnit: '回' }),
+            T(ID.jpValidate, '国語', '知識・技能', '小テスト', 100)
         ];
 
         const scores = [
@@ -147,7 +151,13 @@ async function setMockDate(page, ts) {
             { testId: ID.jpBoundary, studentIndex: 3, score: 49 }, // 4.9→C
             { testId: ID.jpBoundary, studentIndex: 4, score: 0 },  // 0→C(空文字ではない)
             { testId: ID.jpClamp, studentIndex: 5, score: 120 },   // 満点超過はクランプ
-            { testId: ID.jpNegative, studentIndex: 6, score: -10 }, // 下限クランプなし(現状の既知の仕様)
+            // 段階1でrecSaveAllScoresに0〜maxScoreクランプを追加したが、これは「新規入力」の
+            // 経路のみに効く制約であり、scoreTo10自体(=既存データを読んで10点換算する計算)は
+            // 意図的に変更していない(段階1の要件「既存データには影響を与えない」)。
+            // ここではlocalStorageに直接-10を注入し、recSaveAllScoresを経由しない
+            // (=バリデーション導入後でも起こりうる)「既に保存されている範囲外データを
+            // 読んだ場合」の計算結果が変わらないことを確認する。
+            { testId: ID.jpNegative, studentIndex: 6, score: -10 },
 
             // 算数: abcToNum / 最終評定(hyoutei)の閾値 (デフォルト grade3=8 / grade2=5)
             { testId: ID.mathK, studentIndex: 0, score: 'A' }, { testId: ID.mathT, studentIndex: 0, score: 'A' }, { testId: ID.mathA, studentIndex: 0, score: 'A' }, // AAA(9)→3
@@ -231,7 +241,80 @@ async function setMockDate(page, ts) {
         const itClamp = itemOf(jp, 5, 'k', ID.jpClamp);
         check('scoreTo10: 満点超過はクランプ(120/100→10)', itClamp && near(itClamp.score10, 10), JSON.stringify(itClamp));
         const itNeg = itemOf(jp, 6, 'k', ID.jpNegative);
-        check('scoreTo10: 負の点数は下限クランプなし(既知の仕様、-10/100→-1)', itNeg && near(itNeg.score10, -1), JSON.stringify(itNeg));
+        check('scoreTo10: 既存の範囲外データ(-10)を読んだ場合、計算自体は変わらない(-10/100→-1、段階1はrecSaveAllScoresの新規入力のみ対象)', itNeg && near(itNeg.score10, -1), JSON.stringify(itNeg));
+
+        // ================================================================
+        // recSaveAllScores(段階1、設計変更版): 範囲外(0未満/maxScore超過)は
+        // クランプせず「保存しない」+ 入力欄をハイライトして修正を促す方式。
+        // 実際の点数入力画面(#recList)にDOMで値を入れ、window.recSaveAllScores()を
+        // 実際に呼んで検証する(ロジックの抜き出し・ハードコピーはしない)。
+        // idx0=範囲内(正常保存)、idx8=下限割れ、idx9=上限超過。maxScore=100。
+        // ================================================================
+        await page.evaluate((testId) => {
+            window.showView('records');
+            window.recSelectTestGoto(testId);
+        }, ID.jpValidate);
+        await new Promise(r => setTimeout(r, 200));
+
+        await page.evaluate(() => {
+            var i0 = document.getElementById('rec-sc-0');
+            var i8 = document.getElementById('rec-sc-8');
+            var i9 = document.getElementById('rec-sc-9');
+            if (i0) i0.value = '80';    // 範囲内
+            if (i8) i8.value = '-20';   // 下限を割る新規入力
+            if (i9) i9.value = '9999';  // 上限(maxScore=100)を超える新規入力
+        });
+        await page.evaluate(() => { window.recSaveAllScores(); });
+        await new Promise(r => setTimeout(r, 200));
+
+        const afterFirstSave = await page.evaluate(() => ({
+            v0: document.getElementById('rec-sc-0') ? document.getElementById('rec-sc-0').value : null,
+            v8: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').value : null,
+            v9: document.getElementById('rec-sc-9') ? document.getElementById('rec-sc-9').value : null,
+            err0: document.getElementById('rec-sc-0') ? document.getElementById('rec-sc-0').classList.contains('range-error') : null,
+            err8: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').classList.contains('range-error') : null,
+            err9: document.getElementById('rec-sc-9') ? document.getElementById('rec-sc-9').classList.contains('range-error') : null
+        }));
+        check('recSaveAllScores: 範囲外(-20)の入力値は書き換えられず、打った値のまま残る', afterFirstSave.v8 === '-20', JSON.stringify(afterFirstSave));
+        check('recSaveAllScores: 範囲外(9999)の入力値も書き換えられず、打った値のまま残る', afterFirstSave.v9 === '9999', JSON.stringify(afterFirstSave));
+        check('recSaveAllScores: 範囲外(-20)の行は range-error クラスでハイライトされる', afterFirstSave.err8 === true, JSON.stringify(afterFirstSave));
+        check('recSaveAllScores: 範囲外(9999)の行は range-error クラスでハイライトされる', afterFirstSave.err9 === true, JSON.stringify(afterFirstSave));
+        check('recSaveAllScores: 範囲内(80)の行は range-error クラスが付かない', afterFirstSave.err0 === false, JSON.stringify(afterFirstSave));
+
+        const savedAfterFirst = await page.evaluate((testId) => {
+            return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
+        }, ID.jpValidate);
+        check('recSaveAllScores: 範囲内(idx0)は保存される', savedAfterFirst.some(function(s) { return s.studentIndex === 0 && s.score === 80; }), JSON.stringify(savedAfterFirst));
+        check('recSaveAllScores: 範囲外(idx8, -20)は保存されない', !savedAfterFirst.some(function(s) { return s.studentIndex === 8; }), JSON.stringify(savedAfterFirst));
+        check('recSaveAllScores: 範囲外(idx9, 9999)は保存されない', !savedAfterFirst.some(function(s) { return s.studentIndex === 9; }), JSON.stringify(savedAfterFirst));
+
+        const firstToastMsg = await page.evaluate(() => {
+            var el = document.getElementById('toastMsg');
+            return el ? el.textContent : '';
+        });
+        check('recSaveAllScores: トーストに保存件数(1件)と未保存件数(2件)が示される',
+            firstToastMsg.indexOf('1 件保存しました') >= 0 && firstToastMsg.indexOf('2件は範囲外のため未保存') >= 0, firstToastMsg);
+
+        // --- idx8を範囲内の値(50)に直して再保存 → ハイライトが解除されること ---
+        await page.evaluate(() => {
+            var i8 = document.getElementById('rec-sc-8');
+            if (i8) i8.value = '50';
+        });
+        await page.evaluate(() => { window.recSaveAllScores(); });
+        await new Promise(r => setTimeout(r, 200));
+
+        const afterSecondSave = await page.evaluate(() => ({
+            v8: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').value : null,
+            err8: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').classList.contains('range-error') : null,
+            err9: document.getElementById('rec-sc-9') ? document.getElementById('rec-sc-9').classList.contains('range-error') : null
+        }));
+        check('recSaveAllScores: 値を直して再保存するとハイライトが解除される', afterSecondSave.err8 === false, JSON.stringify(afterSecondSave));
+        check('recSaveAllScores: 直していない行(idx9)は引き続きハイライトされたまま', afterSecondSave.err9 === true, JSON.stringify(afterSecondSave));
+
+        const savedAfterSecond = await page.evaluate((testId) => {
+            return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
+        }, ID.jpValidate);
+        check('recSaveAllScores: 直した値(50)が保存されている', savedAfterSecond.some(function(s) { return s.studentIndex === 8 && s.score === 50; }), JSON.stringify(savedAfterSecond));
 
         // ================================================================
         // abcToNum / 最終評定(hyoutei)

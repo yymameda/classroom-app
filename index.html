@@ -742,6 +742,10 @@
         .rec-row-score-area input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .rec-row-score-area input:focus { outline: none; border-color: var(--primary); background: #FFFDE7; }
         .rec-row-score-area input.has-val { border-color: var(--primary); background: #E8F5E9; }
+        /* v1.21.10 (段階1): recSaveAllScoresが範囲外(0未満/maxScore超過)で未保存にした行のハイライト。
+           既存のエラー配色(var(--danger)、audit-status-errorと同系統)に合わせる。has-valより
+           後に定義することで、値が入っている(has-val)状態でも赤系が優先されるようにする。 */
+        .rec-row-score-area input.range-error { border-color: var(--danger); background: #FDEDEC; }
         .rec-abc-btns { display: flex; gap: 2px; justify-content: center; }
         .rec-abc-btn {
             width: 44px; height: 44px; border: 2px solid var(--border);
@@ -8922,12 +8926,30 @@
             var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
             var isMatome = test.type === 'matome';
             if (isABC || isMatome) { showToast('保存済みです', 'success'); return; }
-            var saved = 0;
+            var saved = 0, rejected = 0;
+            var rejectedInputs = []; // {idx, rawValue}: 再描画後に値とハイライトを復元するため退避
             students.forEach(function(_, idx) {
                 var input = document.getElementById('rec-sc-' + idx);
                 if (!input || input.value === '') return;
                 var v = parseFloat(input.value);
-                if (isNaN(v) || v < 0) return;
+                if (isNaN(v)) return;
+                // v1.21.10 (段階1): クランプ(丸め)ではなく「保存しない」方式にする。
+                // クランプ方式だと、995 のような打ち間違いが maxScore(例:100)に化けて
+                // 保存されてしまい、誤入力が「それらしい正常値」として成績データに
+                // 残ってしまう問題があったため(設計変更)。範囲外行は保存対象から外し、
+                // 入力欄をハイライトして修正を促す。値そのものは書き換えない。
+                //
+                // 既知の限界(今回は許容): recOnScoreBlur(単票入力・応急処置)はクランプ方式の
+                // まま維持しているため、そちらでクランプされた後の値(995→100)は範囲内になり、
+                // この保存時チェックをすり抜ける。recOnScoreBlurのクランプ警告トーストで
+                // 気づく想定とし、今回は追加の仕組みを入れない。将来問題が出るようなら、
+                // クランプした行に印を残して保存時に検出する方式を検討する。
+                var outOfRange = (v < 0) || (test.maxScore > 0 && v > test.maxScore);
+                if (outOfRange) {
+                    rejected++;
+                    rejectedInputs.push({ idx: idx, rawValue: input.value });
+                    return;
+                }
                 v = Math.round(v * 100) / 100;
                 var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === test.id; });
                 // v1.15.3: 欠席行はinputがdisabledでも値(保持されたscore)が残っている場合があるため、
@@ -8941,9 +8963,20 @@
                 saved++;
             });
             recSaveScores(scores);
-            showToast(saved + ' 件保存しました', 'success');
+            var saveMsg = saved + ' 件保存しました';
+            if (rejected > 0) saveMsg += '（' + rejected + '件は範囲外のため未保存）';
+            showToast(saveMsg, rejected > 0 ? 'warning' : 'success');
             recRenderList(test);
             recUpdateProgress(test);
+            // recRenderList()は保存済みデータからDOMを作り直すため、未保存(範囲外)行の入力欄は
+            // 再描画で元の値(空欄または以前の保存値)に戻ってしまう。ユーザーが打った値を
+            // そのまま見せて修正を促すため、該当行だけ再描画後に値とハイライトを復元する。
+            // 値を直して再保存すれば、この行はrejectedInputsに含まれなくなり、
+            // recRenderList()が生成した通常の(ハイライトなしの)入力欄がそのまま残る。
+            rejectedInputs.forEach(function(r) {
+                var input = document.getElementById('rec-sc-' + r.idx);
+                if (input) { input.value = r.rawValue; input.classList.add('range-error'); }
+            });
         };
 
         window.recClearAllScores = function() {

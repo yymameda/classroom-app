@@ -610,7 +610,9 @@ async function setMockDate(page, ts) {
         check('calcWeightedScore: 未評価(null)項目は除外され、残り1件の値がそのまま採用される(=6)', near(socialAvg1, 6), 'avg=' + socialAvg1);
 
         // ================================================================
-        // 授業態度(○/－/×) と 実技記録peManualABC直書き(14360)
+        // 授業態度(○/－/×) と 実技記録peManualABC(段階4-1でabcTo10呼び出しに統一済み、index.html:14516)
+        // 期待値10/7/3はリテラル固定(abcTo10を呼んで比較しない)。abcTo10の定義(index.html)と
+        // 一致させること。変更時は両方を確認すること。
         // ================================================================
         const pe = await calc('体育');
         [['○', 'A', 0, 10], ['－', 'B', 1, 7], ['×', 'C', 2, 3]].forEach(([symbol, label, idx, expect]) => {
@@ -619,7 +621,7 @@ async function setMockDate(page, ts) {
         });
         [['A', 0, 10], ['B', 1, 7], ['C', 2, 3]].forEach(([label, idx, expect]) => {
             const it = itemOf(pe, idx, 'k', ID.pePractical);
-            check('実技記録peManualABC: ' + label + '→' + expect + '点(段階4でabcTo10呼び出しへ統一予定、値は不変であること)', it && near(it.score10, expect), JSON.stringify(it));
+            check('実技記録peManualABC: ' + label + '→' + expect + '点(abcTo10呼び出しに統一後も値不変)', it && near(it.score10, expect), JSON.stringify(it));
         });
 
         // ================================================================

@@ -47,7 +47,9 @@ function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (ep
         ten:        now + 1,  // 単位「点」: 実際に換算されるべき
         sec:        now + 2,  // 単位「秒」: 換算未対応 → null
         countNoABC: now + 3,  // 単位「回」(peManualABCなし): 換算未対応 → null
-        countABC:   now + 4,  // 単位「回」(peManualABCあり、既存ロジック): 回帰確認
+        countABC:   now + 4,  // 単位「回」(peManualABC='A'、既存ロジック): 回帰確認
+        countABC_B: now + 10, // 単位「回」(peManualABC='B'、段階4-1でabcTo10呼び出しに統一): 回帰確認
+        countABC_C: now + 11, // 単位「回」(peManualABC='C'、段階4-1でabcTo10呼び出しに統一): 回帰確認
         meter:      now + 5,  // 単位「m」: 換算未対応 → null
         cm:         now + 6,  // 単位「cm」: 換算未対応 → null
         timeDiff:   now + 7,  // 単位「タイム差」レガシー: 既存ロジック不変を回帰確認
@@ -65,6 +67,8 @@ function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (ep
         peTest(T.sec, '秒テスト', '秒'),
         peTest(T.countNoABC, '回数テスト(ABCなし)', '回'),
         peTest(T.countABC, '回数テスト(ABCあり)', '回'),
+        peTest(T.countABC_B, '回数テスト(ABC=B)', '回'),
+        peTest(T.countABC_C, '回数テスト(ABC=C)', '回'),
         peTest(T.meter, '距離テスト(m)', 'm'),
         peTest(T.cm, '距離テスト(cm)', 'cm'),
         peTest(T.timeDiff, 'タイム差テスト', 'タイム差'),
@@ -84,6 +88,8 @@ function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (ep
         { testId: T.sec, studentIndex: 0, score: 12.3 },                    // 期待: null(未評価)
         { testId: T.countNoABC, studentIndex: 0, score: 15 },               // 期待: null(未評価)
         { testId: T.countABC, studentIndex: 0, score: 3, peManualABC: 'A' },// 期待: 10(既存ロジック回帰)
+        { testId: T.countABC_B, studentIndex: 0, score: 3, peManualABC: 'B' }, // 期待: 7(段階4-1: abcTo10統一の回帰確認)
+        { testId: T.countABC_C, studentIndex: 0, score: 3, peManualABC: 'C' }, // 期待: 3(段階4-1: abcTo10統一の回帰確認)
         { testId: T.meter, studentIndex: 0, score: 4.5 },                   // 期待: null(未評価)
         { testId: T.cm, studentIndex: 0, score: 230 },                      // 期待: null(未評価)
         // peRecordToScore10() 冒頭の sr.score===null/undefined ガードは「タイム差」分岐より前にあり、
@@ -138,17 +144,27 @@ function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (ep
 
     // 平均から除外されていること(knowledge.avgの計算にnullが混入して0を引きずっていないか)
     // 児童0(studentIndex=0)は SWIM_STAGES[0]=0 にも該当するため泳力検定(stage=0→1点)も持つ。
-    // 知識・技能項目は 点=8, 秒=null, 回ABCなし=null, 回ABCあり=10, m=null, cm=null, タイム差=7, タイム差クランプ=10, 泳力=1
-    // → 有効値は [8, 10, 7, 10, 1] の単純平均 = 36/5 = 7.2 (重み未設定なら均等)
+    // 知識・技能項目は 点=8, 秒=null, 回ABCなし=null, 回ABC=A→10, 回ABC=B→7, 回ABC=C→3,
+    // m=null, cm=null, タイム差=7, タイム差クランプ=10, 泳力=1
+    // → 有効値は [8, 10, 7, 3, 7, 10, 1] の単純平均 = 46/7 ≈ 6.5714 (重み未設定なら均等)
     const r0 = calcResults.find(x => x.index === 0);
     check('知識・技能平均: 未評価項目を除いた単純平均に一致(9999除算による0点混入なし)',
-        r0 && near(r0.knowledge.avg, 7.2, 0.1), 'avg=' + (r0 && r0.knowledge.avg));
+        r0 && near(r0.knowledge.avg, 46 / 7, 0.1), 'avg=' + (r0 && r0.knowledge.avg));
 
     // ================================================================
-    // 回帰: 単位「回」+ peManualABC の既存ロジックは不変
+    // 段階4-1: 単位「回」+ peManualABC の直書き(10/7/3)をabcTo10呼び出しに統一。
+    // 期待値はabcTo10の呼び出し結果ではなくリテラルで固定する
+    // (abcTo10自体が将来書き換わった際にこのテストで検知できるアンカーとするため)。
+    // この値はabcTo10の定義(index.html)と一致させること。変更時は両方を確認すること。
     // ================================================================
     const itCountABC = itemFor(0, T.countABC);
-    check('単位「回」(peManualABC=A): 既存ロジックのまま10点', itCountABC && near(itCountABC.score10, 10), JSON.stringify(itCountABC));
+    check('単位「回」(peManualABC=A): abcTo10統一後も10点', itCountABC && near(itCountABC.score10, 10), JSON.stringify(itCountABC));
+
+    const itCountABC_B = itemFor(0, T.countABC_B);
+    check('単位「回」(peManualABC=B): abcTo10統一後も7点', itCountABC_B && near(itCountABC_B.score10, 7), JSON.stringify(itCountABC_B));
+
+    const itCountABC_C = itemFor(0, T.countABC_C);
+    check('単位「回」(peManualABC=C): abcTo10統一後も3点', itCountABC_C && near(itCountABC_C.score10, 3), JSON.stringify(itCountABC_C));
 
     // ================================================================
     // 回帰: 「タイム差」レガシー経路は一切変更していない

@@ -14513,7 +14513,11 @@
             // 2026-08時点でコード上に代入箇所も無い(grep確認済)。過去バージョンで作成された
             // 既存データが実機に残っている可能性を排除できないため、ロジックには一切触れない。
             if (test.peUnit === 'タイム差') { var s = sr.finalScore !== undefined ? sr.finalScore : sr.score; return s !== null ? Math.min(10, s) : null; }
-            if (test.peUnit === '回' && sr.peManualABC) return sr.peManualABC === 'A' ? 10 : sr.peManualABC === 'B' ? 7 : 3;
+            // v1.21.17 (段階4-1): 直書きだった A/B/C→10/7/3 をabcTo10呼び出しに統一
+            // (段階0で発生したabcTo10のコピー・ドリフトの再発防止)。書き込み経路は
+            // v1.7.55で削除済みで新規データはこの分岐に到達しない(既存レガシーデータの
+            // 読み取り専用パス)。abcTo10('A')=10 / ('B')=7 / ('C')=3 で直書きの値と一致する。
+            if (test.peUnit === '回' && sr.peManualABC) return abcTo10(sr.peManualABC);
             if (test.testType === '実技記録') {
                 // v1.14.3: recAddTest() は実技記録の maxScore を常に9999で保存するため(検定カード以外)、
                 // 下の generic 除算(score/max*10)を使うと実質すべて0点になっていた(旧BUG)。

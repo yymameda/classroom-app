@@ -450,6 +450,108 @@ async function setMockDate(page, ts) {
         check('割合表示: 範囲外→範囲内に打ち直すと、ライブ更新で割合が再び出る(10/15→67%)', liveBackToRangeP === '／15(67%)', liveBackToRangeP);
 
         // ================================================================
+        // recSyncScoreCell(段階2 事故修正): 状態遷移(満点変更・category変更・
+        // 課題切り替え・削除)をまたいでも入力形式/割合が正しく同期されること。
+        // 「一度描画した画面に対する操作」だけでなく、実際のrecEditTest/recAddTest/
+        // recDeleteTestを呼んで画面の外側から状態を変える操作を再現する。
+        // ================================================================
+
+        // --- ベースライン: pctNormal(maxScore=15, idx8=13点) ---
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctNormal);
+        await new Promise(r => setTimeout(r, 150));
+        const beforeEdit = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-8');
+            return el ? el.textContent : null;
+        });
+        check('状態遷移: 満点変更前のベースライン(13/15→87%)', beforeEdit === '／15(87%)', beforeEdit);
+
+        // --- 満点変更: 既に開いている採点画面が無条件に作り直されること ---
+        await page.evaluate((testId) => { window.recEditTest(testId); }, ID.pctNormal);
+        await page.evaluate(() => { document.getElementById('recTestMaxScore').value = '20'; });
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const afterMaxEdit = await page.evaluate(() => ({
+            max: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').getAttribute('max') : null,
+            pct: document.getElementById('rec-pct-8') ? document.getElementById('rec-pct-8').textContent : null
+        }));
+        check('状態遷移: 満点を15→20に変更すると、開いたままの採点画面のmax属性が更新される', afterMaxEdit.max === '20', JSON.stringify(afterMaxEdit));
+        check('状態遷移: 満点変更後、割合が新しい満点で再計算される(13/20→65%、古い15基準の87%が残らない)', afterMaxEdit.pct === '／20(65%)', JSON.stringify(afterMaxEdit));
+
+        // --- category変更: 得点欄→ABCボタンに切り替わること ---
+        await page.evaluate((testId) => { window.recEditTest(testId); }, ID.pctNormal);
+        await page.evaluate(() => { document.getElementById('recTestCategory').value = '主体性'; });
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const afterCatToABC = await page.evaluate(() => ({
+            hasScInput: !!document.getElementById('rec-sc-8'),
+            abcBtnCount: document.querySelectorAll('#rec-row-8 .rec-abc-btn').length
+        }));
+        check('状態遷移: categoryを主体性に変更すると、得点入力欄が消える', afterCatToABC.hasScInput === false, JSON.stringify(afterCatToABC));
+        check('状態遷移: categoryを主体性に変更すると、ABCボタン(5個)に切り替わる', afterCatToABC.abcBtnCount === 5, JSON.stringify(afterCatToABC));
+
+        // --- 逆方向: 主体性→他のcategoryに戻すと得点欄+正しい割合に戻ること ---
+        await page.evaluate((testId) => { window.recEditTest(testId); }, ID.pctNormal);
+        await page.evaluate(() => {
+            document.getElementById('recTestCategory').value = '知識・技能';
+            document.getElementById('recTestMaxScore').value = '15';
+        });
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const afterCatBack = await page.evaluate(() => ({
+            hasScInput: !!document.getElementById('rec-sc-8'),
+            pct: document.getElementById('rec-pct-8') ? document.getElementById('rec-pct-8').textContent : null
+        }));
+        check('状態遷移: categoryを知識・技能に戻すと得点入力欄に戻る', afterCatBack.hasScInput === true, JSON.stringify(afterCatBack));
+        check('状態遷移: category復帰後、既存の得点(13)と満点(15)で割合が正しい(87%)', afterCatBack.pct === '／15(87%)', JSON.stringify(afterCatBack));
+
+        // --- 課題切り替え: 別の課題に切り替えてから戻っても割合が正しいこと ---
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctMarker);
+        await new Promise(r => setTimeout(r, 150));
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); }, ID.pctNormal);
+        await new Promise(r => setTimeout(r, 150));
+        const afterSwitchBack = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-8');
+            return el ? el.textContent : null;
+        });
+        check('状態遷移: 別の課題に切り替えてから戻っても割合は正しい(87%)', afterSwitchBack === '／15(87%)', afterSwitchBack);
+
+        // --- 削除: 開いている課題を削除すると採点画面が「未選択」状態に戻ること ---
+        await page.evaluate(() => {
+            document.getElementById('recTestSubject').value = '国語';
+            document.getElementById('recTestType').value = '小テスト';
+            document.getElementById('recTestName').value = '削除確認用';
+            document.getElementById('recTestCategory').value = '知識・技能';
+            document.getElementById('recTestMaxScore').value = '10';
+            document.getElementById('recTestDate').value = '2026-06-01';
+        });
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const created = await page.evaluate(() => {
+            var tests = StorageManager.get(KEYS.tests, []);
+            return tests.find(function(t) { return t.name === '削除確認用' && t.subject === '国語'; }) || null;
+        });
+        check('状態遷移(削除確認の前提): 削除確認用の課題が作成されている', !!created, JSON.stringify(created));
+        const createdId = created ? created.id : null;
+
+        await page.evaluate((id) => { window.recSelectTestGoto(id); }, createdId);
+        await new Promise(r => setTimeout(r, 150));
+        const beforeDelete = await page.evaluate(() => !!document.getElementById('rec-sc-0'));
+        check('状態遷移(削除確認の前提): 採点画面に得点入力欄が出ている', beforeDelete === true, '');
+
+        await page.evaluate((id) => { window.recDeleteTest(id); }, createdId);
+        await new Promise(r => setTimeout(r, 150));
+        const afterDelete = await page.evaluate(() => ({
+            bulkHidden: document.getElementById('recBulkWrap') ? document.getElementById('recBulkWrap').style.display === 'none' : null,
+            infoShown: document.getElementById('recInputInfo') ? document.getElementById('recInputInfo').style.display !== 'none' : null
+        }));
+        // recRenderInputArea()の「未選択」分岐は#recBulkWrapを非表示にするだけで、
+        // #recList自体のDOM(前の課題の採点行)は消さない仕様(既存挙動)。次に別の課題を
+        // 選べばrecRenderList()が中身を作り直すため実害はない。ここでは「未選択の案内が
+        // 表示され、採点エリアが隠れている」ことを確認する(=画面として古い課題が
+        // 見え続けることはない)。
+        check('状態遷移: 開いていた課題を削除すると、採点エリアが隠れ「課題を選択」案内が出る', afterDelete.bulkHidden === true && afterDelete.infoShown === true, JSON.stringify(afterDelete));
+
+        // ================================================================
         // abcToNum / 最終評定(hyoutei)
         // ================================================================
         const math = await calc('算数');

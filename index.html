@@ -7279,7 +7279,6 @@
                         + '</div>'
                         + '</div>';
                 } else {
-                    var curVal = hasSc ? existingSc.score : '';
                     var isAbsent = !!(existingSc && existingSc.absent);
                     var isLateRec = hasSc && existingSc.lateSubmit === true;
                     // v1.14.2: ABC行・提出物一覧と同じ並び（欠席は氏名の隣に小さく／入力欄は幅いっぱい）
@@ -7293,14 +7292,16 @@
                         +   '<div class="sub-row-done' + (hasSc ? ' ok' : '') + '" id="rec-dot-' + idx + '">'
                         +   (hasSc ? '✓' : '') + '</div>'
                         + '</div>'
+                        // v1.21.14: value/class/割合はここでは書かない。recSyncScoreCell経由に
+                        // 一本化するため(下のif(_recIsRegular)ブロックでまとめて同期する)。
+                        // ここで計算式を重複させると、今回の事故(片方だけ更新)が再発する。
                         + '<div class="rec-row-score-area">'
-                        +   '<input type="number" id="rec-sc-' + idx + '" value="' + (curVal !== '' ? curVal : '') + '"'
+                        +   '<input type="number" id="rec-sc-' + idx + '"'
                         +   ' min="0" max="' + test.maxScore + '" placeholder="—"'
                         +   ' step="' + (isPE ? '0.01' : '1') + '" inputmode="' + (isPE ? 'decimal' : 'numeric') + '"'
-                        +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
                         +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
-                        +   '<span class="rec-sc-pct" id="rec-pct-' + idx + '">' + recScorePctHtml(test, curVal) + '</span>'
+                        +   '<span class="rec-sc-pct" id="rec-pct-' + idx + '"></span>'
                         + '</div>'
                         + '</div>';
                 }
@@ -7315,6 +7316,15 @@
             }).join('');
 
             if (_recIsRegular) {
+                // v1.21.14: 得点入力欄のvalue/has-val/range-error/割合spanは、HTML生成では
+                // 書かずここでrecSyncScoreCellに一本化する。計算式を2箇所に持たせない
+                // (段階2の事故の再発防止。27名分のDOM操作が増えるが正しさを優先する)。
+                students.forEach(function(stu, idx) {
+                    if (!document.getElementById('rec-sc-' + idx)) return; // ABC行等、通常入力欄が無い行はスキップ
+                    var sc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
+                    var val = sc ? sc.score : '';
+                    recSyncScoreCell(idx, test, val, recScoreOutOfRange(test, parseFloat(val)));
+                });
                 list.querySelectorAll('.sub-row-num[data-idx]').forEach(function(numBtn) {
                     var bidx = parseInt(numBtn.dataset.idx);
                     var lpTimer = null, lpFired = false;
@@ -7368,6 +7378,34 @@
                 text += '(' + Math.round(v / maxScore * 100) + '%)';
             }
             return text;
+        }
+
+        // v1.21.14 (段階2 事故修正): 得点入力欄1行分の表示状態(value/has-val/
+        // range-error/割合span)を同期する唯一の窓口。
+        //
+        // 【不変条件】 入力欄のvalue・has-valクラス・range-errorクラス・割合spanは、
+        // 必ずこの関数を経由してのみ更新すること。value だけを個別に代入する箇所を
+        // 作らないこと。
+        //
+        // 経緯: value代入と割合spanの更新が別々の場所に分散していたため、
+        // 「valueだけ書き換えて割合spanが古いまま残る」事故が3箇所で発生した
+        // (recSaveAllScoresのrejectedInputs復元、recOnScoreBlurの取り消し復元、
+        //  recAddTestの保存後に採点画面自体が再描画されない)。この関数を必ず経由
+        // させることで、value・maxScore・割合が常に整合していることをコード上で
+        // 保証する。
+        function recSyncScoreCell(idx, test, value, outOfRange) {
+            var input = document.getElementById('rec-sc-' + idx);
+            if (!input) return;
+            var v = (value === null || value === undefined) ? '' : String(value);
+            // number型inputは「-」だけ・「1.」だけ等の入力途中の無効な状態を.valueとして
+            // 空文字で返す。ここで値が同じでも常にinput.value=を代入すると、内部状態が
+            // リセットされて入力途中の文字(「-」等)が消える(oninputから呼ぶ際に実際に発生)。
+            // 実際に値が変わる時だけ代入するガードで防ぐ。
+            if (input.value !== v) input.value = v;
+            input.classList.toggle('has-val', input.value !== '');
+            input.classList.toggle('range-error', !!outOfRange);
+            var pctEl = document.getElementById('rec-pct-' + idx);
+            if (pctEl) pctEl.textContent = recScorePctHtml(test, input.value);
         }
 
         // まとめテストの満点(設問配点合計)。test.maxScoreにも同じ値が保存されるが、
@@ -8844,15 +8882,14 @@
         window.recOnScoreInput = function(idx) {
             var input = document.getElementById('rec-sc-' + idx);
             if (!input) return;
-            var v = input.value;
-            input.classList.toggle('has-val', v !== '');
-            // v1.21.12 (段階2): 打鍵のたびに「／満点 (割合%)」表示をライブ更新する
-            // (保存前でも今の入力値がどのくらいの割合か分かるようにする)。
-            var pctEl = document.getElementById('rec-pct-' + idx);
-            if (pctEl && recCurrentTestId) {
-                var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
-                if (test) pctEl.textContent = recScorePctHtml(test, v);
-            }
+            var test = recCurrentTestId ? recGetTests().find(function(t) { return t.id === recCurrentTestId; }) : null;
+            if (!test) { input.classList.toggle('has-val', input.value !== ''); return; }
+            // v1.21.14: recSyncScoreCell経由に統一(value/has-val/割合を1箇所で同期)。
+            // range-errorは常にfalseを渡し、入力中は赤ハイライトを出さない
+            // (blur/保存時のみ判定する段階1の既存方針を維持)。割合表示自体は
+            // recScorePctHtml内部でrecScoreOutOfRangeを見るため、範囲外の値を
+            // 入力中は自動的に%部分だけ非表示になる(打鍵のたびにライブ更新)。
+            recSyncScoreCell(idx, test, input.value, false);
         };
 
         // v1.21.11: 範囲外(0未満/maxScore超過)の判定を1箇所に集約する。
@@ -8882,7 +8919,7 @@
             var v = parseFloat(input.value);
             if (isNaN(v)) {
                 if (input.value !== '') return;
-                input.classList.remove('range-error'); // 空欄に戻したのでハイライトも解除
+                recSyncScoreCell(idx, test, '', false); // 空欄に戻したのでハイライト・割合も解除
                 var scoresEmpty = recGetScores();
                 var eiEmpty = scoresEmpty.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
                 if (eiEmpty < 0 || scoresEmpty[eiEmpty].absent === true) return;
@@ -8896,8 +8933,13 @@
                     if (restoreIdx >= 0) restoredScores[restoreIdx] = removedRec; else restoredScores.push(removedRec);
                     recSaveScores(restoredScores);
                     if (recCurrentTestId === removedRec.testId) {
-                        var restoredInput = document.getElementById('rec-sc-' + idx);
-                        if (restoredInput) { restoredInput.value = removedRec.score; restoredInput.classList.add('has-val'); }
+                        // v1.21.14: valueだけ書き換えず、必ずrecSyncScoreCell経由で
+                        // 割合spanも一緒に同期する(取り消し復元で割合が置き去りになる事故の修正)。
+                        // maxScoreも編集で変わっている可能性があるため、testはここで取り直す。
+                        var restoredTest = recGetTests().find(function(t) { return t.id === removedRec.testId; });
+                        if (restoredTest) {
+                            recSyncScoreCell(idx, restoredTest, removedRec.score, recScoreOutOfRange(restoredTest, parseFloat(removedRec.score)));
+                        }
                         var restoredRow = document.getElementById('rec-row-' + idx);
                         var restoredDot = document.getElementById('rec-dot-' + idx);
                         if (restoredRow) restoredRow.classList.add('has-score');
@@ -8911,10 +8953,10 @@
             // 修正を促すのみ(recSaveAllScoresと同じrecScoreOutOfRangeを共有)。
             // クランプ警告トーストも出さない(ハイライトで示すため)。
             if (recScoreOutOfRange(test, v)) {
-                input.classList.add('range-error');
+                recSyncScoreCell(idx, test, input.value, true); // 値は書き換えず、ハイライト+割合(非表示)だけ同期
                 return;
             }
-            input.classList.remove('range-error');
+            recSyncScoreCell(idx, test, input.value, false); // 表示値はそのまま、has-val/割合だけ同期
             v = Math.round(v * 100) / 100;
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
@@ -9033,12 +9075,13 @@
             recUpdateProgress(test);
             // recRenderList()は保存済みデータからDOMを作り直すため、未保存(範囲外)行の入力欄は
             // 再描画で元の値(空欄または以前の保存値)に戻ってしまう。ユーザーが打った値を
-            // そのまま見せて修正を促すため、該当行だけ再描画後に値とハイライトを復元する。
+            // そのまま見せて修正を促すため、該当行だけ再描画後にrecSyncScoreCellで
+            // 値・ハイライト・割合をまとめて復元する(valueだけ書き換えて割合spanが
+            // 置き去りになる事故の修正。testはrecRenderList後の最新値を使う)。
             // 値を直して再保存すれば、この行はrejectedInputsに含まれなくなり、
             // recRenderList()が生成した通常の(ハイライトなしの)入力欄がそのまま残る。
             rejectedInputs.forEach(function(r) {
-                var input = document.getElementById('rec-sc-' + r.idx);
-                if (input) { input.value = r.rawValue; input.classList.add('range-error'); }
+                recSyncScoreCell(r.idx, test, r.rawValue, true);
             });
         };
 
@@ -9655,6 +9698,12 @@
             recResetTestForm();
             recRenderTestList();
             recUpdateTestSelect();
+            // v1.21.14: 今開いている点数入力画面がこの課題を表示中なら無条件に作り直す。
+            // maxScoreだけでなくcategory変更(isABC判定が変わりABCボタン⇔得点欄が切り替わる)
+            // 等、何が変わったかで条件分岐すると漏れるため、変更内容を問わず一律で再描画する。
+            // 従来はここでrecRenderList/recRenderInputAreaを一切呼んでおらず、既に開いている
+            // 採点画面が編集内容を反映しないまま古い表示(満点や割合)が残る事故があった。
+            if (recCurrentTestId === test.id) recRenderInputArea();
             var msg = recEditingTestId !== null ? '課題を更新しました' :
                 (isMatome ? testType + 'を追加しました（' + matomePoints.length + '問・' + matomeMaxScore + '点満点）' : '課題を追加しました');
             showToast(msg, 'success');
@@ -9767,19 +9816,25 @@
             if (!target) { showToast('課題が見つかりません', 'warning'); return; }
             var hit = recGetScores().filter(function(s) { return s.testId === testId; }).length;
             var prevCurrent = recCurrentTestId;
+            // v1.21.14: 削除した課題が点数入力画面で開いていた場合、その画面も作り直す
+            // (recAddTestの編集時と同じ理由。管理一覧とプルダウンだけでは採点画面が
+            // 古いまま残る)。取り消し(undo)で復元した場合も同様に作り直す。
+            var wasCurrentTest = (recCurrentTestId === testId);
             var undo = uiUndoable(
                 '「' + (target.name || '無題の課題') + '」を削除しました' + (hit > 0 ? '（点数 ' + hit + ' 件を含む）' : ''),
                 [REC_KEYS.tests, REC_KEYS.scores, REC_KEYS.matomeQ],
                 function() {
                     recCurrentTestId = prevCurrent;
                     recRenderTestList(); recUpdateTestSelect();
+                    if (prevCurrent === testId) recRenderInputArea();
                 });
             recSaveTests(recGetTests().filter(function(t) { return t.id !== testId; }));
             recSaveScores(recGetScores().filter(function(s) { return s.testId !== testId; }));
             var allMQ = StorageManager.get(REC_KEYS.matomeQ, {});
             if (allMQ[testId]) { delete allMQ[testId]; StorageManager.setImmediate(REC_KEYS.matomeQ, JSON.stringify(allMQ)); }
-            if (recCurrentTestId === testId) recCurrentTestId = null;
+            if (wasCurrentTest) recCurrentTestId = null;
             recRenderTestList(); recUpdateTestSelect();
+            if (wasCurrentTest) recRenderInputArea();
             undo();
         };
 

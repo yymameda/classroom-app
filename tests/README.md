@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計301件）
+## 常時グリーンのテスト（合計312件）
 
 | ファイル | 件数 |
 |---|---|
@@ -39,9 +39,9 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 |
 | `undo.test.js` | 32 |
 | `emptystate.test.js` | 7 |
-| `test_grades.js` | 63 |
+| `test_grades.js` | 74 |
 | `audit-range-check.test.js` | 20 |
-| **合計** | **301** |
+| **合計** | **312** |
 
 `test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
 プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・
@@ -98,3 +98,13 @@ push前の必須確認手順とする。`FAIL` の場合は `--update` せず、
   `page.type()`を使わない形）は、この`blur`が先に発火する順序を再現できず、
   もう一方のハンドラに残っていた重複バリデーションを見逃した実例がある
   （段階1やり直し、2026-08-25）。
+- 「一度描画された画面に対する操作」だけでなく、**状態遷移**（設定変更・
+  課題の切り替え・保存後の再描画・削除）をテストに含めること。段階1・段階2で
+  連続して同じ見落としが起きた：段階1はDOMへの直接代入がblurの発火順序を
+  再現しなかった事故（直上の項目）、段階2は満点をrecEditTest/recAddTestで
+  変更した後、既に開いていた採点画面（割合表示span）が再描画されず古い満点の
+  計算値が残る事故。どちらも「1回描画した後、何も状態を変えずに操作する」
+  テストだけでは検出できず、実際に`recEditTest`→フィールド変更→`recAddTest`→
+  再描画確認、のように**画面の外側から状態を変えてから**その反映を検証する
+  ケースを明示的に追加して初めて見つかった（`recSyncScoreCell`集約、
+  2026-08-25）。

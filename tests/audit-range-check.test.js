@@ -1,5 +1,5 @@
-// 段階0.5 機械検証: checkStructuralIntegrity の範囲外スコア検出
-// （成績入力形式統一プロジェクト、段階1着手前の事前診断用に追加）
+// 段階0.5/0.6 機械検証: checkStructuralIntegrity の範囲外スコア検出 +
+// 監査結果画面へのバージョン表示（成績入力形式統一プロジェクト、段階1着手前の事前診断用）
 //
 // 検証項目:
 //   1. 負の点数を持つレコードが検出される
@@ -11,13 +11,22 @@
 //      監査結果の描画HTMLにも実際の氏名文字列が現れないこと
 //   5. window.runAuditDiagnosis()(実装のエントリポイント)を実際に呼んで
 //      検証する（ロジックの抜き出し・ハードコピーはしない）
+//   6. (段階0.6) 監査結果「1. データ量サマリー」に、実際に配信されている
+//      sw.jsのCACHE_VERSIONと一致するバージョンが表示されること
+//      （ハードコードした期待値ではなく、sw.jsから動的に読み取って比較する）
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
 // 実行: cd tests && node audit-range-check.test.js
 
+const fs = require('fs');
+const path = require('path');
 const puppeteer = require('puppeteer-core');
 
 const BASE_URL = 'http://localhost:8123/index.html';
+
+const swSrc = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+const swVerMatch = swSrc.match(/CACHE_VERSION\s*=\s*'([^']+)'/);
+const EXPECTED_VERSION = swVerMatch ? swVerMatch[1] : null;
 
 const results = [];
 function check(name, cond, detail) {
@@ -95,6 +104,16 @@ function check(name, cond, detail) {
         await page.reload({ waitUntil: 'networkidle0' });
         await new Promise(r => setTimeout(r, 300));
 
+        // appVersion(#ver-disp と同じ値)は Service Worker への postMessage 往復で
+        // 非同期に確定する。navigator.serviceWorker.ready を待ってから余裕を持たせることで、
+        // 固定待機時間だけに頼らず版取得のタイミングを揃える。
+        await page.evaluate(async () => {
+            if ('serviceWorker' in navigator) {
+                try { await navigator.serviceWorker.ready; } catch (e) {}
+            }
+        });
+        await new Promise(r => setTimeout(r, 300));
+
         // runAuditDiagnosis() は実装のエントリポイント(window公開済み)をそのまま呼ぶ。
         // 内部はsetTimeout(50ms)後に結果を確定するため、余裕を見て待つ。
         await page.evaluate(() => { window.runAuditDiagnosis(); });
@@ -102,6 +121,7 @@ function check(name, cond, detail) {
 
         const si = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).structuralIntegrity);
         const anomalies = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).anomalies);
+        const meta = await page.evaluate(() => (window._auditDiagnosisLastResult || {}).meta);
         const html = await page.evaluate(() => {
             var el = document.getElementById('audit-result-container');
             return el ? el.innerHTML : '';
@@ -146,6 +166,14 @@ function check(name, cond, detail) {
         check('監査結果HTMLに「maxScore欠損/0なのに数値スコアあり」の行が描画される', html.indexOf('100点満点扱いの危険') >= 0, '');
         check('監査結果HTMLに氏名(検証用A〜E)が含まれない',
             ['検証用A', '検証用B', '検証用C', '検証用D', '検証用E'].every(function(n) { return html.indexOf(n) < 0; }), '');
+
+        // ---- 段階0.6: データ量サマリーへのバージョン表示 ----
+        check('sw.jsからCACHE_VERSIONを読み取れる(テスト自体の前提)', !!EXPECTED_VERSION, 'EXPECTED_VERSION=' + EXPECTED_VERSION);
+        check('collectMeta().appVersionが配信中のsw.jsのCACHE_VERSIONと一致する(SW居座りしていない)',
+            meta && meta.appVersion === EXPECTED_VERSION, 'meta.appVersion=' + (meta && meta.appVersion) + ' / expected=' + EXPECTED_VERSION);
+        check('監査結果HTMLに「診断実行時のバージョン」の行が描画される', html.indexOf('診断実行時のバージョン') >= 0, '');
+        check('監査結果HTMLのバージョン表示に実際のCACHE_VERSION文字列が含まれる',
+            EXPECTED_VERSION && html.indexOf(EXPECTED_VERSION) >= 0, 'expected=' + EXPECTED_VERSION);
     } finally {
         for (const k of Object.values(REAL_KEYS)) await restoreKey(k, backup[k]);
     }

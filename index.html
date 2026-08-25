@@ -18509,6 +18509,7 @@
         }
 
         function renderAuditResult(result) {
+            var meta = result.meta;
             var d = result.dataVolume;
             var st = result.scoreTypes;
             var td = result.testDistribution;
@@ -18526,6 +18527,10 @@
             html += '<div class="audit-result-subsection">';
             html += '<h4>1. データ量サマリー</h4>';
             html += '<table class="audit-table">';
+            // v1.21.9 (段階0.6): 診断のたびに「新しいコードで診断しているか」を
+            // #ver-disp(名簿・設定画面)まで見に行かずここで確認できるようにする。
+            // 新規の収集ロジックは追加せず、既存collectMeta()のappVersionを表示するのみ。
+            html += _aRow('診断実行時のバージョン', escapeHtml(meta.appVersion || '(取得できませんでした)'));
             html += _aRow('児童数',               d.studentCount + '名');
             html += _aRow('テスト総数',            d.testCount + '件 (まとめテスト: ' + d.matomeTestCount + '件)');
             html += _aRow('得点レコード総数',       d.scoreRecordCount.toLocaleString() + '件');

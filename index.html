@@ -7300,7 +7300,7 @@
                         +   ' class="' + (curVal !== '' ? 'has-val' : '') + '"'
                         +   (isAbsent ? ' disabled' : '')
                         +   ' oninput="recOnScoreInput(' + idx + ')" onblur="recOnScoreBlur(' + idx + ')" onkeydown="recHandleScoreKey(event,' + idx + ')">'
-                        +   '<span class="rec-sc-pct" id="rec-pct-' + idx + '">' + recScorePctHtml(test.maxScore, curVal) + '</span>'
+                        +   '<span class="rec-sc-pct" id="rec-pct-' + idx + '">' + recScorePctHtml(test, curVal) + '</span>'
                         + '</div>'
                         + '</div>';
                 }
@@ -7349,16 +7349,22 @@
             return Math.round((pt || 0) * r * 10) / 10;
         }
 
-        // v1.21.12 (段階2): 得点セルの「／満点 (割合%)」表示。四捨五入(Math.round)で
+        // v1.21.12/13 (段階2): 得点セルの「／満点 (割合%)」表示。四捨五入(Math.round)で
         // 1点刻みの%にする(小数第1位まで出すと27名分並んだ画面で窮屈になるため)。
         // maxScoreが無効(0/欠損)、またはPE実技記録の「変換不要」マーカー(9999)の場合は
         // 割合を出さない(段階0.5の監査診断が検出する||100フォールバックの値を
         // 画面に見せて誤解を招くのを避けるため)。
-        function recScorePctHtml(maxScore, rawValue) {
+        // v1.21.13: 範囲外(recScoreOutOfRange)の値では割合を出さない。赤枠ハイライトで
+        // 「不正な値」と示しているのに、隣で「113%」のような計算結果を出すと、その値が
+        // もっともらしく処理されているように見えてメッセージが矛盾する(実機で発覚)。
+        // 判定は段階1で作ったrecScoreOutOfRangeをそのまま使い、新たな判定は書かない。
+        function recScorePctHtml(test, rawValue) {
+            var maxScore = test ? test.maxScore : 0;
             if (!maxScore || maxScore <= 0 || maxScore === 9999) return '';
             var text = '／' + maxScore;
             var v = parseFloat(rawValue);
-            if (rawValue !== '' && rawValue !== undefined && rawValue !== null && !isNaN(v)) {
+            var hasValue = rawValue !== '' && rawValue !== undefined && rawValue !== null && !isNaN(v);
+            if (hasValue && !recScoreOutOfRange(test, v)) {
                 text += '(' + Math.round(v / maxScore * 100) + '%)';
             }
             return text;
@@ -8845,7 +8851,7 @@
             var pctEl = document.getElementById('rec-pct-' + idx);
             if (pctEl && recCurrentTestId) {
                 var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
-                if (test) pctEl.textContent = recScorePctHtml(test.maxScore, v);
+                if (test) pctEl.textContent = recScorePctHtml(test, v);
             }
         };
 

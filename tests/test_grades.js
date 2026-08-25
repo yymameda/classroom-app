@@ -298,6 +298,14 @@ async function setMockDate(page, ts) {
         check('recOnScoreBlur: 範囲外(-20)はblur後も値が書き換わらない(クランプされない)', afterBlur8.value === '-20', JSON.stringify(afterBlur8));
         check('recOnScoreBlur: 範囲外(-20)はblur後にrange-errorでハイライトされる', afterBlur8.hasError === true, JSON.stringify(afterBlur8));
 
+        // v1.21.13: 範囲外の値には割合を表示しない(赤ハイライトなのに「113%」等の
+        // それらしい計算結果を隣に出すとメッセージが矛盾するため、実機で発覚)。
+        const pctAfterBlur8 = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-8');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: 範囲外(-20)はblur後も「／maxScore」のみで割合は出ない', pctAfterBlur8 === '／100', pctAfterBlur8);
+
         const savedAfterBlur8 = await page.evaluate((testId) => {
             return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
         }, ID.jpValidate);
@@ -328,6 +336,15 @@ async function setMockDate(page, ts) {
         check('保存ボタンclick後: 範囲外(-20)の行は range-error クラスでハイライトされたまま', afterFirstSave.err8 === true, JSON.stringify(afterFirstSave));
         check('保存ボタンclick後: 範囲外(9999)の行は range-error クラスでハイライトされる', afterFirstSave.err9 === true, JSON.stringify(afterFirstSave));
         check('保存ボタンclick後: 範囲内(80)の行は range-error クラスが付かない', afterFirstSave.err0 === false, JSON.stringify(afterFirstSave));
+
+        const pctAfterFirstSave = await page.evaluate(() => ({
+            p0: document.getElementById('rec-pct-0') ? document.getElementById('rec-pct-0').textContent : null,
+            p8: document.getElementById('rec-pct-8') ? document.getElementById('rec-pct-8').textContent : null,
+            p9: document.getElementById('rec-pct-9') ? document.getElementById('rec-pct-9').textContent : null
+        }));
+        check('割合表示: 範囲内(80)は保存後も割合が表示される(／100(80%))', pctAfterFirstSave.p0 === '／100(80%)', JSON.stringify(pctAfterFirstSave));
+        check('割合表示: 範囲外(-20)は保存ボタンclick後も割合が出ない(／100のみ)', pctAfterFirstSave.p8 === '／100', JSON.stringify(pctAfterFirstSave));
+        check('割合表示: 範囲外(9999)も保存ボタンclick後、割合が出ない(／100のみ)', pctAfterFirstSave.p9 === '／100', JSON.stringify(pctAfterFirstSave));
 
         const savedAfterFirst = await page.evaluate((testId) => {
             return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
@@ -414,6 +431,23 @@ async function setMockDate(page, ts) {
             return el ? el.textContent : null;
         });
         check('割合表示: 保存前(入力中)でもoninputでライブ更新される(9/15→60%)', liveP === '／15(60%)', liveP);
+
+        // --- ライブ更新: 範囲内→範囲外に打ち替えたら割合が消え、範囲内に戻せば再び出ること ---
+        await page.evaluate(() => { document.getElementById('rec-sc-1').value = ''; });
+        await page.type('#rec-sc-1', '20'); // 20/15 → 範囲外(maxScore超過)
+        const liveOutOfRangeP = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-1');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: 範囲内→範囲外に打ち替えると、ライブ更新で割合が消える(／15のみ)', liveOutOfRangeP === '／15', liveOutOfRangeP);
+
+        await page.evaluate(() => { document.getElementById('rec-sc-1').value = ''; });
+        await page.type('#rec-sc-1', '10'); // 10/15 → 範囲内に戻す(66.66...%→67%)
+        const liveBackToRangeP = await page.evaluate(() => {
+            var el = document.getElementById('rec-pct-1');
+            return el ? el.textContent : null;
+        });
+        check('割合表示: 範囲外→範囲内に打ち直すと、ライブ更新で割合が再び出る(10/15→67%)', liveBackToRangeP === '／15(67%)', liveBackToRangeP);
 
         // ================================================================
         // abcToNum / 最終評定(hyoutei)

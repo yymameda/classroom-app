@@ -7156,12 +7156,20 @@
             });
         }
 
+        // v1.21.18 (段階4-2): isABC判定(ABC5段階評価として扱うか)を1箇所に集約。
+        // category='主体性' または testType='ルーブリック' のいずれかを満たすテストが対象。
+        // 段階0でabcTo10がコピー・ドリフトした前例があるため、この条件をコピーせず
+        // 必ずこの関数を経由すること。条件を変える場合はここだけを直せばよい。
+        function isABCTest(category, testType) {
+            return category === '主体性' || testType === 'ルーブリック';
+        }
+
         function recRenderList(test) {
             var list = document.getElementById('recList');
             if (!list) return;
             var students = recGetStudents();
             var scores = recGetScores();
-            var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
+            var isABC = isABCTest(test.category, test.testType);
             var isMatome = test.type === 'matome';
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && kenteiGetPresetId(test.peUnit) !== null;
@@ -7469,7 +7477,12 @@
             var tests = recGetTests();
             var test = tests.find(function(t) { return t.id === testId; });
             if (!test) return null;
-            if (test.category === '主体性' || test.testType === 'ルーブリック' || test.testType === '実技記録') return null;
+            // 実技記録を除外する理由: 導入コミット(0d2bdc7)に説明コメントがなく、確定した
+            // 理由は不明。以下は現行コードからの推定: peDirection('lower'/'higher')フィールドが
+            // 存在し、実技記録はテストごとに得点の大小と優劣の向きが異なり得る一方、この偏差値
+            // 計算式(50+10*(score-mean)/sd)は常に「得点が高いほど良い」前提の実装になっている。
+            // この不整合が除外理由の一つではないかと推測されるが、断定はできない。
+            if (isABCTest(test.category, test.testType) || test.testType === '実技記録') return null;
             var rows = recGetScores().filter(function(s) {
                 return s.testId === testId && !s.absent && typeof s.score === 'number';
             });
@@ -7537,7 +7550,7 @@
                 return;
             }
 
-            var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
+            var isABC = isABCTest(test.category, test.testType);
             var isNawatobi = test.testType === '実技記録' && kenteiGetPresetId(test.peUnit) !== null;
             var kConfig = isNawatobi ? kenteiGetConfig(test) : null;
             var count = scores.length;
@@ -9039,7 +9052,7 @@
             if (!test) return;
             var students = recGetStudents();
             var scores = recGetScores();
-            var isABC = test.category === '主体性' || test.testType === 'ルーブリック';
+            var isABC = isABCTest(test.category, test.testType);
             var isMatome = test.type === 'matome';
             if (isABC || isMatome) { showToast('保存済みです', 'success'); return; }
             var saved = 0, rejected = 0;
@@ -9397,7 +9410,7 @@
             var type = document.getElementById('recTestType').value;
             var maxEl = document.getElementById('recTestMaxScore');
             var isRubric = type === 'ルーブリック';
-            if (cat === '主体性' || isRubric) { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
+            if (isABCTest(cat, type)) { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
             else if (type !== 'まとめテスト' && type !== '単元テスト' && type !== '実技記録' && type !== '授業態度') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
             // ルーブリックフィールド表示
             var rf = document.getElementById('recRubricFields');
@@ -9606,7 +9619,7 @@
             var _termEl  = document.getElementById('recTestTerm');
             var termVal  = _termEl ? _termEl.value : '';
 
-            var isABC     = category === '主体性' || testType === 'ルーブリック';
+            var isABC     = isABCTest(category, testType);
             var isMatome  = testType === 'まとめテスト' || testType === '単元テスト';
             var isPE      = testType === '実技記録';
             var isAttitude= testType === '授業態度';
@@ -9895,7 +9908,7 @@
                 var cnt = scores.filter(function(s) { return s.testId === test.id; }).length;
                 var isMatome = test.type === 'matome';
                 var isPE = test.testType === '実技記録';
-                var scoreInfo = (test.category === '主体性' || test.testType === 'ルーブリック') ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
+                var scoreInfo = isABCTest(test.category, test.testType) ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
                 var termBadge = (typeof window.grdTermBadgeHtml === 'function') ? window.grdTermBadgeHtml(test) : '';
                 return '<div class="rec-test-item' + (test.id === recCurrentTestId ? ' selected' : '') +
                     (isPE ? ' pe-item' : '') + (isMatome ? ' matome-item' : '') + '">' +

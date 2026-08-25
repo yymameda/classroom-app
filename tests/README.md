@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計286件）
+## 常時グリーンのテスト（合計290件）
 
 | ファイル | 件数 |
 |---|---|
@@ -39,9 +39,9 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 |
 | `undo.test.js` | 32 |
 | `emptystate.test.js` | 7 |
-| `test_grades.js` | 48 |
+| `test_grades.js` | 52 |
 | `audit-range-check.test.js` | 20 |
-| **合計** | **286** |
+| **合計** | **290** |
 
 `test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
 プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・
@@ -81,3 +81,10 @@ push前の必須確認手順とする。`FAIL` の場合は `--update` せず、
   専用のマーカー文字列（例: `__uiUndoTest_intentional_throw__`）を仕込み、
   末尾の「コンソールエラーなし」チェックからそのマーカーを含むエラーだけを
   除外する。
+- 同じ入力欄を複数のイベントハンドラ（`onblur`と保存ボタンの`onclick`等）が
+  扱う機能を検証する際は、実際のユーザー操作の順序を再現すること。保存ボタンの
+  クリックは、押す前にフォーカスされていた入力欄の`blur`を必ず先に発火させる。
+  DOMに直接値を代入してから対象の関数を直接呼ぶだけのテスト（`page.click()`/
+  `page.type()`を使わない形）は、この`blur`が先に発火する順序を再現できず、
+  もう一方のハンドラに残っていた重複バリデーションを見逃した実例がある
+  （段階1やり直し、2026-08-25）。

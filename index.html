@@ -8799,6 +8799,17 @@
             input.classList.toggle('has-val', v !== '');
         };
 
+        // v1.21.11: 範囲外(0未満/maxScore超過)の判定を1箇所に集約する。
+        // recOnScoreBlur(単票入力)とrecSaveAllScores(一括保存)の両方がこれを使う。
+        // 経緯: 判定ロジックを2箇所に別々に持たせた結果、保存ボタン押下時は必ず
+        // フォーカスが外れてrecOnScoreBlurが先に走り、そちらのクランプで値が
+        // 範囲内に書き換わってしまうため、recSaveAllScores側の判定が実質的に
+        // 発火しない事故が実機検証で発覚した(段階1やり直しの原因)。isABC判定が
+        // 3箇所に重複していたのと同じ構造の問題を再発させないよう、ここで一本化する。
+        function recScoreOutOfRange(test, v) {
+            return v < 0 || (test.maxScore > 0 && v > test.maxScore);
+        }
+
         window.recOnScoreBlur = function(idx) {
             var input = document.getElementById('rec-sc-' + idx);
             if (!input) return;
@@ -8815,6 +8826,7 @@
             var v = parseFloat(input.value);
             if (isNaN(v)) {
                 if (input.value !== '') return;
+                input.classList.remove('range-error'); // 空欄に戻したのでハイライトも解除
                 var scoresEmpty = recGetScores();
                 var eiEmpty = scoresEmpty.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
                 if (eiEmpty < 0 || scoresEmpty[eiEmpty].absent === true) return;
@@ -8839,14 +8851,15 @@
                 });
                 return;
             }
-            var clamped = false;
-            if (v < 0) { v = 0; clamped = true; }
-            if (test.maxScore > 0 && v > test.maxScore) { v = test.maxScore; clamped = true; }
-            v = Math.round(v * 100) / 100;
-            if (clamped) {
-                input.value = v;
-                showToast('点数を0〜' + test.maxScore + '点の範囲に丸めました', 'warning');
+            // v1.21.11: クランプ(丸め)は廃止。範囲外は保存せず、入力欄をハイライトして
+            // 修正を促すのみ(recSaveAllScoresと同じrecScoreOutOfRangeを共有)。
+            // クランプ警告トーストも出さない(ハイライトで示すため)。
+            if (recScoreOutOfRange(test, v)) {
+                input.classList.add('range-error');
+                return;
             }
+            input.classList.remove('range-error');
+            v = Math.round(v * 100) / 100;
             var scores = recGetScores();
             var ei = scores.findIndex(function(s) { return s.studentIndex === idx && s.testId === recCurrentTestId; });
             // v1.15.3: 欠席行のinputはdisabledのため通常操作では到達しないが、保険として
@@ -8933,19 +8946,13 @@
                 if (!input || input.value === '') return;
                 var v = parseFloat(input.value);
                 if (isNaN(v)) return;
-                // v1.21.10 (段階1): クランプ(丸め)ではなく「保存しない」方式にする。
+                // v1.21.10/11 (段階1): クランプ(丸め)ではなく「保存しない」方式にする。
                 // クランプ方式だと、995 のような打ち間違いが maxScore(例:100)に化けて
                 // 保存されてしまい、誤入力が「それらしい正常値」として成績データに
                 // 残ってしまう問題があったため(設計変更)。範囲外行は保存対象から外し、
                 // 入力欄をハイライトして修正を促す。値そのものは書き換えない。
-                //
-                // 既知の限界(今回は許容): recOnScoreBlur(単票入力・応急処置)はクランプ方式の
-                // まま維持しているため、そちらでクランプされた後の値(995→100)は範囲内になり、
-                // この保存時チェックをすり抜ける。recOnScoreBlurのクランプ警告トーストで
-                // 気づく想定とし、今回は追加の仕組みを入れない。将来問題が出るようなら、
-                // クランプした行に印を残して保存時に検出する方式を検討する。
-                var outOfRange = (v < 0) || (test.maxScore > 0 && v > test.maxScore);
-                if (outOfRange) {
+                // 判定はrecOnScoreBlurと共有のrecScoreOutOfRange()を使う(重複させない)。
+                if (recScoreOutOfRange(test, v)) {
                     rejected++;
                     rejectedInputs.push({ idx: idx, rawValue: input.value });
                     return;

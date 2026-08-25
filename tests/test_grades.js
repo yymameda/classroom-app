@@ -244,10 +244,18 @@ async function setMockDate(page, ts) {
         check('scoreTo10: 既存の範囲外データ(-10)を読んだ場合、計算自体は変わらない(-10/100→-1、段階1はrecSaveAllScoresの新規入力のみ対象)', itNeg && near(itNeg.score10, -1), JSON.stringify(itNeg));
 
         // ================================================================
-        // recSaveAllScores(段階1、設計変更版): 範囲外(0未満/maxScore超過)は
-        // クランプせず「保存しない」+ 入力欄をハイライトして修正を促す方式。
-        // 実際の点数入力画面(#recList)にDOMで値を入れ、window.recSaveAllScores()を
-        // 実際に呼んで検証する(ロジックの抜き出し・ハードコピーはしない)。
+        // recOnScoreBlur / recSaveAllScores(段階1、設計修正版):
+        // 範囲外(0未満/maxScore超過)はクランプせず「保存しない」+ 入力欄を
+        // ハイライトして修正を促す方式。両者は recScoreOutOfRange() を共有する。
+        //
+        // 【重要】段階1の1回目の実装は、DOMに直接値を入れてrecSaveAllScores()を
+        // 呼ぶだけのテストで「PASS」していたが、実機では「保存ボタンを押すと
+        // 必ず入力欄からフォーカスが外れ、recSaveAllScoresより先にrecOnScoreBlurの
+        // クランプが走ってしまう」という、実際のユーザー操作の順序に起因する
+        // バグが発生した。これを二度と見落とさないため、以下は
+        // page.click()→page.type()→次の要素をclick(=blur発火)→保存ボタンをclick
+        // という実際のクリック・キー入力による操作順序で再現する
+        // (DOMに直接値を代入するだけの手段は使わない)。
         // idx0=範囲内(正常保存)、idx8=下限割れ、idx9=上限超過。maxScore=100。
         // ================================================================
         await page.evaluate((testId) => {
@@ -256,15 +264,37 @@ async function setMockDate(page, ts) {
         }, ID.jpValidate);
         await new Promise(r => setTimeout(r, 200));
 
-        await page.evaluate(() => {
-            var i0 = document.getElementById('rec-sc-0');
-            var i8 = document.getElementById('rec-sc-8');
-            var i9 = document.getElementById('rec-sc-9');
-            if (i0) i0.value = '80';    // 範囲内
-            if (i8) i8.value = '-20';   // 下限を割る新規入力
-            if (i9) i9.value = '9999';  // 上限(maxScore=100)を超える新規入力
+        await page.click('#rec-sc-0');
+        await page.type('#rec-sc-0', '80');
+        await page.click('#rec-sc-8'); // rec-sc-0からフォーカスが外れ、recOnScoreBlur(0)が実際に発火する
+        await new Promise(r => setTimeout(r, 100));
+        await page.type('#rec-sc-8', '-20');
+        await page.click('#rec-sc-9'); // rec-sc-8からフォーカスが外れ、recOnScoreBlur(8)が実際に発火する
+        await new Promise(r => setTimeout(r, 100));
+
+        // --- ここでrecOnScoreBlurの結果だけを検証する(recSaveAllScoresはまだ呼んでいない) ---
+        const afterBlur8 = await page.evaluate(() => ({
+            value: document.getElementById('rec-sc-8').value,
+            hasError: document.getElementById('rec-sc-8').classList.contains('range-error')
+        }));
+        check('recOnScoreBlur: 範囲外(-20)はblur後も値が書き換わらない(クランプされない)', afterBlur8.value === '-20', JSON.stringify(afterBlur8));
+        check('recOnScoreBlur: 範囲外(-20)はblur後にrange-errorでハイライトされる', afterBlur8.hasError === true, JSON.stringify(afterBlur8));
+
+        const savedAfterBlur8 = await page.evaluate((testId) => {
+            return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
+        }, ID.jpValidate);
+        check('recOnScoreBlur: 範囲外(-20)はblur時点で保存されない', !savedAfterBlur8.some(function(s) { return s.studentIndex === 8; }), JSON.stringify(savedAfterBlur8));
+
+        const blurToastMsg = await page.evaluate(() => {
+            var el = document.getElementById('toastMsg');
+            return el ? el.textContent : '';
         });
-        await page.evaluate(() => { window.recSaveAllScores(); });
+        check('recOnScoreBlur: クランプ警告トースト「丸めました」は出ない(ハイライトで示すため)', blurToastMsg.indexOf('丸めました') === -1, blurToastMsg);
+
+        await page.type('#rec-sc-9', '9999');
+
+        // --- 保存ボタンをclick(実機と同じ順序: これがrec-sc-9のblur→recSaveAllScoresの順で発火する) ---
+        await page.click('button[onclick="recSaveAllScores()"]');
         await new Promise(r => setTimeout(r, 200));
 
         const afterFirstSave = await page.evaluate(() => ({
@@ -275,18 +305,18 @@ async function setMockDate(page, ts) {
             err8: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').classList.contains('range-error') : null,
             err9: document.getElementById('rec-sc-9') ? document.getElementById('rec-sc-9').classList.contains('range-error') : null
         }));
-        check('recSaveAllScores: 範囲外(-20)の入力値は書き換えられず、打った値のまま残る', afterFirstSave.v8 === '-20', JSON.stringify(afterFirstSave));
-        check('recSaveAllScores: 範囲外(9999)の入力値も書き換えられず、打った値のまま残る', afterFirstSave.v9 === '9999', JSON.stringify(afterFirstSave));
-        check('recSaveAllScores: 範囲外(-20)の行は range-error クラスでハイライトされる', afterFirstSave.err8 === true, JSON.stringify(afterFirstSave));
-        check('recSaveAllScores: 範囲外(9999)の行は range-error クラスでハイライトされる', afterFirstSave.err9 === true, JSON.stringify(afterFirstSave));
-        check('recSaveAllScores: 範囲内(80)の行は range-error クラスが付かない', afterFirstSave.err0 === false, JSON.stringify(afterFirstSave));
+        check('保存ボタンclick後: 範囲外(-20)の値は書き換えられず、打った値のまま残る(blur→saveの順序でも)', afterFirstSave.v8 === '-20', JSON.stringify(afterFirstSave));
+        check('保存ボタンclick後: 範囲外(9999)の値も書き換えられず、打った値のまま残る', afterFirstSave.v9 === '9999', JSON.stringify(afterFirstSave));
+        check('保存ボタンclick後: 範囲外(-20)の行は range-error クラスでハイライトされたまま', afterFirstSave.err8 === true, JSON.stringify(afterFirstSave));
+        check('保存ボタンclick後: 範囲外(9999)の行は range-error クラスでハイライトされる', afterFirstSave.err9 === true, JSON.stringify(afterFirstSave));
+        check('保存ボタンclick後: 範囲内(80)の行は range-error クラスが付かない', afterFirstSave.err0 === false, JSON.stringify(afterFirstSave));
 
         const savedAfterFirst = await page.evaluate((testId) => {
             return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
         }, ID.jpValidate);
-        check('recSaveAllScores: 範囲内(idx0)は保存される', savedAfterFirst.some(function(s) { return s.studentIndex === 0 && s.score === 80; }), JSON.stringify(savedAfterFirst));
-        check('recSaveAllScores: 範囲外(idx8, -20)は保存されない', !savedAfterFirst.some(function(s) { return s.studentIndex === 8; }), JSON.stringify(savedAfterFirst));
-        check('recSaveAllScores: 範囲外(idx9, 9999)は保存されない', !savedAfterFirst.some(function(s) { return s.studentIndex === 9; }), JSON.stringify(savedAfterFirst));
+        check('保存ボタンclick後: 範囲内(idx0)は保存される', savedAfterFirst.some(function(s) { return s.studentIndex === 0 && s.score === 80; }), JSON.stringify(savedAfterFirst));
+        check('保存ボタンclick後: 範囲外(idx8, -20)はblur→save両方をすり抜けず未保存', !savedAfterFirst.some(function(s) { return s.studentIndex === 8; }), JSON.stringify(savedAfterFirst));
+        check('保存ボタンclick後: 範囲外(idx9, 9999)は未保存', !savedAfterFirst.some(function(s) { return s.studentIndex === 9; }), JSON.stringify(savedAfterFirst));
 
         const firstToastMsg = await page.evaluate(() => {
             var el = document.getElementById('toastMsg');
@@ -295,12 +325,15 @@ async function setMockDate(page, ts) {
         check('recSaveAllScores: トーストに保存件数(1件)と未保存件数(2件)が示される',
             firstToastMsg.indexOf('1 件保存しました') >= 0 && firstToastMsg.indexOf('2件は範囲外のため未保存') >= 0, firstToastMsg);
 
-        // --- idx8を範囲内の値(50)に直して再保存 → ハイライトが解除されること ---
-        await page.evaluate(() => {
-            var i8 = document.getElementById('rec-sc-8');
-            if (i8) i8.value = '50';
-        });
-        await page.evaluate(() => { window.recSaveAllScores(); });
+        // --- idx8を範囲内の値(50)に直す→保存ボタンをclick ---
+        // → ハイライトが解除されることを確認する。ここで検証したいのは「値を直して再保存
+        // すればハイライトが消える」ことであり、フィールドのクリア手段そのものは今回の
+        // バグ(blur→saveの順序)と無関係なため、既存値のクリアだけは直接代入で行う
+        // (直後のtype()による入力と、保存ボタンのclick→blurの順序は実操作のまま維持する)。
+        await page.evaluate(() => { document.getElementById('rec-sc-8').value = ''; });
+        await page.click('#rec-sc-8');
+        await page.type('#rec-sc-8', '50');
+        await page.click('button[onclick="recSaveAllScores()"]'); // クリック自体がrec-sc-8のblurを先に発火させる
         await new Promise(r => setTimeout(r, 200));
 
         const afterSecondSave = await page.evaluate(() => ({
@@ -308,13 +341,13 @@ async function setMockDate(page, ts) {
             err8: document.getElementById('rec-sc-8') ? document.getElementById('rec-sc-8').classList.contains('range-error') : null,
             err9: document.getElementById('rec-sc-9') ? document.getElementById('rec-sc-9').classList.contains('range-error') : null
         }));
-        check('recSaveAllScores: 値を直して再保存するとハイライトが解除される', afterSecondSave.err8 === false, JSON.stringify(afterSecondSave));
-        check('recSaveAllScores: 直していない行(idx9)は引き続きハイライトされたまま', afterSecondSave.err9 === true, JSON.stringify(afterSecondSave));
+        check('値を直して再保存するとハイライトが解除される', afterSecondSave.err8 === false, JSON.stringify(afterSecondSave));
+        check('直していない行(idx9)は引き続きハイライトされたまま', afterSecondSave.err9 === true, JSON.stringify(afterSecondSave));
 
         const savedAfterSecond = await page.evaluate((testId) => {
             return StorageManager.get(KEYS.scores, []).filter(function(s) { return s.testId === testId; });
         }, ID.jpValidate);
-        check('recSaveAllScores: 直した値(50)が保存されている', savedAfterSecond.some(function(s) { return s.studentIndex === 8 && s.score === 50; }), JSON.stringify(savedAfterSecond));
+        check('直した値(50)が保存されている', savedAfterSecond.some(function(s) { return s.studentIndex === 8 && s.score === 50; }), JSON.stringify(savedAfterSecond));
 
         // ================================================================
         // abcToNum / 最終評定(hyoutei)

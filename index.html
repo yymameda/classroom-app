@@ -9343,6 +9343,7 @@
 
         window.recOnTestTypeChange = function() {
             var type = document.getElementById('recTestType').value;
+            var cat = document.getElementById('recTestCategory').value;
             var maxEl = document.getElementById('recTestMaxScore');
             var matomeF = document.getElementById('recMatomeFields');
             var peF = document.getElementById('recPeFields');
@@ -9363,15 +9364,21 @@
                 recOnPeUnitChange();
             } else if (type === '授業態度') {
                 maxEl.value = '10'; maxEl.disabled = true;
-            } else if (type === 'ルーブリック') {
+            } else if (isABCTest(cat, type)) {
+                // v1.21.19 (段階4-3): 従来はtype==='ルーブリック'のみ見ていたため、
+                // category='主体性'単独(例:主体性+小テスト)の組み合わせでこの関数が
+                // 上のmaxEl.disabled=falseで上書きしてしまっていた(recEditTest編集時に発覚)。
+                // isABCTest()に統一し、どちらの経路でもABC評価扱いになるようにする。
                 maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価';
                 // ルーブリック種別ではルーブリック入力欄を自動表示
                 if (rf) rf.classList.add('show');
             }
             // ルーブリック種別以外で、観点未選択なら非表示に
+            // v1.21.19: ここはcatを再利用せず必ず再取得すること。実技記録+検定/実技ルーブリック
+            // 単位のときはこの直前のrecOnPeUnitChange()がrecTestCategoryの値を'知識・技能'に
+            // 書き換えるため、関数冒頭で読んだcat(書き換え前の値)を使うと判定がズレる。
             if (type !== 'ルーブリック') {
-                var cat = document.getElementById('recTestCategory').value;
-                if (rf) rf.classList.toggle('show', !!cat);
+                if (rf) rf.classList.toggle('show', !!document.getElementById('recTestCategory').value);
             }
             // 課題名プレフィックス自動挿入
             recAutoPrefix();
@@ -9772,7 +9779,7 @@
             var rf = document.getElementById('recRubricFields');
             if (rf) rf.classList.toggle('show', !!test.category);
             var ms = document.getElementById('recTestMaxScore');
-            if (test.category === '主体性') { ms.value = ''; ms.disabled = true; ms.placeholder = 'ABC評価'; }
+            if (isABCTest(test.category, test.testType)) { ms.value = ''; ms.disabled = true; ms.placeholder = 'ABC評価'; }
             else if (test.testType === '実技記録') { ms.value = ''; ms.disabled = true; ms.placeholder = '自動'; }
             else if (test.testType === 'まとめテスト' || test.testType === '単元テスト') { ms.value = ''; ms.disabled = true; ms.placeholder = '配点合計で自動計算'; }
             else { ms.value = test.maxScore || ''; ms.disabled = false; }

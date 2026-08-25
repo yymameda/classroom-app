@@ -18180,6 +18180,29 @@
             });
             var DETAIL_CAP = 100;
 
+            // v1.21.16: numericNoMaxList(検出条件・件数は上記から不変)を対象テスト単位に
+            // 集約し、testId/テスト名/実施日で個体を特定できるようにする(段階3.5)。
+            // スコア値・studentIndexはここに含めない。
+            var numericNoMaxByTestMap = {};
+            numericNoMaxList.forEach(function(d) {
+                var key = String(d.testId);
+                if (!numericNoMaxByTestMap[key]) numericNoMaxByTestMap[key] = { testId: d.testId, count: 0 };
+                numericNoMaxByTestMap[key].count++;
+            });
+            var numericNoMaxByTestAll = Object.keys(numericNoMaxByTestMap).map(function(key) {
+                var b = numericNoMaxByTestMap[key];
+                var t = testMapFull[b.testId];
+                return {
+                    testId: b.testId,
+                    name:   t ? (t.name || '(無題)') : '(テスト不明)',
+                    date:   t ? (t.date || '') : '',
+                    count:  b.count
+                };
+            }).sort(function(a, b) { return b.count - a.count; });
+            var NUMERIC_NO_MAX_BY_TEST_CAP = 20;
+            var numericScoreNoMaxScoreByTest         = numericNoMaxByTestAll.slice(0, NUMERIC_NO_MAX_BY_TEST_CAP);
+            var numericScoreNoMaxScoreByTestOverflow = Math.max(0, numericNoMaxByTestAll.length - NUMERIC_NO_MAX_BY_TEST_CAP);
+
             return {
                 testIdDups:             testIdDups,
                 scoreOrphans:           scoreOrphans,
@@ -18197,7 +18220,9 @@
                 overMaxScores:                overMaxScoreList.length,
                 overMaxScoreDetail:           overMaxScoreList.slice(0, DETAIL_CAP),
                 numericScoreNoMaxScore:       numericNoMaxList.length,
-                numericScoreNoMaxScoreDetail: numericNoMaxList.slice(0, DETAIL_CAP)
+                numericScoreNoMaxScoreDetail: numericNoMaxList.slice(0, DETAIL_CAP),
+                numericScoreNoMaxScoreByTest:         numericScoreNoMaxScoreByTest,
+                numericScoreNoMaxScoreByTestOverflow: numericScoreNoMaxScoreByTestOverflow
             };
         }
 
@@ -18801,7 +18826,14 @@
 
             var noMaxCell = si.numericScoreNoMaxScore === 0 ? 'なし' : '<span class="audit-status-warn">' + si.numericScoreNoMaxScore + '件</span>';
             if (si.numericScoreNoMaxScore > 0) {
-                noMaxCell += '<details class="audit-detail-block"><summary>詳細を表示</summary><div class="audit-detail-body">' + _rangeDetailHtml(si.numericScoreNoMaxScoreDetail, si.numericScoreNoMaxScore, false) + '</div></details>';
+                noMaxCell += '<details class="audit-detail-block"><summary>詳細を表示</summary><div class="audit-detail-body">';
+                if (si.numericScoreNoMaxScoreByTest && si.numericScoreNoMaxScoreByTest.length > 0) {
+                    si.numericScoreNoMaxScoreByTest.forEach(function(item) {
+                        noMaxCell += 'testId="' + item.testId + '" 「' + escapeHtml(item.name) + '」' + (item.date ? '(' + escapeHtml(item.date) + ')' : '') + ' : ' + item.count + '件<br>';
+                    });
+                    if (si.numericScoreNoMaxScoreByTestOverflow > 0) noMaxCell += '他' + si.numericScoreNoMaxScoreByTestOverflow + '件<br>';
+                }
+                noMaxCell += _rangeDetailHtml(si.numericScoreNoMaxScoreDetail, si.numericScoreNoMaxScore, false) + '</div></details>';
             }
             html += '<tr><td>' + _sts(si.numericScoreNoMaxScore === 0) + ' maxScore欠損/0なのに数値スコアあり(100点満点扱いの危険)</td><td>' + noMaxCell + '</td></tr>';
 
@@ -19149,6 +19181,13 @@
                 si.maxScoreEmptyBreakdown.forEach(function(item) {
                     lines.push('  testType="' + item.testType + '" subject="' + item.subject + '" : ' + item.count + '件');
                 });
+            }
+            lines.push('maxScore欠損/0なのに数値スコアあり: ' + si.numericScoreNoMaxScore + '件');
+            if (si.numericScoreNoMaxScore > 0 && si.numericScoreNoMaxScoreByTest && si.numericScoreNoMaxScoreByTest.length > 0) {
+                si.numericScoreNoMaxScoreByTest.forEach(function(item) {
+                    lines.push('  testId="' + item.testId + '" 「' + item.name + '」' + (item.date ? '(' + item.date + ')' : '') + ' : ' + item.count + '件');
+                });
+                if (si.numericScoreNoMaxScoreByTestOverflow > 0) lines.push('  他' + si.numericScoreNoMaxScoreByTestOverflow + '件');
             }
             lines.push('まとめテスト問題定義なし: ' + si.matomeNoQ + '件');
             lines.push('');

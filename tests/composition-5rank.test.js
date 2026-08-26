@@ -1,16 +1,16 @@
-// 段階8 機械検証: 記述問題(新設testType)を独立した5段階評価項目として追加したことの検証。
+// 段階8-2 機械検証: 作文(既存testType)をisABCTestに追加し、独立した5段階評価項目にしたことの検証。
 //
 // 変更内容(index.html):
-//   - #recTestType に「記述問題」のoptionを追加
-//   - isABCTest(category, testType) に || testType === '記述問題' を追加
-//     (category === '主体性' も testType === 'ルーブリック' も変更していない)
-//   - REC_TYPE_ORDER / _TYPE_ORDER / REC_PREFIX_MAP_TYPE / REC_ALL_PREFIXES に追加
+//   - isABCTest(category, testType) に || testType === '作文' を追加
+//     (category === '主体性' / testType === 'ルーブリック' / testType === '記述問題' はいずれも変更していない)
 //   - recAddTest / recOnTestTypeChange / recEditTest はコード変更なし
-//     (isABCTestの追加だけで正しく動く設計のため)
-//   - 「作文」に関わるコードは一切変更していない
+//     (isABCTestの追加だけで正しく動く設計のため。段階8の記述問題と同型)
+//   - 「記述問題」に関わるコードは一切変更していない(回帰確認あり)
+//   - <option>・REC_TYPE_ORDER・_TYPE_ORDER・REC_PREFIX_MAP_TYPE・REC_ALL_PREFIXESは
+//     既に登録済みで今回変更なし
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
-// 実行: cd tests && node descriptive-item-5rank.test.js
+// 実行: cd tests && node composition-5rank.test.js
 
 const puppeteer = require('puppeteer-core');
 
@@ -90,15 +90,15 @@ function check(name, cond, detail) {
         // ================================================================
         // 1. 新規作成 → 5段階のABCボタンUIが出る(まずcategory=主体性で確認)
         // ================================================================
-        await fillTestForm({ subject: '国語', testType: '記述問題', name: 'ISABC8_主体性', category: '主体性', date: '2026-06-01' });
+        await fillTestForm({ subject: '国語', testType: '作文', name: 'ISABC82_主体性', category: '主体性', date: '2026-06-01' });
         const formState1 = await maxScoreFieldState();
-        check('作成フォーム: 記述問題選択直後、満点欄がdisabled・プレースホルダー「ABC評価」になる', formState1.disabled === true && formState1.placeholder === 'ABC評価', JSON.stringify(formState1));
+        check('作成フォーム: 作文選択直後、満点欄がdisabled・プレースホルダー「ABC評価」になる', formState1.disabled === true && formState1.placeholder === 'ABC評価', JSON.stringify(formState1));
 
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
-        const created1 = await findTestByName('記述_ISABC8_主体性'); // 自動プレフィックスが付く想定
+        const created1 = await findTestByName('作文_ISABC82_主体性'); // 自動プレフィックスが付く想定
         check('新規作成(主体性): maxScoreが0で保存される', created1 && created1.maxScore === 0, JSON.stringify(created1));
-        check('新規作成: 自動プレフィックス「記述_」が付く', created1 && created1.name === '記述_ISABC8_主体性', JSON.stringify(created1));
+        check('新規作成: 自動プレフィックス「作文_」が付く', created1 && created1.name === '作文_ISABC82_主体性', JSON.stringify(created1));
 
         await page.evaluate((id) => { window.recSelectTestGoto(id); }, created1.id);
         await new Promise(r => setTimeout(r, 150));
@@ -110,18 +110,18 @@ function check(name, cond, detail) {
         check('採点画面(主体性): ABCボタン(5個)が出る', scoringUiState1.abcBtnCount === 5, JSON.stringify(scoringUiState1));
 
         // ================================================================
-        // 2. category を3種類すべて試し、どれでも5段階になること
+        // 2. category を3種類すべて試し、どれでも5段階になること(思考・判断・表現を含む)
         // ================================================================
         const categoryCases = [
-            { cat: '思考・判断・表現', name: 'ISABC8_思考' },
-            { cat: '知識・技能', name: 'ISABC8_知識' }
+            { cat: '思考・判断・表現', name: 'ISABC82_思考' },
+            { cat: '知識・技能', name: 'ISABC82_知識' }
         ];
         const createdByCat = { '主体性': created1 };
         for (const c of categoryCases) {
-            await fillTestForm({ subject: '国語', testType: '記述問題', name: c.name, category: c.cat, date: '2026-06-01' });
+            await fillTestForm({ subject: '国語', testType: '作文', name: c.name, category: c.cat, date: '2026-06-01' });
             await page.evaluate(() => { window.recAddTest(); });
             await new Promise(r => setTimeout(r, 150));
-            const created = await findTestByName('記述_' + c.name);
+            const created = await findTestByName('作文_' + c.name);
             check('新規作成(' + c.cat + '): maxScoreが0で保存される', created && created.maxScore === 0, JSON.stringify(created));
             await page.evaluate((id) => { window.recSelectTestGoto(id); }, created.id);
             await new Promise(r => setTimeout(r, 150));
@@ -134,8 +134,7 @@ function check(name, cond, detail) {
         }
 
         // ================================================================
-        // 3. A〜Cを入力 → abcTo10の値(10/8.5/7/5/3)で換算されること
-        //    (期待値はabcTo10を呼ばずリテラル固定。変更時はabcTo10の定義と両方確認すること)
+        // 3. A〜Cを入力 → 10/8.5/7/5/3 で換算されること(期待値リテラル固定・abcTo10は呼ばない)
         // ================================================================
         const abcCases = [['A', 10], ['B+', 8.5], ['B', 7], ['B-', 5], ['C', 3]];
         for (const [grade, expected] of abcCases) {
@@ -151,12 +150,12 @@ function check(name, cond, detail) {
             await new Promise(r => setTimeout(r, 100));
             const calcResults = await page.evaluate((subj) => window.grdCalculate(subj), '国語');
             const r0 = calcResults.find(x => x.index === 0);
-            const item = r0.attitude.items.find(it => it.name === '記述_ISABC8_主体性');
+            const item = r0.attitude.items.find(it => it.name === '作文_ISABC82_主体性');
             check('abcTo10換算: ' + grade + ' → ' + expected + '点', item && Math.abs(item.score10 - expected) < 0.01, JSON.stringify(item));
         }
 
         // ================================================================
-        // 4. 選んだcategoryの観点に正しく算入されること
+        // 4. 選んだcategoryの観点に正しく算入されること(特に思考・判断・表現)
         // ================================================================
         await page.evaluate((id) => { window.recSelectTestGoto(id); }, createdByCat['思考・判断・表現'].id);
         await new Promise(r => setTimeout(r, 150));
@@ -169,12 +168,12 @@ function check(name, cond, detail) {
         await new Promise(r => setTimeout(r, 100));
         const calcResults2 = await page.evaluate((subj) => window.grdCalculate(subj), '国語');
         const r0b = calcResults2.find(x => x.index === 0);
-        const thinkingItem = r0b.thinking.items.find(it => it.name === '記述_ISABC8_思考');
-        const knowledgeItem = r0b.knowledge.items.find(it => it.name === '記述_ISABC8_知識');
-        const attitudeHasThinkingOrKnowledge = r0b.attitude.items.some(it => it.name === '記述_ISABC8_思考' || it.name === '記述_ISABC8_知識');
-        check('観点算入: category=思考・判断・表現で作った記述問題は思考の集計に入る', thinkingItem && Math.abs(thinkingItem.score10 - 10) < 0.01, JSON.stringify(thinkingItem));
-        check('観点算入: category=知識・技能で作った記述問題は知識の集計に入る', knowledgeItem && Math.abs(knowledgeItem.score10 - 10) < 0.01, JSON.stringify(knowledgeItem));
-        check('観点算入: 思考・知識で作った記述問題が主体性の集計に紛れ込んでいない', attitudeHasThinkingOrKnowledge === false, String(attitudeHasThinkingOrKnowledge));
+        const thinkingItem = r0b.thinking.items.find(it => it.name === '作文_ISABC82_思考');
+        const knowledgeItem = r0b.knowledge.items.find(it => it.name === '作文_ISABC82_知識');
+        const attitudeHasThinkingOrKnowledge = r0b.attitude.items.some(it => it.name === '作文_ISABC82_思考' || it.name === '作文_ISABC82_知識');
+        check('観点算入: category=思考・判断・表現で作った作文は思考の集計に正しく算入される', thinkingItem && Math.abs(thinkingItem.score10 - 10) < 0.01, JSON.stringify(thinkingItem));
+        check('観点算入: category=知識・技能で作った作文は知識の集計に入る', knowledgeItem && Math.abs(knowledgeItem.score10 - 10) < 0.01, JSON.stringify(knowledgeItem));
+        check('観点算入: 思考・知識で作った作文が主体性の集計に紛れ込んでいない', attitudeHasThinkingOrKnowledge === false, String(attitudeHasThinkingOrKnowledge));
 
         // ================================================================
         // 5. 課題一覧のカードに「ABC評価」と表示されること
@@ -190,14 +189,12 @@ function check(name, cond, detail) {
         // ================================================================
         // 6. 状態遷移: 作成→保存→再描画→課題切り替え→戻る→編集(category変更)→削除
         // ================================================================
-        // (作成・保存は既にケース1で実施済み。ここでは切り替え・編集・削除を検証)
         await page.evaluate((id) => { window.recSelectTestGoto(id); }, createdByCat['知識・技能'].id);
         await new Promise(r => setTimeout(r, 150));
         await page.evaluate((id) => { window.recSelectTestGoto(id); }, createdByCat['主体性'].id);
         await new Promise(r => setTimeout(r, 150));
         const afterSwitchBack = await page.evaluate(() => ({
-            abcBtnCount: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length,
-            selectedValue: document.querySelector('#rec-row-0 .rec-abc-btn.sel-a, #rec-row-0 .rec-abc-btn[class*="sel-"]') ? true : false
+            abcBtnCount: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length
         }));
         check('状態遷移: 課題を切り替えて戻ってもABCボタン(5個)が表示される', afterSwitchBack.abcBtnCount === 5, JSON.stringify(afterSwitchBack));
 
@@ -215,7 +212,7 @@ function check(name, cond, detail) {
         const afterCategoryEditUi = await page.evaluate(() => ({
             abcBtnCount: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length
         }));
-        check('編集(category変更)後: category=知識・技能でも引き続きABCボタン(5個)のまま(testType=記述問題のため)', afterCategoryEditUi.abcBtnCount === 5, JSON.stringify(afterCategoryEditUi));
+        check('編集(category変更)後: category=知識・技能でも引き続きABCボタン(5個)のまま(testType=作文のため)', afterCategoryEditUi.abcBtnCount === 5, JSON.stringify(afterCategoryEditUi));
 
         await page.evaluate((id) => { window.recDeleteTest(id); }, createdByCat['主体性'].id);
         await new Promise(r => setTimeout(r, 150));
@@ -230,18 +227,24 @@ function check(name, cond, detail) {
         await new Promise(r => setTimeout(r, 150));
 
         // ================================================================
-        // 7. 「作文」との非干渉確認
-        //    v1.21.24時点(段階8)では作文は数値入力のままだった。v1.21.25(段階8-2)で
-        //    isABCTestにtestType==='作文'が追加され、作文も意図的にABC評価化された
-        //    (詳細検証はtests/composition-5rank.test.jsに分離)。ここでは「記述問題の
-        //    追加が作文に不要な影響を与えていないか」だけを軽く確認する。
+        // 7. 「記述問題」(段階8)に関わる挙動が変更されていないことの回帰確認
+        //    記述問題は既にisABCTest対象。今回の変更後も引き続きABC評価のままであること。
         // ================================================================
-        await fillTestForm({ subject: '国語', testType: '作文', name: 'ISABC8_作文非干渉', category: '思考・判断・表現', date: '2026-06-01' });
+        await fillTestForm({ subject: '国語', testType: '記述問題', name: 'ISABC82_記述回帰', category: '知識・技能', date: '2026-06-01' });
+        const descFormState = await maxScoreFieldState();
+        check('記述問題回帰: 満点欄がdisabled・プレースホルダー「ABC評価」のまま(従来どおり)', descFormState.disabled === true && descFormState.placeholder === 'ABC評価', JSON.stringify(descFormState));
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
-        const compositionCreated = await findTestByName('作文_ISABC8_作文非干渉');
-        check('作文非干渉: maxScoreが0で保存される(段階8-2のisABCTest経由、記述問題側のコード変更の影響ではない)', compositionCreated && compositionCreated.maxScore === 0, JSON.stringify(compositionCreated));
-        await page.evaluate((id) => { window.recDeleteTest(id); }, compositionCreated.id);
+        const descCreated = await findTestByName('記述_ISABC82_記述回帰');
+        check('記述問題回帰: maxScoreが0で保存される(従来どおり)', descCreated && descCreated.maxScore === 0, JSON.stringify(descCreated));
+        await page.evaluate((id) => { window.recSelectTestGoto(id); }, descCreated.id);
+        await new Promise(r => setTimeout(r, 150));
+        const descUi = await page.evaluate(() => ({
+            hasScInput: !!document.getElementById('rec-sc-0'),
+            abcBtnCount: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length
+        }));
+        check('記述問題回帰: 採点画面は従来どおりABCボタン(5個)・数値入力欄なし', descUi.hasScInput === false && descUi.abcBtnCount === 5, JSON.stringify(descUi));
+        await page.evaluate((id) => { window.recDeleteTest(id); }, descCreated.id);
         await new Promise(r => setTimeout(r, 150));
 
         // ================================================================

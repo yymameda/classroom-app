@@ -7128,8 +7128,10 @@
         // v1.21.24 (段階8): testType='記述問題'を追加。記述問題はcategoryを自由に選べる
         // (知識・技能/思考・判断・表現/主体性のいずれでも5段階評価にする)ため、既存の
         // category==='主体性'条件には乗せられず、testTypeの別項として追加する。
+        // v1.21.25 (段階8-2): testType='作文'を追加。記述問題と同様、categoryは自由選択
+        // (特に思考・判断・表現での使用を想定)のまま入力形式だけ5段階にする。
         function isABCTest(category, testType) {
-            return category === '主体性' || testType === 'ルーブリック' || testType === '記述問題';
+            return category === '主体性' || testType === 'ルーブリック' || testType === '記述問題' || testType === '作文';
         }
 
         function recRenderList(test) {

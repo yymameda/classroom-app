@@ -8437,6 +8437,34 @@
             var stage = kenteiCalcStage(config, passData);
             var score10 = kenteiStageToScore10(config, stage);
             var hasRecord = stage > 0;
+            // v1.21.20 (段階4-4 案A): 全技offでstage=0になったらレコードを削除する
+            // (recOnScoreBlurの削除パターン(index.html付近)に倣う)。従来は上書き保存
+            // し続けていたため、「級の選択を解除」しても記録が消えず、監査診断の
+            // スコア件数が減らないという実機不具合の原因になっていた。
+            if (!hasRecord) {
+                if (ei >= 0) {
+                    var removedRec = scores[ei];
+                    scores.splice(ei, 1);
+                    recSaveScores(scores);
+                    recNwUpdateCardUI(studentIndex, passData, stage, hasRecord, config);
+                    recUpdateProgressByCount();
+                    showUndoToast('記録を削除しました', function() {
+                        var restoredScores = recGetScores();
+                        var restoreIdx = restoredScores.findIndex(function(s) { return s.studentIndex === removedRec.studentIndex && s.testId === removedRec.testId; });
+                        if (restoreIdx >= 0) restoredScores[restoreIdx] = removedRec; else restoredScores.push(removedRec);
+                        recSaveScores(restoredScores);
+                        if (recCurrentTestId === removedRec.testId) {
+                            var restoredPassData = removedRec.passData || removedRec.nawatobiData || {};
+                            recNwUpdateCardUI(studentIndex, restoredPassData, removedRec.stage, removedRec.stage > 0, config);
+                        }
+                        recUpdateProgressByCount();
+                    });
+                } else {
+                    recNwUpdateCardUI(studentIndex, passData, stage, hasRecord, config);
+                    recUpdateProgressByCount();
+                }
+                return;
+            }
             var rec = { id: Date.now(), studentIndex: studentIndex, testId: recCurrentTestId,
                 passData: passData, stage: stage, score10: score10,
                 nawatobiData: passData, score: stage,

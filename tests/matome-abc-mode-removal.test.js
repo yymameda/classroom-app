@@ -8,6 +8,10 @@
 // 既存データの再現テストは行わず、新規作成したまとめテストのみで検証する
 // (ユーザー承認済み: 段階5指示メッセージ参照)。
 //
+// 追記(段階6): matomeQuestionModesの書き込み側自体を段階6で削除したため、
+// このファイル内でmatomeQuestionModesを参照していたチェックは「フィールドが
+// 付かないこと」の確認に更新した(段階6の承認済み変更を反映)。
+//
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
 // 実行: cd tests && node matome-abc-mode-removal.test.js
 
@@ -103,9 +107,11 @@ function check(name, cond, detail) {
             return tests.find(function(t) { return t.name === 'ABC除去検証まとめ'; }) || null;
         });
         check('新規作成: まとめテストが作られ、maxScore=配点合計(5+5=10)', created && created.maxScore === 10, JSON.stringify(created));
-        check('新規作成: matomeQuestionModesが全て"point"になる(UI除去によりabcは選べない)',
-            created && Array.isArray(created.matomeQuestionModes) && created.matomeQuestionModes.every(function(m) { return m === 'point'; }),
-            JSON.stringify(created && created.matomeQuestionModes));
+        // 段階6でmatomeQuestionModes書き込み側自体を削除したため、フィールドが付かないことを確認する
+        // (段階5時点では常に'point'配列になる想定だったが、段階6の追加削除でフィールド自体が無くなった)。
+        check('新規作成: matomeQuestionModesフィールドが付かない(段階6でUI除去に伴い書き込み側も削除済み)',
+            created && !('matomeQuestionModes' in created),
+            JSON.stringify(created));
 
         // ================================================================
         // 3. 採点画面: ABC入力UI(ボタン・数字キー欄)が存在せず、常にプレーン数値入力であること
@@ -203,7 +209,8 @@ function check(name, cond, detail) {
         await new Promise(r => setTimeout(r, 150));
         const updated = await page.evaluate((id) => StorageManager.get(KEYS.tests, []).find(function(t) { return t.id === id; }), created.id);
         check('編集・更新保存: 設問数3・maxScore=15(5*3)に更新される', updated && updated.matomePoints.length === 3 && updated.maxScore === 15, JSON.stringify(updated));
-        check('編集・更新保存: 更新後もmatomeQuestionModesは全て"point"', updated && updated.matomeQuestionModes.every(function(m) { return m === 'point'; }), JSON.stringify(updated.matomeQuestionModes));
+        // 段階6でmatomeQuestionModes書き込み側自体を削除したため、更新後もフィールドが付かないことを確認する
+        check('編集・更新保存: 更新後もmatomeQuestionModesフィールドが付かない(段階6でUI除去に伴い書き込み側も削除済み)', updated && !('matomeQuestionModes' in updated), JSON.stringify(updated));
 
         // ================================================================
         // 削除: まとめテストを削除すると採点画面が「未選択」状態に戻る

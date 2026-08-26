@@ -10186,6 +10186,9 @@
         window.recDevColor = recDevColor;
         window.kenteiGetConfig = kenteiGetConfig;
         window.kenteiCalcStage = kenteiCalcStage;
+        // v1.21.26 (段階9-2): 監査診断(MODULE:AUDIT_DIAGNOSIS、別IIFE)がmaxScore欠損判定で
+        // 5段階項目かどうかをisABCTest経由で判定するために公開。条件式のコピーを避けるため。
+        window.isABCTest = isABCTest;
 
     })();
 
@@ -18046,15 +18049,17 @@
             // category 欠損テスト数
             var categoryMissing = tests.filter(function(t) { return !t.category; }).length;
 
-            // maxScore 欠損または0 (matome 除く)
+            // maxScore 欠損または0 (matome除く、5段階項目除く)
+            // v1.21.26 (段階9-2): 5段階項目(isABCTest)はmaxScore=0が正常のため、除外しないと
+            // 正常データを異常として報告し続けてしまう。5段階判定は必ずisABCTest経由にすること。
             var maxScoreMissing = tests.filter(function(t) {
-                return t.type !== 'matome' && (!t.maxScore || t.maxScore <= 0);
+                return t.type !== 'matome' && !isABCTest(t.category, t.testType) && (!t.maxScore || t.maxScore <= 0);
             }).length;
 
-            // maxScore 欠損の testType × subject 内訳
+            // maxScore 欠損の testType × subject 内訳 (5段階項目除く)
             var maxScoreEmptyMap = {};
             tests.filter(function(t) {
-                return t.type !== 'matome' && (!t.maxScore || t.maxScore <= 0);
+                return t.type !== 'matome' && !isABCTest(t.category, t.testType) && (!t.maxScore || t.maxScore <= 0);
             }).forEach(function(t) {
                 var key = (t.testType || '(未設定)') + '|' + (t.subject || '(未設定)');
                 maxScoreEmptyMap[key] = (maxScoreEmptyMap[key] || 0) + 1;

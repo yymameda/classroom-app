@@ -2824,13 +2824,8 @@
                                     <button onclick="recSetMatomeUniformType('思')" style="padding:2px 8px;background:#E65100;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て思</button>
                                     <button onclick="recSetMatomeUniformType('主')" style="padding:2px 8px;background:#2E7D32;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て主</button>
                                 </div>
-                                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
-                                    <span style="font-size:0.75rem;font-weight:500;">入力方式一括:</span>
-                                    <button onclick="recSetMatomeUniformMode('point')" style="padding:2px 8px;background:#607D8B;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て点数</button>
-                                    <button onclick="recSetMatomeUniformMode('abc')" style="padding:2px 8px;background:#6A1B9A;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全てABC</button>
-                                </div>
                                 <div class="rec-matome-preview" id="recMatomePreview"></div>
-                                <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 で観点、点/ABC で入力方式を切替。ABCはタップ、またはキーボード数字（5=A・4=B+・3=B・2=B-・1=C）で入力。A=10・B+=8.5・B=7・B-=5・C=3 として配点換算（満点は配点合計）。</p>
+                                <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 で観点を切替（満点は配点合計）。</p>
                             </div>
                             <!-- 実技記録設定 -->
                             <div class="rec-pe-fields" id="recPeFields">
@@ -9168,34 +9163,15 @@
             var questions = recGetMatomeQ(test.id);
             var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
             var types = questions ? questions.map(function(q) { return q.type || '知'; }) : (test.matomeQuestionTypes || []);
-            var modes = questions ? questions.map(function(q) { return q.mode || 'point'; }) : (test.matomeQuestionModes || []);
             var scores = recGetScores();
             var sc = scores.find(function(s) { return s.studentIndex === studentIndex && s.testId === test.id; });
             var answers = sc ? (sc.answers || []) : [];
-            var answersABC = sc ? (sc.answersABC || []) : [];
 
             var typeMap = { '知': 'chi', '思': 'shi', '主': 'shu' };
-            var abcClsMap = { 'A': 'a', 'B+': 'bplus', 'B': 'b', 'B-': 'bminus', 'C': 'c' };
             var grid = document.getElementById('recMatomeGrid');
             window._recMqDirty = false; // v1.8.88
             grid.innerHTML = points.map(function(pt, i) {
                 var typeClass = typeMap[types[i]] || 'chi';
-                if (modes[i] === 'abc') {
-                    var curAbc = (typeof answersABC[i] === 'string') ? answersABC[i] : '';
-                    var hidVal = curAbc !== '' ? recAbcToPoints(curAbc, pt) : '';
-                    return '<div class="rec-mq-cell abc">' +
-                        '<div class="rec-mq-cell-head">' +
-                        '<span class="rec-mq-cell-label">Q' + (i+1) + '</span>' +
-                        '<span class="rec-mq-cell-type ' + typeClass + '">' + (types[i]||'知') + '</span>' +
-                        '</div>' +
-                        ['A','B+','B','B-','C'].map(function(v) {
-                            var sel = curAbc === v ? ' sel-' + abcClsMap[v] : '';
-                            return '<button type="button" class="rec-mq-abc-btn' + sel + '" onclick="recMatomeSelectABC(' + i + ',\'' + v + '\')">' + v + '</button>';
-                        }).join('') +
-                        '<input type="text" inputmode="numeric" maxlength="1" class="rec-mq-abc-key" id="rec-mqk-' + i + '" value="' + recMatomeGradeToDigit(curAbc) + '" placeholder="5-1" title="5=A 4=B+ 3=B 2=B- 1=C" oninput="recMatomeKeyABC(' + i + ')">' +
-                        '<input type="hidden" id="rec-mq-' + i + '" value="' + hidVal + '" data-abc-mode="1" data-abc="' + curAbc + '" data-pt="' + pt + '">' +
-                        '</div>';
-                }
                 var ans = answers[i]; // 0〜pt=実得点, undefined=未入力
                 var hasAns = typeof ans === 'number';
                 return '<div class="rec-mq-cell">' +
@@ -9517,18 +9493,14 @@
                 var existing = preview.querySelectorAll('.rec-mq-item')[i];
                 var curPt = existing ? (existing.querySelector('.rec-mq-pt') ? existing.querySelector('.rec-mq-pt').value : '5') : '5';
                 var curType = existing ? (existing.querySelector('.rec-mq-type-btn') ? existing.querySelector('.rec-mq-type-btn').dataset.type : '知') : '知';
-                var curMode = existing ? (existing.querySelector('.rec-mq-mode-btn') ? existing.querySelector('.rec-mq-mode-btn').dataset.mode : 'point') : 'point';
                 var colors = { '知': {c:'#1565C0',bg:'#E3F2FD'}, '思': {c:'#E65100',bg:'#FFF3E0'}, '主': {c:'#2E7D32',bg:'#E8F5E9'} };
                 var col = colors[curType] || colors['知'];
-                var isAbcMode = curMode === 'abc';
                 return '<div class="rec-mq-item">' +
                     '<span class="rec-mq-label">Q' + (i+1) + '</span>' +
                     '<input class="rec-mq-pt" type="number" id="rec-mq-pt-' + (i+1) + '" value="' + curPt + '" min="1" inputmode="numeric">' +
                     '<button class="rec-mq-type-btn" id="rec-mq-type-' + (i+1) + '" data-type="' + curType + '"' +
                     ' style="border-color:' + col.c + ';background:' + col.bg + ';color:' + col.c + ';"' +
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
-                    '<button class="rec-mq-mode-btn' + (isAbcMode ? ' abc' : '') + '" id="rec-mq-mode-' + (i+1) + '" data-mode="' + curMode + '"' +
-                    ' onclick="recToggleMqMode(' + (i+1) + ')">' + (isAbcMode ? 'ABC' : '点') + '</button>' +
                     '</div>';
             }).join('');
         };

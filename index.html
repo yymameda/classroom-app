@@ -745,7 +745,7 @@
         /* v1.21.10 (段階1): recSaveAllScoresが範囲外(0未満/maxScore超過)で未保存にした行のハイライト。
            既存のエラー配色(var(--danger)、audit-status-errorと同系統)に合わせる。has-valより
            後に定義することで、値が入っている(has-val)状態でも赤系が優先されるようにする。 */
-        .rec-row-score-area input.range-error { border-color: var(--danger); background: #FDEDEC; }
+        .rec-row-score-area input.range-error, .rec-mq-cell input.range-error { border-color: var(--danger); background: #FDEDEC; }
         .rec-abc-btns { display: flex; gap: 2px; justify-content: center; }
         .rec-abc-btn {
             width: 44px; height: 44px; border: 2px solid var(--border);
@@ -8895,15 +8895,21 @@
             recSyncScoreCell(idx, test, input.value, false);
         };
 
-        // v1.21.11: 範囲外(0未満/maxScore超過)の判定を1箇所に集約する。
+        // v1.21.11: 範囲外(0未満/上限超過)の判定を1箇所に集約する。
         // recOnScoreBlur(単票入力)とrecSaveAllScores(一括保存)の両方がこれを使う。
         // 経緯: 判定ロジックを2箇所に別々に持たせた結果、保存ボタン押下時は必ず
         // フォーカスが外れてrecOnScoreBlurが先に走り、そちらのクランプで値が
         // 範囲内に書き換わってしまうため、recSaveAllScores側の判定が実質的に
         // 発火しない事故が実機検証で発覚した(段階1やり直しの原因)。isABC判定が
         // 3箇所に重複していたのと同じ構造の問題を再発させないよう、ここで一本化する。
+        // v1.21.23 (段階7): まとめテストの設問別入力(上限=設問ごとのpt、test.maxScoreとは
+        // 別の値)にも同じ判定を使えるよう、値と上限を直接受け取る下位関数に切り出した。
+        // max<=0は「上限未設定」として範囲外判定しない(通常テストの既存仕様を維持)。
+        function recValueOutOfRange(v, max) {
+            return v < 0 || (max > 0 && v > max);
+        }
         function recScoreOutOfRange(test, v) {
-            return v < 0 || (test.maxScore > 0 && v > test.maxScore);
+            return recValueOutOfRange(v, test.maxScore);
         }
 
         window.recOnScoreBlur = function(idx) {
@@ -9174,17 +9180,32 @@
             s('recMqShu', r1(shu));  s('recMqShuMax', shuMax);
         };
 
+        // v1.21.23 (段階7): クランプ(0〜ptに丸める)を廃止し、範囲外の設問は保存せず
+        // 赤枠ハイライトのみ行う「部分拒否」方式にした(recSaveAllScoresと同じ方式・
+        // 同じ判定(recValueOutOfRange)・同じ見た目(range-errorクラス)に統一)。
+        // 値そのものは書き換えない(教員が入力した値をそのまま見せて修正を促す)。
+        // 戻り値は範囲外で保存されなかった設問数(0なら全問正常)。呼び出し元の
+        // recMatomeModalNext/Prevはこれを見て、範囲外が残っている間は次の児童へ
+        // 進ませない(ハイライトが再描画で消えて教員が気づけなくなる事故を防ぐ)。
         window.recMatomeModalSave = function() {
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
-            if (!test) return;
+            if (!test) return 0;
             var questions = recGetMatomeQ(test.id);
             var points = questions ? questions.map(function(q) { return q.points; }) : (test.matomePoints || []);
+            var savedCount = 0, rejectedCount = 0;
             var answers = points.map(function(pt, i) {
                 var input = document.getElementById('rec-mq-' + i);
-                if (!input || input.value === '') return undefined;
+                if (!input || input.value === '') { if (input) input.classList.remove('range-error'); return undefined; }
                 var v = parseFloat(input.value);
-                if (isNaN(v)) return undefined;
-                return Math.min(Math.max(0, v), pt);
+                if (isNaN(v)) { input.classList.remove('range-error'); return undefined; }
+                if (recValueOutOfRange(v, pt)) {
+                    rejectedCount++;
+                    input.classList.add('range-error');
+                    return undefined; // 保存対象から除外(値は書き換えない)
+                }
+                input.classList.remove('range-error');
+                savedCount++;
+                return v;
             });
             var answersABC = points.map(function(pt, i) {
                 var input = document.getElementById('rec-mq-' + i);
@@ -9207,8 +9228,11 @@
             recSaveScores(scores);
             window._recMqDirty = false; // v1.8.88
             flushSaveQueue();
-            showToast('保存しました', 'success');
+            var saveMsg = savedCount + '問保存しました';
+            if (rejectedCount > 0) saveMsg += '（' + rejectedCount + '問は範囲外のため未保存）';
+            showToast(saveMsg, rejectedCount > 0 ? 'warning' : 'success');
             recRenderList(test); recUpdateProgress(test);
+            return rejectedCount;
         };
 
         window.recCloseMatomeModal = function() {
@@ -9219,14 +9243,17 @@
         };
 
         window.recMatomeModalNext = function() {
-            recMatomeModalSave();
+            // v1.21.23 (段階7): 範囲外が残っている間は次の児童へ進ませない。
+            // 進んでしまうとrecRenderMatomeModalGridがグリッドを作り直し、
+            // ハイライトも未保存の生入力値も消えて教員が気づけなくなるため。
+            if (recMatomeModalSave() > 0) return;
             var students = recGetStudents();
             if (recMatomeStudentIndex < students.length - 1) {
                 recOpenMatomeModal(recMatomeStudentIndex + 1);
             }
         };
         window.recMatomeModalPrev = function() {
-            recMatomeModalSave();
+            if (recMatomeModalSave() > 0) return; // 同上
             if (recMatomeStudentIndex > 0) recOpenMatomeModal(recMatomeStudentIndex - 1);
         };
 

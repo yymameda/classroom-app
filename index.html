@@ -8054,9 +8054,11 @@
                 bonus: [],
                 note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
             },
-            // Phase2 第2弾: 跳び箱運動。3項目すべてmode:'level'(4段階)、加点(首はね跳び・
-            // 頭はね跳び)は1項目のみ(bonusMode:'each'、hurdleと同じくmatを踏襲)。
-            // displayMode:'modal'を明示指定(volley/mat/hurdleと同じ理由で自動判定はしない)。
+            // 2学期改修(v1.22.0, PE_RUBRIC_SPEC.md §4.3再改訂): ②を3段階(0/6/10・
+            // よこ=基本/たて=発展)に変更、③の発展技を「伸膝台上前転」→「首はね跳び／
+            // 頭はね跳び」に変更、加点技(旧④)を撤去して③本体へ統合。bonus:[]。
+            // 既存課題は test.peRubric にスナップショット済みのため本変更の影響を
+            // 自動的には受けない(「プリセットに戻す」または作り直しでのみ切替)。
             vault: {
                 name: '跳び箱運動',
                 emoji: '📦',
@@ -8067,9 +8069,9 @@
                 items: [
                     {
                         id: 'vt1', name: '①開脚跳び', mode: 'level',
-                        hint: '4段以上で実施。3回中2回以上成功で安定。発展技は大きな開脚跳び',
+                        hint: PE_RUBRIC_CONSTANTS.vaultMinBoxLevel + '段以上で実施。' + peRubricStableHint() + '。発展技は大きな開脚跳び',
                         levels: [
-                            { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                            { label: '未達成（縦・横とも' + PE_RUBRIC_CONSTANTS.trialCount + '回中0〜' + (PE_RUBRIC_CONSTANTS.stableAtCount - 1) + '回成功）', score: 0 },
                             { label: '片方向（縦または横）で安定', score: 6 },
                             { label: '縦・横とも安定', score: 8 },
                             { label: '大きな開脚跳びが安定', score: 10 }
@@ -8077,34 +8079,25 @@
                     },
                     {
                         id: 'vt2', name: '②かかえ込み跳び', mode: 'level',
-                        hint: '4段以上で実施。3回中2回以上成功で安定。発展技は屈伸跳び',
+                        hint: PE_RUBRIC_CONSTANTS.vaultMinBoxLevel + '段以上で実施。' + peRubricStableHint() + '。基本：かかえ込み跳び（よこ）／発展：かかえ込み跳び（たて）',
                         levels: [
-                            { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
-                            { label: '片方向（縦または横）で安定', score: 6 },
-                            { label: '縦・横とも安定', score: 8 },
-                            { label: '屈伸跳びが安定', score: 10 }
+                            { label: '未達成（よこ・たてとも' + PE_RUBRIC_CONSTANTS.trialCount + '回中0〜' + (PE_RUBRIC_CONSTANTS.stableAtCount - 1) + '回成功）', score: 0 },
+                            { label: '基本の技（よこ）が安定してできる', score: 6 },
+                            { label: '発展技（たて）が安定してできる', score: 10 }
                         ]
                     },
                     {
                         id: 'vt3', name: '③台上前転', mode: 'level',
-                        hint: '4段以上で実施。3回中2回以上成功で安定。発展技は伸膝台上前転（大きな台上前転）',
+                        hint: PE_RUBRIC_CONSTANTS.vaultMinBoxLevel + '段以上で実施。' + peRubricStableHint() + '。発展技は首はね跳び／頭はね跳び（いずれか、縦・横いずれか）',
                         levels: [
-                            { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                            { label: '未達成（縦・横とも' + PE_RUBRIC_CONSTANTS.trialCount + '回中0〜' + (PE_RUBRIC_CONSTANTS.stableAtCount - 1) + '回成功）', score: 0 },
                             { label: '片方向（縦または横）で安定', score: 6 },
                             { label: '縦・横とも安定', score: 8 },
-                            { label: '伸膝台上前転が安定', score: 10 }
+                            { label: '首はね跳び／頭はね跳びが安定', score: 10 }
                         ]
                     }
                 ],
-                bonus: [
-                    {
-                        id: 'b1', name: '首はね跳び・頭はね跳び', mode: 'level',
-                        levels: [
-                            { label: '未達成', score: 0 },
-                            { label: '安定してできる（4段以上、3回中2回以上成功）', score: 0.5 }
-                        ]
-                    }
-                ],
+                bonus: [],
                 note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
             },
             // Phase2 第3弾: 鉄棒運動。4グループすべてmode:'level'(0/6/10)、加点は★更なる発展技
@@ -8848,14 +8841,51 @@
                 var sr = scores.find(function(s) { return s.studentIndex === idx && s.testId === test.id; });
                 if (!sr || typeof sr.score10 !== 'number') pendingNames.push(stu.name || ((idx + 1) + '番'));
             });
-            if (pendingNames.length === 0) {
+            var lines = [];
+            if (pendingNames.length > 0) {
+                lines.push('⚠️ ' + pendingNames.length + '人が未確定です（成績には反映されません）: ' + pendingNames.join('、'));
+            }
+            // 2学期改修(v1.22.0): このバナーは既存の「説明/警告2種類まで」方針(recPeFields
+            // 周辺のコメント参照)を守るため、専用の3本目バナーを新設せず本関数に統合する。
+            var legacyNames = recPeRubricLegacyVaultBonusNames(test);
+            if (legacyNames.length > 0) {
+                lines.push('🔁 旧・跳び箱加点技（首はね跳び／頭はね跳び）のデータが残っています。③台上前転の再確認を推奨します: ' + legacyNames.join('、'));
+            }
+            if (lines.length === 0) {
                 banner.style.display = 'none';
-                banner.textContent = '';
+                banner.innerHTML = '';
                 return;
             }
-            banner.textContent = '⚠️ ' + pendingNames.length + '人が未確定です（成績には反映されません）: ' + pendingNames.join('、');
+            banner.innerHTML = lines.map(function(l) { return escapeHtml(l); }).join('<br>');
             banner.style.display = '';
         }
+
+        // 2学期改修(v1.22.0, PE_RUBRIC_SPEC.md §4.3再改訂): 跳び箱の旧加点技(首はね跳び・
+        // 頭はね跳び)データを持つ児童を検出する。現行presetのbonus配列に存在しないidの
+        // rubricData.bonusで達成(score>0)している児童が対象。データは削除せず保持し、
+        // ③のレベル判定へ自動昇格はさせない(教員が③を入力し直す判断材料として提示するのみ)。
+        // 実運用端末はiPadでDevToolsが使えないため、コンソールログではなく必ずUI(このバナー
+        // 経由でrecPeRubricUpdatePendingBanner()内)で提示する。
+        function recPeRubricLegacyVaultBonusNames(test) {
+            var config = peRubricGetConfig(test);
+            if (!config || (config.presetId || config._presetId) !== 'vault') return [];
+            var currentBonusIds = (config.bonus || []).map(function(b) { return b.id; });
+            var students = recGetStudents();
+            var scores = recGetScores().filter(function(s) { return s.testId === test.id; });
+            var names = [];
+            scores.forEach(function(sr) {
+                var bonusData = (sr.rubricData && sr.rubricData.bonus) || {};
+                var hasLegacy = Object.keys(bonusData).some(function(bid) {
+                    return currentBonusIds.indexOf(bid) === -1 && typeof bonusData[bid] === 'number' && bonusData[bid] > 0;
+                });
+                if (hasLegacy) {
+                    var stu = students[sr.studentIndex];
+                    names.push(stu ? (stu.name || ((sr.studentIndex + 1) + '番')) : ((sr.studentIndex + 1) + '番'));
+                }
+            });
+            return names;
+        }
+        window.recPeRubricLegacyVaultBonusNames = recPeRubricLegacyVaultBonusNames;
 
         // v1.15.x: 実技ルーブリックの説明バナー(config.note + 単一項目時のitem.hint)。
         // 教員向け常設説明であり、未確定警告(recPeRubricPendingBanner)とは別要素として扱う。

@@ -10220,6 +10220,45 @@
             recRenderTestList();
         };
 
+        // 2学期改修(v1.22.1): 「プリセットに戻す」の安全性確保。
+        // rubricData.items[itemId]はmode:'level'のとき単なる整数インデックスであり、
+        // 「そのitemのlevels配列の何番目か」以外の意味を持たない。プリセット改訂で
+        // 同じitem idのlevels配列の長さ・意味が変わった場合(例: 跳び箱②が4段階→3段階、
+        // ハードル②が「踏み切りと走り越し」4段階→「タイム差」10段階)、旧インデックスを
+        // 新levels配列でそのまま再解釈すると全く別の点数に化ける(跳び箱②旧idx2=8点が
+        // 新presetでは10点として誤読される、等)。level.scoreは採点基準編集モーダルから
+        // 教師が書き換える対象(＝変わっていて正常)だが、level.labelは同モーダルから一切
+        // 編集されないため、labelの配列が旧config(切替前)と新preset(切替後)で完全一致するか
+        // どうかを「同じ意味の項目かどうか」の判定に使う。不一致のitemは全児童ぶんの入力値を
+        // クリアして未入力に戻し(点数を誤読したまま保存し続けるより安全)、教師に警告する。
+        function peRubricClearIncompatibleItems(test, oldConfig, newConfig) {
+            if (!oldConfig || !newConfig) return { clearedItemNames: [], affectedStudents: 0 };
+            var oldItemsById = {};
+            (oldConfig.items || []).forEach(function(it) { oldItemsById[it.id] = it; });
+            var incompatible = [];
+            (newConfig.items || []).forEach(function(newIt) {
+                var oldIt = oldItemsById[newIt.id];
+                if (!oldIt) return; // 旧configに存在しないitem id(新規追加)は比較不要
+                var oldLabels = JSON.stringify((oldIt.levels || []).map(function(l) { return l.label; }));
+                var newLabels = JSON.stringify((newIt.levels || []).map(function(l) { return l.label; }));
+                if (oldLabels !== newLabels) incompatible.push({ id: newIt.id, name: newIt.name || newIt.id });
+            });
+            if (incompatible.length === 0) return { clearedItemNames: [], affectedStudents: 0 };
+            var scores = recGetScores();
+            var affected = 0, changed = false;
+            scores.forEach(function(sc) {
+                if (sc.testId !== test.id || !sc.rubricData || !sc.rubricData.items) return;
+                var hit = false;
+                incompatible.forEach(function(it) {
+                    if (it.id in sc.rubricData.items) { delete sc.rubricData.items[it.id]; hit = true; }
+                });
+                if (hit) { affected++; changed = true; }
+            });
+            if (changed) recSaveScores(scores);
+            return { clearedItemNames: incompatible.map(function(it) { return it.name; }), affectedStudents: affected };
+        }
+        window.peRubricClearIncompatibleItems = peRubricClearIncompatibleItems;
+
         window.recResetPeRubricConfig = function() {
             if (_peRubricConfigTestId === null) return;
             var tests = recGetTests();
@@ -10227,11 +10266,17 @@
             if (!test || !test.peRubric) return;
             var pid = test.peRubric._presetId || test.peRubric.presetId;
             if (!pid) return;
-            test.peRubric = peRubricBuildFromPreset(pid);
+            var oldConfig = test.peRubric;
+            var newConfig = peRubricBuildFromPreset(pid);
+            var clearResult = peRubricClearIncompatibleItems(test, oldConfig, newConfig);
+            test.peRubric = newConfig;
             recSaveTests(tests);
             peRubricRecalcScores(test);
             recClosePeRubricConfigModal();
             recEditPeRubricConfig(_peRubricConfigTestId);
+            if (clearResult.clearedItemNames.length > 0) {
+                showToast('⚠️ 「' + clearResult.clearedItemNames.join('」「') + '」の内容が変更されたため、' + clearResult.affectedStudents + '人ぶんの入力を未入力に戻しました。再入力してください。', 'warning');
+            }
         };
 
         window.recClosePeRubricConfigModal = function() {

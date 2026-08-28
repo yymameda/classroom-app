@@ -129,7 +129,10 @@ async function setMockDate(page, ts) {
         for (let i = 0; i < 10; i++) students.push({ name: '児童' + (i + 1) });
 
         function T(id, subject, category, testType, maxScore, extra) {
-            return Object.assign({ id, subject, category, testType, type: 'standard', maxScore, date: '2026-06-01', createdAt: new Date().toISOString() }, extra || {});
+            // v1.22.3: nameを持たないfixtureはrecAddTest()の必須項目チェック(!name)に
+            // 引っかかり保存できない(recAddTest経由では本来作れない状態)。実際のUIでは
+            // 名前なしの課題は存在しないため、実データに近づける目的でデフォルト値を持たせる。
+            return Object.assign({ id, subject, category, testType, type: 'standard', maxScore, name: 'T_' + id, date: '2026-06-01', createdAt: new Date().toISOString() }, extra || {});
         }
 
         const ID = {

@@ -2699,6 +2699,7 @@
                                 <span id="recProgress">0 / 0 人入力済み</span>
                                 <div style="display:flex;gap:6px;align-items:center;">
                                     <button onclick="recGoToTestMgmt()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">授業課題の管理へ</button>
+                                    <button id="recEditThisTestBtn" onclick="recEditCurrentTest()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">✏️ この課題を編集</button>
                                     <button onclick="recClearAllScores()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--text-light);border-radius:6px;color:var(--text-light);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">全クリア</button>
                                 </div>
                             </div>
@@ -2742,6 +2743,7 @@
                 </div>
                 <div id="rec-sub-tests" class="rec-sub">
                     <div class="rec-test-mgmt" id="recTestMgmt">
+                        <button id="recReturnToInputBtn" onclick="recReturnToInput()" style="display:none;margin-bottom:8px;padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">← 入力に戻る</button>
                         <h3 style="color:var(--primary);margin-bottom:10px;font-size:0.95rem;" id="recTestFormTitle">📝 新しい課題を追加</h3>
                         <div class="rec-test-form" id="recTestForm">
                             <select id="recTestSubject">
@@ -6904,6 +6906,12 @@
         // --- 状態 ---
         var recCurrentTestId = null;
         var recEditingTestId = null;
+        // v1.22.2: 入力画面→課題編集への遷移／復帰用。recEditingTestId(編集対象)とは別管理。
+        var recReturnToTestId = null;
+        var recReturnInputFilters = null;
+        var recReturnFlowActive = false;
+        // v1.22.3: recEditTest()が開いた瞬間のrecAutoPrefix自動発火を抑制するためのフラグ。
+        var _recSuppressAutoPrefix = false;
         var recMatomeStudentIndex = null;
         var recInputFilters = { subject: '', category: '', type: '' };
         var recTestSortKey = 'id';
@@ -6955,7 +6963,46 @@
             if (name === 'patrol') { initPatrol(); }
             if (name === 'karte') { initKarteView(); }
         };
-        window.recGoToTestMgmt = function() { recShowSub('tests'); };
+        // v1.22.2: testIdを渡すと「編集して入力画面に戻る」フロー。入力画面で選択していた
+        // 課題ID・フィルタをrecReturnToTestId/recReturnInputFiltersに退避し、復帰ボタンを表示する。
+        // testIdなし（既存の「授業課題の管理へ」ボタン）は従来どおり片道遷移のまま変更しない。
+        window.recGoToTestMgmt = function(testId) {
+            var btn = document.getElementById('recReturnToInputBtn');
+            if (testId !== undefined && testId !== null && testId !== '') {
+                recReturnToTestId = recCurrentTestId;
+                recReturnInputFilters = Object.assign({}, recInputFilters);
+                recReturnFlowActive = true;
+                recShowSub('tests');
+                recEditTest(recParseTestId(testId));
+                if (btn) btn.style.display = '';
+            } else {
+                recReturnFlowActive = false;
+                recReturnToTestId = null;
+                recReturnInputFilters = null;
+                recShowSub('tests');
+                if (btn) btn.style.display = 'none';
+            }
+        };
+
+        // v1.22.2: 「入力に戻る」導線。復帰対象の課題が削除済みなら未選択状態で開く（エラーにしない）。
+        window.recReturnToInput = function() {
+            if (recReturnToTestId !== null) {
+                var stillExists = recGetTests().some(function(t) { return t.id === recReturnToTestId; });
+                recCurrentTestId = stillExists ? recReturnToTestId : null;
+            }
+            if (recReturnInputFilters) recInputFilters = Object.assign({}, recReturnInputFilters);
+            recReturnFlowActive = false;
+            recReturnToTestId = null;
+            recReturnInputFilters = null;
+            var btn = document.getElementById('recReturnToInputBtn');
+            if (btn) btn.style.display = 'none';
+            recShowSub('input');
+        };
+
+        // v1.22.2: 入力画面の「✏️ この課題を編集」ボタン用。recCurrentTestIdはこのIIFE内の
+        // クロージャ変数でありinline onclick(グローバルスコープ実行)から直接参照できないため、
+        // この関数を経由して渡す。
+        window.recEditCurrentTest = function() { recGoToTestMgmt(recCurrentTestId); };
 
         // v1.8.88: 課題IDは数値(Date.now)と文字列(fitness_YYYY等)が混在するため共通解釈
         function recParseTestId(v) { var s = String(v); return /^\d+$/.test(s) ? parseInt(s, 10) : s; }
@@ -7350,7 +7397,10 @@
             var v = parseFloat(rawValue);
             var hasValue = rawValue !== '' && rawValue !== undefined && rawValue !== null && !isNaN(v);
             if (hasValue && !recScoreOutOfRange(test, v)) {
-                text += '(' + Math.round(v / maxScore * 100) + '%)';
+                // v1.22.2: !recScoreOutOfRange(test, v)によりv<=maxScoreが保証されるため、
+                // このMath.minは通常到達しない。recScoreOutOfRangeのガード条件が将来変わった
+                // 場合に100%超の表示が出ないようにするための保険として残す。
+                text += '(' + Math.min(100, Math.round(v / maxScore * 100)) + '%)';
             }
             return text;
         }
@@ -9431,7 +9481,11 @@
                 if (rf) rf.classList.toggle('show', !!document.getElementById('recTestCategory').value);
             }
             // 課題名プレフィックス自動挿入
-            recAutoPrefix();
+            // v1.22.3: recEditTest()が編集フォームを開く際にもこの関数を呼ぶため、
+            // _recSuppressAutoPrefixが立っている間（=recEditTestが開いた瞬間の1回）は
+            // 抑制する。種別セレクトをユーザーが手動変更したときのonchangeでは
+            // このフラグは立たないため、従来どおりプレフィックスが付け替わる。
+            if (!_recSuppressAutoPrefix) recAutoPrefix();
         };
 
         // 単位変更時: 検定カード(なわとび・泳力)なら 方向・計測 を隠し、観点を「知識・技能」に自動固定
@@ -9662,6 +9716,18 @@
             var maxScore = isAttitude ? 10 : (isABC ? 0 : (isPE ? 9999 : (isMatome ? 0 : parseInt(maxScoreVal))));
             if (!isABC && !isPE && !isMatome && !isAttitude && (!maxScore || maxScore <= 0)) { showToast('満点を入力してください', 'warning'); return; }
 
+            // v1.22.2: 編集で満点を下げた場合、既存得点が新しい満点を超えることがある。
+            // 既存得点は書き換えず保持したまま保存するかどうかをここで確認する。
+            if (recEditingTestId !== null && !isABC && !isPE && !isMatome && !isAttitude) {
+                var _overCount = recGetScores().filter(function(s) {
+                    return s.testId === recEditingTestId && typeof s.score === 'number' && s.score > maxScore;
+                }).length;
+                if (_overCount > 0) {
+                    var _ok = confirm('満点を' + maxScore + '点に変更すると、既に入力済みの得点が新しい満点を超える生徒が' + _overCount + '人います。\n\n既存の得点は変更されません（超過したまま保持されます）。\n\nこのまま保存しますか？');
+                    if (!_ok) return;
+                }
+            }
+
             var matomePoints = [], matomeTypes = [], matomeMaxScore = 0;
             if (isMatome) {
                 var md = recGetMatomeFormData();
@@ -9756,6 +9822,8 @@
                 (isMatome ? testType + 'を追加しました（' + matomePoints.length + '問・' + matomeMaxScore + '点満点）' : '課題を追加しました');
             showToast(msg, 'success');
             recEditingTestId = null;
+            // v1.22.2: 入力画面からの編集フロー中なら、保存成功後に自動で入力画面へ復帰する。
+            if (recReturnFlowActive) { recReturnFlowActive = false; recReturnToInput(); }
         };
 
         function recResetTestForm() {
@@ -9791,7 +9859,11 @@
             recEditingTestId = testId;
             document.getElementById('recTestSubject').value = test.subject || '';
             document.getElementById('recTestType').value = test.testType || '';
-            document.getElementById('recTestName').value = test.name || '';
+            // v1.22.3: バックアップ復元由来のname欠損データが編集不能になるのを防ぐ
+            // フォールバック。通常経路ではrecAddTest()のバリデーション(!name)により
+            // name欠損の課題は発生しない。このプレースホルダのまま保存された場合、
+            // 空文字のままより教員が識別できることを優先しそのまま許容する。
+            document.getElementById('recTestName').value = test.name || '(名称未設定)';
             document.getElementById('recTestCategory').value = (test.category === '複合') ? '' : (test.category || '');
             document.getElementById('recTestDate').value = test.date || '';
             var _teEl = document.getElementById('recTestTerm'); if (_teEl) _teEl.value = test.term || '';
@@ -9806,7 +9878,16 @@
             else if (test.testType === '実技記録') { ms.value = ''; ms.disabled = true; ms.placeholder = '自動'; }
             else if (test.testType === 'まとめテスト' || test.testType === '単元テスト') { ms.value = ''; ms.disabled = true; ms.placeholder = '配点合計で自動計算'; }
             else { ms.value = test.maxScore || ''; ms.disabled = false; }
-            recOnTestTypeChange();
+            // v1.22.3: recOnTestTypeChange()はフィールド表示/disabled/placeholderの同期に
+            // 編集時も必要だが、その内部で呼ばれるrecAutoPrefix()は「開いただけで課題名が
+            // 無断で書き換わる」事故を起こすため、ここでの呼び出し中だけ抑制する。
+            // 例外発生時もフラグが立ちっぱなしにならないようtry/finallyで戻す。
+            _recSuppressAutoPrefix = true;
+            try {
+                recOnTestTypeChange();
+            } finally {
+                _recSuppressAutoPrefix = false;
+            }
             if (test.testType === '実技記録') {
                 // バグ修正: 編集時に単位・方向・計測が復元されず「秒」に戻っていた
                 var _uEl = document.getElementById('recTestPeUnit');

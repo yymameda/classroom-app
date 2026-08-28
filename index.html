@@ -4835,6 +4835,9 @@
         students: [],
         lastSync: null
     };
+    // loadMaster()のJSON.parse失敗時にtrueにし、saveMaster()が破損データの上に
+    // 空のmasterを上書き保存してしまうのを防ぐ(復旧の可能性を残すためのガード)。
+    let masterLoadFailed = false;
     // ▲▲▲ MODULE:KEYS ▲▲▲
 
     // ▼▼▼ MODULE:INIT ▼▼▼
@@ -5235,10 +5238,23 @@
                 //  永続化される事故になるため。未設定は空表示のまま教員に入力させる)。
                 if (!master.classInfo) master.classInfo = {};
                 if (!Array.isArray(master.students)) master.students = [];
-            } catch (e) { console.error('master load error:', e); }
+            } catch (e) {
+                console.error('master load error:', e);
+                masterLoadFailed = true;
+                var bar = document.getElementById('recoveryBar');
+                if (bar) {
+                    bar.style.display = 'block';
+                    bar.innerHTML = '⚠️ 名簿データの読み込みに失敗しました(保存は停止中) '
+                        + '<button onclick="openBackupModal()" style="margin-left:12px;padding:6px 16px;border-radius:6px;border:none;background:white;color:var(--danger);font-weight:bold;">バックアップから復元</button>';
+                }
+            }
         }
     }
     function saveMaster() {
+        if (masterLoadFailed) {
+            showToast('⚠️ データ読み込み失敗のため保存を中止しました。復元してから再度お試しください。', 'error');
+            return;
+        }
         master.lastSync = new Date().toISOString();
         StorageManager.setImmediate(KEYS.master, JSON.stringify(master));
     }
@@ -7341,7 +7357,13 @@
                 } else if (isNawatobi) {
                     return recBuildNawatobiCard(test, scores, idx, stu);
                 } else if (isPeRubric && prDisplayMode === 'dense') {
-                    return recBuildPeRubricDenseCard(test, scores, idx, stu);
+                    try {
+                        return recBuildPeRubricDenseCard(test, scores, idx, stu);
+                    } catch (e) {
+                        console.error('recBuildPeRubricDenseCard error (studentIndex=' + idx + '):', e);
+                        return '<div class="rec-row" id="rec-row-' + idx + '" style="padding:8px;color:var(--danger);background:#fee;border-radius:6px;">⚠️ '
+                            + escapeHtml((stu && stu.name) || '') + ': 表示エラー(' + escapeHtml(e.message || '') + ')</div>';
+                    }
                 } else if (isPeRubric && prDisplayMode === 'modal') {
                     return recBuildPeRubricTile(test, scores, idx, stu);
                 } else if (isPeRubric) {
@@ -20154,6 +20176,9 @@
     let pf_roster = [];
     let pf_records = {};
     let pf_setting = {year:'2026', className:'', grade:5};
+    // pf_loadAll()のJSON.parse失敗時にtrueにし、pf_saveAll()が破損データの上に
+    // 空のpf_roster/pf_recordsを上書き保存してしまうのを防ぐ。
+    let pf_loadFailed = false;
 
     function pf_gradeToAge(grade){return parseInt(grade)+5;}
     function pf_storageKey(){return 'pf_records_'+pf_setting.year;}
@@ -20191,7 +20216,11 @@
             if(d){pf_records=JSON.parse(d);}
             pf_updateHeaderSub();
             pf_renderRosterPreview();
-        }catch(e){console.error(e);}
+        }catch(e){
+            console.error(e);
+            pf_loadFailed = true;
+            showToast('⚠️ 体力テストデータの読み込みに失敗しました。保存を停止しています。','error');
+        }
     }
 
     function pf_saveSetting(){
@@ -20208,6 +20237,10 @@
     }
 
     function pf_saveAll(){
+        if(pf_loadFailed){
+            showToast('⚠️ データ読み込み失敗のため保存を中止しました。','error');
+            return;
+        }
         var ok1=pf_setItem(pf_storageKey(),JSON.stringify(pf_records));
         var ok2=pf_setItem(pf_rosterKey(),JSON.stringify(pf_roster));
         if(ok1&&ok2){showToast('💾 保存しました','success');}

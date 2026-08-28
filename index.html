@@ -15410,6 +15410,32 @@
             return results;
         }
 
+        // 2学期改修(v1.22.0, PE_RUBRIC_SPEC.md §10.4): 体育の実技5種目(水泳・マット運動・
+        // 跳び箱・ハードル走・ソフトバレーボール)のみの平均。既存の「知識・技能」平均
+        // (grdCalculate、ペーパーテスト等の全項目平均)とは別の、表示専用の派生値。
+        // 【重要】算出結果はデータモデルに保存しない。呼ぶたびにその場で計算する。
+        // 3学期の3段階評定計算(grdCalculate内の最終評定)には一切使わない。
+        // 既存のpeRecordToScore10()をそのまま再利用し、換算ロジックを二重管理しない。
+        var PE_FIVE_ITEM_UNITS = ['検定:swimming', '実技:volley', '実技:mat', '実技:vault', '実技:hurdle'];
+        function peFiveItemAverage(studentIndex, subject, term) {
+            if (subject !== '体育') return null;
+            term = term || grdCurrentTermFilter || grdGetCurrentTerm();
+            var tests = grdGetTests().filter(function(t) {
+                return t.subject === '体育' && (term === 'all' || grdItemTerm(t) === term) &&
+                    PE_FIVE_ITEM_UNITS.indexOf(t.peUnit) !== -1;
+            });
+            var scores = grdGetScores();
+            var sum = 0, n = 0;
+            tests.forEach(function(test) {
+                var sr = scores.find(function(s) { return Number(s.studentIndex) === studentIndex && s.testId === test.id; });
+                if (!sr || sr.absent === true) return;
+                var s10 = peRecordToScore10(sr, test);
+                if (typeof s10 === 'number') { sum += s10; n++; }
+            });
+            return { avg: n > 0 ? Math.round((sum / n) * 10) / 10 : null, n: n, total: 5 };
+        }
+        window.peFiveItemAverage = peFiveItemAverage;
+
         // ================================================================
         // 教科リスト
         // ================================================================
@@ -15704,13 +15730,24 @@
             });
             html += '</tbody></table></div>';
             html += '<h4 style="font-size:0.88rem;margin:14px 0 6px;">📊 10点平均スコア</h4>';
+            // 2学期改修(v1.22.0, PE_RUBRIC_SPEC.md §10.4): 体育のみ「実技5種目平均（参考）」列を
+            // 追加する。既存の「知識」列(ペーパーテスト等を含む全項目平均・評定計算に使用)とは
+            // 別の表示専用の派生値であり、保存はしない・評定計算には使わない。他教科には出さない。
+            var isPE = subject === '体育';
             html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">';
-            html += '<thead><tr><th style="'+TH+'">No.</th><th style="'+TH+'text-align:left;">氏名</th><th style="'+TH+'color:#1565C0;">知識</th><th style="'+TH+'color:#E65100;">思考</th><th style="'+TH+'color:#2E7D32;">主体性</th></tr></thead><tbody>';
+            html += '<thead><tr><th style="'+TH+'">No.</th><th style="'+TH+'text-align:left;">氏名</th><th style="'+TH+'color:#1565C0;">知識</th><th style="'+TH+'color:#E65100;">思考</th><th style="'+TH+'color:#2E7D32;">主体性</th>' +
+                (isPE ? '<th style="'+TH+'color:#00796B;">実技5種目平均（参考）</th>' : '') + '</tr></thead><tbody>';
             results.forEach(function(r) {
                 html += '<tr><td style="'+TD+'">'+(r.index+1)+'</td><td style="'+TD+'text-align:left;">'+escapeHtml(r.name)+'</td>';
                 html += '<td style="'+TD+'">'+(r.knowledge.avg !== null ? r.knowledge.avg.toFixed(1) : '—')+'</td>';
                 html += '<td style="'+TD+'">'+(r.thinking.avg !== null ? r.thinking.avg.toFixed(1) : '—')+'</td>';
-                html += '<td style="'+TD+'">'+(r.attitude.avg !== null ? r.attitude.avg.toFixed(1) : '—')+'</td></tr>';
+                html += '<td style="'+TD+'">'+(r.attitude.avg !== null ? r.attitude.avg.toFixed(1) : '—')+'</td>';
+                if (isPE) {
+                    var five = peFiveItemAverage(r.index, subject);
+                    var fiveText = five.avg !== null ? (five.avg.toFixed(1) + (five.n < five.total ? '（' + five.n + '/' + five.total + '種目）' : '')) : '—';
+                    html += '<td style="'+TD+'">'+fiveText+'</td>';
+                }
+                html += '</tr>';
             });
             html += '</tbody></table></div>';
             container.innerHTML = html;

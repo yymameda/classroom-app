@@ -2675,6 +2675,12 @@
                     <div class="rec-input-panel">
                         <div class="rec-input-header">
                             <h3>📝 点数入力</h3>
+                            <select id="recInputTermSel" onchange="recOnInputTermChange()" title="対象学期" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:36px;background:var(--white);">
+                                <option value="1">1学期</option>
+                                <option value="2">2学期</option>
+                                <option value="3">3学期</option>
+                                <option value="all">通年</option>
+                            </select>
                             <div class="rec-test-selector">
                                 <select id="recInputTestSelect" onchange="recOnInputTestChange()">
                                     <option value="">課題を選択</option>
@@ -6914,6 +6920,60 @@
         var _recSuppressAutoPrefix = false;
         var recMatomeStudentIndex = null;
         var recInputFilters = { subject: '', category: '', type: '' };
+        // v1.23.0: 点数入力タブ専用の学期フィルタ。テスト一覧タブのrecCurrentTermFilterとは
+        // 別管理（画面ごとに独立変数を持つ既存パターンに合わせる）。
+        // null=未初期化＝recOnShowViewで現在学期に初期化される。セッション中は保持、localStorageには保存しない。
+        var recInputTermFilter = null; // '1'|'2'|'3'|'all'|null
+        // 学期の判定は成績モジュールの grdItemTerm(window公開) に一本化する。新規の学期判定ロジックはここに書かない。
+        function recInputPassesTermFilter(item) {
+            if (!recInputTermFilter || recInputTermFilter === 'all') return true;
+            if (typeof window.grdItemTerm !== 'function') return true; // 成績モジュール未初期化時はフィルタしない
+            return window.grdItemTerm(item) === recInputTermFilter;
+        }
+        window.recOnInputTermChange = function() {
+            var sel = document.getElementById('recInputTermSel');
+            recInputTermFilter = sel ? sel.value : null;
+            recOnInputFilterChanged();
+        };
+        // v1.23.0: 課題が現在の入力フィルタ(科目/観点/種別/学期)で表示対象かどうかの共通判定。
+        // recUpdateTestSelect()の絞り込みと、選択中課題の除外判定の両方で使う(判定を分岐させない)。
+        function recTestVisibleInInputFilters(test) {
+            var f = recInputFilters;
+            return (!f.subject || f.subject === test.subject) && (!f.category || f.category === test.category) &&
+                (!f.type || f.type === test.testType) && recInputPassesTermFilter(test);
+        }
+        // v1.23.0: 科目/観点/種別/学期のフィルタ操作ハンドラからのみ呼ぶ共通処理。
+        // 「この条件で絞りたい」という利用者の意思表示なので、対象外になった選択中課題は解除してよい。
+        // 対して、課題を指定して点数入力画面へ飛んでくる経路(recAddTest保存後/recSelectTestGoto/
+        // recReturnToInput)は「この課題を見たい」という意思表示なので、ここは呼ばず
+        // recRelaxFiltersForTest()でフィルタ側を譲る。recUpdateTestSelect()自体はどちらの経路からも
+        // 呼ばれるため選択クリアの判断はしない（呼び出し側の意思表示で分岐させる）。
+        function recOnInputFilterChanged() {
+            if (recCurrentTestId !== null) {
+                var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+                if (test && !recTestVisibleInInputFilters(test)) {
+                    recCurrentTestId = null;
+                    showToast('選択中の課題は表示中の絞り込み条件に含まれないため、選択を解除しました', 'info');
+                }
+            }
+            recUpdateTestSelect();
+            recRenderInputArea();
+        }
+        // v1.23.0: 課題を指定して点数入力画面へ飛ぶ経路で使う。「この課題を見たい」という
+        // 意思表示のため、選択を解除するのではなくフィルタ側を譲る。既存のrecAddTestの前例
+        // (v1.8.88、対象課題の値に合わせるのではなく無条件に解除する方式)に揃える。
+        function recRelaxFiltersForTest(test) {
+            if (!test) return;
+            var f = recInputFilters;
+            if ((f.subject && f.subject !== test.subject) || (f.category && f.category !== test.category) || (f.type && f.type !== test.testType)) {
+                recInputFilters = { subject: '', category: '', type: '' };
+            }
+            if (!recInputPassesTermFilter(test)) {
+                recInputTermFilter = 'all';
+                var sel = document.getElementById('recInputTermSel');
+                if (sel) sel.value = 'all';
+            }
+        }
         var recTestSortKey = 'id';
         var recTestSortAsc = false;
         // v1.18.0: 学期フィルタ（テスト一覧タブに適用。画面表示のみ、localStorageには保存しない）
@@ -6991,6 +7051,11 @@
                 recCurrentTestId = stillExists ? recReturnToTestId : null;
             }
             if (recReturnInputFilters) recInputFilters = Object.assign({}, recReturnInputFilters);
+            // v1.23.0: 編集で学期が変わっている等で復帰対象が退避時のフィルタに隠れる場合、
+            // 選択を解除せずフィルタ側を譲る(recSelectTestGoto/recAddTest後と同じ方針)。
+            if (recCurrentTestId !== null) {
+                recRelaxFiltersForTest(recGetTests().find(function(t) { return t.id === recCurrentTestId; }));
+            }
             recReturnFlowActive = false;
             recReturnToTestId = null;
             recReturnInputFilters = null;
@@ -7011,6 +7076,8 @@
         // 点数入力
         // ============================================================
         function recInitInput() {
+            var termSel = document.getElementById('recInputTermSel');
+            if (termSel && recInputTermFilter !== null) termSel.value = recInputTermFilter;
             recUpdateTestSelect();
             recRenderInputArea();
             if (recCurrentTestId) {
@@ -7023,10 +7090,7 @@
             var sel = document.getElementById('recInputTestSelect');
             if (!sel) return;
             var tests = recGetTests();
-            var f = recInputFilters;
-            var filtered = tests.filter(function(t) {
-                return (!f.subject || t.subject === f.subject) && (!f.category || t.category === f.category) && (!f.type || t.testType === f.type);
-            });
+            var filtered = tests.filter(recTestVisibleInInputFilters);
             // 教科別にグルーピング
             var groups = {};
             filtered.forEach(function(t) {
@@ -7139,22 +7203,19 @@
             bar.querySelectorAll('[data-fsubj]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     recInputFilters.subject = recInputFilters.subject === btn.dataset.fsubj ? '' : btn.dataset.fsubj;
-                    recUpdateTestSelect();
-                    recRenderInputArea();
+                    recOnInputFilterChanged();
                 });
             });
             bar.querySelectorAll('[data-fcat]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     recInputFilters.category = recInputFilters.category === btn.dataset.fcat ? '' : btn.dataset.fcat;
-                    recUpdateTestSelect();
-                    recRenderInputArea();
+                    recOnInputFilterChanged();
                 });
             });
             bar.querySelectorAll('[data-ftype]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     recInputFilters.type = recInputFilters.type === btn.dataset.ftype ? '' : btn.dataset.ftype;
-                    recUpdateTestSelect();
-                    recRenderInputArea();
+                    recOnInputFilterChanged();
                 });
             });
             bar.querySelectorAll('[data-fclear]').forEach(function(btn) {
@@ -7162,8 +7223,7 @@
                     recInputFilters.subject = '';
                     recInputFilters.category = '';
                     recInputFilters.type = '';
-                    recUpdateTestSelect();
-                    recRenderInputArea();
+                    recOnInputFilterChanged();
                 });
             });
         }
@@ -9804,11 +9864,8 @@
             }
             recSaveTests(tests);
             // v1.8.88: 追加した課題が入力フィルターで隠れる場合はフィルターを解除
-            if ((recInputFilters.subject && recInputFilters.subject !== test.subject) ||
-                (recInputFilters.category && recInputFilters.category !== test.category) ||
-                (recInputFilters.type && recInputFilters.type !== test.testType)) {
-                recInputFilters = { subject: '', category: '', type: '' };
-            }
+            // (v1.23.0: 学期フィルタも含めてrecRelaxFiltersForTest()に統合)
+            recRelaxFiltersForTest(test);
             recResetTestForm();
             recRenderTestList();
             recUpdateTestSelect();
@@ -9964,6 +10021,9 @@
         window.recSelectTestGoto = function(testId) {
             testId = recParseTestId(testId); // v1.8.88
             recCurrentTestId = testId;
+            // v1.23.0: 「入力」ボタンでの指名ジャンプは対象課題を見たい意思表示のため、
+            // 入力タブ側のフィルタ(学期含む)で隠れる場合はフィルタ側を譲る。
+            recRelaxFiltersForTest(recGetTests().find(function(t) { return t.id === testId; }));
             recShowSub('input');
         };
 
@@ -10381,6 +10441,14 @@
                 if (termSel) {
                     if (typeof window.grdGetCurrentTerm === 'function') termSel.value = window.grdGetCurrentTerm();
                     recCurrentTermFilter = termSel.value;
+                }
+            }
+            // 点数入力タブの学期フィルタ（v1.23.0）。recCurrentTermFilterと同じ初期化方針。
+            if (recInputTermFilter === null) {
+                var inputTermSel = document.getElementById('recInputTermSel');
+                if (inputTermSel) {
+                    if (typeof window.grdGetCurrentTerm === 'function') inputTermSel.value = window.grdGetCurrentTerm();
+                    recInputTermFilter = inputTermSel.value;
                 }
             }
             recInitInput();

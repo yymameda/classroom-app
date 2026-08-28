@@ -672,15 +672,14 @@ const VOLLEY_CONFIG = {
         return {
             text: banner.textContent, visible: banner.style.display !== 'none',
             legacyBonusIntact: sc.rubricData.bonus.b1,
-            legacyBonusNames: recPeRubricLegacyVaultBonusNames(recGetTests().find(function(t){return t.id===testId;}))
+            legacyBonusNames: recPeRubricLegacyVaultBonusNames(recGetTests().find(function(t){return t.id===testId;})),
+            vt3Value: sc.rubricData.items.vt3
         };
     }, vaultTestId);
     check('跳び箱: 旧加点技データを持つ児童V1が入力画面のバナーで検出される(§7-1移行方針)', vaultBanner.text.indexOf('児童V1') !== -1, vaultBanner.text);
     check('跳び箱: 旧加点技データを持たない児童V2は検出対象に含まれない', vaultBanner.legacyBonusNames.indexOf('児童V2') === -1 && vaultBanner.legacyBonusNames.indexOf('児童V1') !== -1, JSON.stringify(vaultBanner.legacyBonusNames));
     check('跳び箱: 旧加点技データは削除されず保持される(rubricData.bonus.b1=1のまま)', vaultBanner.legacyBonusIntact === 1, 'got='+vaultBanner.legacyBonusIntact);
-    check('跳び箱: 旧加点技データは③のレベル判定へ自動昇格しない(vt3は入力値1のまま)', (function() {
-        return true; // vaultScores[0].rubricData.items.vt3 = 1 を入力時点から変更していないことは上のscore10計算経路に一切③へのbonus反映ロジックが無いことで保証される(コード上、bonus→itemsへの書き込み経路自体が存在しない)。
-    })());
+    check('跳び箱: 旧加点技データを検出・表示しても③(vt3)の入力値が書き換わらない(fixtureの1のまま)', vaultBanner.vt3Value === 1, 'got='+vaultBanner.vt3Value);
 
     // ================================================================
     // 9. ハードル走プリセット改修(2学期改修 v1.22.0, PE_RUBRIC_SPEC.md §4.4再々改訂):
@@ -827,6 +826,177 @@ const VOLLEY_CONFIG = {
     await page.reload({ waitUntil: 'networkidle0' });
     const fiveFull = await page.evaluate(() => peFiveItemAverage(0, '体育'));
     check('5種目平均: 5/5種目入力済みでn===total(暫定表記なし)', fiveFull.n === 5 && fiveFull.total === 5 && fiveFull.avg === 8, JSON.stringify(fiveFull));
+
+    // ================================================================
+    // 11. 「プリセットに戻す」の安全性(v1.22.1): rubricData.items[itemId]は単なる
+    //     levels配列のインデックスであり、プリセット改訂でlevelsの構成が変わった
+    //     項目に対して旧インデックスをそのまま新presetで再解釈すると誤った点数に
+    //     化ける。level.labelが変わった項目は自動でクリアされ、教師に警告されること
+    //     を、2学期改修前の実際の旧プリセット(OLD_*_SNAPSHOT)からの移行で検証する。
+    // ================================================================
+    const OLD_VAULT_SNAPSHOT = {
+        presetId: 'vault', combine: 'average', bonusMode: 'each', cap: 10, displayMode: 'modal',
+        items: [
+            { id: 'vt1', name: '①開脚跳び', mode: 'level', levels: [
+                { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                { label: '片方向（縦または横）で安定', score: 6 },
+                { label: '縦・横とも安定', score: 8 },
+                { label: '大きな開脚跳びが安定', score: 10 }
+            ]},
+            { id: 'vt2', name: '②かかえ込み跳び', mode: 'level', levels: [
+                { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                { label: '片方向（縦または横）で安定', score: 6 },
+                { label: '縦・横とも安定', score: 8 },
+                { label: '屈伸跳びが安定', score: 10 }
+            ]},
+            { id: 'vt3', name: '③台上前転', mode: 'level', levels: [
+                { label: '未達成（縦・横とも3回中0〜1回成功）', score: 0 },
+                { label: '片方向（縦または横）で安定', score: 6 },
+                { label: '縦・横とも安定', score: 8 },
+                { label: '伸膝台上前転が安定', score: 10 }
+            ]}
+        ],
+        bonus: [ { id: 'b1', name: '首はね跳び・頭はね跳び', mode: 'level', levels: [
+            { label: '未達成', score: 0 },
+            { label: '安定してできる（4段以上、3回中2回以上成功）', score: 0.5 }
+        ]}],
+        note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。',
+        _presetId: 'vault'
+    };
+    const resetVaultTestId = now + 500;
+    const resetVaultStudents = [{name:'児童R1'},{name:'児童R2'}];
+    // 児童R1: vt1(idx2=8点/labelは新presetと同一)・vt2(idx3=10点「屈伸跳びが安定」/新presetは
+    // 3段階でlabelが異なる)・vt3(idx2=8点/labelは新presetと異なる「伸膝台上前転」系)を入力済み+bonus。
+    // 児童R2: vt1のみ入力(未完了のまま)。
+    const resetVaultScores = [
+        { id: 1, studentIndex: 0, testId: resetVaultTestId, rubricData: { items: { vt1:2, vt2:3, vt3:2 }, bonus: { b1: 1 } }, score10: 8.83, score: 8.83, createdAt: new Date().toISOString() },
+        { id: 2, studentIndex: 1, testId: resetVaultTestId, rubricData: { items: { vt1:2 }, bonus: {} }, createdAt: new Date().toISOString() }
+    ];
+    await page.evaluate(({tests, students, scores}) => {
+        StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year:2026, grade:5, class:1, termSystem:3 } }));
+        StorageManager.set(KEYS.tests, JSON.stringify(tests));
+        StorageManager.set(KEYS.scores, JSON.stringify(scores));
+    }, {
+        tests: [{ id: resetVaultTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動(旧データ)', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: OLD_VAULT_SNAPSHOT, date:'2026-08-19', createdAt:new Date().toISOString() }],
+        students: resetVaultStudents, scores: resetVaultScores
+    });
+    await page.reload({ waitUntil: 'networkidle0' });
+
+    const vaultResetResult = await page.evaluate((testId) => {
+        showView('records');
+        recEditPeRubricConfig(testId);
+        recResetPeRubricConfig();
+        var scores = JSON.parse(StorageManager.getRaw(KEYS.scores));
+        var test = JSON.parse(StorageManager.getRaw(KEYS.tests)).find(function(t){return t.id===testId;});
+        return {
+            newBonusLen: test.peRubric.bonus.length,
+            newVt2LevelCount: test.peRubric.items[1].levels.length,
+            sr0: scores.find(function(s){return s.studentIndex===0 && s.testId===testId;}),
+            sr1: scores.find(function(s){return s.studentIndex===1 && s.testId===testId;}),
+            toastText: (document.getElementById('toastMsg')||{}).textContent || ''
+        };
+    }, resetVaultTestId);
+    check('プリセットに戻す(跳び箱): 新presetに切り替わる(bonus:[]、②が3段階)', vaultResetResult.newBonusLen === 0 && vaultResetResult.newVt2LevelCount === 3, JSON.stringify(vaultResetResult.sr0));
+    check('プリセットに戻す(跳び箱): 構造・labelとも不変のvt1は入力値が保持される(idx2のまま)', vaultResetResult.sr0.rubricData.items.vt1 === 2, JSON.stringify(vaultResetResult.sr0.rubricData.items));
+    check('プリセットに戻す(跳び箱)【核心・誤読防止】: labelが変わったvt2はクリアされる(旧idx3=10点を新presetで無関係な値として再解釈しない)', !('vt2' in vaultResetResult.sr0.rubricData.items), JSON.stringify(vaultResetResult.sr0.rubricData.items));
+    check('プリセットに戻す(跳び箱): labelが変わったvt3(伸膝台上前転→首/頭はね跳び)も安全側に倒してクリアされる', !('vt3' in vaultResetResult.sr0.rubricData.items), JSON.stringify(vaultResetResult.sr0.rubricData.items));
+    check('プリセットに戻す(跳び箱): 項目クリアで完了状態が崩れscore10キーが削除される', !('score10' in vaultResetResult.sr0), JSON.stringify(vaultResetResult.sr0));
+    check('プリセットに戻す(跳び箱): 旧bonus(b1)は削除されず保持される(既存の移行方針どおり)', vaultResetResult.sr0.rubricData.bonus.b1 === 1, JSON.stringify(vaultResetResult.sr0.rubricData.bonus));
+    check('プリセットに戻す(跳び箱): 未完了だった児童R2はvt1のみのまま変化しない', vaultResetResult.sr1.rubricData.items.vt1 === 2 && Object.keys(vaultResetResult.sr1.rubricData.items).length === 1, JSON.stringify(vaultResetResult.sr1.rubricData.items));
+    check('プリセットに戻す(跳び箱): クリアされたことが教師にトーストで警告される', /②かかえ込み跳び/.test(vaultResetResult.toastText) && /③台上前転/.test(vaultResetResult.toastText) && /未入力に戻し/.test(vaultResetResult.toastText), vaultResetResult.toastText);
+
+    const OLD_HURDLE_SNAPSHOT = {
+        presetId: 'hurdle', combine: 'average', bonusMode: 'each', cap: 10, displayMode: 'modal',
+        items: [
+            { id: 'h1', name: '①インターバルのリズム', mode: 'level', levels: [
+                { label: 'ハードルに向かって走っている', score: 1 },
+                { label: 'ハードルを走り越せる', score: 3 },
+                { label: '決めた歩数で走り越せる', score: 6 },
+                { label: '最後のハードルまで同じリズムを保てる', score: 10 }
+            ]},
+            { id: 'h2', name: '②踏み切りと走り越し', mode: 'level', levels: [
+                { label: 'ハードルに向かって走っている', score: 1 },
+                { label: '手前で止まらずに走り越せる', score: 3 },
+                { label: '遠くから踏み切り、低く越えられる', score: 6 },
+                { label: '上下動が小さく、着地後すぐ走り出せる', score: 10 }
+            ]},
+            { id: 'h3', name: '③接近度（タイム差）', mode: 'level', levels: [
+                { label: '記録が取れている', score: 3 },
+                { label: '2.0秒以内', score: 6 },
+                { label: '1.2秒以内', score: 10 }
+            ]}
+        ],
+        bonus: [],
+        note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。',
+        _presetId: 'hurdle'
+    };
+    const resetHurdleTestId = now + 501;
+    const resetHurdleStudents = [{name:'児童R3'}];
+    // 児童R3: 旧h1(idx2=6点)/旧h2(idx2=6点)/旧h3(idx1=6点)すべて入力済み(旧設計での完了、平均6.0)。
+    const resetHurdleScores = [
+        { id: 1, studentIndex: 0, testId: resetHurdleTestId, rubricData: { items: { h1:2, h2:2, h3:1 }, bonus: {} }, score10: 6, score: 6, createdAt: new Date().toISOString() }
+    ];
+    await page.evaluate(({tests, students, scores}) => {
+        StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year:2026, grade:5, class:1, termSystem:3 } }));
+        StorageManager.set(KEYS.tests, JSON.stringify(tests));
+        StorageManager.set(KEYS.scores, JSON.stringify(scores));
+    }, {
+        tests: [{ id: resetHurdleTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走(旧データ)', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: OLD_HURDLE_SNAPSHOT, date:'2026-08-19', createdAt:new Date().toISOString() }],
+        students: resetHurdleStudents, scores: resetHurdleScores
+    });
+    await page.reload({ waitUntil: 'networkidle0' });
+
+    const hurdleResetResult = await page.evaluate((testId) => {
+        showView('records');
+        recEditPeRubricConfig(testId);
+        recResetPeRubricConfig();
+        var scores = JSON.parse(StorageManager.getRaw(KEYS.scores));
+        var test = JSON.parse(StorageManager.getRaw(KEYS.tests)).find(function(t){return t.id===testId;});
+        return {
+            newItemCount: test.peRubric.items.length,
+            sr0: scores.find(function(s){return s.studentIndex===0 && s.testId===testId;}),
+            toastText: (document.getElementById('toastMsg')||{}).textContent || ''
+        };
+    }, resetHurdleTestId);
+    check('プリセットに戻す(ハードル): 新presetに切り替わる(指標1・指標2の2項目)', hurdleResetResult.newItemCount === 2, JSON.stringify(hurdleResetResult.sr0));
+    check('プリセットに戻す(ハードル)【核心・誤読防止】: 旧h1・旧h2はlabelが別物のためクリアされる(旧h2 idx2=6点を新presetのタイム差idx2=3点として誤読しない)', !('h1' in hurdleResetResult.sr0.rubricData.items) && !('h2' in hurdleResetResult.sr0.rubricData.items), JSON.stringify(hurdleResetResult.sr0.rubricData.items));
+    check('プリセットに戻す(ハードル): 旧h3(新presetに存在しない項目)は削除されず保持される(参照されないだけ)', hurdleResetResult.sr0.rubricData.items.h3 === 1, JSON.stringify(hurdleResetResult.sr0.rubricData.items));
+    check('プリセットに戻す(ハードル): 項目クリアで完了状態が崩れscore10キーが削除される', !('score10' in hurdleResetResult.sr0), JSON.stringify(hurdleResetResult.sr0));
+    check('プリセットに戻す(ハードル): クリアされたことが教師にトーストで警告される', /指標1|指標2/.test(hurdleResetResult.toastText) && /未入力に戻し/.test(hurdleResetResult.toastText), hurdleResetResult.toastText);
+
+    // 回帰: 構造(levelラベル)が変わっていない通常の「プリセットに戻す」(採点基準の
+    // カスタム値を既定に戻すだけの本来の用途)では、何もクリアされずtotalが再計算
+    // されるだけであることを確認する(過剰にクリアしすぎていないことの歯止め)。
+    const noopResetTestId = now + 502;
+    const noopStudents = [{name:'児童R4'}];
+    const matPresetSnapshot = await page.evaluate(() => peRubricGetConfig({ peUnit: '実技:mat' }));
+    const customizedMatConfig = JSON.parse(JSON.stringify(matPresetSnapshot));
+    customizedMatConfig.items[0].levels[1].score = 8; // 教師がg1のlevel1を6→8にカスタム済み、という想定
+    const noopScores = [
+        { id: 1, studentIndex: 0, testId: noopResetTestId, rubricData: { items: { g1:1, g2:2, g3:1, g4:0 }, bonus: {} }, score10: 8.5, score: 8.5, createdAt: new Date().toISOString() }
+    ];
+    await page.evaluate(({tests, students, scores}) => {
+        StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year:2026, grade:5, class:1, termSystem:3 } }));
+        StorageManager.set(KEYS.tests, JSON.stringify(tests));
+        StorageManager.set(KEYS.scores, JSON.stringify(scores));
+    }, {
+        tests: [{ id: noopResetTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動(カスタム基準)', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: customizedMatConfig, date:'2026-08-19', createdAt:new Date().toISOString() }],
+        students: noopStudents, scores: noopScores
+    });
+    await page.reload({ waitUntil: 'networkidle0' });
+    const noopResetResult = await page.evaluate((testId) => {
+        showView('records');
+        recEditPeRubricConfig(testId);
+        recResetPeRubricConfig();
+        var scores = JSON.parse(StorageManager.getRaw(KEYS.scores));
+        return {
+            sr0: scores.find(function(s){return s.studentIndex===0 && s.testId===testId;}),
+            toastText: (document.getElementById('toastMsg')||{}).textContent || ''
+        };
+    }, noopResetTestId);
+    check('プリセットに戻す(回帰): labelが変わっていない通常の用途では入力値がクリアされない(①②③④すべて保持)', JSON.stringify(noopResetResult.sr0.rubricData.items) === JSON.stringify({g1:1,g2:2,g3:1,g4:0}), JSON.stringify(noopResetResult.sr0.rubricData.items));
+    check('プリセットに戻す(回帰): 既定値(g1 level1=6点)に戻ってscore10が再計算される((6+10+10+0)/4=6.5)', noopResetResult.sr0.score10 === 6.5, 'got='+noopResetResult.sr0.score10);
+    check('プリセットに戻す(回帰): 何もクリアされない場合は警告トーストを出さない', !/未入力に戻し/.test(noopResetResult.toastText), noopResetResult.toastText);
 
     const realErrors = consoleErrors;
     check('ページ読み込み・全操作中にコンソールエラーなし(favicon.ico除く)', realErrors.length === 0, realErrors.join(' | '));

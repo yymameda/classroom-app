@@ -8011,8 +8011,12 @@
                 ],
                 note: '本校の実態に応じた目安であり、指導要領に明記された基準ではありません。'
             },
-            // Phase2 第1弾: ハードル走。3項目すべてmode:'level'、加点なし(bonus:[])。
-            // displayMode:'modal'を明示指定(volley/matと同じ理由で自動判定はしない)。
+            // 2学期改修(v1.22.0, PE_RUBRIC_SPEC.md §4.4再々改訂・現行仕様):
+            // 指標1「そろった箇所数」+指標2「タイム差」の2項目平均に戻す。指標2は
+            // mode:'level'のまま(コア計算ロジック無改修)、item.timeAuto設定により
+            // UI層(recPeRubricRenderItemRow)が基準タイム・ハードル走タイムの数値入力を
+            // 追加し、両方入力されたら該当レベルを自動選択する。時刻未入力時はレベル
+            // ボタンを直接タップするフォールバックが常に使える。
             hurdle: {
                 name: 'ハードル走',
                 emoji: '🏃',
@@ -8022,32 +8026,46 @@
                 displayMode: 'modal',
                 items: [
                     {
-                        id: 'h1', name: '①インターバルのリズム', mode: 'level',
-                        hint: '決めた歩数（3歩または5歩）で走り越せているかを見る',
+                        id: 'h1', name: '指標1：そろった箇所数', mode: 'level',
+                        hint: PE_RUBRIC_CONSTANTS.hurdleDistanceM + 'm・インターバル3か所のうち、決めた歩数で走り越せてリズムがそろった箇所数',
                         levels: [
-                            { label: 'ハードルに向かって走っている', score: 1 },
-                            { label: 'ハードルを走り越せる', score: 3 },
-                            { label: '決めた歩数で走り越せる', score: 6 },
-                            { label: '最後のハードルまで同じリズムを保てる', score: 10 }
+                            { label: '0か所（そろっていない）', score: 1 },
+                            { label: '1か所そろっている', score: 4 },
+                            { label: '2か所そろっている', score: 7 },
+                            { label: '3か所そろっている（全て）', score: 10 }
                         ]
                     },
                     {
-                        id: 'h2', name: '②踏み切りと走り越し', mode: 'level',
-                        hint: '遠くから決めた足で踏み切り、低く走り越せているかを見る',
+                        id: 'h2', name: '指標2：タイム差', mode: 'level',
+                        hint: 'ハードル走タイム − 単元開始時' + PE_RUBRIC_CONSTANTS.hurdleBaseRunDistanceM + 'm走タイム。基準タイムは単元中1回入力すれば保持されます。両方入力すると自動でレベルが選ばれます（未計測・欠席等でタイムが無い場合はレベルボタンを直接タップ）',
+                        timeAuto: {
+                            baseTimeKey: 'baseTime', baseTimeLabel: '単元開始時' + PE_RUBRIC_CONSTANTS.hurdleBaseRunDistanceM + 'm走タイム（秒）',
+                            attemptTimeKey: 'hurdleTime', attemptTimeLabel: 'ハードル走タイム（秒）',
+                            // 差(attempt-base) <= maxDiff を満たす最初のエントリのlevelIndexを採用(昇順評価)。
+                            thresholds: [
+                                { maxDiff: 0.6, levelIndex: 9 },
+                                { maxDiff: 0.8, levelIndex: 8 },
+                                { maxDiff: 1.0, levelIndex: 7 },
+                                { maxDiff: 1.2, levelIndex: 6 },
+                                { maxDiff: 1.5, levelIndex: 5 },
+                                { maxDiff: 1.8, levelIndex: 4 },
+                                { maxDiff: 2.1, levelIndex: 3 },
+                                { maxDiff: 2.4, levelIndex: 2 },
+                                { maxDiff: 2.7, levelIndex: 1 },
+                                { maxDiff: Infinity, levelIndex: 0 }
+                            ]
+                        },
                         levels: [
-                            { label: 'ハードルに向かって走っている', score: 1 },
-                            { label: '手前で止まらずに走り越せる', score: 3 },
-                            { label: '遠くから踏み切り、低く越えられる', score: 6 },
-                            { label: '上下動が小さく、着地後すぐ走り出せる', score: 10 }
-                        ]
-                    },
-                    {
-                        id: 'h3', name: '③接近度（タイム差）', mode: 'level',
-                        hint: '40mハードル走のタイム − 40m走のタイム。目標は0.3秒×4台＝1.2秒以内',
-                        levels: [
-                            { label: '記録が取れている', score: 3 },
-                            { label: '2.0秒以内', score: 6 },
-                            { label: '1.2秒以内', score: 10 }
+                            { label: '差が2.7秒より大きい', score: 1 },
+                            { label: '差が2.4秒より大きく2.7秒以下', score: 2 },
+                            { label: '差が2.1秒より大きく2.4秒以下', score: 3 },
+                            { label: '差が1.8秒より大きく2.1秒以下', score: 4 },
+                            { label: '差が1.5秒より大きく1.8秒以下', score: 5 },
+                            { label: '差が1.2秒より大きく1.5秒以下', score: 6 },
+                            { label: '差が1.0秒より大きく1.2秒以下', score: 7 },
+                            { label: '差が0.8秒より大きく1.0秒以下', score: 8 },
+                            { label: '差が0.6秒より大きく0.8秒以下', score: 9 },
+                            { label: '差が0.6秒以下（またはハードル走の方が速い）', score: 10 }
                         ]
                     }
                 ],
@@ -8482,11 +8500,36 @@
         // ============================================================
 
         // item(またはbonus)1件のスコア表示付き入力行を描画する。
-        function recPeRubricRenderItemRow(studentIndex, section, item, idata, scoreInfo) {
+        function recPeRubricRenderItemRow(studentIndex, section, item, idata, scoreInfo, metaData) {
             var scoreLabel = (scoreInfo && scoreInfo.complete && typeof scoreInfo.score === 'number')
                 ? ('<span class="rec-pr-score">' + scoreInfo.score + '点</span>')
                 : '<span class="rec-pr-score">—</span>';
             var body = '';
+            // 2学期改修(v1.22.0): item.timeAuto(ハードル指標2)専用。mode:'level'の
+            // 枠内で、時間入力→自動レベル選択のハイブリッドUIを追加する
+            // (peRubricCalcItemScore/peRubricCalcScore10は無改修。PE_RUBRIC_SPEC.md §4.4参照)。
+            var timeAutoHtml = '';
+            if (item.timeAuto) {
+                var ta = item.timeAuto;
+                var md = metaData || {};
+                var baseVal = (typeof md[ta.baseTimeKey] === 'number') ? md[ta.baseTimeKey] : '';
+                var attemptVal = (typeof md[ta.attemptTimeKey] === 'number') ? md[ta.attemptTimeKey] : '';
+                var diffHtml = '';
+                if (typeof md[ta.baseTimeKey] === 'number' && typeof md[ta.attemptTimeKey] === 'number') {
+                    var diff = Math.round((md[ta.attemptTimeKey] - md[ta.baseTimeKey]) * 100) / 100;
+                    diffHtml = '<div style="font-size:0.74rem;color:#1565C0;margin-top:2px;">差: ' + diff.toFixed(1) + '秒 → 下のレベルを自動選択</div>';
+                }
+                timeAutoHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0;">' +
+                    '<label style="font-size:0.72rem;color:var(--text-light);display:flex;flex-direction:column;gap:2px;">' + escapeHtml(ta.baseTimeLabel) +
+                    '<input type="number" inputmode="decimal" step="0.1" value="' + baseVal + '"' +
+                    ' style="width:80px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;min-height:44px;"' +
+                    ' onchange="recPeRubricSetTime(' + studentIndex + ',\x27' + item.id + '\x27,\x27' + ta.baseTimeKey + '\x27,this.value)"></label>' +
+                    '<label style="font-size:0.72rem;color:var(--text-light);display:flex;flex-direction:column;gap:2px;">' + escapeHtml(ta.attemptTimeLabel) +
+                    '<input type="number" inputmode="decimal" step="0.1" value="' + attemptVal + '"' +
+                    ' style="width:80px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;min-height:44px;"' +
+                    ' onchange="recPeRubricSetTime(' + studentIndex + ',\x27' + item.id + '\x27,\x27' + ta.attemptTimeKey + '\x27,this.value)"></label>' +
+                    '</div>' + diffHtml;
+            }
             if (item.mode === 'level') {
                 body = '<div class="rec-pr-level-row">' + (item.levels || []).map(function(lv, i) {
                     var sel = (idata === i) ? ' sel' : '';
@@ -8515,6 +8558,7 @@
             return '<div class="rec-pr-item">' +
                 '<div class="rec-pr-item-name">' + escapeHtml(item.name || '') + scoreLabel + '</div>' +
                 (item.hint ? '<div class="rec-pr-item-hint">' + escapeHtml(item.hint) + '</div>' : '') +
+                timeAutoHtml +
                 body +
                 '</div>';
         }
@@ -8592,8 +8636,9 @@
             var itemRows = (config.items || []).map(function(item, i) {
                 var idata = (rubricData.items || {})[item.id];
                 var scoreInfo = result.itemScores[i];
+                var metaData = (rubricData.meta || {})[item.id];
                 return {
-                    html: recPeRubricRenderItemRow(idx, 'items', item, idata, scoreInfo),
+                    html: recPeRubricRenderItemRow(idx, 'items', item, idata, scoreInfo, metaData),
                     hasHint: !!item.hint, name: item.name || '',
                     scoreText: (scoreInfo && scoreInfo.complete && typeof scoreInfo.score === 'number') ? (scoreInfo.score + '点') : null
                 };
@@ -8924,6 +8969,40 @@
                 var next = (cur === 1) ? 0 : (cur === 0) ? null : 1;
                 arr[trialIndex] = next;
                 rd[section][itemId][blockId] = arr;
+            });
+        };
+
+        // 2学期改修(v1.22.0): item.timeAuto(ハードル指標2)専用。時刻をrubricData.meta[itemId]
+        // に保存し、基準タイム・ハードル走タイムが両方揃ったらthresholdsから該当levelIndexを
+        // 求めてrd.items[itemId]を自動設定する(recPeRubricSelectLevelと同じ書き込み先)。
+        // 片方だけの場合はrd.items[itemId]に一切触れない(フォールバック: レベルボタンの
+        // 直接タップは常に有効。PE_RUBRIC_SPEC.md §4.4参照)。
+        window.recPeRubricSetTime = function(studentIndex, itemId, timeKey, rawValue) {
+            var v = (rawValue === '' || rawValue === null || rawValue === undefined) ? null : parseFloat(rawValue);
+            if (v !== null && isNaN(v)) v = null;
+            if (v !== null) v = Math.round(v * 10) / 10; // 0.1秒単位に丸める(PE_RUBRIC_SPEC.md §0-3)
+            var test = recCurrentTestId ? recGetTests().find(function(t) { return t.id === recCurrentTestId; }) : null;
+            var config = test ? peRubricGetConfig(test) : null;
+            var item = config ? (config.items || []).find(function(it) { return it.id === itemId; }) : null;
+            recPeRubricUpdate(studentIndex, function(rd) {
+                rd.meta = rd.meta || {};
+                rd.meta[itemId] = rd.meta[itemId] || {};
+                rd.meta[itemId][timeKey] = v;
+                if (item && item.timeAuto) {
+                    var ta = item.timeAuto;
+                    var base = rd.meta[itemId][ta.baseTimeKey];
+                    var attempt = rd.meta[itemId][ta.attemptTimeKey];
+                    if (typeof base === 'number' && typeof attempt === 'number') {
+                        var diff = attempt - base;
+                        var levelIndex = null;
+                        for (var i = 0; i < ta.thresholds.length; i++) {
+                            if (diff <= ta.thresholds[i].maxDiff) { levelIndex = ta.thresholds[i].levelIndex; break; }
+                        }
+                        if (levelIndex === null && ta.thresholds.length) levelIndex = ta.thresholds[ta.thresholds.length - 1].levelIndex;
+                        rd.items = rd.items || {};
+                        rd.items[itemId] = levelIndex;
+                    }
+                }
             });
         };
         // ============================================================

@@ -7894,6 +7894,19 @@
         // PE_RUBRIC_SPEC.md 参照。プリセット定義は §4 のフェーズごとに追加していく
         // (Phase1: volley/mat。number/compositeモードはPhase3/4で追加)。
         // ============================================================
+
+        // PE_RUBRIC_SPEC.md §10.2: 学年の実態で変更しうる値をハードコードせず、
+        // プリセットのhint文言をここから組み立てる(2学期改修 v1.22.0)。
+        var PE_RUBRIC_CONSTANTS = {
+            matHandstandHoldSec: { wall: 3, head: 5 },      // マット④: 壁倒立/頭倒立の静止秒数
+            trialCount: 3, stableAtCount: 2,                 // 共通: 試技回数と「安定」の成功基準
+            vaultMinBoxLevel: 4,                             // 跳び箱: 使用する跳び箱の段数下限
+            hurdleDistanceM: 40, hurdleBaseRunDistanceM: 40   // ハードル走: 走距離・基準走の距離(要一致)
+        };
+        function peRubricStableHint() {
+            return PE_RUBRIC_CONSTANTS.trialCount + '回中' + PE_RUBRIC_CONSTANTS.stableAtCount + '回以上成功で安定';
+        }
+
         var PeRubricPresets = {
             // ソフトバレーは5方向を「1試技のblock」×5個としてモデル化する(1blockに5試技ではない)。
             // これによりtrialモードの汎用レンダラ(commit2, recPeRubricRenderItemRow)が
@@ -7972,7 +7985,7 @@
                     },
                     {
                         id: 'g4', name: '④平均立ちグループ', mode: 'level',
-                        hint: '基本：壁倒立／発展：頭倒立',
+                        hint: '基本：壁倒立(' + PE_RUBRIC_CONSTANTS.matHandstandHoldSec.wall + '秒以上静止)／発展：頭倒立(' + PE_RUBRIC_CONSTANTS.matHandstandHoldSec.head + '秒以上静止)',
                         levels: [
                             { label: '未達成（3回中0〜1回成功）', score: 0 },
                             { label: '基本の技が安定してできる（3回中2回以上成功）', score: 6 },

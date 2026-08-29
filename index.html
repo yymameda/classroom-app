@@ -718,7 +718,7 @@
         .rec-cont-inline-input {
             width: 100%; text-align: center; font-size: 1rem; font-weight: 700;
             padding: 4px 2px; border: 2px solid var(--primary); border-radius: 6px;
-            font-family: inherit; min-height: 32px;
+            font-family: inherit; min-height: var(--tap-min);
         }
         .rec-cont-cell.editing .rec-abc-btns { width: 100%; }
         .rec-seat-cell.filled { background: #E8F5E9; border-color: var(--success); }
@@ -3711,7 +3711,7 @@
                             <span class="pf-card-title">記録入力</span>
                             <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
                                 <span style="font-size:12px;color:var(--text-light);">表示：</span>
-                                <select id="pf-genderFilter" style="width:80px;height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderInputGrid()">
+                                <select id="pf-genderFilter" style="width:80px;min-height:var(--tap-min);font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderInputGrid()">
                                     <option value="all">全員</option>
                                     <option value="男">男子</option>
                                     <option value="女">女子</option>
@@ -3735,7 +3735,7 @@
                         <div class="pf-card-head">
                             <span class="pf-card-title">結果一覧</span>
                             <div style="margin-left:auto;">
-                                <select id="pf-resultGenderFilter" style="width:80px;height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderResultTable()">
+                                <select id="pf-resultGenderFilter" style="width:80px;min-height:var(--tap-min);font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderResultTable()">
                                     <option value="all">全員</option>
                                     <option value="男">男子</option>
                                     <option value="女">女子</option>
@@ -3754,7 +3754,7 @@
                         <div class="pf-card-head">
                             <span class="pf-card-title">個人分析</span>
                             <div style="margin-left:auto;">
-                                <select id="pf-analysisStudent" style="width:160px;height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderAnalysis()">
+                                <select id="pf-analysisStudent" style="width:160px;min-height:var(--tap-min);font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:6px;" onchange="pf_renderAnalysis()">
                                     <option value="">児童を選択</option>
                                 </select>
                             </div>
@@ -3793,13 +3793,13 @@
                         <div class="pf-card-body">
                             <div class="pf-form-row">
                                 <span class="pf-form-label">実施年度</span>
-                                <select id="pf-settingYear" style="width:120px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="pf_saveSetting()">
+                                <select id="pf-settingYear" style="width:120px;min-height:var(--tap-min);padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="pf_saveSetting()">
                                     <option>2026</option><option>2025</option><option>2027</option>
                                 </select>
                             </div>
                             <div class="pf-form-row">
                                 <span class="pf-form-label">学年</span>
-                                <select id="pf-settingGrade" style="width:160px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="pf_saveSetting()">
+                                <select id="pf-settingGrade" style="width:160px;min-height:var(--tap-min);padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="pf_saveSetting()">
                                     <option value="1">1年生（6歳）</option>
                                     <option value="2">2年生（7歳）</option>
                                     <option value="3">3年生（8歳）</option>
@@ -3810,7 +3810,7 @@
                             </div>
                             <div class="pf-form-row">
                                 <span class="pf-form-label">クラス名</span>
-                                <input type="text" id="pf-settingClass" placeholder="例：5年つくし組" style="max-width:200px;height:36px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" oninput="pf_saveSetting()">
+                                <input type="text" id="pf-settingClass" placeholder="例：5年つくし組" style="max-width:200px;min-height:var(--tap-min);padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" oninput="pf_saveSetting()">
                             </div>
                             <div class="pf-form-hint">学年を設定すると評価基準が切り替わります。年度が変わると記録データも切り替わります。</div>
                         </div>
@@ -10361,7 +10361,7 @@
             el.innerHTML = REC_SORT_DEFS.map(function(d) {
                 var active = recTestSortKey === d.key;
                 var arrow = active ? (recTestSortAsc ? '▲' : '▼') : '';
-                return '<button onclick="recSetSort(\'' + d.key + '\')" style="border:1.5px solid;border-radius:14px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;min-height:28px;font-family:inherit;' +
+                return '<button onclick="recSetSort(\'' + d.key + '\')" style="border:1.5px solid;border-radius:14px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;min-height:var(--tap-min);font-family:inherit;' +
                     (active ? 'background:var(--primary);color:var(--white);border-color:var(--primary);' : 'background:var(--white);color:var(--text-light);border-color:var(--border);') +
                     '">' + d.label + arrow + '</button>';
             }).join('');
@@ -12552,7 +12552,7 @@
                             + '<td style="padding:2px 4px;text-align:center;">'
                             + '<button id="karte-nt-' + idx + '-' + r.date + '"'
                             + ' onclick="karteToggleNotice(' + idx + ',\x27' + r.date + '\x27)"'
-                            + ' style="border-radius:12px;padding:2px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;min-height:28px;min-width:64px;'
+                            + ' style="border-radius:12px;padding:2px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;min-height:var(--tap-min);min-width:64px;'
                             + (on ? 'background:#E8F5E9;color:#2E7D32;border:1.5px solid var(--success);' : 'background:#FDEDEC;color:#C62828;border:1.5px solid var(--danger);')
                             + '">' + (on ? '✓届出' : '未提出') + '</button></td></tr>';
                     });
@@ -13336,7 +13336,7 @@
             el.innerHTML = SUB_SORT_DEFS.map(function(d) {
                 var active = subSortKey === d.key;
                 var arrow = active ? (subSortAsc ? '▲' : '▼') : '';
-                return '<button style="border:1.5px solid;border-radius:14px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;min-height:28px;font-family:inherit;' +
+                return '<button style="border:1.5px solid;border-radius:14px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;min-height:var(--tap-min);font-family:inherit;' +
                     (active ? 'background:var(--primary);color:var(--white);border-color:var(--primary);' : 'background:var(--white);color:var(--text-light);border-color:var(--border);') +
                     '" data-sortkey="' + d.key + '">' + d.label + arrow + '</button>';
             }).join('');

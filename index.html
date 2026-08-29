@@ -204,9 +204,9 @@
             color: var(--primary);
         }
         .btn-outline:hover { background: var(--secondary); }
-        .grd-a { color:#27AE60; font-weight:700; }
+        .grd-a { color:var(--success); font-weight:700; }
         .grd-b { color:#3498DB; font-weight:700; }
-        .grd-c { color:#E67E22; font-weight:700; }
+        .grd-c { color:var(--accent); font-weight:700; }
         .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
         .form-group { margin-bottom: 12px; }
         .form-group label {
@@ -351,7 +351,7 @@
         .toast.error { background: var(--danger); }
         .toast.warning { background: var(--accent); }
         .toast-undo-btn {
-            background: rgba(255,255,255,0.25); border: none; color: #fff;
+            background: rgba(255,255,255,0.25); border: none; color: var(--white);
             border-radius: 8px; padding: 0 10px; font-size: 0.85rem;
             font-weight: 600; cursor: pointer; flex-shrink: 0;
             min-height: var(--tap-min);
@@ -382,17 +382,17 @@
         .seat-cell.drag-over { border-color: var(--accent); background: #FEF3C7; }
         .seat-cell.gender-male { background: #E8F5E9; border-color: #4CAF50; }
         .seat-cell.gender-female { background: #FFF3E0; border-color: #FF9800; }
-        .seat-cell.vision-D { background: #FDEDEC; border-color: #E74C3C; }
+        .seat-cell.vision-D { background: #FDEDEC; border-color: var(--danger); }
         .seat-cell.vision-C { background: #FEF9E7; border-color: #F39C12; }
         .seat-cell .vision-label {
             font-size: 0.55rem; color: var(--text-light); margin-top: 1px;
         }
-        .seat-cell.group-1 { background: #FDEAEA; border-color: #E74C3C; }
+        .seat-cell.group-1 { background: #FDEAEA; border-color: var(--danger); }
         .seat-cell.group-2 { background: #EAF0FD; border-color: #3498DB; }
-        .seat-cell.group-3 { background: #EAFDF0; border-color: #27AE60; }
-        .seat-cell.group-4 { background: #FDFCEA; border-color: #F1C40F; }
+        .seat-cell.group-3 { background: #EAFDF0; border-color: var(--success); }
+        .seat-cell.group-4 { background: #FDFCEA; border-color: var(--warning); }
         .seat-cell.group-5 { background: #F5EAFD; border-color: #9B59B6; }
-        .seat-cell.group-6 { background: #FDEBD0; border-color: #E67E22; }
+        .seat-cell.group-6 { background: #FDEBD0; border-color: var(--accent); }
         .group-badge { font-size:0.55rem; font-weight:700; margin-top:1px; }
         .unassigned-btn {
             padding: 8px 10px; border-radius: 8px;
@@ -440,7 +440,7 @@
         .grid-cell:hover { background: var(--secondary); border-color: var(--primary); box-shadow: 0 2px 8px rgba(26,26,46,0.15); }
         .grid-cell:active { transform: scale(0.98); }
         .grid-cell.empty { background: #F8FAFC; cursor: default; border-style: dashed; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 2px; gap: 2px; }
-        .grid-cell.empty:hover { background: #F8FAFC; border-color: #E2E8F0; box-shadow: none; }
+        .grid-cell.empty:hover { background: #F8FAFC; border-color: var(--border); box-shadow: none; }
         /* 🌅左縦バー */
         .grid-cell-mp-strip {
             display: flex; align-items: center; justify-content: center;
@@ -449,7 +449,7 @@
             font-size: 13px; transition: background 0.15s;
             height: 100%;
         }
-        .grid-cell-mp-strip.mp-on { background: #FFF3E0; border-right: 2px solid #E67E22; }
+        .grid-cell-mp-strip.mp-on { background: #FFF3E0; border-right: 2px solid var(--accent); }
         .grid-cell-mp-strip:active { background: #FFE0B2; }
         /* 右側コンテンツ */
         .grid-cell-body {
@@ -467,7 +467,7 @@
             width: 12px; height: 12px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center; font-size: 0.5rem; flex-shrink: 0;
         }
-        .grid-cell-status-badge.done { background: #27AE60; color: white; }
+        .grid-cell-status-badge.done { background: var(--success); color: white; }
         .grid-cell-status-badge.empty { background: #E0E0E0; color: #9E9E9E; }
         .grid-cell .name {
             font-size: 0.72rem; font-weight: 500; color: var(--text);
@@ -533,7 +533,7 @@
             font-size: 0.8rem; cursor: pointer; font-weight: 600;
             font-family: inherit; white-space: nowrap; min-height: 44px;
         }
-        .att-toolbar-btn:active { background: var(--primary); color: #fff; }
+        .att-toolbar-btn:active { background: var(--primary); color: var(--white); }
         /* 統計バー */
         .att-stats-bar {
             display: flex; gap: 6px; padding: 5px 8px; background: white;
@@ -596,7 +596,7 @@
         .att-modal-info .num { font-weight: 700; color: var(--accent); }
         .att-status-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
         .att-status-opt {
-            padding: 10px 6px; border: 2px solid #E2E8F0; border-radius: 10px;
+            padding: 10px 6px; border: 2px solid var(--border); border-radius: 10px;
             text-align: center; cursor: pointer; transition: all 0.15s;
             min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
@@ -626,7 +626,7 @@
         .att-status-opt[data-s=""]   .sym { color: var(--text-light); }
         .att-modal-close {
             width: 100%; padding: 10px; border: none; border-radius: 8px;
-            background: #E2E8F0; font-family: inherit; font-size: 0.9rem; cursor: pointer;
+            background: var(--border); font-family: inherit; font-size: 0.9rem; cursor: pointer;
             min-height: 44px;
         }
 
@@ -721,7 +721,7 @@
             font-family: inherit; min-height: 32px;
         }
         .rec-cont-cell.editing .rec-abc-btns { width: 100%; }
-        .rec-seat-cell.filled { background: #E8F5E9; border-color: #27AE60; }
+        .rec-seat-cell.filled { background: #E8F5E9; border-color: var(--success); }
         .rec-seat-cell.absent-cell { background: #F0F0F0; border-color: #9E9E9E; }
         .rec-row-highlight { outline: 3px solid var(--primary); outline-offset: 1px; }
         .rec-row {
@@ -774,11 +774,11 @@
             border-radius: 6px; background: var(--white); font-size: 0.95rem;
             font-weight: 700; cursor: pointer; font-family: inherit; padding: 0; flex-shrink: 0;
         }
-        .rec-abc-btn.sel-a { background: var(--success); border-color: var(--success); color: #fff; }
-        .rec-abc-btn.sel-bplus { background: #1ABC9C; border-color: #1ABC9C; color: #fff; }
-        .rec-abc-btn.sel-b { background: #3498DB; border-color: #3498DB; color: #fff; }
-        .rec-abc-btn.sel-bminus { background: #F39C12; border-color: #F39C12; color: #fff; }
-        .rec-abc-btn.sel-c { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .rec-abc-btn.sel-a { background: var(--success); border-color: var(--success); color: var(--white); }
+        .rec-abc-btn.sel-bplus { background: #1ABC9C; border-color: #1ABC9C; color: var(--white); }
+        .rec-abc-btn.sel-b { background: #3498DB; border-color: #3498DB; color: var(--white); }
+        .rec-abc-btn.sel-bminus { background: #F39C12; border-color: #F39C12; color: var(--white); }
+        .rec-abc-btn.sel-c { background: var(--accent); border-color: var(--accent); color: var(--white); }
         /* v1.14.2: 児童ごとの入力行を全UI共通レイアウトに統一（ABC評価・数値点数・提出物とも同一パターン）
            ヘッダ＝［番号］［氏名］［欠席(小)］［✓］／下段＝主要ボタン・入力欄を横いっぱいに大きく */
         .rec-row.abc-row, .rec-row.sc-row { height: auto; min-height: 86px; gap: 3px; }
@@ -873,14 +873,14 @@
             display: flex; flex-direction: column;
         }
         .rec-matome-modal-hd {
-            background: #1565C0; color: #fff; padding: 10px 14px;
+            background: #1565C0; color: var(--white); padding: 10px 14px;
             border-radius: 12px 12px 0 0;
             display: flex; justify-content: space-between; align-items: center;
             flex-shrink: 0;
         }
         .rec-matome-modal-hd h3 { font-size: 1rem; margin: 0; }
         .rec-matome-modal-close {
-            background: none; border: none; color: #fff; font-size: 1.4rem;
+            background: none; border: none; color: var(--white); font-size: 1.4rem;
             cursor: pointer; padding: 4px; line-height: 1; min-width: 36px; min-height: 36px;
             display: flex; align-items: center; justify-content: center;
         }
@@ -901,7 +901,7 @@
         .rec-mq-cell-label { font-size: 0.62rem; color: var(--text-light); }
         .rec-mq-cell-type {
             font-size: 0.62rem; font-weight: 700; padding: 1px 4px;
-            border-radius: 4px; color: #fff;
+            border-radius: 4px; color: var(--white);
         }
         .rec-mq-cell-type.chi { background: #1565C0; }
         .rec-mq-cell-type.shi { background: #E65100; }
@@ -958,7 +958,7 @@
             display: flex; align-items: center; gap: 3px; width: 100%; flex-shrink: 0;
         }
         .rec-nw-num {
-            color: #fff; background: #90A4AE; border-radius: 50%;
+            color: var(--white); background: #90A4AE; border-radius: 50%;
             width: 16px; height: 16px; min-width: 16px;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.55rem; font-weight: 700; flex-shrink: 0;
@@ -975,7 +975,7 @@
         }
         .rec-nw-cat-label {
             font-size: 0.42rem; font-weight: 700; text-align: center;
-            padding: 0 2px; border-radius: 2px; color: #fff;
+            padding: 0 2px; border-radius: 2px; color: var(--white);
             grid-column: 1 / -1; line-height: 1.4;
         }
         .rec-nw-cat-hop  { background: #4CAF50; }
@@ -989,7 +989,7 @@
         .rec-nw-skill-btn {
             border: 1px solid #ddd; border-radius: 2px; font-size: 0.85rem;
             padding: 10px 2px; cursor: pointer; text-align: center;
-            background: #fff; transition: background 0.1s; line-height: 1;
+            background: var(--white); transition: background 0.1s; line-height: 1;
             font-family: inherit;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             /* 列幅に合わせた正方形：高さ=幅。合否（○表示）で大きさが変わらない */
@@ -1053,7 +1053,7 @@
         .rec-pr-card.complete { background: #E8F5E9; border-color: #4CAF50; }
         .rec-pr-hd { display: flex; align-items: center; gap: 8px; }
         .rec-pr-num {
-            color: #fff; background: #90A4AE; border-radius: 50%;
+            color: var(--white); background: #90A4AE; border-radius: 50%;
             width: 22px; height: 22px; min-width: 22px;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
@@ -1063,7 +1063,7 @@
         .rec-pr-badge {
             font-size: 0.66rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; flex-shrink: 0;
         }
-        .rec-pr-badge.done { background: #4CAF50; color: #fff; }
+        .rec-pr-badge.done { background: #4CAF50; color: var(--white); }
         .rec-pr-badge.pending { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; }
         .rec-pr-item { border-top: 1px solid #eee; padding-top: 6px; }
         .rec-pr-item-name { font-size: 0.78rem; font-weight: 600; color: #444; margin-bottom: 4px; }
@@ -1072,7 +1072,7 @@
         .rec-pr-level-row { display: flex; gap: 6px; flex-wrap: wrap; }
         .rec-pr-level-btn {
             min-width: 44px; min-height: 44px; padding: 6px 10px; border: 2px solid #ddd;
-            border-radius: 8px; background: #fff; font-size: 0.72rem; cursor: pointer;
+            border-radius: 8px; background: var(--white); font-size: 0.72rem; cursor: pointer;
             font-family: inherit;
         }
         .rec-pr-level-btn.sel { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
@@ -1081,7 +1081,7 @@
         .rec-pr-trial-row { display: flex; gap: 4px; flex-wrap: wrap; }
         .rec-pr-trial-btn {
             width: 44px; height: 44px; border: 2px solid #ddd; border-radius: 8px;
-            background: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+            background: var(--white); font-size: 1.1rem; font-weight: 700; cursor: pointer;
             display: flex; align-items: center; justify-content: center; font-family: inherit;
         }
         .rec-pr-trial-btn.ok { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; }
@@ -1107,7 +1107,7 @@
         .rec-pr-dense-card { background: #FAFAFA; border: 2px solid var(--border); border-radius: 8px; padding: 3px 4px; display: flex; flex-direction: column; gap: 3px; }
         .rec-pr-dense-card.complete { background: #E8F5E9; border-color: #4CAF50; }
         .rec-pr-dense-hd { display: flex; align-items: center; gap: 3px; }
-        .rec-pr-dense-num { color: #fff; background: #90A4AE; border-radius: 50%; width: 16px; height: 16px; min-width: 16px; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: 700; flex-shrink: 0; }
+        .rec-pr-dense-num { color: var(--white); background: #90A4AE; border-radius: 50%; width: 16px; height: 16px; min-width: 16px; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: 700; flex-shrink: 0; }
         .rec-pr-dense-num.has { background: #4CAF50; }
         .rec-pr-dense-name { font-size: 0.62rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
         .rec-pr-dense-badge { font-size: 0.55rem; flex-shrink: 0; }
@@ -1115,7 +1115,7 @@
         .rec-pr-dense-badge.pending { color: #E65100; }
         /* 5=ソフトバレーの5方向決め打ち(recBuildPeRubricDenseCardの例外チェックと対応) */
         .rec-pr-dense-trials { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-        .rec-pr-dense-trial-btn { border: 2px solid #ddd; border-radius: 6px; background: #fff; width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; box-sizing: border-box; font-family: inherit; cursor: pointer; padding: 0; }
+        .rec-pr-dense-trial-btn { border: 2px solid #ddd; border-radius: 6px; background: var(--white); width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; box-sizing: border-box; font-family: inherit; cursor: pointer; padding: 0; }
         .rec-pr-dense-trial-btn.ok { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; }
         .rec-pr-dense-trial-btn.ng { background: #EEEEEE; border-color: #BDBDBD; color: #757575; }
         .rec-pr-dense-summary { font-size: 0.65rem; font-weight: 700; text-align: right; }
@@ -1216,7 +1216,7 @@
         .legend-item { display: flex; align-items: center; gap: 0.3rem; }
         .legend-circle { display: inline-flex; align-items: center; justify-content: center;
             width: 22px; height: 22px; border-radius: 50%; font-weight: 700; font-size: 0.85rem; }
-        .legend-circle.good { background: #E8F5E9; color: #27AE60; border: 2px solid #27AE60; }
+        .legend-circle.good { background: #E8F5E9; color: var(--success); border: 2px solid var(--success); }
         .legend-circle.concern { background: #FFF8E1; color: #F57C00; border: 2px solid #F57C00; }
         .legend-circle.none { background: #F5F5F5; color: #9E9E9E; border: 2px solid #E0E0E0; }
         .patrol-grid-wrapper { background: var(--white); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
@@ -1236,7 +1236,7 @@
         .patrol-cell-number { font-size: 0.6rem; color: var(--text-light); background: rgba(0,0,0,0.05); padding: 0.1rem 0.2rem; border-radius: 3px; }
         .patrol-cell-name { font-size: 0.72rem; font-weight: 500; text-align: center; word-break: break-all; line-height: 1.2; }
         .patrol-cell-eval { position: absolute; top: 2px; right: 2px; font-size: 0.88rem; font-weight: 700; }
-        .patrol-cell-eval.good { color: #27AE60; }
+        .patrol-cell-eval.good { color: var(--success); }
         .patrol-cell-eval.concern { color: #F57C00; }
         .patrol-cell-count { position: absolute; bottom: 2px; right: 3px; font-size: 0.58rem; color: var(--text-light); }
         .patrol-summary { background: var(--white); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
@@ -1261,8 +1261,8 @@
             width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border);
             background: var(--white); cursor: pointer; font-size: 1.1rem; font-weight: 700;
             display: flex; align-items: center; justify-content: center; }
-        .patrol-eval-btn.good { color: #27AE60; }
-        .patrol-eval-btn.good.selected { background: #27AE60; border-color: #27AE60; color: white; }
+        .patrol-eval-btn.good { color: var(--success); }
+        .patrol-eval-btn.good.selected { background: var(--success); border-color: var(--success); color: white; }
         .patrol-eval-btn.concern { color: #F57C00; }
         .patrol-eval-btn.concern.selected { background: #F57C00; border-color: #F57C00; color: white; }
         .patrol-memo-section { margin-top: 0.75rem; }
@@ -1278,14 +1278,14 @@
         .history-item-period { font-size: 0.82rem; color: var(--text-light); }
         .history-item-evals { display: flex; flex-wrap: wrap; gap: 0.3rem; }
         .history-eval-badge { padding: 0.2rem 0.45rem; border-radius: 12px; font-size: 0.78rem; font-weight: 500; }
-        .history-eval-badge.good { background: #E8F5E9; color: #27AE60; }
+        .history-eval-badge.good { background: #E8F5E9; color: var(--success); }
         .history-eval-badge.concern { background: #FFF8E1; color: #F57C00; }
-        .history-item-memo { margin-top: 0.4rem; font-size: 0.82rem; color: var(--text-light); padding-left: 0.4rem; border-left: 2px solid #E2E8F0; }
+        .history-item-memo { margin-top: 0.4rem; font-size: 0.82rem; color: var(--text-light); padding-left: 0.4rem; border-left: 2px solid var(--border); }
 
         /* ===== 個人カルテ CSS ===== */
         .karte-container { background: var(--white); border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 92px 1fr; grid-template-rows: auto auto minmax(0,1fr); height: 100%; }
         #kvViewPane { height: calc(100vh - 100px); padding: 8px; box-sizing: border-box; }
-        .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, #fff 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-column: 1 / -1; grid-row: 1; max-height: 116px; }
+        .karte-student-bar { background: linear-gradient(135deg, var(--secondary) 0%, var(--white) 100%); border-bottom: 2px solid var(--border); padding: 0.35rem 0.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; grid-column: 1 / -1; grid-row: 1; max-height: 116px; }
         .karte-student-bar-inner { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
         .karte-student-btn { padding: 0.35rem 0.15rem; border: 1.5px solid var(--border); background: var(--white); color: var(--text); font-size: 0.65rem; font-family: inherit; cursor: pointer; border-radius: 6px; white-space: nowrap; min-height: 44px; transition: all 0.15s; text-align: center; line-height: 1.2; }
         .karte-student-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 600; }
@@ -1305,9 +1305,9 @@
         .ks-card { border: 1.5px solid var(--border); border-radius: 10px; padding: 0.6rem; text-align: center; background: var(--white); }
         .ks-card-label { font-size: 0.7rem; color: var(--text-light); margin-bottom: 0.25rem; }
         .ks-card-value { font-size: 1.5rem; font-weight: 700; }
-        .ks-card.attendance { border-left: 4px solid #27AE60; } .ks-card.attendance .ks-card-value { color: #27AE60; }
+        .ks-card.attendance { border-left: 4px solid var(--success); } .ks-card.attendance .ks-card-value { color: var(--success); }
         .ks-card.submission { border-left: 4px solid #3498DB; } .ks-card.submission .ks-card-value { color: #3498DB; }
-        .ks-card.forgotten  { border-left: 4px solid #E67E22; } .ks-card.forgotten  .ks-card-value { color: #E67E22; }
+        .ks-card.forgotten  { border-left: 4px solid var(--accent); } .ks-card.forgotten  .ks-card-value { color: var(--accent); }
         .ks-card.liferec    { border-left: 4px solid #9B59B6; } .ks-card.liferec    .ks-card-value { color: #9B59B6; }
         .ks-hub-section { border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 0.6rem; background: var(--white); overflow: hidden; }
         .ks-hub-header { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.75rem; background: #F8FAFC; border-bottom: 1px solid var(--border); }
@@ -1324,7 +1324,7 @@
         .ks-missing-row { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; border-bottom:1px solid var(--border); }
         .ks-missing-row:last-child { border-bottom:none; }
         .ks-missing-name { flex:1; font-size:0.8rem; color:var(--text); }
-        .ks-missing-status { flex:none; font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; color:#fff; white-space:nowrap; }
+        .ks-missing-status { flex:none; font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; color:var(--white); white-space:nowrap; }
         .ks-missing-subj { flex:none; font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:4px; background:var(--secondary); color:var(--primary); white-space:nowrap; }
         .ks-missing-checked { flex:none; font-size:0.64rem; color:var(--text-light); white-space:nowrap; }
         .ks-recent { margin-top: 0.5rem; }
@@ -1334,11 +1334,11 @@
         .klife-cats { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
         .klife-cat-btn { padding: 0.3rem 0.6rem; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); font-size: 0.72rem; font-family: inherit; cursor: pointer; transition: all 0.15s; min-height: 44px; display: inline-flex; align-items: center; }
         .klife-cat-btn.selected { background: var(--primary); color: var(--white); border-color: var(--primary); }
-        .klife-cat-btn.cat-trouble.selected { background: #E74C3C; border-color: #E74C3C; }
+        .klife-cat-btn.cat-trouble.selected { background: var(--danger); border-color: var(--danger); }
         .klife-cat-btn.cat-parent.selected  { background: #3498DB; border-color: #3498DB; }
-        .klife-cat-btn.cat-health.selected  { background: #E67E22; border-color: #E67E22; }
+        .klife-cat-btn.cat-health.selected  { background: var(--accent); border-color: var(--accent); }
         .klife-cat-btn.cat-concern.selected { background: #F39C12; border-color: #F39C12; }
-        .klife-cat-btn.cat-growth.selected  { background: #27AE60; border-color: #27AE60; }
+        .klife-cat-btn.cat-growth.selected  { background: var(--success); border-color: var(--success); }
         .klife-templates { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.5rem; }
         .klife-tpl-btn { padding: 0.25rem 0.5rem; border: 1px dashed var(--border); border-radius: 6px; background: var(--white); font-size: 0.68rem; font-family: inherit; cursor: pointer; color: var(--text-light); }
         .klife-detail-toggle { font-size: 0.72rem; color: var(--primary); cursor: pointer; margin-bottom: 0.4rem; background: none; border: none; font-family: inherit; padding: 0; }
@@ -1396,8 +1396,8 @@
         .klearning-tag button { border: none; background: none; color: #4527A0; cursor: pointer; font-size: 0.8rem; padding: 0; }
         .klearning-save-btn { background: #5C6BC0; color: var(--white); border: none; border-radius: 8px; padding: 0.5rem 1.2rem; font-family: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; min-height: var(--tap-min); margin-top: 0.5rem; }
         /* アンドゥバー */
-        .karte-undo-bar { background: #FFF3E0; border: 1.5px solid #E67E22; border-radius: 8px; padding: 0.4rem 0.75rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #E65100; margin-bottom: 0.5rem; }
-        .karte-undo-bar button { background: #E67E22; color: var(--white); border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; font-family: inherit; cursor: pointer; }
+        .karte-undo-bar { background: #FFF3E0; border: 1.5px solid var(--accent); border-radius: 8px; padding: 0.4rem 0.75rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #E65100; margin-bottom: 0.5rem; }
+        .karte-undo-bar button { background: var(--accent); color: var(--white); border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; font-family: inherit; cursor: pointer; }
         .karte-empty { text-align: center; padding: 1.5rem; color: var(--text-light); font-size: 0.85rem; }
         .karte-term-notice { font-size: 0.78rem; color: var(--text-light); padding: 0 2px 8px; }
         /* 記録フォーム */
@@ -1408,7 +1408,7 @@
         /* ===== 提出物チェック CSS ===== */
         .sub-subnav { display: flex; gap: 4px; padding: 8px 12px; background: var(--white); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 4; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .sub-subnav-btn { padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); color: var(--text-light); font-size: 0.82rem; font-family: inherit; cursor: pointer; min-height: 44px; white-space: nowrap; flex-shrink: 0; }
-        .sub-subnav-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+        .sub-subnav-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 600; }
         .sub-sub { display: none; }
         .sub-sub.active { display: block; }
         .sub-panel { background: var(--white); border-radius: 12px; padding: 1rem; margin: 0.75rem; }
@@ -1416,15 +1416,15 @@
 
         /* ===== 入力（個人）— 児童別 未提出チェック（v1.13.0） ===== */
         .sub-psn-stu { position: relative; }
-        .sub-psn-stu.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+        .sub-psn-stu.active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: 700; }
         .sub-psn-stu.active .num { color: rgba(255,255,255,0.85); }
         .sub-psn-badge {
             position: absolute; top: -5px; right: -4px; min-width: 20px; height: 20px;
-            border-radius: 10px; background: var(--danger); color: #fff;
+            border-radius: 10px; background: var(--danger); color: var(--white);
             font-size: 0.65rem; font-weight: 700; line-height: 20px; text-align: center;
             padding: 0 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
         }
-        .sub-psn-badge.clear { background: #27AE60; }
+        .sub-psn-badge.clear { background: var(--success); }
         .sub-psn-sec { border: 1.5px solid var(--border); border-radius: 10px; background: var(--white); margin: 0 0.75rem 0.6rem; overflow: hidden; }
         .sub-psn-sec-hd { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #f4f6f9; border-bottom: 1px solid var(--border); font-size: 0.82rem; font-weight: 700; }
         .sub-psn-sec-cnt { margin-left: auto; font-size: 0.75rem; font-weight: 700; }
@@ -1439,7 +1439,7 @@
         .sub-psn-date { font-size: 0.7rem; color: var(--text-light); }
         .sub-psn-tag { font-size: 0.65rem; font-weight: 700; border-radius: 8px; padding: 1px 6px; }
         .sub-psn-tag.absent { background: #EEF2F7; color: #607D8B; }
-        .sub-psn-tag.late { background: #FDF2E3; color: #E67E22; }
+        .sub-psn-tag.late { background: #FDF2E3; color: var(--accent); }
         .sub-psn-tag.re { background: #FCF6E0; color: #B7950B; }
         .sub-psn-tag.new { background: #EDF1F5; color: #78909C; }
         .sub-psn-acts { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -1448,8 +1448,8 @@
             font-family: inherit; font-size: 0.8rem; font-weight: 700;
             border: 1.5px solid var(--border); background: var(--white); color: var(--text);
         }
-        .sub-psn-btn.ok { border-color: #27AE60; color: #27AE60; }
-        .sub-psn-btn.late { border-color: #E67E22; color: #E67E22; }
+        .sub-psn-btn.ok { border-color: var(--success); color: var(--success); }
+        .sub-psn-btn.late { border-color: var(--accent); color: var(--accent); }
         .sub-psn-btn.re { border-color: #B7950B; color: #B7950B; }
         .sub-psn-btn.absent { border-color: #90A4AE; color: #607D8B; }
         .sub-psn-btn.del { border-color: var(--danger); color: var(--danger); }
@@ -1458,15 +1458,15 @@
         .sub-psn-nt-date { font-size: 0.78rem; color: #555; min-width: 92px; }
         .sub-psn-nt-st { font-size: 0.78rem; font-weight: 600; }
         .sub-psn-nt-btn { margin-left: auto; min-height: 44px; min-width: 84px; border-radius: 12px; padding: 4px 12px; font-family: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-        .sub-psn-nt-btn.on  { background: #E8F5E9; color: #27AE60; border: 1.5px solid #27AE60; }
-        .sub-psn-nt-btn.off { background: #FDEDEC; color: #E74C3C; border: 1.5px solid #E74C3C; }
+        .sub-psn-nt-btn.on  { background: #E8F5E9; color: var(--success); border: 1.5px solid var(--success); }
+        .sub-psn-nt-btn.off { background: #FDEDEC; color: var(--danger); border: 1.5px solid var(--danger); }
         .sub-psn-empty { font-size: 0.78rem; color: var(--text-light); padding: 8px 4px; }
         .sub-psn-sum { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 0.75rem 4px; }
         .sub-psn-chip { font-size: 0.75rem; font-weight: 700; border-radius: 14px; padding: 4px 12px; border: 1.5px solid var(--border); background: var(--white); }
         .sub-psn-chip.ng { border-color: var(--danger); color: var(--danger); }
         .sub-psn-chip.re { border-color: #B7950B; color: #B7950B; }
-        .sub-psn-chip.nt { border-color: #E67E22; color: #E67E22; }
-        .sub-psn-chip.clear { border-color: #27AE60; color: #27AE60; }
+        .sub-psn-chip.nt { border-color: var(--accent); color: var(--accent); }
+        .sub-psn-chip.clear { border-color: var(--success); color: var(--success); }
         .sub-psn-title { font-size: 1rem; font-weight: 700; }
 
         /* 入力 — グリッド（元アプリ準拠） */
@@ -1602,9 +1602,9 @@
             display: flex; align-items: center; justify-content: center; font-family: inherit;
         }
         .sub-status-btn:hover { border-color: var(--primary); background: var(--secondary); }
-        .sub-status-btn.sel-submitted { background: #27AE60; border-color: #27AE60; color: white; }
+        .sub-status-btn.sel-submitted { background: var(--success); border-color: var(--success); color: white; }
         .sub-status-btn.sel-resubmit  { background: #3498DB; border-color: #3498DB; color: white; }
-        .sub-status-btn.sel-missing   { background: #E67E22; border-color: #E67E22; color: white; }
+        .sub-status-btn.sel-missing   { background: var(--accent); border-color: var(--accent); color: white; }
         /* 欠席フラグ */
         .sub-input-row.absent { background: #F0F0F0 !important; border-color: #9E9E9E !important; }
         .sub-absent-tag { font-size: 0.5rem; font-weight: 700; background: #757575; color: white; border-radius: 3px; padding: 1px 4px; line-height: 1.4; flex-shrink: 0; }
@@ -1618,7 +1618,7 @@
             display: flex; align-items: center; justify-content: center;
             transition: all 0.15s;
         }
-        .sub-absent-btn.absent-on { background: #757575; color: #fff; border-color: #616161; }
+        .sub-absent-btn.absent-on { background: #757575; color: var(--white); border-color: #616161; }
         @media (max-width: 700px) {
             .sub-absent-btn { width: 32px; font-size: 0.52rem; }
             .sub-status-btn { height: 44px; font-size: 1rem; }
@@ -1635,9 +1635,9 @@
         .sub-seat-grid { display: grid; gap: 5px; padding: 10px; }
         .sub-seat-cell { border: 2px solid var(--border); border-radius: 8px; padding: 6px 4px; text-align: center; background: var(--white); min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
         .sub-seat-cell.empty { background: #F8F9FA; border-style: dashed; }
-        .sub-seat-cell.submitted { background: #E8F5E9; border-color: #27AE60; }
+        .sub-seat-cell.submitted { background: #E8F5E9; border-color: var(--success); }
         .sub-seat-cell.resubmit  { background: #FFF8E1; border-color: #3498DB; }
-        .sub-seat-cell.missing   { background: #FDEDEC; border-color: #E67E22; }
+        .sub-seat-cell.missing   { background: #FDEDEC; border-color: var(--accent); }
         .sub-seat-num { font-size: 0.6rem; color: var(--text-light); }
         .sub-seat-name { font-size: 0.75rem; font-weight: 700; }
         .sub-seat-status { font-size: 0.85rem; font-weight: 700; }
@@ -1650,9 +1650,9 @@
         .sub-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .sub-bar-label { width: 100px; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
         .sub-bar-wrap { flex: 1; height: 16px; background: #F0F0F0; border-radius: 8px; overflow: hidden; display: flex; }
-        .sub-bar-submitted { background: #27AE60; height: 100%; }
+        .sub-bar-submitted { background: var(--success); height: 100%; }
         .sub-bar-resubmit  { background: #3498DB; height: 100%; }
-        .sub-bar-missing   { background: #E67E22; height: 100%; }
+        .sub-bar-missing   { background: var(--accent); height: 100%; }
         .sub-bar-val { width: 40px; text-align: right; font-size: 0.75rem; color: var(--text-light); flex-shrink: 0; }
         .sub-stu-row { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--white); }
         .sub-stu-row.has-missing { background: #FFF5F5; }
@@ -1660,9 +1660,9 @@
         .sub-stu-name { width: 64px; font-size: 0.85rem; font-weight: 600; flex-shrink: 0; }
         .sub-stu-badges { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; align-items: center; }
         .sub-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 8px; font-weight: 700; }
-        .sub-badge.ok { background: #E8F5E9; color: #27AE60; }
+        .sub-badge.ok { background: #E8F5E9; color: var(--success); }
         .sub-badge.re { background: #E3F2FD; color: #3498DB; }
-        .sub-badge.ng { background: #FEF3E2; color: #E67E22; }
+        .sub-badge.ng { background: #FEF3E2; color: var(--accent); }
         .sub-stu-score { font-size: 0.85rem; font-weight: 800; min-width: 36px; text-align: right; flex-shrink: 0; }
 
         /* ルーブリック参照パネル */
@@ -1673,20 +1673,20 @@
         .rubric-body { display: none; padding: 8px 12px 10px; font-size: 0.75rem; line-height: 1.6; }
         .rubric-body.open { display: block; }
         .rubric-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 4px; }
-        .rubric-badge { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: #fff; }
-        .rubric-badge.a { background: #27AE60; }
+        .rubric-badge { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: var(--white); }
+        .rubric-badge.a { background: var(--success); }
         .rubric-badge.b { background: #3498DB; }
-        .rubric-badge.c { background: #E67E22; }
+        .rubric-badge.c { background: var(--accent); }
         .rubric-text { color: var(--text); flex: 1; }
         .rubric-empty { color: var(--text-light); font-style: italic; padding: 6px 0; }
         /* ルーブリック入力フィールド（課題登録フォーム内） */
         .rubric-fields { display: none; flex-direction: column; gap: 6px; grid-column: 1 / -1; }
         .rubric-fields.show { display: flex; }
         .rubric-field-row { display: flex; align-items: center; gap: 6px; }
-        .rubric-field-label { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: #fff; }
-        .rubric-field-label.a { background: #27AE60; }
+        .rubric-field-label { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: var(--white); }
+        .rubric-field-label.a { background: var(--success); }
         .rubric-field-label.b { background: #3498DB; }
-        .rubric-field-label.c { background: #E67E22; }
+        .rubric-field-label.c { background: var(--accent); }
         .rubric-field-input { flex: 1; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.78rem; min-height: 34px; }
         .rubric-field-input:focus { outline: none; border-color: var(--primary); }
         .rubric-field-input::placeholder { color: #bbb; }
@@ -1703,8 +1703,8 @@
         .sub-form-group input, .sub-form-group select { padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 1rem; min-height: 44px; width: 100%; min-width: 0; max-width: 100%; }
         /* v1.9.3: iOS Safari の date 入力は既定の appearance のままだと width 指定が効かず
            固有幅で描画されるため、明示的に解除して 100% 幅に従わせる。 */
-        .sub-form-group input[type="date"] { -webkit-appearance: none; appearance: none; text-align: left; background: #fff; }
-        .sub-form-group select { -webkit-appearance: none; appearance: none; background: #fff; background-image: linear-gradient(45deg, transparent 50%, var(--text-light) 50%), linear-gradient(135deg, var(--text-light) 50%, transparent 50%); background-position: calc(100% - 16px) calc(50% - 2px), calc(100% - 11px) calc(50% - 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 2rem; text-overflow: ellipsis; }
+        .sub-form-group input[type="date"] { -webkit-appearance: none; appearance: none; text-align: left; background: var(--white); }
+        .sub-form-group select { -webkit-appearance: none; appearance: none; background: var(--white); background-image: linear-gradient(45deg, transparent 50%, var(--text-light) 50%), linear-gradient(135deg, var(--text-light) 50%, transparent 50%); background-position: calc(100% - 16px) calc(50% - 2px), calc(100% - 11px) calc(50% - 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 2rem; text-overflow: ellipsis; }
         .sub-form-group input:focus, .sub-form-group select:focus { outline: none; border-color: var(--primary); }
         .sub-assign-list { display: flex; flex-direction: column; gap: 0.75rem; }
         .sub-assign-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; background: var(--secondary); border-radius: 12px; border: 1px solid var(--border); }
@@ -2158,7 +2158,7 @@
         /* ========== 新体力テスト (pf) ========== */
         .pf-subnav{display:flex;gap:4px;padding:8px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--white);border-bottom:1px solid var(--border);}
         .pf-subnav-btn{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);color:var(--text-light);font-size:0.82rem;font-family:inherit;cursor:pointer;white-space:nowrap;min-height:44px;transition:all .15s;}
-        .pf-subnav-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600;}
+        .pf-subnav-btn.active{background:#1a6b4a;color:var(--white);border-color:#1a6b4a;font-weight:600;}
         .pf-subnav-btn:hover:not(.active){border-color:#1a6b4a;color:#1a6b4a;}
         .pf-sub{display:none;}
         .pf-sub.active{display:block;}
@@ -2172,10 +2172,10 @@
         .pf-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:36px;padding:0 14px;border-radius:8px;font-size:13px;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--text);transition:all .15s;white-space:nowrap;font-weight:500;font-family:inherit;}
         .pf-btn:hover{background:var(--bg);}
         .pf-btn:active{transform:scale(.98);}
-        .pf-btn-primary{background:#1a6b4a;border-color:#1a6b4a;color:#fff;}
+        .pf-btn-primary{background:#1a6b4a;border-color:#1a6b4a;color:var(--white);}
         .pf-btn-primary:hover{background:#155c3d;}
         .pf-btn-sm{height:30px;padding:0 10px;font-size:12px;}
-        .pf-btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+        .pf-btn-danger{background:var(--danger);border-color:var(--danger);color:var(--white);}
         .pf-info-box{padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.7;margin-bottom:10px;}
         .pf-info-box.green{background:#e8f5ee;border:1px solid #9fd4bb;color:#0d4a30;}
         .pf-info-box.blue{background:#e8f0fb;border:1px solid #a8c4f0;color:#0d2e6b;}
@@ -2227,7 +2227,7 @@
         .pf-strength-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;margin-bottom:4px;}
         .pf-strength-item.good{background:#e8f5ee;} .pf-strength-item.weak{background:#fdeaea;}
         .pf-score-pill{display:inline-block;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;text-align:center;line-height:26px;flex-shrink:0;}
-        .pf-pill-10{background:#0d7a3e;color:#fff;} .pf-pill-8{background:#1a6b4a;color:#fff;} .pf-pill-6{background:#5c9a70;color:#fff;} .pf-pill-5{background:#999;color:#fff;} .pf-pill-3{background:#b85c00;color:#fff;} .pf-pill-1{background:#9a2020;color:#fff;}
+        .pf-pill-10{background:#0d7a3e;color:var(--white);} .pf-pill-8{background:#1a6b4a;color:var(--white);} .pf-pill-6{background:#5c9a70;color:var(--white);} .pf-pill-5{background:#999;color:var(--white);} .pf-pill-3{background:#b85c00;color:var(--white);} .pf-pill-1{background:#9a2020;color:var(--white);}
         .pf-cmp-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
         .pf-cmp-label{font-size:12px;min-width:90px;color:var(--text-light);}
         .pf-cmp-bars{flex:1;}
@@ -2524,7 +2524,7 @@
                         <div class="attendance-grid" id="attGrid"></div>
                     </div>
                     <div class="att-quick-bar">
-                        <button class="att-quick-btn" style="background:#27AE60;color:white;" onclick="attMarkAll('○')">✅ 全員出席</button>
+                        <button class="att-quick-btn" style="background:var(--success);color:white;" onclick="attMarkAll('○')">✅ 全員出席</button>
                         <button class="att-quick-btn" style="background:#eee;color:var(--text);" onclick="attClearDay()">🔄 クリア</button>
                         <button class="att-quick-btn" style="background:#7B1FA2;color:white;" onclick="attMarkAll('休')">🏫 学級閉鎖</button>
                         <button class="att-quick-btn" style="background:#E53935;color:white;" onclick="attMarkAll('校')">🏫 休校</button>
@@ -2639,7 +2639,7 @@
                         <button class="btn btn-outline" id="seatEditBtn" onclick="toggleSeatingEdit()">✏️ 座席を編集</button>
                         <button class="btn btn-danger" id="seatResetBtn" onclick="resetSeating()" style="display:none;">🔄 リセット</button>
                         <button class="btn btn-success" id="seatSaveBtn" onclick="saveSeatingAndExit()" style="display:none;">💾 保存</button>
-                        <button class="btn btn-outline" id="seatVisionBtn" onclick="toggleVisionMode()" style="border-color: #E74C3C; color: #E74C3C;">👁 視力表示</button>
+                        <button class="btn btn-outline" id="seatVisionBtn" onclick="toggleVisionMode()" style="border-color: var(--danger); color: var(--danger);">👁 視力表示</button>
                         <button class="btn btn-outline" id="seatPrintBtn" onclick="printSeating()" style="border-color: #6B7280; color: #6B7280;">📄 PDF出力</button>
                         <button class="btn btn-outline" id="seatGroupBtn" onclick="toggleGroupMode()" style="border-color:#9B59B6;color:#9B59B6;">🏷 班表示</button>
                     </div>
@@ -2829,15 +2829,15 @@
                                         style="width:54px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;"
                                         onchange="recRenderMatomePreview()">
                                     <span style="font-size:0.78rem;">問</span>
-                                    <button onclick="recSetMatomeUniform()" style="padding:4px 8px;background:#1976D2;color:#fff;border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;min-height:44px;">一括配点</button>
+                                    <button onclick="recSetMatomeUniform()" style="padding:4px 8px;background:#1976D2;color:var(--white);border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;min-height:44px;">一括配点</button>
                                     <input type="number" id="recMatomeUniformPt" value="5" min="1" inputmode="numeric" style="width:44px;padding:4px;border:1.5px solid #90CAF9;border-radius:6px;text-align:center;font-size:0.85rem;">
                                     <span style="font-size:0.78rem;">点</span>
                                 </div>
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
                                     <span style="font-size:0.75rem;font-weight:500;">観点一括:</span>
-                                    <button onclick="recSetMatomeUniformType('知')" style="padding:2px 8px;background:#1565C0;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て知</button>
-                                    <button onclick="recSetMatomeUniformType('思')" style="padding:2px 8px;background:#E65100;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て思</button>
-                                    <button onclick="recSetMatomeUniformType('主')" style="padding:2px 8px;background:#2E7D32;color:#fff;border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て主</button>
+                                    <button onclick="recSetMatomeUniformType('知')" style="padding:2px 8px;background:#1565C0;color:var(--white);border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て知</button>
+                                    <button onclick="recSetMatomeUniformType('思')" style="padding:2px 8px;background:#E65100;color:var(--white);border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て思</button>
+                                    <button onclick="recSetMatomeUniformType('主')" style="padding:2px 8px;background:#2E7D32;color:var(--white);border:none;border-radius:4px;font-size:0.72rem;cursor:pointer;">全て主</button>
                                 </div>
                                 <div class="rec-matome-preview" id="recMatomePreview"></div>
                                 <p style="font-size:0.68rem;color:#666;margin-top:4px;">※各設問の 知/思 で観点を切替（満点は配点合計）。</p>
@@ -3431,13 +3431,13 @@
         <!-- ===== 漢字チェック ===== -->
         <div id="view-kanji" class="view">
             <div class="view-header" id="kanjiListHeader" style="background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:8px;height:50px;flex-shrink:0;">
-                <h2 style="font-size:1rem;color:#fff;margin:0;">✍️ 漢字チェック</h2>
-                <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
+                <h2 style="font-size:1rem;color:var(--white);margin:0;">✍️ 漢字チェック</h2>
+                <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
                 <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">📄 一括PDF出力</button></div>
             </div>
             <div class="view-header" id="kanjiStudentHeader" style="display:none;background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:10px;height:50px;flex-shrink:0;">
-                <button onclick="kanjiBackToList()" style="min-height:var(--tap-min);padding:0 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-size:0.88rem;font-weight:700;cursor:pointer;">← 一覧へ戻る</button>
-                <h2 id="kanjiStudentTitle" style="font-size:1rem;color:#fff;margin:0;"></h2>
+                <button onclick="kanjiBackToList()" style="min-height:var(--tap-min);padding:0 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.88rem;font-weight:700;cursor:pointer;">← 一覧へ戻る</button>
+                <h2 id="kanjiStudentTitle" style="font-size:1rem;color:var(--white);margin:0;"></h2>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiListWrap" style="height:100%;overflow:auto;"></div>
@@ -3445,21 +3445,21 @@
             </div>
             <!-- 漢字追加モーダル -->
             <div id="kanjiModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
-                <div style="background:#fff;border-radius:12px;padding:20px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                <div style="background:var(--white);border-radius:12px;padding:20px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
                     <h3 style="margin-bottom:14px;font-size:1rem;color:#2E7D32;">漢字を追加・並べ替え</h3>
                     <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">漢字（1行1文字 またはスペース・読点区切り）</label>
                     <textarea id="kanjiModalChars" rows="5" placeholder="例:&#10;美&#10;術&#10;競&#10;争&#10;または：美 術 競 争" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:1.1rem;font-family:inherit;resize:vertical;margin-bottom:14px;"></textarea>
                     <div id="kanjiModalPreview" style="font-size:0.8rem;color:#555;margin-bottom:14px;min-height:20px;"></div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
-                        <button id="kjAddBtn" onclick="kanjiAddChars()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">追加</button>
+                        <button id="kjAddBtn" onclick="kanjiAddChars()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:var(--white);cursor:pointer;font-size:0.85rem;font-weight:600;">追加</button>
                     </div>
                     <hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">
                     <div id="kjSortHeader" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"></div>
                     <div id="kjSortBody"></div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-                        <button onclick="kanjiCloseAddModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:0.85rem;">閉じる</button>
+                        <button onclick="kanjiCloseAddModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #ccc;background:var(--white);cursor:pointer;font-size:0.85rem;">閉じる</button>
                         <div id="kjSortSaveRow" style="display:none;">
-                            <button onclick="kjSortSave()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">並べ替えを保存</button>
+                            <button onclick="kjSortSave()" style="padding:8px 16px;border-radius:8px;border:none;background:#2E7D32;color:var(--white);cursor:pointer;font-size:0.85rem;font-weight:600;">並べ替えを保存</button>
                         </div>
                     </div>
                 </div>
@@ -3573,7 +3573,7 @@
                 <div class="card">
                     <h3>🗣️ 面談用テキスト出力</h3>
                     <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:10px;">選択中の児童の<strong>全項目</strong>（成績・出欠・提出・漢字・生活記録・児童記録・保護者対応・身体配慮・学習配慮）をテキスト化してコピーします。WebのClaudeに貼り付けて面談準備にお使いください。<br>※上の「出力するセクション」のチェックはPDF用です。テキストは常に全項目を出力します。</p>
-                    <button id="kvCopyTextBtn" class="btn btn-primary" style="padding:12px 24px;font-size:0.95rem;background:linear-gradient(135deg,#27AE60,#1E8449);border:none;border-radius:10px;min-height:48px;">📋 面談用テキストをコピー</button>
+                    <button id="kvCopyTextBtn" class="btn btn-primary" style="padding:12px 24px;font-size:0.95rem;background:linear-gradient(135deg,var(--success),#1E8449);border:none;border-radius:10px;min-height:48px;">📋 面談用テキストをコピー</button>
                 </div>
                 <div class="card">
                     <h3>📄 面談用レーダーPDF</h3>
@@ -3582,7 +3582,7 @@
                     <button id="grdExtEditCommentsBtn" class="btn btn-outline" style="padding:12px 22px;font-size:0.92rem;margin-left:8px;">✏️ 個別コメント編集</button>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:24px;">
-                    <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,#2D7D9A,#1E5A70);border:none;border-radius:10px;min-height:48px;">📄 カルテ出力（PDF）</button>
+                    <button id="kvPrintBtn" class="btn btn-primary" style="padding:12px 28px;font-size:0.95rem;background:linear-gradient(135deg,var(--primary),#1E5A70);border:none;border-radius:10px;min-height:48px;">📄 カルテ出力（PDF）</button>
                     <span style="font-size:0.8rem;color:var(--text-light);">選択した児童・セクションをA4縦でまとめて出力します</span>
                 </div>
             </div>
@@ -3931,7 +3931,7 @@
          背景タップ／Escapeで消せてしまうと、データ空のまま案内なく放置される。 -->
     <div class="modal-overlay" id="restoreGuideOverlay" data-keep-open>
         <div class="modal">
-            <div class="modal-header" style="background: linear-gradient(135deg, #E67E22, #F39C12);">
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--accent), #F39C12);">
                 <h3>📂 データがありません</h3>
             </div>
             <div class="modal-body" style="text-align: center;">
@@ -4278,7 +4278,7 @@
         ov.id = 'pdfProgressOverlay';
         ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;'
             + 'display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
-        ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 32px;min-width:280px;max-width:90vw;text-align:center;font-family:inherit;">'
+        ov.innerHTML = '<div style="background:var(--white);border-radius:12px;padding:24px 32px;min-width:280px;max-width:90vw;text-align:center;font-family:inherit;">'
             + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#1a2332;">📄 PDFを作成中… '
             + '<span id="pdfProgressCount">0 / ' + total + '</span> ページ</div>'
             + '<div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px;">'
@@ -4317,7 +4317,7 @@
             ov.id = 'pdfResultOverlay';
             ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;'
                 + 'display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
-            ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:16px;width:min(700px,96vw);'
+            ov.innerHTML = '<div style="background:var(--white);border-radius:12px;padding:16px;width:min(700px,96vw);'
                 + 'max-height:94vh;display:flex;flex-direction:column;gap:10px;font-family:inherit;">'
                 + '<div style="font-size:15px;font-weight:700;color:#1a2332;">✅ PDFができました</div>'
                 + '<div id="pdfResName" style="font-size:11.5px;color:#666;word-break:break-all;">' + escapeHtml(fileName) + '</div>'
@@ -4428,7 +4428,7 @@
         if (useOverlay) pdfShowProgress(total);
         else showToast('PDF生成中…しばらくお待ちください', 'info');
         var container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + pageWpx + 'px;background:#fff;'
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + pageWpx + 'px;background:var(--white);'
             + 'font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;'
             + 'box-sizing:border-box;';
         document.body.appendChild(container);
@@ -5560,7 +5560,7 @@
             var attPct = attStats2.rate;
             html += dashKarteRow('📋 出席率', attPct !== null ? attPct + '%' : '—',
                 total > 0 ? present + '/' + total + '日' : 'データなし',
-                attPct !== null ? (attPct >= 95 ? '#27AE60' : attPct >= 80 ? '#B7950B' : '#E74C3C') : '#888');
+                attPct !== null ? (attPct >= 95 ? 'var(--success)' : attPct >= 80 ? '#B7950B' : 'var(--danger)') : '#888');
         } catch(e) { html += dashKarteRow('📋 出席率', '—', 'エラー', '#888'); }
 
         // --- 提出物 ---
@@ -5579,7 +5579,7 @@
             var subPct2 = assigns2.length ? Math.round((ok2 + re2) / assigns2.length * 100) : null;
             html += dashKarteRow('📚 提出率', subPct2 !== null ? subPct2 + '%' : '—',
                 ok2 + '件提出 / ' + assigns2.length + '課題',
-                subPct2 !== null ? (subPct2 >= 80 ? '#27AE60' : subPct2 >= 60 ? '#B7950B' : '#E74C3C') : '#888');
+                subPct2 !== null ? (subPct2 >= 80 ? 'var(--success)' : subPct2 >= 60 ? '#B7950B' : 'var(--danger)') : '#888');
         } catch(e) { html += dashKarteRow('📚 提出率', '—', 'エラー', '#888'); }
 
         // --- 忘れ物 ---
@@ -5590,7 +5590,7 @@
                 fgtCount += ((fgtDaily2[dk] || {})[idx] || []).length;
             });
             html += dashKarteRow('🎒 忘れ物', fgtCount + '件', '累計',
-                fgtCount === 0 ? '#27AE60' : fgtCount <= 3 ? '#B7950B' : '#E74C3C');
+                fgtCount === 0 ? 'var(--success)' : fgtCount <= 3 ? '#B7950B' : 'var(--danger)');
         } catch(e) { html += dashKarteRow('🎒 忘れ物', '—', 'エラー', '#888'); }
 
         // --- テスト平均 ---
@@ -5607,7 +5607,7 @@
             var avg = vals.length ? (vals.reduce(function(a, b) { return a + b; }, 0) / vals.length) : null;
             html += dashKarteRow('📝 テスト平均', avg !== null ? avg.toFixed(1) + '/10' : '—',
                 vals.length + '件入力済み',
-                avg !== null ? (avg >= 8 ? '#27AE60' : avg >= 5 ? '#3498DB' : '#E67E22') : '#888');
+                avg !== null ? (avg >= 8 ? 'var(--success)' : avg >= 5 ? '#3498DB' : 'var(--accent)') : '#888');
         } catch(e) { html += dashKarteRow('📝 テスト平均', '—', 'エラー', '#888'); }
 
         html += '</div>';
@@ -5692,7 +5692,7 @@
     }
 
     // ===== 班機能 =====
-    var GROUP_COLORS = ['#E74C3C','#3498DB','#27AE60','#F1C40F','#9B59B6','#E67E22'];
+    var GROUP_COLORS = ['var(--danger)','#3498DB','var(--success)','var(--warning)','#9B59B6','var(--accent)'];
     var seatGroupMode = false;
 
     function getGroups() {
@@ -5743,7 +5743,7 @@
                 + '<div style="width:20px;height:20px;border-radius:50%;background:' + (g.color||GROUP_COLORS[i]||'#ccc') + ';flex-shrink:0;"></div>'
                 + '<input type="text" value="' + escapeHtml(g.name||('第'+(i+1)+'班')) + '" data-gi="' + i + '" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:0.9rem;" placeholder="班名">'
                 + '<span style="font-size:0.8rem;color:var(--text-light);">' + (g.seats||[]).length + '席</span>'
-                + '<button data-gi="' + i + '" onclick="deleteGroup(this)" style="background:none;border:none;color:#E74C3C;font-size:1.1rem;cursor:pointer;min-width:44px;min-height:44px;">✕</button>'
+                + '<button data-gi="' + i + '" onclick="deleteGroup(this)" style="background:none;border:none;color:var(--danger);font-size:1.1rem;cursor:pointer;min-width:44px;min-height:44px;">✕</button>'
                 + '</div>';
         });
         el.innerHTML = html;
@@ -6017,10 +6017,10 @@
         seatVisionMode = !seatVisionMode;
         var btn = document.getElementById('seatVisionBtn');
         if (seatVisionMode) {
-            btn.style.background = '#E74C3C'; btn.style.color = 'white';
+            btn.style.background = 'var(--danger)'; btn.style.color = 'white';
             btn.textContent = '👁 視力ON';
         } else {
-            btn.style.background = ''; btn.style.color = '#E74C3C';
+            btn.style.background = ''; btn.style.color = 'var(--danger)';
             btn.textContent = '👁 視力表示';
         }
         renderSeating();
@@ -6037,11 +6037,11 @@
         var sd = seatEditing ? seatingData : getSeating();
 
         var S_SEAT = 'flex:1;min-width:0;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;';
-        var S_OCC  = S_SEAT + 'background:#fff;border:2px solid #2D7D9A;';
+        var S_OCC  = S_SEAT + 'background:var(--white);border:2px solid var(--primary);';
         var S_EMP  = S_SEAT + 'background:#F8FAFC;border:2px dashed #CBD5E0;';
         var S_NUM  = 'position:absolute;top:3px;left:5px;font-size:6pt;color:#bbb;font-weight:600;';
         var S_SEI  = 'font-size:12pt;font-weight:900;color:#1a2332;line-height:1.1;text-align:center;word-break:break-all;';
-        var S_MEI  = 'font-size:10pt;font-weight:700;color:#2D7D9A;line-height:1.1;text-align:center;word-break:break-all;';
+        var S_MEI  = 'font-size:10pt;font-weight:700;color:var(--primary);line-height:1.1;text-align:center;word-break:break-all;';
 
         var rows = '';
         for (var r = 0; r < SEAT_ROWS; r++) {
@@ -6066,11 +6066,11 @@
         var titleStr = escapeHtml(String(grade)) + '年' + escapeHtml(String(cls)) + '組\u3000座席表';
 
         var pageHtml =
-            '<div style="width:1122px;height:793px;background:#fff;box-sizing:border-box;display:flex;flex-direction:column;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2D7D9A;padding-bottom:4px;margin-bottom:6px;flex-shrink:0;">' +
+            '<div style="width:1122px;height:793px;background:var(--white);box-sizing:border-box;display:flex;flex-direction:column;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--primary);padding-bottom:4px;margin-bottom:6px;flex-shrink:0;">' +
             '<div style="font-size:18pt;font-weight:900;color:#1a2332;">' + titleStr + '</div>' +
             '<div style="font-size:8pt;color:#555;text-align:right;line-height:1.8;">' + dateStr + ' 現在\u3000担任：' + escapeHtml(teacher) + '</div></div>' +
-            '<div style="background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:#fff;text-align:center;padding:4px 0;border-radius:6px;font-size:11pt;font-weight:700;letter-spacing:0.5em;margin-bottom:6px;flex-shrink:0;">\uff5e\u3000\u9ed2\u3000\u677f\u3000\uff5e</div>' +
+            '<div style="background:linear-gradient(135deg,#1e3d2a,#3D6B4A);color:var(--white);text-align:center;padding:4px 0;border-radius:6px;font-size:11pt;font-weight:700;letter-spacing:0.5em;margin-bottom:6px;flex-shrink:0;">\uff5e\u3000\u9ed2\u3000\u677f\u3000\uff5e</div>' +
             '<div style="flex:1;display:flex;flex-direction:column;gap:3px;min-height:0;width:100%;">' + rows + '</div>' +
             '<div style="display:flex;justify-content:space-between;padding:4px 2px 0;flex-shrink:0;">' +
             '<span style="font-size:8pt;color:#999;font-weight:600;">\u25c4 \u7a93\u5074</span>' +
@@ -7648,7 +7648,7 @@
                     scoreArea = '<div class="rec-row-score-area">' +
                         '<button onclick="recOpenMatomeModal(' + idx + ')" style="padding:2px 6px;background:' +
                         (hasSc ? '#1565C0' : 'var(--border)') +
-                        ';color:#fff;border:none;border-radius:6px;font-size:0.68rem;cursor:pointer;min-height:22px;">' +
+                        ';color:var(--white);border:none;border-radius:6px;font-size:0.68rem;cursor:pointer;min-height:22px;">' +
                         dispVal + '</button>' + catHtml + '</div>';
                 } else if (isNawatobi) {
                     return recBuildNawatobiCard(test, scores, idx, stu);
@@ -7895,7 +7895,7 @@
             return { test: test, mean: Math.round(mean * 10) / 10, sd: Math.round(sd * 10) / 10, n: n, list: list };
         }
 
-        function recDevColor(d) { return d >= 60 ? '#27AE60' : d >= 50 ? '#3498DB' : d >= 40 ? 'var(--text)' : '#E67E22'; }
+        function recDevColor(d) { return d >= 60 ? 'var(--success)' : d >= 50 ? '#3498DB' : d >= 40 ? 'var(--text)' : 'var(--accent)'; }
 
         function recRenderDeviationList(ds) {
             if (!ds) return '<div style="margin-top:16px;color:var(--text-light);padding:10px;font-size:0.8rem;">偏差値は数値テストで2人以上のデータがあるときに表示されます</div>';
@@ -7969,12 +7969,12 @@
                 var cB  = present.filter(function(s){return s.score==='B';}).length;
                 var cBm = present.filter(function(s){return s.score==='B-';}).length;
                 var cC  = present.filter(function(s){return s.score==='C';}).length;
-                grid.innerHTML = statCard(cA+'人','A評価','#27AE60') + statCard(cBp+'人','B+評価','#1ABC9C') +
+                grid.innerHTML = statCard(cA+'人','A評価','var(--success)') + statCard(cBp+'人','B+評価','#1ABC9C') +
                     statCard(cB+'人','B評価','#3498DB') + statCard(cBm+'人','B-評価','#F39C12') +
-                    statCard(cC+'人','C評価','#E67E22') + statCard(present.length+'/'+students.length,'入力済み') +
+                    statCard(cC+'人','C評価','var(--accent)') + statCard(present.length+'/'+students.length,'入力済み') +
                     (absentCount > 0 ? statCard(absentCount+'人','欠席','#9E9E9E') : '');
                 var maxABC = Math.max(cA,cBp,cB,cBm,cC,1);
-                bar.innerHTML = barItem(cA,'A',maxABC,'#27AE60') + barItem(cBp,'B+',maxABC,'#1ABC9C') + barItem(cB,'B',maxABC,'#3498DB') + barItem(cBm,'B-',maxABC,'#F39C12') + barItem(cC,'C',maxABC,'#E67E22');
+                bar.innerHTML = barItem(cA,'A',maxABC,'var(--success)') + barItem(cBp,'B+',maxABC,'#1ABC9C') + barItem(cB,'B',maxABC,'#3498DB') + barItem(cBm,'B-',maxABC,'#F39C12') + barItem(cC,'C',maxABC,'var(--accent)');
                 chartWrap.style.display = '';
 
             } else if (isNawatobi) {
@@ -7987,8 +7987,8 @@
                 var bestStage  = Math.max.apply(null, stages);
                 var worstStage = Math.min.apply(null, stages);
                 var toLabel = function(st) { return kConfig ? kenteiStageToLabel(kConfig, st) : recNwGradeLabel(21 - st); };
-                grid.innerHTML = statCard(toLabel(bestStage),  '最高級', '#27AE60') +
-                    statCard(toLabel(worstStage), '最低級', '#E67E22') +
+                grid.innerHTML = statCard(toLabel(bestStage),  '最高級', 'var(--success)') +
+                    statCard(toLabel(worstStage), '最低級', 'var(--accent)') +
                     statCard(count + '/' + students.length, '入力済み');
                 // stage を key に集計し、昇順に並べてラベル変換
                 var stageCounts = {};
@@ -8017,9 +8017,9 @@
                 var isPeNoMax = test.testType === '実技記録';
                 var perfectCount = isPeNoMax ? 0 : present.filter(function(s){return s.score===test.maxScore;}).length;
 
-                grid.innerHTML = statCard(avg,'平均点') + statCard(maxV,'最高点','#27AE60') +
-                    statCard(minV,'最低点','#E74C3C') + statCard(present.length+'/'+students.length,'入力済み') +
-                    (isPeNoMax ? '' : statCard(perfectCount+'人','満点','#27AE60')) +
+                grid.innerHTML = statCard(avg,'平均点') + statCard(maxV,'最高点','var(--success)') +
+                    statCard(minV,'最低点','var(--danger)') + statCard(present.length+'/'+students.length,'入力済み') +
+                    (isPeNoMax ? '' : statCard(perfectCount+'人','満点','var(--success)')) +
                     (absentCount > 0 ? statCard(absentCount+'人','欠席','#9E9E9E') : '');
 
                 if (isPeNoMax) {
@@ -10356,7 +10356,7 @@
                 var active = recTestSortKey === d.key;
                 var arrow = active ? (recTestSortAsc ? '▲' : '▼') : '';
                 return '<button onclick="recSetSort(\'' + d.key + '\')" style="border:1.5px solid;border-radius:14px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;min-height:28px;font-family:inherit;' +
-                    (active ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'background:#fff;color:var(--text-light);border-color:var(--border);') +
+                    (active ? 'background:var(--primary);color:var(--white);border-color:var(--primary);' : 'background:var(--white);color:var(--text-light);border-color:var(--border);') +
                     '">' + d.label + arrow + '</button>';
             }).join('');
         }
@@ -10497,7 +10497,7 @@
             modal.id = 'kenteiTableModal';
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
             modal.innerHTML =
-                '<div style="background:#fff;border-radius:12px;padding:20px;width:320px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">' +
+                '<div style="background:var(--white);border-radius:12px;padding:20px;width:320px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">' +
                 '<div style="font-weight:700;font-size:1rem;">換算表の編集</div>' +
                 '<div style="font-size:0.78rem;color:var(--text-light);">' + escapeHtml(test.name) + '</div>' +
                 '<div style="overflow-y:auto;flex:1;min-height:0;">' +
@@ -10510,9 +10510,9 @@
                 '<tbody>' + rows + '</tbody>' +
                 '</table></div>' +
                 '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">' +
-                '<button onclick="recResetKenteiTable()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">プリセットに戻す</button>' +
-                '<button onclick="recCloseKenteiTableModal()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">閉じる</button>' +
-                '<button onclick="recSaveKenteiTable()" style="padding:6px 14px;border:none;border-radius:6px;font-size:0.8rem;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;">保存</button>' +
+                '<button onclick="recResetKenteiTable()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:var(--white);cursor:pointer;">プリセットに戻す</button>' +
+                '<button onclick="recCloseKenteiTableModal()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:var(--white);cursor:pointer;">閉じる</button>' +
+                '<button onclick="recSaveKenteiTable()" style="padding:6px 14px;border:none;border-radius:6px;font-size:0.8rem;background:var(--primary);color:var(--white);cursor:pointer;font-weight:600;">保存</button>' +
                 '</div></div>';
             document.body.appendChild(modal);
         };
@@ -10640,15 +10640,15 @@
             modal.id = 'peRubricConfigModal';
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
             modal.innerHTML =
-                '<div style="background:#fff;border-radius:12px;padding:20px;width:340px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">' +
+                '<div style="background:var(--white);border-radius:12px;padding:20px;width:340px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">' +
                 '<div style="font-weight:700;font-size:1rem;">採点基準の編集</div>' +
                 '<div style="font-size:0.78rem;color:var(--text-light);">' + escapeHtml(test.name) + '</div>' +
                 '<div style="font-size:0.68rem;color:#999;">本校の実態に応じた目安であり、指導要領に明記された基準ではありません。</div>' +
                 '<div style="overflow-y:auto;flex:1;min-height:0;">' + rowsHtml + '</div>' +
                 '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">' +
-                '<button onclick="recResetPeRubricConfig()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">プリセットに戻す</button>' +
-                '<button onclick="recClosePeRubricConfigModal()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:#fff;cursor:pointer;">閉じる</button>' +
-                '<button onclick="recSavePeRubricConfig()" style="padding:6px 14px;border:none;border-radius:6px;font-size:0.8rem;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;">保存</button>' +
+                '<button onclick="recResetPeRubricConfig()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:var(--white);cursor:pointer;">プリセットに戻す</button>' +
+                '<button onclick="recClosePeRubricConfigModal()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:var(--white);cursor:pointer;">閉じる</button>' +
+                '<button onclick="recSavePeRubricConfig()" style="padding:6px 14px;border:none;border-radius:6px;font-size:0.8rem;background:var(--primary);color:var(--white);cursor:pointer;font-weight:600;">保存</button>' +
                 '</div></div>';
             document.body.appendChild(modal);
         };
@@ -11047,7 +11047,7 @@
                 var good = 0, concern = 0;
                 recs.forEach(function(r){ if(r.evals[item]==='○') good++; if(r.evals[item]==='△') concern++; });
                 return '<div class="summary-stat-item"><div class="summary-stat-label">' + item + '</div>' +
-                    '<div class="summary-stat-value"><span style="color:#27AE60;">○' + good + '</span> <span style="color:#F57C00;">△' + concern + '</span></div></div>';
+                    '<div class="summary-stat-value"><span style="color:var(--success);">○' + good + '</span> <span style="color:#F57C00;">△' + concern + '</span></div></div>';
             }).join('');
         }
 
@@ -11277,14 +11277,14 @@
         // ----------------------------------------------------------------
         function kvBuildChildPage(idx, s, ci, classLabel, isLast, sec, data) {
             var gradeColors = { 'A':'#2E7D32','B':'#1565C0','C':'#E65100' };
-            var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';box-sizing:border-box;background:#fff;">';
+            var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';box-sizing:border-box;background:var(--white);">';
 
             // ── ヘッダー ──────────────────────────────────────────
             // v1.20.4: 学期を絞って出力した場合のみ、年度行の下に対象期間を一言添える（通年時は何も足さない）
             var kvTermChildLine = (kvOutputTermFilter && kvOutputTermFilter !== 'all')
                 ? '<div style="font-size:7pt;opacity:0.85;margin-top:2pt;">' + (KV_TERM_ZENKAKU[kvOutputTermFilter] || '') + '学期のきろくです</div>'
                 : '';
-            html += '<div style="background:linear-gradient(135deg,#1a2332 0%,#2D7D9A 100%);border-radius:12pt;padding:10pt 14pt;margin-bottom:6pt;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
+            html += '<div style="background:linear-gradient(135deg,#1a2332 0%,var(--primary) 100%);border-radius:12pt;padding:10pt 14pt;margin-bottom:6pt;color:var(--white);display:flex;justify-content:space-between;align-items:center;">'
                 + '<div>'
                 + '<div style="font-size:7pt;opacity:0.75;letter-spacing:0.1em;margin-bottom:3pt;">' + escapeHtml(String(ci.year||'') + '年度　' + String(ci.grade||'') + '年' + String(ci.class||'') + '組') + '</div>'
                 + kvTermChildLine
@@ -11300,15 +11300,15 @@
             // ── 成績 ─────────────────────────────────────────────
             if (sec.secGrades && data.subjects.length) {
                 html += '<div style="margin-bottom:5pt;">'
-                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #2D7D9A;">📈 成績</div>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid var(--primary);">📈 成績</div>'
                     + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80pt,1fr));gap:5pt;">';
                 data.subjects.forEach(function(subj) {
                     var res; try { res = grdCalculate(subj); } catch(e) { return; }
                     var sr = res && res.find(function(r) { return r.index === idx; });
                     if (!sr) return;
                     var hy = sr.hyoutei || '—';
-                    var hyColor = hy === '3' ? '#E65100' : hy === '2' ? '#F9A825' : hy === '1' ? '#aaa' : '#27AE60';
-                    if (hy === '5' || hy === '4') hyColor = '#27AE60';
+                    var hyColor = hy === '3' ? '#E65100' : hy === '2' ? '#F9A825' : hy === '1' ? '#aaa' : 'var(--success)';
+                    if (hy === '5' || hy === '4') hyColor = 'var(--success)';
                     html += '<div style="background:#F8FBFF;border:1.5pt solid #D0E8F5;border-radius:8pt;padding:5pt 6pt;text-align:center;">'
                         + '<div style="font-size:7.5pt;font-weight:700;color:#1a2332;margin-bottom:3pt;">' + escapeHtml(subj) + '</div>'
                         + '<div style="font-size:18pt;font-weight:900;line-height:1;color:' + hyColor + ';">' + hy + '</div>'
@@ -11345,14 +11345,14 @@
                 var attTextHtml;
                 if (att.rate !== null) {
                     attBarHtml = '<div style="background:#ddd;border-radius:20pt;height:7pt;overflow:hidden;">'
-                        + '<div style="background:linear-gradient(90deg,#27AE60,#2ECC71);height:100%;width:' + att.rate + '%;border-radius:20pt;"></div>'
+                        + '<div style="background:linear-gradient(90deg,var(--success),#2ECC71);height:100%;width:' + att.rate + '%;border-radius:20pt;"></div>'
                         + '</div>';
                     attTextHtml = '<div style="font-size:7pt;color:#888;margin-top:2pt;">' + att.rate + '% (' + present + '日出席 / ' + total + '日)</div>';
                 } else {
                     attTextHtml = '<div style="font-size:7pt;color:#888;margin-top:2pt;">まだ記録がありません</div>';
                 }
                 html += '<div style="margin-bottom:5pt;">'
-                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:2pt;padding-left:6pt;border-left:4pt solid #27AE60;">📅 出席</div>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:2pt;padding-left:6pt;border-left:4pt solid var(--success);">📅 出席</div>'
                     + '<div style="font-size:6.5pt;color:#888;padding-left:6pt;margin-bottom:3pt;">出席は１年間の記録をのせています</div>'
                     + '<div style="background:#F0FFF4;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:12pt;">'
                     + '<div style="flex:1;">'
@@ -11361,7 +11361,7 @@
                     + attTextHtml
                     + '</div>'
                     + '<div style="display:flex;gap:8pt;">'
-                    + [['欠席', absent, '#E74C3C'],['遅刻', late, '#E67E22'],['早退', early, '#F39C12']].map(function(col) {
+                    + [['欠席', absent, 'var(--danger)'],['遅刻', late, 'var(--accent)'],['早退', early, '#F39C12']].map(function(col) {
                         return '<div style="text-align:center;">'
                             + '<div style="font-size:7pt;color:#777;">' + col[0] + '</div>'
                             + '<div style="font-size:14pt;font-weight:900;color:' + (col[1] > 0 ? col[2] : '#ccc') + ';">' + col[1] + '</div>'
@@ -11380,7 +11380,7 @@
                     var kjRate = Math.round(kjDone / kjChars.length * 100);
                     var kjStarFull = Math.floor(kjRate / 20);
                     var kjStars = '★'.repeat(kjStarFull) + '☆'.repeat(5 - kjStarFull);
-                    var kjBarColor = kjRate >= 100 ? '#27AE60' : kjRate >= 80 ? '#1565C0' : kjRate >= 60 ? '#F9A825' : '#E67E22';
+                    var kjBarColor = kjRate >= 100 ? 'var(--success)' : kjRate >= 80 ? '#1565C0' : kjRate >= 60 ? '#F9A825' : 'var(--accent)';
                     html += '<div style="margin-bottom:5pt;">'
                         + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:2pt;padding-left:6pt;border-left:4pt solid #2E7D32;">✍️ 漢字チェック</div>'
                         + '<div style="font-size:6.5pt;color:#888;padding-left:6pt;margin-bottom:3pt;">１年間の きろくです</div>'
@@ -11410,13 +11410,13 @@
                 var _fg = calcForgottenStats(idx, data.fgtAll);
                 var _fgMons = Object.keys(_fg.byMonth).sort().slice(-4);
                 html += '<div style="margin-bottom:5pt;">'
-                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid #E67E22;">🎒 わすれものチェック</div>'
+                    + '<div style="font-size:8pt;font-weight:700;color:#1a2332;margin-bottom:5pt;padding-left:6pt;border-left:4pt solid var(--accent);">🎒 わすれものチェック</div>'
                     + '<div style="background:#FEF5E7;border-radius:8pt;padding:7pt 10pt;display:flex;align-items:center;gap:14pt;">'
-                    + '<div style="text-align:center;"><div style="font-size:7pt;color:#555;">合計</div><div style="font-size:16pt;font-weight:900;color:' + (_fg.total > 0 ? '#E67E22' : '#27AE60') + ';">' + _fg.total + '<span style="font-size:8pt;">件</span></div></div>'
+                    + '<div style="text-align:center;"><div style="font-size:7pt;color:#555;">合計</div><div style="font-size:16pt;font-weight:900;color:' + (_fg.total > 0 ? 'var(--accent)' : 'var(--success)') + ';">' + _fg.total + '<span style="font-size:8pt;">件</span></div></div>'
                     + '<div style="flex:1;display:flex;gap:10pt;">'
                     + (_fgMons.length ? _fgMons.map(function(m) {
                         return '<div style="text-align:center;"><div style="font-size:6.5pt;color:#777;">' + parseInt(m.slice(5), 10) + '月</div><div style="font-size:11pt;font-weight:700;color:#555;">' + _fg.byMonth[m] + '</div></div>';
-                    }).join('') : '<div style="font-size:7.5pt;color:#27AE60;font-weight:700;">わすれものゼロ！すばらしい！</div>')
+                    }).join('') : '<div style="font-size:7.5pt;color:var(--success);font-weight:700;">わすれものゼロ！すばらしい！</div>')
                     + '</div></div>'
                     + (_fg.total > 0 ? '<div style="font-size:6.5pt;color:#888;margin-top:2pt;text-align:right;">まえの日のじゅんびで、へらしていけるといいね</div>' : '')
                     + '</div>';
@@ -11474,7 +11474,7 @@
                 var gradeSec = '<div style="' + CARD + '">';
                 gradeSec += '<div style="' + TITLE + '">📈 成績</div>';
                 gradeSec += '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;">'
-                    + '<thead><tr style="background:#1a1a2e;color:#fff;">'
+                    + '<thead><tr style="background:#1a1a2e;color:var(--white);">'
                     + '<th style="padding:3pt 5pt;text-align:left;">教科</th>'
                     + '<th style="padding:3pt 5pt;text-align:center;">知識・技能</th>'
                     + '<th style="padding:3pt 5pt;text-align:center;">思考・判断</th>'
@@ -11485,7 +11485,7 @@
                     var res; try { res = grdCalculate(subj); } catch(e) { return; }
                     var sr = res && res.find(function(r) { return r.index === idx; });
                     if (!sr) return;
-                    var abc = function(v) { var c = v==='A'?'#27AE60':v==='B'?'#3498DB':v==='C'?'#E67E22':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+(v||'—')+'</span>'; };
+                    var abc = function(v) { var c = v==='A'?'var(--success)':v==='B'?'#3498DB':v==='C'?'var(--accent)':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+(v||'—')+'</span>'; };
                     gradeSec += '<tr style="border-bottom:1pt solid #eee;">'
                         + '<td style="padding:3pt 5pt;font-weight:600;">' + escapeHtml(subj) + '</td>'
                         + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.knowledge.abc) + '</td>'
@@ -11508,7 +11508,7 @@
                 body += '<div style="' + CARD + '"><div style="' + TITLE + '">📅 出欠席</div>'
                     + '<div style="font-size:6.5pt;color:#888;margin-bottom:4pt;">※出席は学期にかかわらず年間で集計</div>'
                     + '<div style="display:flex;gap:6pt;margin-bottom:6pt;">'
-                    + [['出席',present,'#27AE60'],['欠席',absent,'#E74C3C'],['遅刻',late,'#E67E22'],['早退',early,'#E67E22'],['出席停止・忌引等',special,'#7F8C8D']].map(function(c){
+                    + [['出席',present,'var(--success)'],['欠席',absent,'var(--danger)'],['遅刻',late,'var(--accent)'],['早退',early,'var(--accent)'],['出席停止・忌引等',special,'#7F8C8D']].map(function(c){
                         return '<div style="flex:1;text-align:center;background:#f9f9f9;border-radius:6pt;padding:4pt;">'
                             +'<div style="font-size:6.5pt;color:#777;">'+c[0]+'</div>'
                             +'<div style="font-size:14pt;font-weight:900;color:'+c[2]+';">'+c[1]+'</div></div>';
@@ -11536,7 +11536,7 @@
                 var _noticeLine2 = _noticeRecs2.length
                     ? _noticeRecs2.map(function(r) {
                         var md = r.date.slice(5).replace('-', '/');
-                        var mk = r.hasNotice ? '<span style="color:#27AE60;">届出済</span>' : '<span style="color:#E74C3C;font-weight:700;">未提出</span>';
+                        var mk = r.hasNotice ? '<span style="color:var(--success);">届出済</span>' : '<span style="color:var(--danger);font-weight:700;">未提出</span>';
                         return md + r.status + '（' + mk + '）';
                     }).join('　')
                     : 'なし';
@@ -11559,7 +11559,7 @@
                     body += '<div style="font-size:7.5pt;margin-bottom:4pt;"><b>月別：</b>' + _mons2.map(function(m){ return parseInt(m.slice(5), 10) + '月 ' + _fg2.byMonth[m] + '件'; }).join('　') + '</div>';
                     body += '<div style="font-size:7.5pt;"><b>品目：</b>' + _items2.slice(0, 8).map(function(k){ return escapeHtml(k) + '×' + _fg2.byItem[k]; }).join('、') + (_items2.length > 8 ? '　ほか' : '') + '</div>';
                 } else {
-                    body += '<div style="font-size:7.5pt;color:#27AE60;padding:4pt;">記録なし（忘れ物ゼロ）</div>';
+                    body += '<div style="font-size:7.5pt;color:var(--success);padding:4pt;">記録なし（忘れ物ゼロ）</div>';
                 }
                 body += '</div>';
             }
@@ -11622,9 +11622,9 @@
                     var done=0;
                     kjChars2.forEach(function(_,ci2){if(sc[String(ci2)]==='o')done++;});
                     var rate=Math.round(done/kjChars2.length*100);
-                    var rc=rate>=100?'#27AE60':rate>=80?'#1565C0':'#E67E22';
-                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;"><thead><tr style="background:#e8f5e9;"><th style="padding:2pt 5pt;text-align:right;">文字数</th><th style="padding:2pt 5pt;text-align:right;color:#27AE60;">○完了</th><th style="padding:2pt 5pt;text-align:right;color:#1565C0;">達成率</th></tr></thead><tbody>'
-                        +'<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;text-align:right;">'+kjChars2.length+'字</td><td style="padding:2pt 5pt;text-align:right;color:#27AE60;">'+done+'</td><td style="padding:2pt 5pt;text-align:right;font-weight:700;color:'+rc+';">'+rate+'%</td></tr>'
+                    var rc=rate>=100?'var(--success)':rate>=80?'#1565C0':'var(--accent)';
+                    body+='<table style="width:100%;border-collapse:collapse;font-size:7.5pt;"><thead><tr style="background:#e8f5e9;"><th style="padding:2pt 5pt;text-align:right;">文字数</th><th style="padding:2pt 5pt;text-align:right;color:var(--success);">○完了</th><th style="padding:2pt 5pt;text-align:right;color:#1565C0;">達成率</th></tr></thead><tbody>'
+                        +'<tr style="border-bottom:1pt solid #eee;"><td style="padding:2pt 5pt;text-align:right;">'+kjChars2.length+'字</td><td style="padding:2pt 5pt;text-align:right;color:var(--success);">'+done+'</td><td style="padding:2pt 5pt;text-align:right;font-weight:700;color:'+rc+';">'+rate+'%</td></tr>'
                         +'</tbody></table>';
                 } else { body+='<div style="font-size:7.5pt;color:#aaa;padding:4pt;">データなし</div>'; }
                 body+='</div>';
@@ -11856,14 +11856,14 @@
             var ov = document.createElement('div');
             ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
             var box = document.createElement('div');
-            box.style.cssText = 'background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:85vh;display:flex;flex-direction:column;padding:14px;box-sizing:border-box;';
+            box.style.cssText = 'background:var(--white);border-radius:12px;max-width:680px;width:100%;max-height:85vh;display:flex;flex-direction:column;padding:14px;box-sizing:border-box;';
             box.innerHTML = '<div style="font-weight:700;margin-bottom:8px;">面談用テキスト（長押しで全選択 → コピー）</div>';
             var ta = document.createElement('textarea');
             ta.value = text;
             ta.style.cssText = 'flex:1;min-height:300px;width:100%;box-sizing:border-box;font-size:13px;line-height:1.5;border:1.5px solid #ccc;border-radius:8px;padding:8px;font-family:inherit;-webkit-user-select:text;user-select:text;';
             var btn = document.createElement('button');
             btn.textContent = '閉じる';
-            btn.style.cssText = 'margin-top:10px;padding:10px;border:none;border-radius:8px;background:#2D7D9A;color:#fff;font-size:0.95rem;min-height:44px;';
+            btn.style.cssText = 'margin-top:10px;padding:10px;border:none;border-radius:8px;background:var(--primary);color:var(--white);font-size:0.95rem;min-height:44px;';
             btn.onclick = function() { if (document.body.contains(ov)) document.body.removeChild(ov); };
             box.appendChild(ta); box.appendChild(btn); ov.appendChild(box);
             ov.addEventListener('click', function(e) { if (e.target === ov) document.body.removeChild(ov); });
@@ -11948,8 +11948,8 @@
                 var on = !wasOn;
                 btn.textContent = on ? '✓届出' : '未提出';
                 btn.style.background  = on ? '#E8F5E9' : '#FDEDEC';
-                btn.style.color       = on ? '#27AE60' : '#E74C3C';
-                btn.style.borderColor = on ? '#27AE60' : '#E74C3C';
+                btn.style.color       = on ? 'var(--success)' : 'var(--danger)';
+                btn.style.borderColor = on ? 'var(--success)' : 'var(--danger)';
             }
             // 未届件数を再計算
             var att = karteSafeGet('spa_attendance', {});
@@ -11961,7 +11961,7 @@
                 if ((nd[dk] || {})[String(idx)] !== true) missing++;
             });
             var cnt = document.getElementById('karte-nt-missing-' + idx);
-            if (cnt) { cnt.textContent = missing + '件'; cnt.style.color = missing > 0 ? 'var(--danger)' : '#27AE60'; }
+            if (cnt) { cnt.textContent = missing + '件'; cnt.style.color = missing > 0 ? 'var(--danger)' : 'var(--success)'; }
             showToast(wasOn ? '届出を未提出に戻しました' : '届出ありに設定しました', 'success');
         };
 
@@ -12088,7 +12088,7 @@
                 var hasParent = karteGetStudentParent(i).length > 0;
                 var active = (i === qmSelIdx);
                 var style = 'padding:0.28rem 0.3rem;border-radius:8px;font-size:0.8rem;cursor:pointer;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:center;border:1.5px solid ';
-                style += active ? 'var(--accent);background:var(--accent);color:#fff;'
+                style += active ? 'var(--accent);background:var(--accent);color:var(--white);'
                        : (hasParent ? '#9c6ade;background:#f3ecfb;color:#5e35b1;' : 'var(--border);background:var(--white);color:var(--text);');
                 html += '<button onclick="qmSelect(' + i + ')" style="' + style + '">' + (i+1) + ' ' + escapeHtml(name) + '</button>';
             }
@@ -12110,7 +12110,7 @@
             qmParentMethod = (qmParentMethod === id) ? '' : id;
             document.querySelectorAll('#qmDetail [data-qmid]').forEach(function(b) {
                 b.style.background = (b.dataset.qmid === qmParentMethod) ? 'var(--accent)' : 'var(--white)';
-                b.style.color = (b.dataset.qmid === qmParentMethod) ? '#fff' : 'var(--text)';
+                b.style.color = (b.dataset.qmid === qmParentMethod) ? 'var(--white)' : 'var(--text)';
             });
         }
 
@@ -12181,26 +12181,26 @@
 
             // クイックボタン
             h += '<div style="display:flex;gap:0.5rem;margin-bottom:0.6rem;">';
-            h += '<button onclick="qmToggleForm(\'life\')" style="flex:1;padding:0.7rem;border-radius:10px;border:1.5px solid #4caf50;background:' + (qmOpenForm==='life'?'#4caf50':'var(--white)') + ';color:' + (qmOpenForm==='life'?'#fff':'#388e3c') + ';font-size:0.95rem;font-weight:bold;cursor:pointer;">👦 児童メモ</button>';
-            h += '<button onclick="qmToggleForm(\'parent\')" style="flex:1;padding:0.7rem;border-radius:10px;border:1.5px solid #9c6ade;background:' + (qmOpenForm==='parent'?'#9c6ade':'var(--white)') + ';color:' + (qmOpenForm==='parent'?'#fff':'#5e35b1') + ';font-size:0.95rem;font-weight:bold;cursor:pointer;">👨‍👩‍👧 保護者メモ</button>';
+            h += '<button onclick="qmToggleForm(\'life\')" style="flex:1;padding:0.7rem;border-radius:10px;border:1.5px solid #4caf50;background:' + (qmOpenForm==='life'?'#4caf50':'var(--white)') + ';color:' + (qmOpenForm==='life'?'var(--white)':'#388e3c') + ';font-size:0.95rem;font-weight:bold;cursor:pointer;">👦 児童メモ</button>';
+            h += '<button onclick="qmToggleForm(\'parent\')" style="flex:1;padding:0.7rem;border-radius:10px;border:1.5px solid #9c6ade;background:' + (qmOpenForm==='parent'?'#9c6ade':'var(--white)') + ';color:' + (qmOpenForm==='parent'?'var(--white)':'#5e35b1') + ';font-size:0.95rem;font-weight:bold;cursor:pointer;">👨‍👩‍👧 保護者メモ</button>';
             h += '</div>';
 
             // 入力フォーム
             if (qmOpenForm === 'life') {
                 h += '<div style="' + card + '">';
                 h += '<textarea id="qmLifeText" rows="6" placeholder="気づいたことを手書きでメモ（Scribble対応）" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.6rem;font-size:16px;line-height:1.8;min-height:180px;"></textarea>';
-                h += '<button onclick="qmSaveLife()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#4caf50;color:#fff;font-weight:bold;cursor:pointer;">💾 児童メモを保存</button>';
+                h += '<button onclick="qmSaveLife()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#4caf50;color:var(--white);font-weight:bold;cursor:pointer;">💾 児童メモを保存</button>';
                 h += '</div>';
             } else if (qmOpenForm === 'parent') {
                 h += '<div style="' + card + '">';
                 h += '<div style="display:flex;gap:0.3rem;margin-bottom:0.5rem;flex-wrap:wrap;">';
                 KARTE_PARENT_METHODS.forEach(function(m) {
                     var on = qmParentMethod === m.id;
-                    h += '<button data-qmid="' + m.id + '" onclick="qmSetMethod(\'' + m.id + '\')" style="padding:0.35rem 0.6rem;border:1.5px solid var(--accent);border-radius:6px;font-size:0.8rem;cursor:pointer;background:' + (on?'var(--accent)':'var(--white)') + ';color:' + (on?'#fff':'var(--text)') + ';">' + m.label + '</button>';
+                    h += '<button data-qmid="' + m.id + '" onclick="qmSetMethod(\'' + m.id + '\')" style="padding:0.35rem 0.6rem;border:1.5px solid var(--accent);border-radius:6px;font-size:0.8rem;cursor:pointer;background:' + (on?'var(--accent)':'var(--white)') + ';color:' + (on?'var(--white)':'var(--text)') + ';">' + m.label + '</button>';
                 });
                 h += '</div>';
                 h += '<textarea id="qmParentText" rows="8" placeholder="対応内容を手書きでメモ（Scribble対応）" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:0.6rem;font-size:16px;line-height:1.8;min-height:240px;"></textarea>';
-                h += '<button onclick="qmSaveParent()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#9c6ade;color:#fff;font-weight:bold;cursor:pointer;">💾 保護者メモを保存</button>';
+                h += '<button onclick="qmSaveParent()" style="margin-top:0.5rem;width:100%;padding:0.6rem;border:none;border-radius:8px;background:#9c6ade;color:var(--white);font-weight:bold;cursor:pointer;">💾 保護者メモを保存</button>';
                 h += '</div>';
             }
 
@@ -12459,7 +12459,7 @@
             } else {
                 mpHtml += '<div class="ks-hub-row">'
                     + '<span class="ks-hub-label">累計：</span>'
-                    + '<span class="ks-hub-val" style="font-weight:700;color:#E67E22;">' + mpTotal + '回</span>'
+                    + '<span class="ks-hub-val" style="font-weight:700;color:var(--accent);">' + mpTotal + '回</span>'
                     + '</div>';
                 mpSortedMonths.slice(0, 3).forEach(function(month) {
                     var parts = month.split('-');
@@ -12528,12 +12528,12 @@
             } else {
                 attDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label">出席：</span><span class="ks-hub-val">' + attPresent + '日 / ' + attTotal + '日</span></div>'
                     + (attAbsent > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">欠席：</span><span class="ks-hub-val" style="color:var(--danger);">' + attAbsent + '日</span></div>' : '')
-                    + (attLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">遅刻：</span><span class="ks-hub-val" style="color:#E67E22;">' + attLate + '回</span></div>' : '')
-                    + (attEarly > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">早退：</span><span class="ks-hub-val" style="color:#E67E22;">' + attEarly + '回</span></div>' : '');
+                    + (attLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">遅刻：</span><span class="ks-hub-val" style="color:var(--accent);">' + attLate + '回</span></div>' : '')
+                    + (attEarly > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">早退：</span><span class="ks-hub-val" style="color:var(--accent);">' + attEarly + '回</span></div>' : '');
                 if (karteNoticeRecs.length > 0) {
                     attDetailHtml += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;">'
                         + '<div class="ks-hub-row"><span class="ks-hub-label">届出なし：</span>'
-                        + '<span class="ks-hub-val" id="karte-nt-missing-' + idx + '" style="font-weight:700;color:' + (karteNoticeMissing > 0 ? 'var(--danger)' : '#27AE60') + ';">' + karteNoticeMissing + '件</span>'
+                        + '<span class="ks-hub-val" id="karte-nt-missing-' + idx + '" style="font-weight:700;color:' + (karteNoticeMissing > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + karteNoticeMissing + '件</span>'
                         + '<span style="font-size:0.62rem;color:#888;margin-left:8px;">届出ボタンをタップで切替</span></div>'
                         + '<div style="max-height:240px;overflow-y:auto;margin-top:3px;-webkit-overflow-scrolling:touch;">'
                         + '<table style="width:100%;border-collapse:collapse;font-size:0.68rem;">'
@@ -12547,7 +12547,7 @@
                             + '<button id="karte-nt-' + idx + '-' + r.date + '"'
                             + ' onclick="karteToggleNotice(' + idx + ',\x27' + r.date + '\x27)"'
                             + ' style="border-radius:12px;padding:2px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;min-height:28px;min-width:64px;'
-                            + (on ? 'background:#E8F5E9;color:#27AE60;border:1.5px solid #27AE60;' : 'background:#FDEDEC;color:#E74C3C;border:1.5px solid #E74C3C;')
+                            + (on ? 'background:#E8F5E9;color:var(--success);border:1.5px solid var(--success);' : 'background:#FDEDEC;color:var(--danger);border:1.5px solid var(--danger);')
                             + '">' + (on ? '✓届出' : '未提出') + '</button></td></tr>';
                     });
                     attDetailHtml += '</table></div></div>';
@@ -12566,7 +12566,7 @@
                 subDetailHtml += '<div class="ks-hub-row"><span class="ks-hub-label">提出済み：</span><span class="ks-hub-val" style="color:var(--success);">' + subOk + '件</span></div>'
                     + (subRe > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">再提出：</span><span class="ks-hub-val" style="color:#B7950B;">' + subRe + '件</span></div>' : '')
                     + (subMiss > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">未提出：</span><span class="ks-hub-val" style="color:var(--danger);">' + subMiss + '件</span></div>' : '')
-                    + (subLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">提出遅れ：</span><span class="ks-hub-val" style="color:#E67E22;">' + subLate + '件</span></div>' : '');
+                    + (subLate > 0 ? '<div class="ks-hub-row"><span class="ks-hub-label">提出遅れ：</span><span class="ks-hub-val" style="color:var(--accent);">' + subLate + '件</span></div>' : '');
                 if (subMissList.length > 0) {
                     subDetailHtml += '<div style="margin-top:4px;">';
                     subMissList.slice(0, 5).forEach(function(item) {
@@ -12585,7 +12585,7 @@
                         var subjTag = item.subject ? '<span class="ks-missing-subj">' + escapeHtml(item.subject) + '</span>' : '';
                         var chk = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
                         var chkTag = chk ? '<span class="ks-missing-checked">🕑' + chk + '</span>' : '';
-                        subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + chkTag + '<span class="ks-missing-status" style="background:#E67E22;">提出遅れ</span></div>';
+                        subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + chkTag + '<span class="ks-missing-status" style="background:var(--accent);">提出遅れ</span></div>';
                     });
                     if (subLateList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subLateList.length - 5) + ' 件</div>';
                     subDetailHtml += '</div>';
@@ -12598,7 +12598,7 @@
                 '<div class="ks-card attendance" data-ks="attendance"><div class="ks-card-label">出席率</div><div class="ks-card-value">' + attRate + '</div></div>' +
                 '<div class="ks-card submission" data-ks="submissions"><div class="ks-card-label">提出率</div><div class="ks-card-value">' + subRate + '</div></div>' +
                 '<div class="ks-card liferec" data-ks="all"><div class="ks-card-label">生活記録</div><div class="ks-card-value">' + lifeRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
-                '<div class="ks-card" style="border-left:4px solid #E67E22;" data-ks="all"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:#E67E22;">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
+                '<div class="ks-card" style="border-left:4px solid var(--accent);" data-ks="all"><div class="ks-card-label">児童記録</div><div class="ks-card-value" style="color:var(--accent);">' + karteRecs.length + '<span style="font-size:0.7rem;font-weight:400">件</span></div></div>' +
                 '</div>' +
                 attDetailHtml + subDetailHtml +
                 '<div data-ks="all">' + karteRenderDeviationSection(idx) + recentHtml + recentRecsHtml + mpHtml + learnHtml + parentHtml + healthHtml + '</div>';
@@ -12623,10 +12623,10 @@
             var today = new Date();
             var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
             var ratingDefs = [
-                { key: 'excellent', emoji: '◎', color: '#27AE60', bg: '#E8F5E9' },
+                { key: 'excellent', emoji: '◎', color: 'var(--success)', bg: '#E8F5E9' },
                 { key: 'good',      emoji: '○', color: '#3498DB', bg: '#E3F2FD' },
-                { key: 'concern',   emoji: '△', color: '#E67E22', bg: '#FFF3E0' },
-                { key: 'action',    emoji: '×', color: '#E74C3C', bg: '#FFEBEE' }
+                { key: 'concern',   emoji: '△', color: 'var(--accent)', bg: '#FFF3E0' },
+                { key: 'action',    emoji: '×', color: 'var(--danger)', bg: '#FFEBEE' }
             ];
             var categories = ['発言', '友人関係', '体調', '提出物', '学習態度', 'その他'];
 
@@ -12679,7 +12679,7 @@
                     var absentBadge = r.absent ? '<span style="font-size:0.6rem;font-weight:700;background:#757575;color:white;border-radius:3px;padding:1px 4px;line-height:1.4;">🏠欠席</span>' : '';
                     html += '<div class="klife-item' + (r.absent ? '" style="background:#F5F5F5;' : '"') + '><div class="klife-item-header"><div style="display:flex;align-items:center;gap:0.4rem;"><span style="font-size:1.1rem;">' + emoji + '</span><span class="klife-item-cat" style="background:var(--secondary);color:var(--primary);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.65rem;">' + escapeHtml(r.category || '') + '</span>' + absentBadge + '</div><span class="klife-item-date">' + (r.date || '') + '</span></div>';
                     if (r.memo) html += '<div class="klife-item-text">' + escapeHtml(r.memo) + '</div>';
-                    html += '<div class="klife-item-actions"><button onclick="karteRecEdit(' + r.id + ')">✏️編集</button><button onclick="karteRecDelete(' + r.id + ')" style="color:#E74C3C;">🗑削除</button></div></div>';
+                    html += '<div class="klife-item-actions"><button onclick="karteRecEdit(' + r.id + ')">✏️編集</button><button onclick="karteRecDelete(' + r.id + ')" style="color:var(--danger);">🗑削除</button></div></div>';
                 });
                 html += '</div>';
             }
@@ -13211,7 +13211,7 @@
             return Math.round((subCalcRate(credit, total) / 100) * 10 * 10) / 10;
         }
         function subScoreColor(v) {
-            return v >= 8 ? '#27AE60' : v >= 6 ? '#B7950B' : '#E74C3C';
+            return v >= 8 ? 'var(--success)' : v >= 6 ? '#B7950B' : 'var(--danger)';
         }
 
         // --- 状態 ---
@@ -13331,7 +13331,7 @@
                 var active = subSortKey === d.key;
                 var arrow = active ? (subSortAsc ? '▲' : '▼') : '';
                 return '<button style="border:1.5px solid;border-radius:14px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;min-height:28px;font-family:inherit;' +
-                    (active ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'background:#fff;color:var(--text-light);border-color:var(--border);') +
+                    (active ? 'background:var(--primary);color:var(--white);border-color:var(--primary);' : 'background:var(--white);color:var(--text-light);border-color:var(--border);') +
                     '" data-sortkey="' + d.key + '">' + d.label + arrow + '</button>';
             }).join('');
             el.querySelectorAll('button[data-sortkey]').forEach(function(btn) {
@@ -14098,10 +14098,10 @@
             if (cardsEl) {
                 cardsEl.innerHTML = [
                     ['課題数', filtered.length, ''],
-                    ['○ ばっちり', ok, '#27AE60'],
+                    ['○ ばっちり', ok, 'var(--success)'],
                     ['△ 再提出', re, '#F39C12'],
-                    ['× 未提出', ng, '#E74C3C'],
-                    ['提出率', rate + '%', rate >= 80 ? '#27AE60' : '#E74C3C'],
+                    ['× 未提出', ng, 'var(--danger)'],
+                    ['提出率', rate + '%', rate >= 80 ? 'var(--success)' : 'var(--danger)'],
                     ['10点換算', score10.toFixed(1), subScoreColor(score10)]
                 ].map(function(c) {
                     return '<div class="sub-stat-card"><div class="sub-stat-val" style="color:' + (c[2] || 'var(--primary)') + '">' + c[1] + '</div><div class="sub-stat-label">' + c[0] + '</div></div>';
@@ -14669,7 +14669,7 @@
         }
         function subPsnSecHtml(title, count, bodyHtml, warn) {
             return '<div class="sub-psn-sec"><div class="sub-psn-sec-hd">' + title
-                 +   '<span class="sub-psn-sec-cnt" style="color:' + (count > 0 ? (warn || 'var(--danger)') : '#27AE60') + ';">' + count + '件</span>'
+                 +   '<span class="sub-psn-sec-cnt" style="color:' + (count > 0 ? (warn || 'var(--danger)') : 'var(--success)') + ';">' + count + '件</span>'
                  + '</div><div class="sub-psn-sec-bd">' + bodyHtml + '</div></div>';
         }
         function subPsnRenderDetail(snap) {
@@ -14721,7 +14721,7 @@
                           + c.noticeDone.map(function(r) { return subPsnNoticeRowHtml(r, true); }).join('')
                         : '')
                 : '<div class="sub-psn-empty">届出が必要な欠席・遅刻・早退の記録はありません。</div>';
-            h += subPsnSecHtml('📋 未提出の届出（欠席・遅刻・早退・出停）', c.notice.length, nBody, '#E67E22');
+            h += subPsnSecHtml('📋 未提出の届出（欠席・遅刻・早退・出停）', c.notice.length, nBody, 'var(--accent)');
 
             // ④ まだクラス全体で集めていない課題（バッジには数えない）
             if (c.untouched.length) {
@@ -14738,7 +14738,7 @@
                 var dBody = c.done.length ? c.done.map(function(it) { return subPsnRowHtml(it, 'done'); }).join('')
                                           : '<div class="sub-psn-empty">提出済みの課題はありません。</div>';
                 h += '<div class="sub-psn-sec"><div class="sub-psn-sec-hd">✅ 提出済みの課題'
-                  +  '<span class="sub-psn-sec-cnt" style="color:#27AE60;">' + c.done.length + '件</span></div>'
+                  +  '<span class="sub-psn-sec-cnt" style="color:var(--success);">' + c.done.length + '件</span></div>'
                   +  '<div class="sub-psn-sec-bd">' + dBody + '</div></div>';
             }
             wrap.innerHTML = h;
@@ -15174,7 +15174,7 @@
                     var on = cur === v;
                     return '<button type="button" onclick="grdExtSetABC('+i+',\''+field+'\',\''+v+'\')" '
                         + 'style="min-width:40px;min-height:44px;border-radius:7px;border:1.5px solid '+(on?'#1a6b4a':'var(--border)')+';'
-                        + 'background:'+(on?'#1a6b4a':'var(--white)')+';color:'+(on?'#fff':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
+                        + 'background:'+(on?'#1a6b4a':'var(--white)')+';color:'+(on?'var(--white)':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
                 }).join('');
                 return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
                     + '<div style="display:flex;gap:2px;">'+btns+'</div>'
@@ -15185,7 +15185,7 @@
                     var on = String(cur) === String(v);
                     return '<button type="button" onclick="grdExtSetHyoutei('+i+','+v+')" '
                         + 'style="min-width:40px;min-height:44px;border-radius:7px;border:1.5px solid '+(on?'#2d5aa0':'var(--border)')+';'
-                        + 'background:'+(on?'#2d5aa0':'var(--white)')+';color:'+(on?'#fff':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
+                        + 'background:'+(on?'#2d5aa0':'var(--white)')+';color:'+(on?'var(--white)':'var(--text)')+';font-weight:'+(on?'700':'400')+';cursor:pointer;">'+v+'</button>';
                 }).join('');
                 return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
                     + '<div style="display:flex;gap:2px;">'+btns+'</div>'
@@ -15203,7 +15203,7 @@
                     + '</tr>';
             }).join('');
             wrap.innerHTML = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:0.85rem;">'
-                + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:6px 8px;text-align:left;position:sticky;left:0;background:#1a1a2e;">児童</th>'
+                + '<thead><tr style="background:#1a1a2e;color:var(--white);"><th style="padding:6px 8px;text-align:left;position:sticky;left:0;background:#1a1a2e;">児童</th>'
                 + '<th style="padding:6px;text-align:left;">入力（知・思・主・評定）</th><th style="padding:6px;"></th></tr></thead>'
                 + '<tbody>'+rows+'</tbody></table></div>';
         }
@@ -15508,7 +15508,7 @@
                         + '<div style="display:flex;gap:20px;align-items:flex-start;">'
                         + '<canvas id="grdRadarStage" width="360" height="360"></canvas>'
                         + '<table style="border-collapse:collapse;font-size:12px;border:1px solid #ccc;">'
-                        + '<thead><tr style="background:#1a1a2e;color:#fff;"><th style="padding:5px 8px;">教科</th><th style="padding:5px;">知</th><th style="padding:5px;">思</th><th style="padding:5px;">主</th><th style="padding:5px;">評定</th></tr></thead>'
+                        + '<thead><tr style="background:#1a1a2e;color:var(--white);"><th style="padding:5px 8px;">教科</th><th style="padding:5px;">知</th><th style="padding:5px;">思</th><th style="padding:5px;">主</th><th style="padding:5px;">評定</th></tr></thead>'
                         + '<tbody>'+rows.join('')+'</tbody></table>'
                         + '</div>'
                         + '<div style="font-size:10px;color:#888;margin-top:4px;">※ レーダーは各教科の評定（3=よくできる／2=できる／1=もう少し）を表しています。</div>'
@@ -16286,15 +16286,15 @@
                 var classAvg = avgs.length ? avgs.reduce(function(a,b){return a+b;},0)/avgs.length : 0;
                 html += '<h4 style="color:'+cat[2]+';font-size:0.9rem;margin:10px 0 6px;">'+cat[0]+'</h4>';
                 html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">';
-                [[cA,'A（'+(total>0?Math.round(cA/total*100):0)+'%）','#27AE60'],[cB,'B（'+(total>0?Math.round(cB/total*100):0)+'%）','#3498DB'],[cC,'C（'+(total>0?Math.round(cC/total*100):0)+'%）','#E67E22'],[classAvg.toFixed(1),'平均/10',cat[2]]].forEach(function(s) {
+                [[cA,'A（'+(total>0?Math.round(cA/total*100):0)+'%）','var(--success)'],[cB,'B（'+(total>0?Math.round(cB/total*100):0)+'%）','#3498DB'],[cC,'C（'+(total>0?Math.round(cC/total*100):0)+'%）','var(--accent)'],[classAvg.toFixed(1),'平均/10',cat[2]]].forEach(function(s) {
                     html += '<div style="background:var(--white);border:1.5px solid var(--border);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:1.4rem;font-weight:700;color:'+s[2]+';">'+s[0]+'</div><div style="font-size:0.7rem;color:var(--text-light);">'+s[1]+'</div></div>';
                 });
                 html += '</div>';
                 if (total > 0) {
                     html += '<div style="display:flex;border-radius:6px;overflow:hidden;height:28px;margin-bottom:12px;">';
-                    if (cA) html += '<div style="width:'+cA/total*100+'%;background:#27AE60;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.75rem;font-weight:700;">A:'+cA+'</div>';
-                    if (cB) html += '<div style="width:'+cB/total*100+'%;background:#3498DB;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.75rem;font-weight:700;">B:'+cB+'</div>';
-                    if (cC) html += '<div style="width:'+cC/total*100+'%;background:#E67E22;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.75rem;font-weight:700;">C:'+cC+'</div>';
+                    if (cA) html += '<div style="width:'+cA/total*100+'%;background:var(--success);display:flex;align-items:center;justify-content:center;color:var(--white);font-size:0.75rem;font-weight:700;">A:'+cA+'</div>';
+                    if (cB) html += '<div style="width:'+cB/total*100+'%;background:#3498DB;display:flex;align-items:center;justify-content:center;color:var(--white);font-size:0.75rem;font-weight:700;">B:'+cB+'</div>';
+                    if (cC) html += '<div style="width:'+cC/total*100+'%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:var(--white);font-size:0.75rem;font-weight:700;">C:'+cC+'</div>';
                     html += '</div>';
                 }
             });
@@ -16304,15 +16304,15 @@
             var h1=results.filter(function(r){return r.hyoutei===1;}).length;
             var hT=h3+h2+h1;
             html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">';
-            [[h3,'評定3（'+(hT>0?Math.round(h3/hT*100):0)+'%）','#27AE60'],[h2,'評定2（'+(hT>0?Math.round(h2/hT*100):0)+'%）','#3498DB'],[h1,'評定1（'+(hT>0?Math.round(h1/hT*100):0)+'%）','#E67E22']].forEach(function(s) {
+            [[h3,'評定3（'+(hT>0?Math.round(h3/hT*100):0)+'%）','var(--success)'],[h2,'評定2（'+(hT>0?Math.round(h2/hT*100):0)+'%）','#3498DB'],[h1,'評定1（'+(hT>0?Math.round(h1/hT*100):0)+'%）','var(--accent)']].forEach(function(s) {
                 html += '<div style="background:var(--white);border:1.5px solid var(--border);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:1.4rem;font-weight:700;color:'+s[2]+';">'+s[0]+'</div><div style="font-size:0.7rem;color:var(--text-light);">'+s[1]+'</div></div>';
             });
             html += '</div>';
             if (hT > 0) {
                 html += '<div style="display:flex;border-radius:6px;overflow:hidden;height:28px;">';
-                if (h3) html += '<div style="width:'+h3/hT*100+'%;background:#27AE60;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.75rem;font-weight:700;">3:'+h3+'</div>';
-                if (h2) html += '<div style="width:'+h2/hT*100+'%;background:#3498DB;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.75rem;font-weight:700;">2:'+h2+'</div>';
-                if (h1) html += '<div style="width:'+h1/hT*100+'%;background:#E67E22;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.75rem;font-weight:700;">1:'+h1+'</div>';
+                if (h3) html += '<div style="width:'+h3/hT*100+'%;background:var(--success);display:flex;align-items:center;justify-content:center;color:var(--white);font-size:0.75rem;font-weight:700;">3:'+h3+'</div>';
+                if (h2) html += '<div style="width:'+h2/hT*100+'%;background:#3498DB;display:flex;align-items:center;justify-content:center;color:var(--white);font-size:0.75rem;font-weight:700;">2:'+h2+'</div>';
+                if (h1) html += '<div style="width:'+h1/hT*100+'%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:var(--white);font-size:0.75rem;font-weight:700;">1:'+h1+'</div>';
                 html += '</div>';
             }
             container.innerHTML = html;
@@ -16499,7 +16499,7 @@
                 var inps = document.querySelectorAll('.grd-w-inp[data-cat="'+c+'"]'), t = 0;
                 inps.forEach(function(i) { t += parseFloat(i.value)||0; });
                 var el = document.getElementById('gwt-'+c);
-                if (el) { el.textContent = t.toFixed(1); el.style.color = Math.abs(t-100)<0.5 ? '#27AE60' : '#E74C3C'; }
+                if (el) { el.textContent = t.toFixed(1); el.style.color = Math.abs(t-100)<0.5 ? 'var(--success)' : 'var(--danger)'; }
             });
         }
 
@@ -17292,7 +17292,7 @@
                 el.innerHTML = '<span style="color:var(--text-light);font-size:0.85rem;">忘れ物なし 🎉</span>';
                 return;
             }
-            var html = '<span style="background:#E67E22;color:#fff;padding:3px 10px;border-radius:12px;font-size:0.82rem;font-weight:600;">合計 ' + total + '件</span> ';
+            var html = '<span style="background:var(--accent);color:var(--white);padding:3px 10px;border-radius:12px;font-size:0.82rem;font-weight:600;">合計 ' + total + '件</span> ';
             Object.keys(itemCount).forEach(function(it) {
                 html += '<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:10px;font-size:0.78rem;">' + escapeHtml(it) + ' ' + itemCount[it] + '</span> ';
             });
@@ -17315,14 +17315,14 @@
                 var items = dayData[idx] || [];
                 var hasFgt = items.length > 0;
                 var bg = hasFgt ? '#FDF2E9' : 'var(--white)';
-                var border = hasFgt ? '2px solid #E67E22' : '1.5px solid var(--border)';
-                var badge = hasFgt ? '<span style="position:absolute;top:3px;right:4px;background:#E67E22;color:#fff;border-radius:8px;padding:1px 5px;font-size:0.68rem;font-weight:700;">' + items.length + '</span>' : '';
+                var border = hasFgt ? '2px solid var(--accent)' : '1.5px solid var(--border)';
+                var badge = hasFgt ? '<span style="position:absolute;top:3px;right:4px;background:var(--accent);color:var(--white);border-radius:8px;padding:1px 5px;font-size:0.68rem;font-weight:700;">' + items.length + '</span>' : '';
                 var nameStr = escapeHtml(s.name || (idx+1)+'番');
                 html += '<div class="fgt-cell" data-idx="' + idx + '" style="position:relative;background:' + bg + ';border:' + border + ';border-radius:10px;padding:10px 6px 8px;text-align:center;cursor:pointer;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">' +
                     badge +
                     '<div style="font-size:0.72rem;color:var(--text-light);">' + (idx+1) + '</div>' +
                     '<div style="font-size:0.82rem;font-weight:600;color:var(--text);">' + nameStr + '</div>' +
-                    (hasFgt ? '<div style="font-size:0.68rem;color:#E67E22;line-height:1.3;">' + items.map(function(it){ return escapeHtml(it); }).join('・') + '</div>' : '') +
+                    (hasFgt ? '<div style="font-size:0.68rem;color:var(--accent);line-height:1.3;">' + items.map(function(it){ return escapeHtml(it); }).join('・') + '</div>' : '') +
                     '</div>';
             });
             el.innerHTML = html;
@@ -17361,7 +17361,7 @@
             var items = fgtGetItems();
             el.innerHTML = items.map(function(it) {
                 var sel = fgtModalSelected.indexOf(it) >= 0;
-                return '<button class="fgt-item-btn" data-item="' + escapeHtml(it) + '" style="padding:12px 6px;border-radius:10px;border:2px solid ' + (sel?'#E67E22':'var(--border)') + ';background:' + (sel?'#FDF2E9':'var(--white)') + ';color:' + (sel?'#E67E22':'var(--text)') + ';font-size:0.88rem;font-weight:' + (sel?'700':'400') + ';cursor:pointer;">' + escapeHtml(it) + (sel?' ✓':'') + '</button>';
+                return '<button class="fgt-item-btn" data-item="' + escapeHtml(it) + '" style="padding:12px 6px;border-radius:10px;border:2px solid ' + (sel?'var(--accent)':'var(--border)') + ';background:' + (sel?'#FDF2E9':'var(--white)') + ';color:' + (sel?'var(--accent)':'var(--text)') + ';font-size:0.88rem;font-weight:' + (sel?'700':'400') + ';cursor:pointer;">' + escapeHtml(it) + (sel?' ✓':'') + '</button>';
             }).join('');
             el.querySelectorAll('.fgt-item-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -17461,7 +17461,7 @@
 
             el.innerHTML = sorted.map(function(s) {
                 var pct = max ? Math.round(s.count/max*100) : 0;
-                var color = s.count === 0 ? '#27AE60' : s.count <= 2 ? '#B7950B' : '#E67E22';
+                var color = s.count === 0 ? 'var(--success)' : s.count <= 2 ? '#B7950B' : 'var(--accent)';
                 return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--white);border-radius:10px;border:1.5px solid var(--border);">' +
                     '<div style="width:28px;text-align:right;font-size:0.75rem;color:var(--text-light);">' + (s.idx+1) + '</div>' +
                     '<div style="flex:0 0 5em;font-size:0.88rem;font-weight:600;">' + escapeHtml(s.name) + '</div>' +
@@ -17507,8 +17507,8 @@
                     '<div style="width:24px;text-align:center;">' + medal + '</div>' +
                     '<div style="flex:0 0 6em;font-size:0.88rem;font-weight:600;">' + escapeHtml(it) + '</div>' +
                     '<div style="flex:1;background:var(--bg);border-radius:6px;height:12px;overflow:hidden;">' +
-                    '<div style="height:100%;width:' + pct + '%;background:#E67E22;border-radius:6px;transition:width .3s;"></div></div>' +
-                    '<div style="width:2.5em;text-align:right;font-weight:700;color:#E67E22;font-size:0.9rem;">' + cnt + '</div>' +
+                    '<div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:6px;transition:width .3s;"></div></div>' +
+                    '<div style="width:2.5em;text-align:right;font-weight:700;color:var(--accent);font-size:0.9rem;">' + cnt + '</div>' +
                     '</div>';
             }).join('');
         }
@@ -17567,10 +17567,10 @@
                     var v = (table[m]||{})[s.idx] || 0;
                     rowTotal += v;
                     var bg = v === 0 ? '' : v <= 1 ? 'background:#FEF9E7;' : v <= 3 ? 'background:#FDF2E9;' : 'background:#FADBD8;';
-                    var color = v === 0 ? 'color:var(--text-light);' : v >= 4 ? 'color:#E74C3C;font-weight:700;' : '';
+                    var color = v === 0 ? 'color:var(--text-light);' : v >= 4 ? 'color:var(--danger);font-weight:700;' : '';
                     html += '<td style="padding:6px 4px;border:1px solid var(--border);text-align:center;' + bg + color + '">' + (v || '-') + '</td>';
                 });
-                html += '<td style="padding:6px 4px;border:1px solid var(--border);text-align:center;font-weight:700;color:#E67E22;">' + (rowTotal||'-') + '</td></tr>';
+                html += '<td style="padding:6px 4px;border:1px solid var(--border);text-align:center;font-weight:700;color:var(--accent);">' + (rowTotal||'-') + '</td></tr>';
             });
             html += '</tbody></table>';
             el.innerHTML = html;
@@ -17586,7 +17586,7 @@
             el.innerHTML = items.map(function(it, i) {
                 return '<div style="display:flex;align-items:center;gap:6px;">' +
                     '<span style="flex:1;padding:6px 10px;background:var(--bg);border-radius:8px;font-size:0.88rem;">' + escapeHtml(it) + '</span>' +
-                    '<button class="fgt-del-item" data-i="' + i + '" style="background:none;border:none;color:#E74C3C;font-size:1.1rem;cursor:pointer;padding:4px 6px;">✕</button>' +
+                    '<button class="fgt-del-item" data-i="' + i + '" style="background:none;border:none;color:var(--danger);font-size:1.1rem;cursor:pointer;padding:4px 6px;">✕</button>' +
                     '</div>';
             }).join('');
             el.querySelectorAll('.fgt-del-item').forEach(function(btn) {
@@ -18077,7 +18077,7 @@
             if (!kjSortMode) {
                 headerEl.innerHTML =
                     '<span style="font-size:0.82rem;font-weight:600;">登録済みの漢字（' + chars.length + '字）</span>' +
-                    '<button onclick="kjSortEnter()" style="padding:6px 12px;border-radius:8px;border:1.5px solid #2E7D32;background:#fff;color:#2E7D32;cursor:pointer;font-size:0.8rem;">並べ替え</button>';
+                    '<button onclick="kjSortEnter()" style="padding:6px 12px;border-radius:8px;border:1.5px solid #2E7D32;background:var(--white);color:#2E7D32;cursor:pointer;font-size:0.8rem;">並べ替え</button>';
                 bodyEl.innerHTML = '<div style="font-size:0.9rem;color:#333;line-height:1.8;word-break:break-all;">' + escapeHtml(chars.join(' ')) + '</div>';
                 if (saveRowEl) saveRowEl.style.display = 'none';
                 kjSortSetAddUiDisabled(false);
@@ -18086,7 +18086,7 @@
 
             headerEl.innerHTML =
                 '<span style="font-size:0.82rem;font-weight:600;">登録済みの漢字（' + chars.length + '字）</span>' +
-                '<button onclick="kjSortExit()" style="padding:6px 12px;border-radius:8px;border:1.5px solid #999;background:#fff;color:#555;cursor:pointer;font-size:0.8rem;">キャンセル</button>';
+                '<button onclick="kjSortExit()" style="padding:6px 12px;border-radius:8px;border:1.5px solid #999;background:var(--white);color:#555;cursor:pointer;font-size:0.8rem;">キャンセル</button>';
 
             var rowsHtml = '';
             kjSortDraft.forEach(function(d, i) {
@@ -18095,8 +18095,8 @@
                 rowsHtml += '<div class="kj-sort-row" id="kjSortRow' + i + '" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #eee;">'
                     + '<span style="width:2.4em;color:#888;font-size:0.8rem;">[ ' + (i + 1) + ' ]</span>'
                     + '<span style="flex:1;font-size:1.05rem;">' + escapeHtml(d.char) + '</span>'
-                    + '<button onclick="kjSortMove(' + i + ',-1)" ' + (isFirst ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">↑</button>'
-                    + '<button onclick="kjSortMove(' + i + ',1)" ' + (isLast ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">↓</button>'
+                    + '<button onclick="kjSortMove(' + i + ',-1)" ' + (isFirst ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:var(--white);cursor:pointer;">↑</button>'
+                    + '<button onclick="kjSortMove(' + i + ',1)" ' + (isLast ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:var(--white);cursor:pointer;">↓</button>'
                     + '</div>';
             });
             bodyEl.innerHTML = '<div id="kjSortRows">' + rowsHtml + '</div>';
@@ -19631,7 +19631,7 @@
                     : '<span class="audit-status-warn">○引退</span>';
                 var actionCell = '';
                 if (!STORAGE_ACTIVE_GROUPS[g] && info.count > 0) {
-                    actionCell = '<button style="background:var(--danger);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:0.85em;cursor:pointer;" onclick="auditDeleteStorageGroup(\'' + g + '\')">🗑 一括削除</button>';
+                    actionCell = '<button style="background:var(--danger);color:var(--white);border:none;border-radius:6px;padding:6px 10px;font-size:0.85em;cursor:pointer;" onclick="auditDeleteStorageGroup(\'' + g + '\')">🗑 一括削除</button>';
                 }
                 html += '<tr><td>' + escapeHtml(STORAGE_GROUP_LABELS[g]) + '</td><td>' + info.count + '件</td><td>' + info.kb.toFixed(1) + ' KB</td><td>' + statusLabel + '</td><td>' + actionCell + '</td></tr>';
             });
@@ -19650,7 +19650,7 @@
                 html += '<td>' + escapeHtml(STORAGE_GROUP_LABELS[it.group]) + '</td>';
                 html += '<td>' + it.kb.toFixed(2) + '</td>';
                 html += '<td>' + it.percent.toFixed(1) + '%</td>';
-                html += '<td><button style="background:var(--danger);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:0.8em;cursor:pointer;" onclick="auditDeleteStorageKey(\'' + _jsEscapeKey(it.key) + '\')">🗑</button></td>';
+                html += '<td><button style="background:var(--danger);color:var(--white);border:none;border-radius:6px;padding:4px 8px;font-size:0.8em;cursor:pointer;" onclick="auditDeleteStorageKey(\'' + _jsEscapeKey(it.key) + '\')">🗑</button></td>';
                 html += '</tr>';
             });
             html += '</table></div></details>';
@@ -20070,10 +20070,10 @@
             var stat = r ? r.status : 'missing';
             var isAbs = r ? !!r.absent : false;
             var label, color;
-            if (stat === 'submitted') { st.ok++; label = '提出済'; color = '#27AE60'; }
+            if (stat === 'submitted') { st.ok++; label = '提出済'; color = 'var(--success)'; }
             else if (stat === 'resubmit') { st.re++; label = '再提出'; color = '#B7950B'; }
             else if (isAbs) { st.missAbs++; label = '🏠欠席未提出'; color = '#757575'; }
-            else { st.miss++; label = '★未提出'; color = '#E74C3C'; }
+            else { st.miss++; label = '★未提出'; color = 'var(--danger)'; }
             st.rows.push({ subject: a.subject || '', name: a.name || '', label: label, color: color });
         });
         if (st.total > 0) st.rate = Math.round((st.ok + st.re) / st.total * 100) + '%';
@@ -20093,7 +20093,7 @@
             + (headerHtml || '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📚 提出状況</div>')
             + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
             + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">課題数</div><div style="font-size:18pt;font-weight:900;color:#1a1a2e;">' + stats.total + '<span style="font-size:9pt;">件</span></div></div>'
-            + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出済</div><div style="font-size:18pt;font-weight:900;color:#27AE60;">' + stats.ok + '<span style="font-size:9pt;">件</span></div></div>'
+            + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出済</div><div style="font-size:18pt;font-weight:900;color:var(--success);">' + stats.ok + '<span style="font-size:9pt;">件</span></div></div>'
             + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">再提出</div><div style="font-size:18pt;font-weight:900;color:#B7950B;">' + stats.re + '<span style="font-size:9pt;">件</span></div></div>'
             + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">提出率</div><div style="font-size:18pt;font-weight:900;color:#3498DB;">' + stats.rate + '</div></div>'
             + '</div>'
@@ -20213,8 +20213,8 @@
                     monRows += '<tr>'
                         + '<td style="padding:3px 6px;font-size:8pt;color:#555;border-bottom:1px solid #eee;">' + label + '</td>'
                         + '<td style="padding:3px 6px;font-size:8pt;text-align:right;border-bottom:1px solid #eee;">' + m.present + '日</td>'
-                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;color:#E74C3C;border-bottom:1px solid #eee;">' + m.absent + '日</td>'
-                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;color:#E67E22;border-bottom:1px solid #eee;">' + m.late + '回</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;color:var(--danger);border-bottom:1px solid #eee;">' + m.absent + '日</td>'
+                        + '<td style="padding:3px 6px;font-size:8pt;text-align:right;color:var(--accent);border-bottom:1px solid #eee;">' + m.late + '回</td>'
                         + '</tr>';
                 });
                 if (!monRows) monRows = '<tr><td colspan="4" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">記録なし</td></tr>';
@@ -20233,8 +20233,8 @@
                 pdfNoticeRecs.forEach(function(r) {
                     var lbl = pdfNoticeLabels[r.status] || r.status;
                     var nc  = r.hasNotice
-                        ? '<span style="color:#27AE60;font-weight:700;">届出済</span>'
-                        : '<span style="color:#E74C3C;font-weight:700;">★未提出</span>';
+                        ? '<span style="color:var(--success);font-weight:700;">届出済</span>'
+                        : '<span style="color:var(--danger);font-weight:700;">★未提出</span>';
                     pdfNoticeRows += '<tr>'
                         + '<td style="padding:3px 6px;font-size:8pt;color:#555;border-bottom:1px solid #eee;">' + r.date + '</td>'
                         + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + lbl + '</td>'
@@ -20245,10 +20245,10 @@
                 pageHtml += '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;">'
                     + '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📅 出欠席状況</div>'
                     + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">出席</div><div style="font-size:18pt;font-weight:900;color:#27AE60;">' + present + '<span style="font-size:9pt;">日</span></div></div>'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">欠席</div><div style="font-size:18pt;font-weight:900;color:#E74C3C;">' + absent + '<span style="font-size:9pt;">日</span></div></div>'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">遅刻</div><div style="font-size:18pt;font-weight:900;color:#E67E22;">' + late + '<span style="font-size:9pt;">回</span></div></div>'
-                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">早退</div><div style="font-size:18pt;font-weight:900;color:#E67E22;">' + early + '<span style="font-size:9pt;">回</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">出席</div><div style="font-size:18pt;font-weight:900;color:var(--success);">' + present + '<span style="font-size:9pt;">日</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">欠席</div><div style="font-size:18pt;font-weight:900;color:var(--danger);">' + absent + '<span style="font-size:9pt;">日</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">遅刻</div><div style="font-size:18pt;font-weight:900;color:var(--accent);">' + late + '<span style="font-size:9pt;">回</span></div></div>'
+                    + '<div style="flex:1;text-align:center;"><div style="font-size:7pt;color:#555;">早退</div><div style="font-size:18pt;font-weight:900;color:var(--accent);">' + early + '<span style="font-size:9pt;">回</span></div></div>'
                     + '</div>'
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">月別内訳</div>'
                     + '<table style="width:100%;border-collapse:collapse;margin-bottom:10pt;">'
@@ -20256,7 +20256,7 @@
                     + monRows
                     + '</table>'
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📋 届出一覧'
-                    + (pdfNoticeMissing > 0 ? '　<span style="color:#E74C3C;">（★未提出 ' + pdfNoticeMissing + '件）</span>' : '') + '</div>'
+                    + (pdfNoticeMissing > 0 ? '　<span style="color:var(--danger);">（★未提出 ' + pdfNoticeMissing + '件）</span>' : '') + '</div>'
                     + '<table style="width:100%;border-collapse:collapse;">'
                     + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">日付</th><th style="padding:3px 6px;font-size:7pt;text-align:left;">状況</th><th style="padding:3px 6px;font-size:7pt;text-align:center;">届出</th></tr>'
                     + pdfNoticeRows
@@ -20272,19 +20272,19 @@
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📅 出席状況</div>'
                     + '<table style="width:100%;border-collapse:collapse;">'
                     + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">出席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + present + '日</td></tr>'
-                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">欠席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E74C3C;">' + absent + '日</td></tr>'
-                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">遅刻</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#E67E22;">' + late + '回</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">欠席</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:var(--danger);">' + absent + '日</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">遅刻</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:var(--accent);">' + late + '回</td></tr>'
                     + '</table></div>'
                     + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📚 提出物</div>'
                     + '<table style="width:100%;border-collapse:collapse;">'
                     + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">課題数</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + assigns.length + '件</td></tr>'
-                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出済</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:#27AE60;">' + subDone + '件</td></tr>'
+                    + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出済</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;color:var(--success);">' + subDone + '件</td></tr>'
                     + '<tr><td style="font-size:8pt;color:#555;padding:1pt 3pt;">提出率</td><td style="font-size:11pt;font-weight:700;text-align:right;padding:1pt 3pt;">' + subRate + '</td></tr>'
                     + '</table></div>'
                     + '<div style="flex:1;border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">🎒 忘れ物</div>'
-                    + '<div style="font-size:20pt;font-weight:900;color:' + (fgtCount > 0 ? '#E74C3C' : '#27AE60') + ';text-align:center;padding:6pt 0;">' + fgtCount + '件</div>'
+                    + '<div style="font-size:20pt;font-weight:900;color:' + (fgtCount > 0 ? 'var(--danger)' : 'var(--success)') + ';text-align:center;padding:6pt 0;">' + fgtCount + '件</div>'
                     + '</div></div>'
                     + '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:8pt;margin-bottom:10pt;">'
                     + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">📝 生活記録（直近5件）</div>'
@@ -20338,7 +20338,7 @@
                     bg = '#FFF8E1'; color = '#F57F17'; mark = '△';
                     retryCount++;
                 } else {
-                    bg = '#fff'; color = '#1a1a2e'; mark = '';
+                    bg = 'var(--white)'; color = '#1a1a2e'; mark = '';
                 }
                 cellsHtml += '<div style="width:36px;text-align:center;border:1px solid #ddd;'
                     + 'background:' + bg + ';padding:2px 0;border-radius:3px;">'
@@ -20347,7 +20347,7 @@
                     + '</div>';
             });
             var remaining = chars.length - doneCount;
-            var summaryColor = remaining === 0 ? '#27AE60' : '#555';
+            var summaryColor = remaining === 0 ? 'var(--success)' : '#555';
             var summaryText = '完了 ' + doneCount + '/' + chars.length + '字　のこり ' + remaining + '字'
                 + (retryCount > 0 ? '　△' + retryCount + '字' : '');
             var gridHtml = '<div style="border:1.5px solid #ddd;border-radius:6px;padding:8px;margin-bottom:8px;">'

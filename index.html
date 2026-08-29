@@ -665,12 +665,13 @@
         .rec-input-header h3 { color: var(--primary); margin: 0; font-size: 0.95rem; }
         .rec-test-selector {
             padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+            display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
         }
         .rec-test-selector select {
             padding: 6px 10px; border: 2px solid var(--primary); border-radius: 8px;
             font-family: inherit; font-size: 0.85rem; font-weight: 500;
             background: var(--secondary); color: var(--primary);
-            min-width: 160px; min-height: 44px; width: 100%;
+            min-width: 160px; min-height: 44px; flex: 1;
         }
         .rec-input-info { padding: 20px; text-align: center; color: var(--text-light); font-size: 0.85rem; }
         .rec-filter-bar {
@@ -705,6 +706,24 @@
         @media (orientation: landscape) and (min-width: 1000px) {
             .rec-list { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
         }
+        /* v1.28.0: 表示モード(連続入力/座席)。グリッド自体は提出物チェックの
+           .sub-cont-grid/.sub-cont-cell/.sub-seat-grid/.sub-seat-cellをそのまま流用し、
+           点数入力側の状態色(入力済み/欠席)だけ追加する。 */
+        #recContWrap, #recSeatWrap { flex: 1; min-height: 0; overflow-y: auto; }
+        .rec-cont-cell.st-filled { background: var(--st-ok-bg); border-color: var(--st-ok-bd); }
+        .rec-cont-cell.st-filled .sub-cont-mark { color: var(--st-ok-fg); }
+        .rec-cont-cell.st-absent { background: #F0F0F0; border-color: #9E9E9E; }
+        .rec-cont-cell.st-absent .sub-cont-mark { color: #616161; }
+        .sub-cont-grid .rec-cont-cell.editing { grid-column: span 2; z-index: 2; cursor: default; }
+        .rec-cont-inline-input {
+            width: 100%; text-align: center; font-size: 1rem; font-weight: 700;
+            padding: 4px 2px; border: 2px solid var(--primary); border-radius: 6px;
+            font-family: inherit; min-height: 32px;
+        }
+        .rec-cont-cell.editing .rec-abc-btns { width: 100%; }
+        .rec-seat-cell.filled { background: #E8F5E9; border-color: #27AE60; }
+        .rec-seat-cell.absent-cell { background: #F0F0F0; border-color: #9E9E9E; }
+        .rec-row-highlight { outline: 3px solid var(--primary); outline-offset: 1px; }
         .rec-row {
             display: flex; flex-direction: column; align-items: center;
             padding: 3px; border: 1px solid var(--border); border-radius: 8px;
@@ -2692,6 +2711,9 @@
                             <select id="recInputTestSelect" onchange="recOnInputTestChange()">
                                 <option value="">課題を選択</option>
                             </select>
+                            <button class="btn-rec-small" id="recViewContBtn" onclick="recSetViewMode('continuous')" style="white-space:nowrap;">⚡ 連続入力</button>
+                            <button class="btn-rec-small active" id="recViewListBtn" onclick="recSetViewMode('list')" style="white-space:nowrap;">☰ リスト</button>
+                            <button class="btn-rec-small" id="recViewSeatBtn" onclick="recSetViewMode('seat')" style="white-space:nowrap;">⊞ 座席</button>
                         </div>
                         <!-- ルーブリック参照パネル -->
                         <div id="recRubricPanel" class="rubric-panel" style="display:none;">
@@ -2727,6 +2749,17 @@
                                  参照。全児童が確定済みのときはdisplay:noneのまま)。 -->
                             <div id="recPeRubricPendingBanner" style="display:none;background:#FFF3E0;color:#E65100;border:1.5px solid #FFCC80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;"></div>
                             <div class="rec-list" id="recList"></div>
+                            <!-- v1.28.0: 連続入力モード。recListは常に裏で描画し続け、保存の実体はそちらに委ねる -->
+                            <div id="recContWrap" class="sub-cont-layout" style="display:none;">
+                                <div class="sub-cont-grid" id="recContGrid"></div>
+                                <div class="sub-cont-side">
+                                    <div class="sub-cont-progress" id="recContProgress">0 / 0</div>
+                                </div>
+                            </div>
+                            <!-- v1.28.0: 座席モード(座席表機能のgetSeating()と連携。確認用表示のみ、セルタップでの入力なし) -->
+                            <div id="recSeatWrap" style="display:none;">
+                                <div class="sub-seat-grid" id="recSeatGrid"></div>
+                            </div>
                             <div class="rec-save-bar">
                                 <button class="btn-rec-primary" onclick="recSaveAllScores()">💾 まとめて保存</button>
                             </div>
@@ -7192,6 +7225,275 @@
             recUpdateRubricPanel(test);
             recRenderList(test);
             recUpdateProgress(test);
+            recApplyViewMode(test);
+        }
+
+        // ============================================================
+        // v1.28.0: 表示モード(連続入力/リスト/座席)
+        // リストモード(recList)は常に裏で描画し続け(内部ロジックは一切変更しない)、
+        // 保存の実体(recOnScoreBlur/recSelectABC/recToggleAbsent)もすべてそちらに委譲する。
+        // 連続入力・座席モードは、この裏のリストが持つデータ(recGetScores())を読んで
+        // 別の見た目で表示するだけの派生ビューであり、独自の保存ロジックは持たない。
+        // ============================================================
+        var recViewMode = 'list'; // 'list' | 'seat' | 'continuous'（既定は従来通りlist）
+
+        window.recSetViewMode = function(mode) {
+            recViewMode = mode;
+            var contBtn = document.getElementById('recViewContBtn');
+            var listBtn = document.getElementById('recViewListBtn');
+            var seatBtn = document.getElementById('recViewSeatBtn');
+            [contBtn, listBtn, seatBtn].forEach(function(b) { if (b) b.classList.remove('active'); });
+            var activeBtn = mode === 'continuous' ? contBtn : mode === 'seat' ? seatBtn : listBtn;
+            if (activeBtn) activeBtn.classList.add('active');
+            var test = recCurrentTestId ? recGetTests().find(function(t) { return t.id === recCurrentTestId; }) : null;
+            recApplyViewMode(test);
+        };
+
+        function recApplyViewMode(test) {
+            var listEl = document.getElementById('recList');
+            var contEl = document.getElementById('recContWrap');
+            var seatEl = document.getElementById('recSeatWrap');
+            if (listEl) listEl.style.display = (recViewMode === 'list') ? '' : 'none';
+            if (contEl) contEl.style.display = (recViewMode === 'continuous') ? '' : 'none';
+            if (seatEl) seatEl.style.display = (recViewMode === 'seat') ? '' : 'none';
+            if (!test) return;
+            if (recViewMode === 'continuous') recRenderContinuous(test);
+            else if (recViewMode === 'seat') recRenderSeatView(test);
+        }
+
+        // 連続入力での挙動を決める種別分類。isABCTest/kenteiGetPresetId/peRubricGetPresetIdは
+        // recRenderListが使うのと同じ判定関数をそのまま呼ぶだけで、新しい判定基準は作らない。
+        //   'choice'  : ABC・5段階評価(recRenderListのisABC行と同じ対象)
+        //   'numeric' : 通常の数値入力・実技記録の素点入力(recRenderListの_recIsRegular行と同じ対象)
+        //   'complex' : まとめテスト・実技ルーブリック・なわとび/泳力等の検定型
+        function recTestKind(test) {
+            if (!test) return 'numeric';
+            if (test.type === 'matome') return 'complex';
+            var isPE = test.testType === '実技記録';
+            if (isPE && (kenteiGetPresetId(test.peUnit) !== null || peRubricGetPresetId(test.peUnit) !== null)) return 'complex';
+            if (isABCTest(test.category, test.testType)) return 'choice';
+            return 'numeric';
+        }
+
+        // 座席モード・連続入力モードの「入力済み表示」で使う値の要約。
+        // 各種別の計算はrecRenderList内のカード生成と同じ関数(kenteiCalcStage/
+        // kenteiStageToLabel/peRubricCalcScore10/recCalcMatomeTotal)をそのまま呼ぶだけで、
+        // 新しい計算ロジックは持たない。
+        function recValueSummary(test, idx) {
+            var scores = recGetScores();
+            var sc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
+            if (sc && sc.absent) return { text: '欠', filled: true, absent: true };
+            var kind = recTestKind(test);
+            if (kind === 'complex') {
+                if (test.type === 'matome') {
+                    var total = recCalcMatomeTotal(test, scores, idx);
+                    var max = recMatomeMaxTotal(test);
+                    return { text: total !== null ? (total + '/' + max) : '—', filled: total !== null };
+                }
+                var isNawatobi = kenteiGetPresetId(test.peUnit) !== null;
+                if (isNawatobi) {
+                    var nwConfig = kenteiGetConfig(test);
+                    if (!nwConfig) return { text: '—', filled: false };
+                    var passData = (sc && (sc.passData || sc.nawatobiData)) || {};
+                    var stage = kenteiCalcStage(nwConfig, passData);
+                    return { text: stage > 0 ? kenteiStageToLabel(nwConfig, stage) : '—', filled: stage > 0 };
+                }
+                var prConfig = peRubricGetConfig(test);
+                if (!prConfig) return { text: '—', filled: false };
+                var rubricData = (sc && sc.rubricData) || { items: {}, bonus: {} };
+                var result = peRubricCalcScore10(prConfig, rubricData);
+                if (result.total === null) return { text: '—', filled: false };
+                return { text: result.total + '点' + (result.complete ? '' : '(途中)'), filled: true };
+            }
+            if (kind === 'choice') {
+                return { text: (sc && sc.score) ? sc.score : '—', filled: !!(sc && sc.score) };
+            }
+            var hasNum = sc && sc.score !== undefined && sc.score !== null && sc.score !== '';
+            return { text: hasNum ? String(sc.score) : '—', filled: !!hasNum };
+        }
+
+        // v1.28.0: 座席モード。提出物チェックのsubRenderSeatView(getSeating()の座席配置を
+        // そのまま使うグリッド)を土台にし、状態マーク(○/△/×)の代わりに
+        // recValueSummaryの値要約を表示する。確認用の表示のみで、セルタップでの入力はしない
+        // (提出物チェックの座席モードと同じ方針)。
+        function recRenderSeatView(test) {
+            var grid = document.getElementById('recSeatGrid');
+            if (!grid) return;
+            var seatingData = getSeating();
+            var students = recGetStudents();
+            var rows = 0, cols = 0;
+            Object.keys(seatingData).forEach(function(k) {
+                var parts = k.split('-');
+                rows = Math.max(rows, parseInt(parts[0]) + 1);
+                cols = Math.max(cols, parseInt(parts[1]) + 1);
+            });
+            if (!rows) rows = 5; if (!cols) cols = 6;
+            grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+            var html = '';
+            for (var r = 0; r < rows; r++) {
+                for (var c = 0; c < cols; c++) {
+                    var key = r + '-' + c;
+                    var stuIdx = seatingData[key];
+                    if (stuIdx !== undefined && stuIdx !== null && students[stuIdx]) {
+                        var stu = students[stuIdx];
+                        var v = recValueSummary(test, stuIdx);
+                        var cellCls = v.absent ? 'absent-cell' : (v.filled ? 'filled' : '');
+                        html += '<div class="sub-seat-cell rec-seat-cell ' + cellCls + '">'
+                            + '<div class="sub-seat-num">' + (stuIdx + 1) + '</div>'
+                            + '<div class="sub-seat-name">' + escapeHtml(stu.name) + '</div>'
+                            + (v.text ? '<div class="sub-seat-status">' + escapeHtml(v.text) + '</div>' : '')
+                            + '</div>';
+                    } else {
+                        html += '<div class="sub-seat-cell empty"></div>';
+                    }
+                }
+            }
+            grid.innerHTML = html;
+        }
+
+        // v1.28.0: 連続入力モード。種別によりセルの挙動を変える(詳細はrecContCellTap参照)。
+        // 実際の保存はrecOnScoreBlur/recSelectABC等、リストモードと同じ関数にすべて委譲する。
+        function recRenderContinuous(test) {
+            var grid = document.getElementById('recContGrid');
+            var progLabel = document.getElementById('recContProgress');
+            if (!grid || !test) return;
+            var students = recGetStudents();
+            if (!students.length) {
+                grid.innerHTML = emptyState('名簿がまだ登録されていません。');
+                if (progLabel) progLabel.textContent = '0 / 0';
+                return;
+            }
+            var kind = recTestKind(test);
+            var html = '';
+            var filled = 0;
+            for (var i = 0; i < students.length; i++) {
+                var v = recValueSummary(test, i);
+                if (v.filled) filled++;
+                html += recContCellHtml(students[i], i, kind, v);
+            }
+            grid.innerHTML = html;
+            grid.querySelectorAll('.rec-cont-cell').forEach(function(cell) {
+                cell.addEventListener('click', function() { recContCellTap(parseInt(cell.dataset.cidx)); });
+            });
+            if (progLabel) progLabel.textContent = filled + ' / ' + students.length;
+        }
+
+        function recContCellHtml(stu, idx, kind, v) {
+            var dispName = stu.name.length > 5 ? stu.name.substring(0, 5) : stu.name;
+            var cellCls = v.absent ? 'st-absent' : (v.filled ? 'st-filled' : '');
+            var mark = v.absent ? '欠' : (kind === 'complex' ? (v.filled ? '済' : '') : (v.filled ? v.text : ''));
+            return '<div class="sub-cont-cell rec-cont-cell ' + cellCls + '" data-cidx="' + idx + '">'
+                + '<div class="sub-cont-num">' + (idx + 1) + '</div>'
+                + '<div class="sub-cont-name">' + escapeHtml(dispName) + '</div>'
+                + '<div class="sub-cont-mark">' + escapeHtml(mark) + '</div>'
+                + '</div>';
+        }
+
+        // 空セルタップ時の挙動はテスト種別で変える(要件C):
+        //   choice(ABC・5段階) : 未入力→既定値'B'を即時確定／入力済み→簡易選択ポップアップ
+        //   numeric(数値)      : タップでセル内にインライン数値入力を展開(別モーダルは開かない)
+        //   complex(まとめ/PE) : 状態のみ表示し、タップでリストモードの該当行へジャンプ
+        function recContCellTap(idx) {
+            if (!recCurrentTestId) { showToast('課題を選択してください', 'warning'); return; }
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!test) return;
+            var cellEl = document.querySelector('#recContGrid .rec-cont-cell[data-cidx="' + idx + '"]');
+            if (cellEl && cellEl.classList.contains('editing')) return; // インライン編集中の再クリックは無視
+            var v = recValueSummary(test, idx);
+            if (v.absent) { showToast('欠席のため入力できません(リストモードで解除してください)', 'info'); return; }
+            var kind = recTestKind(test);
+            if (kind === 'complex') {
+                recSetViewMode('list');
+                recScrollToRow(idx);
+                return;
+            }
+            if (kind === 'choice') {
+                if (!v.filled) {
+                    window.recSelectABC(idx, 'B');
+                    recRenderContinuous(test);
+                } else {
+                    recContExpandChoiceCell(idx, test);
+                }
+                return;
+            }
+            recContExpandNumericCell(idx, test);
+        }
+
+        function recContExpandNumericCell(idx, test) {
+            var cellEl = document.querySelector('#recContGrid .rec-cont-cell[data-cidx="' + idx + '"]');
+            if (!cellEl) return;
+            var scores = recGetScores();
+            var sc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
+            var curVal = (sc && sc.score !== undefined && sc.score !== null) ? sc.score : '';
+            var stu = recGetStudents()[idx];
+            var isPE = test.testType === '実技記録';
+            cellEl.classList.add('editing');
+            cellEl.innerHTML = '<div class="sub-cont-name">' + escapeHtml((stu && stu.name) || '') + '</div>'
+                + '<input type="number" class="rec-cont-inline-input" id="rec-cont-inp-' + idx + '" value="' + escapeHtml(String(curVal)) + '"'
+                + ' min="0" max="' + test.maxScore + '" step="' + (isPE ? '0.01' : '1') + '" inputmode="' + (isPE ? 'decimal' : 'numeric') + '" placeholder="—">';
+            var inputEl = cellEl.querySelector('input');
+            if (inputEl) {
+                inputEl.addEventListener('blur', function() { recContCommitNumeric(idx); });
+                inputEl.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); inputEl.blur(); }
+                    else if (e.key === 'Escape') { var t2 = recGetTests().find(function(t) { return t.id === recCurrentTestId; }); if (t2) recRenderContinuous(t2); }
+                });
+                inputEl.focus();
+                inputEl.select();
+            }
+        }
+
+        // 既存の数値入力欄(#rec-sc-{idx}、リストモード)の値として反映してから
+        // recOnScoreInput/recOnScoreBlurを呼ぶことで、範囲チェック(recScoreOutOfRange)と
+        // 保存処理を一切複製せずリストモードと共有する。
+        function recContCommitNumeric(idx) {
+            var inline = document.getElementById('rec-cont-inp-' + idx);
+            var listInput = document.getElementById('rec-sc-' + idx);
+            var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+            if (!inline || !listInput || !test) return;
+            listInput.value = inline.value;
+            window.recOnScoreInput(idx);
+            var v = parseFloat(inline.value);
+            var rejected = inline.value !== '' && !isNaN(v) && recScoreOutOfRange(test, v);
+            if (rejected) showToast('0〜' + test.maxScore + 'の範囲で入力してください', 'warning');
+            window.recOnScoreBlur(idx);
+            if (rejected) { inline.focus(); inline.select(); return; } // 修正できるよう展開状態を保つ
+            recRenderContinuous(test);
+        }
+
+        function recContExpandChoiceCell(idx, test) {
+            var cellEl = document.querySelector('#recContGrid .rec-cont-cell[data-cidx="' + idx + '"]');
+            if (!cellEl) return;
+            var scores = recGetScores();
+            var sc = scores.find(function(s) { return Number(s.studentIndex) === idx && s.testId === test.id; });
+            var cur = sc ? sc.score : '';
+            var stu = recGetStudents()[idx];
+            cellEl.classList.add('editing');
+            cellEl.innerHTML = '<div class="sub-cont-name">' + escapeHtml((stu && stu.name) || '') + '</div>'
+                + '<div class="rec-abc-btns">' + ['A', 'B+', 'B', 'B-', 'C'].map(function(val) {
+                    var cls = val === 'B+' ? 'bplus' : val === 'B-' ? 'bminus' : val.toLowerCase();
+                    var sel = cur === val ? ' sel-' + cls : '';
+                    return '<button type="button" class="rec-abc-btn' + sel + '" data-v="' + val + '">' + val + '</button>';
+                }).join('') + '</div>';
+            cellEl.querySelectorAll('.rec-abc-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    window.recSelectABC(idx, btn.dataset.v);
+                    var t2 = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
+                    if (t2) recRenderContinuous(t2);
+                });
+            });
+        }
+
+        // complex種別のセルタップ時、リストモードへ切り替えた上で該当児童の行までスクロールし
+        // 一時的にハイライトする(recSetViewMode直後はDOM未描画のため次フレームまで待つ)。
+        function recScrollToRow(idx) {
+            setTimeout(function() {
+                var row = document.getElementById('rec-row-' + idx);
+                if (!row) return;
+                row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                row.classList.add('rec-row-highlight');
+                setTimeout(function() { row.classList.remove('rec-row-highlight'); }, 1500);
+            }, 50);
         }
 
         // v1.27.0: 観点・記録種別のタブは横に見切れて使いにくかったため廃止。

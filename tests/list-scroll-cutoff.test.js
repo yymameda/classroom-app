@@ -235,7 +235,7 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
                 listSel: '#recList',
                 rowSel: '.rec-row',
                 fixedSels: ['.rec-subnav', '#recFilterBar', '.rec-test-selector', '#recRubricPanel', '.rec-progress'],
-                saveBtnSel: '.rec-save-bar'
+                saveBtnSel: '.rec-save-inline-btn'
             });
 
             // (B) 提出物チェック: リスト表示

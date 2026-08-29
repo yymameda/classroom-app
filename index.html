@@ -817,10 +817,20 @@
             .rec-row.sc-row .rec-row-score-area input[type="number"] { height: 44px; max-width: 72px; }
             .rec-sc-pct, .rec-sc-pct-on-dark { font-size: 0.62rem; }
         }
-        .rec-save-bar {
-            margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); flex-shrink: 0;
+        /* v1.39.0: 「まとめて保存」を.rec-progress帯の右端に統合し、縦1行分を
+           リストのスクロール領域に回す(旧.rec-save-barは廃止)。縦向きは横幅が
+           タイトなため小さめ、横向き(landscape 1000px+)は従来の見た目に近い
+           大きさにする。押しにくければ.rec-progress側から外して単独行に戻せるよう
+           .rec-save-inline-btn単体で完結させている。 */
+        .rec-save-inline-btn {
+            background: var(--primary); color: var(--white); border: none; border-radius: 8px;
+            font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap;
+            min-height: var(--tap-min); padding: 6px 10px; font-size: 0.75rem; flex-shrink: 0;
         }
-        .rec-save-bar .btn-rec-primary { max-width: 280px; margin: 0 auto; display: block; }
+        .rec-save-inline-btn:active { transform: scale(0.98); }
+        @media (orientation: landscape) and (min-width: 1000px) {
+            .rec-save-inline-btn { padding: 8px 24px; font-size: 0.9rem; }
+        }
 
         /* 課題管理 */
         .rec-test-mgmt { background: var(--white); padding: 12px; overflow-y: auto; flex: 1; min-height: 0; }
@@ -1038,7 +1048,6 @@
                 width: 100%;
             }
             .rec-bulk-wrap.nw-active .rec-progress { display: none; }
-            .rec-bulk-wrap.nw-active .rec-save-bar { display: none; }
         }
         /* 縦向き4列 */
         @media (orientation: portrait) {
@@ -2759,6 +2768,7 @@
                                     <button onclick="recGoToTestMgmt()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">授業課題の管理へ</button>
                                     <button id="recEditThisTestBtn" onclick="recEditCurrentTest()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">✏️ この課題を編集</button>
                                     <button onclick="recClearAllScores()" style="padding:4px 8px;background:transparent;border:1.5px solid var(--text-light);border-radius:6px;color:var(--text-light);font-size:0.73rem;cursor:pointer;font-family:inherit;min-height:44px;">全クリア</button>
+                                    <button class="rec-save-inline-btn" onclick="recSaveAllScores()">💾 まとめて保存</button>
                                 </div>
                             </div>
                             <div id="recPeNoConvertBanner" style="display:none;background:#FFF3E0;color:#E65100;border:1.5px solid #FFCC80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.8rem;">⚠️ この単位（秒・回・m・cm）は現在10点換算に未対応です。記録は保存されますが、成績には反映されません。</div>
@@ -2785,9 +2795,6 @@
                             <!-- v1.28.0: 座席モード(座席表機能のgetSeating()と連携。確認用表示のみ、セルタップでの入力なし) -->
                             <div id="recSeatWrap" style="display:none;">
                                 <div class="sub-seat-grid" id="recSeatGrid"></div>
-                            </div>
-                            <div class="rec-save-bar">
-                                <button class="btn-rec-primary" onclick="recSaveAllScores()">💾 まとめて保存</button>
                             </div>
                         </div>
                     </div>

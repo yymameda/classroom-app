@@ -3139,12 +3139,15 @@
         <div id="view-submissions" class="view">
             <div class="view-header"><h2>📚 提出物チェック</h2><div class="hdr-actions"><button class="hdr-btn" onclick="printAllKarte('submissions')">📄 一括PDF出力</button></div></div>
             <!-- サブナビ -->
+            <!-- v1.43.0: 「提出課題の管理」を入力タブ群の直後(3番目)へ移動。児童の記録側
+                 (点数入力→授業課題の管理→統計→…)とタブの並びの考え方を揃えるため。
+                 ボタンのDOM順序のみ変更、IDやsubShowSub等の切替ロジックは不変。 -->
             <div class="sub-subnav">
                 <button class="sub-subnav-btn active" data-sub="input">📝 入力</button>
                 <button class="sub-subnav-btn" data-sub="person">👤 入力（個人）</button>
+                <button class="sub-subnav-btn" data-sub="assign">📋 提出課題の管理</button>
                 <button class="sub-subnav-btn" data-sub="stats">📊 提出課題の統計</button>
                 <button class="sub-subnav-btn" data-sub="diary">📔 修養日誌</button>
-                <button class="sub-subnav-btn" data-sub="assign">📋 提出課題の管理</button>
                 <select id="subTermSel" title="対象学期（入力（個人）・統計・課題管理タブに適用）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);background:var(--white);">
                     <option value="1">1学期</option>
                     <option value="2">2学期</option>

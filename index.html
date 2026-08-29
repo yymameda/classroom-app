@@ -1809,9 +1809,14 @@
         .sub-diary-total-row { font-size: 0.52rem; color: var(--text-light); white-space: nowrap; }
         .sub-diary-shortage { font-size: 0.52rem; font-weight: 700; white-space: nowrap; }
         .sub-diary-shortage.ok { color: var(--success); } .sub-diary-shortage.ng { color: var(--danger); }
-        /* 提出物チェック：上部余白削減（修養日誌 1画面表示のため） */
-        #view-submissions .view-header { padding: 6px 16px; }
         #view-submissions .sub-subnav { padding: 3px 8px; }
+        /* v1.45.0: .view-header/.sub-subnavは両方position:sticky;top:0のため、
+           入力（個人）/統計/修養日誌/課題管理タブ（outer .viewをスクロールする
+           フォールバック方式）でスクロールすると同じ位置で重なり合い、
+           下の要素がヘッダーの死角に隠れてタップ不能になる。「入力」タブは
+           #sub-sub-inputが内部スクロールのためouter側は元々スクロールせず
+           stickyは無関係なので、外しても影響なし。 */
+        #view-submissions .view-header, #view-submissions .sub-subnav { position: static; }
         /* v1.38.0: #view-submissionsをflex列にし、ヘッダー・サブナビは固定、
            「入力」タブ(#sub-sub-input)だけ内部でリストをスクロールさせる。
            他4サブタブ(入力(個人)/統計/修養日誌/課題管理)は.sub-sub.active(display:block)の
@@ -1823,7 +1828,6 @@
         #sub-sub-input > .sub-input-top { flex-shrink: 0; }
         #subFilterBar { flex-shrink: 0; }
         #subProgressWrap { flex-shrink: 0; }
-        #view-grades .view-header { padding: 6px 16px; }
         #view-grades .sub-subnav { padding: 3px 8px; }
         #sub-sub-diary .sub-input-top { padding: 3px 8px; gap: 4px; }
         #sub-sub-diary .sub-input-top input[type=date] { min-height: var(--tap-min); padding: 2px 6px; }
@@ -3512,14 +3516,14 @@
 
         <!-- ===== 漢字チェック ===== -->
         <div id="view-kanji" class="view">
-            <div class="view-header" id="kanjiListHeader" style="padding:0 12px;align-items:center;gap:8px;height:50px;flex-shrink:0;">
-                <h2 style="font-size:1rem;color:var(--white);margin:0;">✍️ 漢字チェック</h2>
+            <div class="view-header" id="kanjiListHeader" style="align-items:center;gap:8px;flex-shrink:0;">
+                <h2 style="color:var(--white);margin:0;">✍️ 漢字チェック</h2>
                 <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
                 <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">📄 一括PDF出力</button></div>
             </div>
-            <div class="view-header" id="kanjiStudentHeader" style="display:none;padding:0 12px;align-items:center;gap:10px;height:50px;flex-shrink:0;">
+            <div class="view-header" id="kanjiStudentHeader" style="display:none;align-items:center;gap:10px;flex-shrink:0;">
                 <button onclick="kanjiBackToList()" style="min-height:var(--tap-min);padding:0 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.88rem;font-weight:700;cursor:pointer;">← 一覧へ戻る</button>
-                <h2 id="kanjiStudentTitle" style="font-size:1rem;color:var(--white);margin:0;"></h2>
+                <h2 id="kanjiStudentTitle" style="color:var(--white);margin:0;"></h2>
             </div>
             <div style="flex:1;overflow:auto;background:#f5f5f5;">
                 <div id="kanjiListWrap" style="height:100%;overflow:auto;"></div>

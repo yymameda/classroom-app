@@ -631,6 +631,10 @@
         }
 
         /* ========== 児童の記録 (Phase 3) ========== */
+        /* v1.38.0: .view-contentに高さの基準が無く、#recList等のflex:1/min-height:0連鎖が
+           成立していなかった問題の修正。#view-recordsをflex列にし、.rec-subnav(固定)と
+           .view-content(可変)で高さを分配する。 */
+        #view-records.view.active { display: flex; flex-direction: column; }
         /* 内部サブビュー切り替え */
         #view-records .rec-sub { display: none; }
         #view-records .rec-sub.active { display: flex; flex-direction: column; height: 100%; }
@@ -819,7 +823,7 @@
         .rec-save-bar .btn-rec-primary { max-width: 280px; margin: 0 auto; display: block; }
 
         /* 課題管理 */
-        .rec-test-mgmt { background: var(--white); padding: 12px; overflow-y: auto; flex: 1; }
+        .rec-test-mgmt { background: var(--white); padding: 12px; overflow-y: auto; flex: 1; min-height: 0; }
         .rec-test-form {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 8px; margin-bottom: 12px; padding-bottom: 12px;
@@ -1204,7 +1208,7 @@
         .rec-pr-collapsible-body { margin-top: 4px; }
 
         /* ===== 机間巡視 CSS ===== */
-        .patrol-container { max-width: 900px; margin: 0 auto; padding: 0.5rem; }
+        .patrol-container { max-width: 900px; margin: 0 auto; padding: 0.5rem; flex: 1; min-height: 0; overflow-y: auto; }
         .patrol-header { background: var(--white); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
         .patrol-date-period { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         .patrol-date-period input, .patrol-date-period select {
@@ -1554,9 +1558,12 @@
         .sub-modal-late-toggle.dim { opacity: 0.45; }
         .sub-input-list {
             display: grid; grid-template-columns: repeat(4, 1fr) !important;
-            gap: 6px; padding: 8px; border: 1px solid var(--border);
+            gap: 6px; padding: 8px; padding-bottom: 40px; border: 1px solid var(--border);
             border-radius: 8px; margin: 0 0.75rem 0.75rem;
-            max-height: calc(100vh - 200px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+            /* v1.38.0: 100vh基準の固定オフセットをやめ、#sub-sub-inputのflex連鎖に高さを委ねる。
+               padding-bottomは内側スクロール化で最終行が枠下端に接するのを避けるため
+               (最終行のタップ・入力操作がしやすいよう余白を確保)。 */
+            flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
         @media (orientation: landscape) and (min-width: 1000px) {
             .sub-input-list {
@@ -1753,6 +1760,17 @@
         /* 提出物チェック：上部余白削減（修養日誌 1画面表示のため） */
         #view-submissions .view-header { padding: 6px 16px; }
         #view-submissions .sub-subnav { padding: 3px 8px; }
+        /* v1.38.0: #view-submissionsをflex列にし、ヘッダー・サブナビは固定、
+           「入力」タブ(#sub-sub-input)だけ内部でリストをスクロールさせる。
+           他4サブタブ(入力(個人)/統計/修養日誌/課題管理)は.sub-sub.active(display:block)の
+           ままで、従来どおり外側.viewのoverflow-y:autoにフォールバックする。 */
+        #view-submissions.view.active { display: flex; flex-direction: column; }
+        #view-submissions.view.active > .view-header { flex-shrink: 0; }
+        #view-submissions.view.active > .sub-subnav { flex-shrink: 0; }
+        #sub-sub-input.sub-sub.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        #sub-sub-input > .sub-input-top { flex-shrink: 0; }
+        #subFilterBar { flex-shrink: 0; }
+        #subProgressWrap { flex-shrink: 0; }
         #view-grades .view-header { padding: 6px 16px; }
         #view-grades .sub-subnav { padding: 3px 8px; }
         #sub-sub-diary .sub-input-top { padding: 3px 8px; gap: 4px; }
@@ -2696,7 +2714,7 @@
                     <button class="rec-subnav-btn" onclick="showView('pf')">🏃 新体力</button>
                 </div>
             </div>
-            <div class="view-content" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="view-content" style="padding: 0; display: flex; flex-direction: column; overflow: hidden; flex: 1; min-height: 0;">
 
                 <!-- ===== 点数入力サブビュー ===== -->
                 <div id="rec-sub-input" class="rec-sub active">

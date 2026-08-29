@@ -1716,12 +1716,26 @@
         .sub-badge.ng { background: #FEF3E2; color: var(--accent); }
         .sub-stu-score { font-size: 0.85rem; font-weight: 800; min-width: 36px; text-align: right; flex-shrink: 0; }
 
-        /* ルーブリック参照パネル */
-        .rubric-panel { margin: 0 0 6px; border-radius: 10px; border: 1.5px solid #90CAF9; background: #F7FAFC; overflow: hidden; }
-        .rubric-toggle { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; background: linear-gradient(135deg, #E3F2FD, #EDE7F6); font-size: 0.8rem; font-weight: 700; color: #1565C0; user-select: none; -webkit-user-select: none; }
+        /* ルーブリック参照パネル。v1.42.0: 帯(.rubric-toggle)は教科タブ行(.rec-filter-row)へ
+           移動し単独のピル型に、本文(.rubric-body)は元の位置(課題選択行の下)に残り
+           自前でカード枠を持つ形に分離した(旧.rubric-panelの外枠は廃止)。 */
+        .rec-filter-row { display: flex; align-items: center; gap: 6px; }
+        #recFilterBar { flex: 1 1 auto; min-width: 0; }
+        .rubric-toggle {
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 8px 14px; min-height: var(--tap-min); flex-shrink: 0; white-space: nowrap;
+            border-radius: 20px; border: 1.5px solid #90CAF9; cursor: pointer;
+            background: linear-gradient(135deg, #E3F2FD, #EDE7F6);
+            font-size: 0.8rem; font-weight: 700; color: #1565C0; font-family: inherit;
+            user-select: none; -webkit-user-select: none;
+        }
         .rubric-toggle .rubric-arrow { transition: transform 0.2s; font-size: 0.7rem; }
         .rubric-toggle.open .rubric-arrow { transform: rotate(180deg); }
-        .rubric-body { display: none; padding: 8px 12px 10px; font-size: 0.75rem; line-height: 1.6; }
+        .rubric-body {
+            display: none; margin: 0 0 6px; padding: 8px 12px 10px;
+            border-radius: 10px; border: 1.5px solid #90CAF9; background: #F7FAFC;
+            font-size: 0.75rem; line-height: 1.6;
+        }
         .rubric-body.open { display: block; }
         .rubric-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 4px; }
         .rubric-badge { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: var(--white); }
@@ -2766,8 +2780,19 @@
                                 <option value="all">通年</option>
                             </select>
                         </div>
-                        <!-- 教科フィルターバー（提出物チェックのsubFilterBarと同じ位置・スタイル） -->
-                        <div id="recFilterBar" class="rec-filter-bar" style="display:none;"></div>
+                        <!-- 教科フィルターバー（提出物チェックのsubFilterBarと同じ位置・スタイル）。
+                             v1.42.0: ルーブリック帯(#recRubricToggle)はこの行の右側空きスペースへ移動。
+                             サブナビ行は5ボタンで既に横幅を使い切っており空きが無いため、教科タブ行に
+                             移した(教科1〜8件でも最狭の縦向きで225px以上の余裕を実測済み)。
+                             展開される中身(#recRubricBody)は移動させず、課題選択行の下の元の位置に残す
+                             (この行に置いたまま展開すると開閉のたびにリストが縮むため)。 -->
+                        <div class="rec-filter-row">
+                            <div id="recFilterBar" class="rec-filter-bar" style="display:none;"></div>
+                            <div class="rubric-toggle" id="recRubricToggle" onclick="recToggleRubricPanel()" style="display:none;">
+                                <span>📐 ルーブリック</span>
+                                <span class="rubric-arrow">▼</span>
+                            </div>
+                        </div>
                         <!-- 課題選択（提出物チェックのsub-input-topに合わせ、教科タブの下に全幅で配置） -->
                         <div class="rec-test-selector">
                             <select id="recInputTestSelect" onchange="recOnInputTestChange()">
@@ -2777,14 +2802,8 @@
                             <button class="btn-rec-small active" id="recViewListBtn" onclick="recSetViewMode('list')" style="white-space:nowrap;">☰ リスト</button>
                             <button class="btn-rec-small" id="recViewSeatBtn" onclick="recSetViewMode('seat')" style="white-space:nowrap;">⊞ 座席</button>
                         </div>
-                        <!-- ルーブリック参照パネル -->
-                        <div id="recRubricPanel" class="rubric-panel" style="display:none;">
-                            <div class="rubric-toggle" id="recRubricToggle" onclick="recToggleRubricPanel()">
-                                <span>📐 ルーブリック</span>
-                                <span class="rubric-arrow">▼</span>
-                            </div>
-                            <div class="rubric-body" id="recRubricBody"></div>
-                        </div>
+                        <!-- ルーブリック参照パネル本文（帯は上の教科タブ行へ移動済み） -->
+                        <div class="rubric-body" id="recRubricBody"></div>
                         <!-- 未選択メッセージ -->
                         <div class="rec-input-info" id="recInputInfo">授業課題の管理から課題を追加し、上のプルダウンから選択してください</div>
                         <!-- 入力グリッド -->
@@ -7268,17 +7287,16 @@
         function recRenderInputArea() {
             var info = document.getElementById('recInputInfo');
             var bulk = document.getElementById('recBulkWrap');
-            var rubricPanel = document.getElementById('recRubricPanel');
             recRenderFilterBar();
             if (!recCurrentTestId) {
                 info.style.display = ''; bulk.style.display = 'none';
-                if (rubricPanel) rubricPanel.style.display = 'none';
+                recSetRubricVisible(false);
                 return;
             }
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
             if (!test) {
                 info.style.display = ''; bulk.style.display = 'none';
-                if (rubricPanel) rubricPanel.style.display = 'none';
+                recSetRubricVisible(false);
                 return;
             }
             info.style.display = 'none'; bulk.style.display = '';
@@ -10006,13 +10024,20 @@
             body.classList.toggle('open');
         };
 
+        // v1.42.0: 帯(#recRubricToggle、教科タブ行)と本文(#recRubricBody、課題選択行の下)は
+        // DOM上分離しているため、表示/非表示は必ずこの関数経由で両方揃えて切り替える。
+        function recSetRubricVisible(visible) {
+            var toggle = document.getElementById('recRubricToggle');
+            var body = document.getElementById('recRubricBody');
+            if (toggle) toggle.style.display = visible ? '' : 'none';
+            if (body) body.style.display = visible ? '' : 'none';
+        }
+
         // ルーブリック参照パネルの内容を更新
         function recUpdateRubricPanel(test) {
-            var panel = document.getElementById('recRubricPanel');
-            if (!panel) return;
             var hasRubric = test && (test.rubricA || test.rubricB || test.rubricC);
-            if (!hasRubric) { panel.style.display = 'none'; return; }
-            panel.style.display = '';
+            if (!hasRubric) { recSetRubricVisible(false); return; }
+            recSetRubricVisible(true);
             var body = document.getElementById('recRubricBody');
             var html = '';
             if (test.rubricA) html += '<div class="rubric-row"><span class="rubric-badge a">A</span><span class="rubric-text">' + escapeHtml(test.rubricA) + '</span></div>';

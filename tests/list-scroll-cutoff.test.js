@@ -234,7 +234,7 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
                 outerSel: '#view-records',
                 listSel: '#recList',
                 rowSel: '.rec-row',
-                fixedSels: ['.rec-subnav', '#recFilterBar', '.rec-test-selector', '#recRubricPanel', '.rec-progress'],
+                fixedSels: ['.rec-subnav', '#recFilterBar', '.rec-test-selector', '#recRubricBody', '.rec-progress'],
                 saveBtnSel: '.rec-save-inline-btn'
             });
 

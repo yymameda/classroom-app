@@ -3518,8 +3518,10 @@
         <div id="view-kanji" class="view">
             <div class="view-header" id="kanjiListHeader" style="align-items:center;gap:8px;flex-shrink:0;">
                 <h2 style="color:var(--white);margin:0;">✍️ 漢字チェック</h2>
-                <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
-                <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">📄 一括PDF出力</button></div>
+                <div class="hdr-actions" style="margin-left:auto;">
+                    <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
+                    <button class="hdr-btn" onclick="printAllKanjiPDF()">📄 一括PDF出力</button>
+                </div>
             </div>
             <div class="view-header" id="kanjiStudentHeader" style="display:none;align-items:center;gap:10px;flex-shrink:0;">
                 <button onclick="kanjiBackToList()" style="min-height:var(--tap-min);padding:0 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.88rem;font-weight:700;cursor:pointer;">← 一覧へ戻る</button>

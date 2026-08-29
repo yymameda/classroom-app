@@ -786,9 +786,18 @@
         /* v1.14.2: 児童ごとの入力行を全UI共通レイアウトに統一（ABC評価・数値点数・提出物とも同一パターン）
            ヘッダ＝［番号］［氏名］［欠席(小)］［✓］／下段＝主要ボタン・入力欄を横いっぱいに大きく */
         .rec-row.abc-row, .rec-row.sc-row { height: auto; min-height: 86px; gap: 3px; }
-        .rec-row.abc-row .rec-abc-btns { width: 100%; gap: 3px; }
+        /* v1.40.0: A/B+/B/B-/Cは評定の並び順に意味があるためflex-wrapは使わない。
+           min-width:0で無限に縮む代わりに実用最小幅を与え、タイル左右のpaddingを
+           増やして実機フォント差の吸収余地を確保する(縮みきらず、はみ出し分は
+           paddingの余白側で受け止める)。
+           v1.40.1: 縦820x1180(タイル幅約133px、5列中もっとも狭い)を基準に、
+           padding6px+gap2px+border2pxを引いた残り(約111px)を5等分し、
+           安全マージンを引いてmin-width:21pxとした。padding/min-widthとも
+           これ以上は縦向きで1行に収まらないため、この組み合わせがほぼ上限。 */
+        .rec-row.abc-row { padding: 6px; }
+        .rec-row.abc-row .rec-abc-btns { width: 100%; gap: 2px; }
         .rec-row.abc-row .rec-abc-btn {
-            flex: 1 1 0; width: auto; min-width: 0; height: 48px;
+            flex: 1 1 0; width: auto; min-width: 21px; height: 48px;
             font-size: 1.05rem; border-radius: 8px;
         }
         .rec-row.abc-row .rec-abc-btn:disabled { opacity: 0.4; cursor: default; }
@@ -1591,9 +1600,13 @@
         }
         .sub-input-row {
             display: flex; flex-direction: column; align-items: stretch;
-            /* v1.39.0: タイル幅がほぼギリギリで実機(iOS)では○△ボタンがはみ出すため、
-               タイル内padding/gapを詰めて幅の余白を確保(4px→2px)。 */
-            padding: 2px; border: 1px solid var(--border); border-radius: 8px;
+            /* v1.40.0: v1.39.0のpadding詰めは横方向対策だったが、実機のはみ出しは
+               縦方向(ボタン枠がタイル下端を突き抜ける)と判明。flex-wrapは並び順が
+               変わるため不採用。.sub-status-btnにmin-widthの床を設け、縮みきらず
+               タイル左右のpaddingの余白側ではみ出し分を吸収する方針に変更。
+               v1.40.1: ○△は2個のみでmin-width:60pxでも縦向き最狭タイル(約167px)で
+               13px程度の余裕があるため、paddingをさらに引き上げて余白を増やした。 */
+            padding: 12px; border: 1px solid var(--border); border-radius: 8px;
             background: var(--white); gap: 3px; transition: all 0.15s;
             min-height: 100px;
         }
@@ -1620,7 +1633,7 @@
         .sub-clear-btn:hover { background: #E0E0E0; }
         .sub-status-btns { display: flex; gap: 2px; width: 100%; }
         .sub-status-btn {
-            flex: 1; height: 48px; border: 2px solid var(--border); border-radius: 8px;
+            flex: 1; min-width: 60px; height: 48px; border: 2px solid var(--border); border-radius: 8px;
             background: var(--white); font-size: 1.05rem; font-weight: 700;
             cursor: pointer; transition: all 0.15s; padding: 0;
             display: flex; align-items: center; justify-content: center; font-family: inherit;

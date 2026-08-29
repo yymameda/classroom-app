@@ -2234,8 +2234,8 @@
         /* ========== 新体力テスト (pf) ========== */
         .pf-subnav{display:flex;gap:4px;padding:8px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--white);border-bottom:1px solid var(--border);}
         .pf-subnav-btn{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:var(--white);color:var(--text-light);font-size:0.82rem;font-family:inherit;cursor:pointer;white-space:nowrap;min-height:44px;transition:all .15s;}
-        .pf-subnav-btn.active{background:#1a6b4a;color:var(--white);border-color:#1a6b4a;font-weight:600;}
-        .pf-subnav-btn:hover:not(.active){border-color:#1a6b4a;color:#1a6b4a;}
+        .pf-subnav-btn.active{background:var(--primary);color:var(--white);border-color:var(--primary);font-weight:600;}
+        .pf-subnav-btn:hover:not(.active){border-color:var(--primary);color:var(--primary);}
         .pf-sub{display:none;}
         .pf-sub.active{display:block;}
         .pf-card{background:white;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;}
@@ -3512,12 +3512,12 @@
 
         <!-- ===== 漢字チェック ===== -->
         <div id="view-kanji" class="view">
-            <div class="view-header" id="kanjiListHeader" style="background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:8px;height:50px;flex-shrink:0;">
+            <div class="view-header" id="kanjiListHeader" style="padding:0 12px;align-items:center;gap:8px;height:50px;flex-shrink:0;">
                 <h2 style="font-size:1rem;color:var(--white);margin:0;">✍️ 漢字チェック</h2>
                 <button onclick="kanjiOpenAddModal()" style="padding:4px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.82rem;cursor:pointer;">＋漢字を追加</button>
                 <div class="hdr-actions" style="margin-left:auto;"><button class="hdr-btn" onclick="printAllKanjiPDF()">📄 一括PDF出力</button></div>
             </div>
-            <div class="view-header" id="kanjiStudentHeader" style="display:none;background:linear-gradient(135deg,#2E7D32,#388E3C);padding:0 12px;align-items:center;gap:10px;height:50px;flex-shrink:0;">
+            <div class="view-header" id="kanjiStudentHeader" style="display:none;padding:0 12px;align-items:center;gap:10px;height:50px;flex-shrink:0;">
                 <button onclick="kanjiBackToList()" style="min-height:var(--tap-min);padding:0 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.25);color:var(--white);font-size:0.88rem;font-weight:700;cursor:pointer;">← 一覧へ戻る</button>
                 <h2 id="kanjiStudentTitle" style="font-size:1rem;color:var(--white);margin:0;"></h2>
             </div>
@@ -3672,7 +3672,7 @@
 
         <!-- ===== データ出力 (Phase 8) ===== -->
         <div id="view-export" class="view">
-            <div class="view-header" style="background: linear-gradient(135deg, #1565C0, #1976D2);"><h2>📤 データ出力センター</h2></div>
+            <div class="view-header"><h2>📤 データ出力センター</h2></div>
             <div class="view-content">
 
                 <!-- 名簿 -->
@@ -3761,7 +3761,7 @@
 
         <!-- ===== 新体力テスト ===== -->
         <div id="view-pf" class="view">
-            <div class="view-header" style="background:linear-gradient(135deg,#1a6b4a,#2a8a5a);flex-direction:column;align-items:stretch;padding:0;">
+            <div class="view-header" style="flex-direction:column;align-items:stretch;padding:0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;">
                     <h2>🏃 新体力テスト <span id="pf-headerSub" style="font-size:0.72rem;opacity:0.75;font-weight:400;margin-left:8px;"></span></h2>
                     <div class="hdr-actions">

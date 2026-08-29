@@ -3960,6 +3960,11 @@
                 if (StorageManager._idb) _idbPut(StorageManager._idb, key, v);
             } catch (e) {
                 console.error('flushSaveQueue error:', key, e);
+                if (e.name === 'QuotaExceededError' || e.code === 22) {
+                    showToast('保存容量の上限です。バックアップ後にデータ整理してください。', 'error');
+                } else {
+                    showToast('保存中にエラーが発生しました。', 'error');
+                }
                 if (StorageManager._idb) _idbPut(StorageManager._idb, key, v);
             }
         });
@@ -20233,7 +20238,7 @@
         pf_setItem(pf_settingKey(),JSON.stringify(pf_setting));
         pf_updateHeaderSub();
         var d=localStorage.getItem(pf_storageKey());
-        pf_records=d?JSON.parse(d):{};
+        pf_records=safeJsonParse(d,{});
     }
 
     function pf_saveAll(){

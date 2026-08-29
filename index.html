@@ -1255,7 +1255,7 @@
         .btn-secondary {
             padding: 0.6rem 1rem; background: var(--white); color: var(--primary);
             border: 2px solid var(--primary); border-radius: 8px; font-size: 0.85rem;
-            font-weight: 500; font-family: inherit; cursor: pointer; min-height: 40px; }
+            font-weight: 500; font-family: inherit; cursor: pointer; min-height: var(--tap-min); }
         .patrol-student-info {
             text-align: center; padding: 0.6rem; background: var(--secondary); border-radius: 8px;
             margin-bottom: 0.75rem; font-weight: 600; font-size: 1rem; color: var(--primary); }
@@ -1408,7 +1408,7 @@
         .karte-term-notice { font-size: 0.78rem; color: var(--text-light); padding: 0 2px 8px; }
         /* 記録フォーム */
         .rating-buttons { display: flex; gap: 0.35rem; }
-        .rating-btn { flex: 1; min-height: 38px; padding: 0.4rem; font-size: 1.1rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); cursor: pointer; font-family: inherit; }
+        .rating-btn { flex: 1; min-height: var(--tap-min); padding: 0.4rem; font-size: 1.1rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); cursor: pointer; font-family: inherit; }
         .rating-btn.selected { border-width: 2px; }
 
         /* ===== 提出物チェック CSS ===== */
@@ -1478,7 +1478,7 @@
         /* 入力 — グリッド（元アプリ準拠） */
         .sub-input-top { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .sub-input-top select { flex: 1; min-width: 160px; padding: 0.6rem 0.75rem; border: 2px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 0.9rem; min-height: 44px; }
-        .sub-input-top input[type=date] { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.88rem; min-height: 40px; }
+        .sub-input-top input[type=date] { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.88rem; min-height: var(--tap-min); }
         .sub-input-progress { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0.75rem; background: var(--secondary); border-radius: 8px; margin: 0 0.75rem 0.3rem; font-weight: 500; font-size: 0.85rem; color: var(--primary); }
         .sub-progress-stats { display: flex; gap: 0.75rem; font-size: 0.8rem; }
         .sub-stat-ok { color: var(--success); } .sub-stat-re { color: #B7950B; } .sub-stat-ng { color: var(--danger); }
@@ -1756,9 +1756,9 @@
         #view-grades .view-header { padding: 6px 16px; }
         #view-grades .sub-subnav { padding: 3px 8px; }
         #sub-sub-diary .sub-input-top { padding: 3px 8px; gap: 4px; }
-        #sub-sub-diary .sub-input-top input[type=date] { min-height: 34px; padding: 2px 6px; }
-        #sub-sub-diary .sub-input-top input[type=number] { min-height: 34px; padding: 2px 4px; }
-        #sub-sub-diary .sub-input-top .btn-rec-small { min-height: 34px; padding: 2px 8px; }
+        #sub-sub-diary .sub-input-top input[type=date] { min-height: var(--tap-min); padding: 2px 6px; }
+        #sub-sub-diary .sub-input-top input[type=number] { min-height: var(--tap-min); padding: 2px 4px; }
+        #sub-sub-diary .sub-input-top .btn-rec-small { min-height: var(--tap-min); padding: 2px 8px; }
         #sub-sub-diary .sub-input-progress { padding: 2px 8px; margin: 0 8px 2px; font-size: 0.8rem; }
         #sub-sub-diary .sub-diary-grid { margin: 0 8px 4px; max-height: none; }
         @media (orientation: landscape) and (min-width: 1000px) {
@@ -2703,7 +2703,7 @@
                     <div class="rec-input-panel">
                         <div class="rec-input-header">
                             <h3>📝 点数入力</h3>
-                            <select id="recInputTermSel" onchange="recOnInputTermChange()" title="対象学期" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:36px;background:var(--white);">
+                            <select id="recInputTermSel" onchange="recOnInputTermChange()" title="対象学期" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);background:var(--white);">
                                 <option value="1">1学期</option>
                                 <option value="2">2学期</option>
                                 <option value="3">3学期</option>
@@ -2778,7 +2778,7 @@
                     <div class="rec-test-mgmt" id="recStatsMgmt">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
                             <h3 style="color:var(--primary);margin:0;font-size:0.95rem;">📊 授業課題の統計</h3>
-                            <select id="recStatsTestSel" onchange="recRenderStats()" style="padding:6px 10px;border:2px solid var(--primary);border-radius:8px;font-family:inherit;font-size:0.85rem;font-weight:500;background:var(--secondary);color:var(--primary);min-height:34px;min-width:200px;">
+                            <select id="recStatsTestSel" onchange="recRenderStats()" style="padding:6px 10px;border:2px solid var(--primary);border-radius:8px;font-family:inherit;font-size:0.85rem;font-weight:500;background:var(--secondary);color:var(--primary);min-height:var(--tap-min);min-width:200px;">
                                 <option value="">課題を選択</option>
                             </select>
                         </div>
@@ -2853,7 +2853,7 @@
                                 <div style="font-size:0.82rem;font-weight:700;color:#2E7D32;margin-bottom:6px;">🏃 実技記録の設定</div>
                                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                                     <label style="font-size:0.78rem;">単位:</label>
-                                    <select id="recTestPeUnit" onchange="recOnPeUnitChange()" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
+                                    <select id="recTestPeUnit" onchange="recOnPeUnitChange()" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:var(--tap-min);">
                                         <option value="秒">タイム（秒）</option>
                                         <option value="回">回数（回）</option><option value="m">距離（m）</option>
                                         <option value="cm">距離（cm）</option><option value="点">得点（点）</option>
@@ -2867,7 +2867,7 @@
                                     </select>
                                     <span id="recPeDirTrialWrap" style="display:contents;">
                                     <label style="font-size:0.78rem;">方向:</label>
-                                    <select id="recTestPeDirection" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:34px;">
+                                    <select id="recTestPeDirection" style="padding:4px;border:1.5px solid #A5D6A7;border-radius:6px;font-size:0.82rem;min-height:var(--tap-min);">
                                         <option value="lower">少ないほど良い</option>
                                         <option value="higher">多いほど良い</option>
                                     </select>
@@ -2901,7 +2901,7 @@
                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
                             <h3 style="color:var(--primary);margin:0;font-size:0.95rem;">📋 課題一覧</h3>
                             <div class="rec-sort-bar" id="recSortBar"></div>
-                            <select id="recTermSel" onchange="recOnTermChange()" title="対象学期" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                            <select id="recTermSel" onchange="recOnTermChange()" title="対象学期" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);background:var(--white);">
                                 <option value="1">1学期</option>
                                 <option value="2">2学期</option>
                                 <option value="3">3学期</option>
@@ -3072,7 +3072,7 @@
                 <button class="sub-subnav-btn" data-sub="stats">📊 提出課題の統計</button>
                 <button class="sub-subnav-btn" data-sub="diary">📔 修養日誌</button>
                 <button class="sub-subnav-btn" data-sub="assign">📋 提出課題の管理</button>
-                <select id="subTermSel" title="対象学期（入力（個人）・統計・課題管理タブに適用）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                <select id="subTermSel" title="対象学期（入力（個人）・統計・課題管理タブに適用）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);background:var(--white);">
                     <option value="1">1学期</option>
                     <option value="2">2学期</option>
                     <option value="3">3学期</option>
@@ -3129,15 +3129,15 @@
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
                         <div style="font-size:0.85rem;font-weight:700;">👤 児童を選ぶ</div>
                         <span style="font-size:0.7rem;color:var(--text-light);">バッジ＝未提出＋お直し＋未届の合計</span>
-                        <select id="subPsnSubjSel" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;">
+                        <select id="subPsnSubjSel" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);">
                             <option value="">全教科</option>
                         </select>
-                        <select id="subPsnSortSel" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;">
+                        <select id="subPsnSortSel" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);">
                             <option value="date_desc">📅 日付（新しい順）</option>
                             <option value="date_asc">📅 日付（古い順）</option>
                             <option value="subject">📚 教科順</option>
                         </select>
-                        <button class="btn-rec-small" id="subPsnReloadBtn" style="min-height:38px;">🔄 再集計</button>
+                        <button class="btn-rec-small" id="subPsnReloadBtn" style="min-height:var(--tap-min);">🔄 再集計</button>
                     </div>
                     <div id="subPsnTermNotice" style="display:none;font-size:0.78rem;color:var(--text-light);padding:0 2px 6px;"></div>
                     <div class="student-grid" id="subPsnGrid"></div>
@@ -3149,10 +3149,10 @@
             <div id="sub-sub-stats" class="sub-sub">
                 <div class="sub-panel">
                     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
-                        <select id="subStatsAssignSel" style="padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.85rem;min-height:34px;flex:1;min-width:140px;">
+                        <select id="subStatsAssignSel" style="padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.85rem;min-height:var(--tap-min);flex:1;min-width:140px;">
                             <option value="">全課題</option>
                         </select>
-                        <select id="subStatsFilter" style="padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.85rem;min-height:34px;">
+                        <select id="subStatsFilter" style="padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.85rem;min-height:var(--tap-min);">
                             <option value="">全員</option>
                             <option value="missing">未提出あり</option>
                             <option value="resubmit">再提出あり</option>
@@ -3488,7 +3488,7 @@
                         <div class="karte-student-bar-inner" id="karteStudentBarInner"></div>
                     </div>
                     <div class="karte-term-bar">
-                        <select id="karteTermSel" onchange="karteOnTermChange()" title="対象学期（児童記録・生活記録・保護者対応・提出物・成績に適用。出席・学習配慮・身体配慮は対象外）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                        <select id="karteTermSel" onchange="karteOnTermChange()" title="対象学期（児童記録・生活記録・保護者対応・提出物・成績に適用。出席・学習配慮・身体配慮は対象外）" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);background:var(--white);">
                             <option value="1">1学期</option>
                             <option value="2">2学期</option>
                             <option value="3">3学期</option>
@@ -3539,7 +3539,7 @@
                 <div class="card">
                     <h3>📋 出力するセクション</h3>
                     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-                        <select id="kvTermSel" onchange="kvOutputOnTermChange()" title="出力する学期（生活記録・保護者対応・提出物に適用。出席・漢字チェック・学習配慮・身体配慮は対象外）" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:38px;background:var(--white);">
+                        <select id="kvTermSel" onchange="kvOutputOnTermChange()" title="出力する学期（生活記録・保護者対応・提出物に適用。出席・漢字チェック・学習配慮・身体配慮は対象外）" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.8rem;min-height:var(--tap-min);background:var(--white);">
                             <option value="1">1学期</option>
                             <option value="2">2学期</option>
                             <option value="3">3学期</option>
@@ -14701,7 +14701,7 @@
             }
             h += '<label style="margin-left:auto;font-size:0.75rem;display:flex;align-items:center;gap:5px;cursor:pointer;min-height:38px;">'
               +    '<input type="checkbox" id="subPsnDoneChk"' + (subPsnShowDone ? ' checked' : '') + ' style="width:20px;height:20px;">提出済みも表示</label>'
-              +  '<button class="btn-rec-small" id="subPsnCloseBtn" style="min-height:38px;">✕ 閉じる</button>'
+              +  '<button class="btn-rec-small" id="subPsnCloseBtn" style="min-height:var(--tap-min);">✕ 閉じる</button>'
               + '</div>';
 
             // ① 終わっていない課題

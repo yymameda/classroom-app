@@ -785,22 +785,24 @@
         .rec-abc-btn.sel-c { background: var(--accent); border-color: var(--accent); color: var(--white); }
         /* v1.14.2: 児童ごとの入力行を全UI共通レイアウトに統一（ABC評価・数値点数・提出物とも同一パターン）
            ヘッダ＝［番号］［氏名］［欠席(小)］［✓］／下段＝主要ボタン・入力欄を横いっぱいに大きく */
-        .rec-row.abc-row, .rec-row.sc-row { height: auto; min-height: 86px; gap: 3px; }
-        /* v1.40.0: A/B+/B/B-/Cは評定の並び順に意味があるためflex-wrapは使わない。
-           min-width:0で無限に縮む代わりに実用最小幅を与え、タイル左右のpaddingを
-           増やして実機フォント差の吸収余地を確保する(縮みきらず、はみ出し分は
-           paddingの余白側で受け止める)。
-           v1.40.1: 縦820x1180(タイル幅約133px、5列中もっとも狭い)を基準に、
-           padding6px+gap2px+border2pxを引いた残り(約111px)を5等分し、
-           安全マージンを引いてmin-width:21pxとした。padding/min-widthとも
-           これ以上は縦向きで1行に収まらないため、この組み合わせがほぼ上限。 */
-        .rec-row.abc-row { padding: 6px; }
+        .rec-row.sc-row { height: auto; min-height: 86px; gap: 3px; }
+        /* v1.40.0/v1.40.1: A/B+/B/B-/Cは評定の並び順に意味があるためflex-wrapは使わない。
+           min-width:0で無限に縮む代わりに実用最小幅を与えた(横方向対策)。
+           v1.41.0: 実機での見切れは横でなく縦(タイル下端の突き抜け)と判明したため、
+           padding/gap/ボタン高/ヘッダー要素高を詰めて合計高を86px以内に収める方針に転換。
+           min-widthは横方向対策として残置(妨げにならないため)。 */
+        .rec-row.abc-row { height: auto; min-height: 86px; gap: 2px; padding: 3px; }
         .rec-row.abc-row .rec-abc-btns { width: 100%; gap: 2px; }
         .rec-row.abc-row .rec-abc-btn {
-            flex: 1 1 0; width: auto; min-width: 21px; height: 48px;
+            flex: 1 1 0; width: auto; min-width: 21px; height: 44px;
             font-size: 1.05rem; border-radius: 8px;
         }
         .rec-row.abc-row .rec-abc-btn:disabled { opacity: 0.4; cursor: default; }
+        /* v1.41.0: ヘッダー行(番号バッジ/欠席ボタン)の高さを24pxに縮小。
+           .sub-row-num/.sub-absent-btnは提出物チェック等でも共有するクラスのため、
+           他画面に波及しないようabc-rowにスコープする。 */
+        .rec-row.abc-row .sub-row-num { width: 24px; height: 24px; }
+        .rec-row.abc-row .sub-absent-btn { height: 24px; }
         .rec-row.sc-row .rec-row-score-area input[type="number"] {
             /* v1.21.12 (段階2): 「／満点 (割合%)」表示ぶんの横幅を確保するため、
                noneだった上限をここで復活させる(4桁+小数まで余裕を持たせた値)。 */
@@ -1600,14 +1602,14 @@
         }
         .sub-input-row {
             display: flex; flex-direction: column; align-items: stretch;
-            /* v1.40.0: v1.39.0のpadding詰めは横方向対策だったが、実機のはみ出しは
-               縦方向(ボタン枠がタイル下端を突き抜ける)と判明。flex-wrapは並び順が
-               変わるため不採用。.sub-status-btnにmin-widthの床を設け、縮みきらず
-               タイル左右のpaddingの余白側ではみ出し分を吸収する方針に変更。
-               v1.40.1: ○△は2個のみでmin-width:60pxでも縦向き最狭タイル(約167px)で
-               13px程度の余裕があるため、paddingをさらに引き上げて余白を増やした。 */
-            padding: 12px; border: 1px solid var(--border); border-radius: 8px;
-            background: var(--white); gap: 3px; transition: all 0.15s;
+            /* v1.40.0/v1.40.1: min-width/paddingで横方向のはみ出しに対処していたが、
+               v1.41.0: 実機の見切れは縦(タイル下端の突き抜け)と判明。原因はヘッダー行の
+               お直しチェックボックスlabel(min-height:44px、v1.37.0でタップ領域確保のため
+               追加)が.sub-row-hdの実高を28px相当から44pxへ押し上げていたこと。
+               タップ領域は擬似要素に切り出し(下記.sub-correction-check-wrap参照)、
+               padding/gap/ボタン高も詰めて合計高を縮める。min-widthは横方向対策として残置。 */
+            padding: 6px; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--white); gap: 2px; transition: all 0.15s;
             min-height: 100px;
         }
         .sub-input-row.has-status.status-submitted { background: #E8F8EF; border-color: var(--success); }
@@ -1629,11 +1631,23 @@
         .sub-correction-check { width: 20px; height: 20px; accent-color: var(--success); cursor: pointer; flex-shrink: 0; margin: 0; }
         .sub-correction-check:not(:checked) { opacity: 0.5; }
         .sub-correction-check:disabled { cursor: default; }
+        /* v1.41.0: チェックボックス本体は20x20のまま、タップ領域だけ疑似要素で拡張する。
+           左は.sub-row-done(14px)+gap(2px)の手前まで、右はタイル内padding側、
+           上下は.sub-row-hdの実高(28px)の範囲内に収め、隣接する欠席ボタン・
+           ○△ボタンのクリック領域を奪わないよう非対称にしている。 */
+        .sub-correction-check-wrap {
+            position: relative; display: flex; align-items: center; justify-content: center;
+            width: 20px; height: 20px; flex-shrink: 0;
+        }
+        .sub-correction-check-wrap::before {
+            content: ''; position: absolute;
+            top: -6px; right: 0; bottom: -4px; left: -14px;
+        }
         .sub-clear-btn { flex: none; width: 44px; height: 44px; font-size: 0.8rem; border: 1px solid #9E9E9E; color: #9E9E9E; border-radius: 6px; background: var(--white); cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
         .sub-clear-btn:hover { background: #E0E0E0; }
         .sub-status-btns { display: flex; gap: 2px; width: 100%; }
         .sub-status-btn {
-            flex: 1; min-width: 60px; height: 48px; border: 2px solid var(--border); border-radius: 8px;
+            flex: 1; min-width: 60px; height: 44px; border: 2px solid var(--border); border-radius: 8px;
             background: var(--white); font-size: 1.05rem; font-weight: 700;
             cursor: pointer; transition: all 0.15s; padding: 0;
             display: flex; align-items: center; justify-content: center; font-family: inherit;
@@ -2081,7 +2095,7 @@
 
             .sub-status-btn {
                 flex: 1;
-                height: 48px;
+                height: 44px;
                 font-size: 1.05rem;
                 border-radius: 8px;
             }
@@ -13678,7 +13692,7 @@
                     +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '"'
                     +     ' title="' + (isAbsent ? '欠席を解除' : '欠席にする') + '">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                     +   '<div class="sub-row-done' + (st ? ' ok' : '') + '">' + (st ? '✓' : '') + '</div>'
-                    +   '<label style="display:flex;align-items:center;min-height:var(--tap-min);"><input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '></label>'
+                    +   '<label class="sub-correction-check-wrap"><input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '></label>'
                     + '</div>'
                     + '<div class="sub-status-btns">'
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'

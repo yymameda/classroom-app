@@ -663,11 +663,14 @@
             flex-wrap: wrap; gap: 6px; flex-shrink: 0;
         }
         .rec-input-header h3 { color: var(--primary); margin: 0; font-size: 0.95rem; }
+        .rec-test-selector {
+            padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
         .rec-test-selector select {
             padding: 6px 10px; border: 2px solid var(--primary); border-radius: 8px;
             font-family: inherit; font-size: 0.85rem; font-weight: 500;
             background: var(--secondary); color: var(--primary);
-            min-width: 160px; min-height: 36px;
+            min-width: 160px; min-height: 44px; width: 100%;
         }
         .rec-input-info { padding: 20px; text-align: center; color: var(--text-light); font-size: 0.85rem; }
         .rec-filter-bar {
@@ -2681,14 +2684,15 @@
                                 <option value="3">3学期</option>
                                 <option value="all">通年</option>
                             </select>
-                            <div class="rec-test-selector">
-                                <select id="recInputTestSelect" onchange="recOnInputTestChange()">
-                                    <option value="">課題を選択</option>
-                                </select>
-                            </div>
                         </div>
-                        <!-- フィルターバー -->
+                        <!-- 教科フィルターバー（提出物チェックのsubFilterBarと同じ位置・スタイル） -->
                         <div id="recFilterBar" class="rec-filter-bar" style="display:none;"></div>
+                        <!-- 課題選択（提出物チェックのsub-input-topに合わせ、教科タブの下に全幅で配置） -->
+                        <div class="rec-test-selector">
+                            <select id="recInputTestSelect" onchange="recOnInputTestChange()">
+                                <option value="">課題を選択</option>
+                            </select>
+                        </div>
                         <!-- ルーブリック参照パネル -->
                         <div id="recRubricPanel" class="rubric-panel" style="display:none;">
                             <div class="rubric-toggle" id="recRubricToggle" onclick="recToggleRubricPanel()">
@@ -7116,33 +7120,40 @@
             }
         }
 
+        // v1.27.0: 見出しを教科別→観点(category)｜記録種別(testType)別に変更。
+        // 教科の絞り込みは上の教科タブ(recRenderFilterBar)が既に担っているため、ここでは
+        // 「除外するフィルタ」ではなく「一覧内の整理」として観点・種別ごとに見出しを付けるだけで、
+        // filtered配列の課題は1件も除外しない(該当する観点/種別が無い課題も『その他』見出しに必ず入る)。
         function recUpdateTestSelect() {
             var sel = document.getElementById('recInputTestSelect');
             if (!sel) return;
             var tests = recGetTests();
             var filtered = tests.filter(recTestVisibleInInputFilters);
-            // 教科別にグルーピング
+            // 観点｜記録種別でグルーピング
             var groups = {};
+            var groupKeys = [];
             filtered.forEach(function(t) {
-                var subj = t.subject || 'その他';
-                if (!groups[subj]) groups[subj] = [];
-                groups[subj].push(t);
+                var cat = t.category || 'その他';
+                var type = t.testType || 'その他';
+                var key = cat + '｜' + type;
+                if (!groups[key]) { groups[key] = { cat: cat, type: type, items: [] }; groupKeys.push(key); }
+                groups[key].items.push(t);
+            });
+            groupKeys.sort(function(ka, kb) {
+                var ga = groups[ka], gb = groups[kb];
+                var ca = REC_CAT_ORDER.indexOf(ga.cat), cb = REC_CAT_ORDER.indexOf(gb.cat);
+                if (ca < 0) ca = 999; if (cb < 0) cb = 999;
+                if (ca !== cb) return ca - cb;
+                var ta = REC_TYPE_ORDER.indexOf(ga.type), tb = REC_TYPE_ORDER.indexOf(gb.type);
+                if (ta < 0) ta = 999; if (tb < 0) tb = 999;
+                return ta - tb;
             });
             var html = '<option value="">課題を選択</option>';
-            REC_SUBJ_ORDER.forEach(function(subj) {
-                if (!groups[subj]) return;
-                html += '<optgroup label="' + subj + '">';
-                groups[subj].forEach(function(t) {
-                    html += '<option value="' + t.id + '">' + (t.testType || '') + ' ' + escapeHtml(t.name) + ' (' + (t.date || '') + ')</option>';
-                });
-                html += '</optgroup>';
-            });
-            // REC_SUBJ_ORDERにない教科
-            Object.keys(groups).forEach(function(subj) {
-                if (REC_SUBJ_ORDER.indexOf(subj) >= 0) return;
-                html += '<optgroup label="' + subj + '">';
-                groups[subj].forEach(function(t) {
-                    html += '<option value="' + t.id + '">' + (t.testType || '') + ' ' + escapeHtml(t.name) + ' (' + (t.date || '') + ')</option>';
+            groupKeys.forEach(function(key) {
+                var g = groups[key];
+                html += '<optgroup label="' + escapeHtml(g.cat) + '｜' + escapeHtml(g.type) + '">';
+                g.items.forEach(function(t) {
+                    html += '<option value="' + t.id + '">' + escapeHtml(t.subject || '') + ' ' + escapeHtml(t.name) + ' (' + (t.date || '') + ')</option>';
                 });
                 html += '</optgroup>';
             });
@@ -7183,6 +7194,11 @@
             recUpdateProgress(test);
         }
 
+        // v1.27.0: 観点・記録種別のタブは横に見切れて使いにくかったため廃止。
+        // 教科タブのみ残し(提出物チェックのsubFilterBarと同じ「教科のみ」構成に統一)、
+        // 観点・記録種別は課題選択ドロップダウン側のoptgroupで整理する(recUpdateTestSelect参照)。
+        // recInputFilters.category/typeはUIから設定されなくなったが、常に''のため
+        // recTestVisibleInInputFilters等の既存の絞り込みロジックには影響しない。
         function recRenderFilterBar() {
             var bar = document.getElementById('recFilterBar');
             if (!bar) return;
@@ -7197,36 +7213,14 @@
                 if (ia < 0) ia = 999; if (ib < 0) ib = 999;
                 return ia - ib;
             });
-            // 観点リスト
-            var categories = [];
-            tests.forEach(function(t) { if (t.category && categories.indexOf(t.category) < 0) categories.push(t.category); });
-            // 種別リスト
-            var types = [];
-            tests.forEach(function(t) { if (t.testType && types.indexOf(t.testType) < 0) types.push(t.testType); });
             var f = recInputFilters;
             var html = '';
             // 教科ボタン
-            if (subjects.length > 0) {
-                subjects.forEach(function(s) {
-                    html += '<button class="rec-filter-btn' + (f.subject === s ? ' active' : '') + '" data-fsubj="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
-                });
-                if (categories.length > 0 || types.length > 0) html += '<span style="width:1px;height:16px;background:var(--border);flex-shrink:0;margin:0 2px;"></span>';
-            }
-            // 観点ボタン
-            if (categories.length > 0) {
-                categories.forEach(function(c) {
-                    html += '<button class="rec-filter-btn' + (f.category === c ? ' active' : '') + '" data-fcat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
-                });
-                if (types.length > 0) html += '<span style="width:1px;height:16px;background:var(--border);flex-shrink:0;margin:0 2px;"></span>';
-            }
-            // 種別ボタン
-            if (types.length > 0) {
-                types.forEach(function(t) {
-                    html += '<button class="rec-filter-btn' + (f.type === t ? ' active' : '') + '" data-ftype="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
-                });
-            }
+            subjects.forEach(function(s) {
+                html += '<button class="rec-filter-btn' + (f.subject === s ? ' active' : '') + '" data-fsubj="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
+            });
             // クリアボタン
-            if (f.subject || f.category || f.type) {
+            if (f.subject) {
                 html += '<button class="rec-filter-btn clear" data-fclear="1">✕ 解除</button>';
             }
             bar.innerHTML = html;
@@ -7236,23 +7230,9 @@
                     recOnInputFilterChanged();
                 });
             });
-            bar.querySelectorAll('[data-fcat]').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    recInputFilters.category = recInputFilters.category === btn.dataset.fcat ? '' : btn.dataset.fcat;
-                    recOnInputFilterChanged();
-                });
-            });
-            bar.querySelectorAll('[data-ftype]').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    recInputFilters.type = recInputFilters.type === btn.dataset.ftype ? '' : btn.dataset.ftype;
-                    recOnInputFilterChanged();
-                });
-            });
             bar.querySelectorAll('[data-fclear]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     recInputFilters.subject = '';
-                    recInputFilters.category = '';
-                    recInputFilters.type = '';
                     recOnInputFilterChanged();
                 });
             });

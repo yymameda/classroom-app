@@ -1582,14 +1582,16 @@
         }
         .sub-input-row {
             display: flex; flex-direction: column; align-items: stretch;
-            padding: 4px; border: 1px solid var(--border); border-radius: 8px;
+            /* v1.39.0: タイル幅がほぼギリギリで実機(iOS)では○△ボタンがはみ出すため、
+               タイル内padding/gapを詰めて幅の余白を確保(4px→2px)。 */
+            padding: 2px; border: 1px solid var(--border); border-radius: 8px;
             background: var(--white); gap: 3px; transition: all 0.15s;
             min-height: 100px;
         }
         .sub-input-row.has-status.status-submitted { background: #E8F8EF; border-color: var(--success); }
         .sub-input-row.has-status.status-resubmit  { background: #FEF9E7; border-color: #B7950B; }
         .sub-input-row.has-status.status-missing   { background: #FDEDEC; border-color: var(--danger); }
-        .sub-row-hd { display: flex; align-items: center; gap: 3px; width: 100%; }
+        .sub-row-hd { display: flex; align-items: center; gap: 2px; width: 100%; }
         .sub-row-num {
             width: 28px; height: 28px; border-radius: 6px;
             font-size: 0.7rem; font-weight: 700; color: white;
@@ -1607,7 +1609,7 @@
         .sub-correction-check:disabled { cursor: default; }
         .sub-clear-btn { flex: none; width: 44px; height: 44px; font-size: 0.8rem; border: 1px solid #9E9E9E; color: #9E9E9E; border-radius: 6px; background: var(--white); cursor: pointer; padding: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; }
         .sub-clear-btn:hover { background: #E0E0E0; }
-        .sub-status-btns { display: flex; gap: 3px; width: 100%; }
+        .sub-status-btns { display: flex; gap: 2px; width: 100%; }
         .sub-status-btn {
             flex: 1; height: 48px; border: 2px solid var(--border); border-radius: 8px;
             background: var(--white); font-size: 1.05rem; font-weight: 700;

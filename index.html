@@ -3162,8 +3162,6 @@
 
             <!-- ── 入力タブ ── -->
             <div id="sub-sub-input" class="sub-sub active">
-                <!-- 教科フィルターバー -->
-                <div class="rec-filter-bar" id="subFilterBar" style="padding:4px 8px;border-bottom:1px solid var(--border);display:flex;flex-wrap:nowrap;gap:4px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
                 <div class="sub-input-top">
                     <select id="subInputAssignSel">
                         <option value="">── 課題を選択してください ──</option>
@@ -3172,13 +3170,19 @@
                     <button class="btn-rec-small" id="subViewListBtn" style="white-space:nowrap;">☰ リスト</button>
                     <button class="btn-rec-small" id="subViewSeatBtn" style="white-space:nowrap;">⊞ 座席</button>
                 </div>
+                <!-- v1.47.0: 教科フィルターバーは単独行をやめ、空きのある進捗帯(#subProgressWrap)の
+                     左側へ統合（縦1行ぶんをリストへ還元）。教科タブ＋ラベル＋件数をflex:1の
+                     #subProgressLeftでまとめ、全員○ボタンだけ右端に残す。 -->
                 <div class="sub-input-progress" id="subProgressWrap">
-                    <span id="subProgressLabel">未選択</span>
-                    <div class="sub-progress-stats">
-                        <span class="sub-stat-ok" id="subCntOk">○0</span>
-                        <span class="sub-stat-re" id="subCntRe">△0</span>
-                        <span class="sub-stat-ng" id="subCntNg">×0</span>
-                        <span style="color:#757575;" id="subCntAbsent"></span>
+                    <div id="subProgressLeft" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                        <div class="rec-filter-bar" id="subFilterBar" style="padding:0;border-bottom:none;display:flex;flex-wrap:nowrap;gap:4px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:1;min-width:0;"></div>
+                        <span id="subProgressLabel">未選択</span>
+                        <div class="sub-progress-stats">
+                            <span class="sub-stat-ok" id="subCntOk">○0</span>
+                            <span class="sub-stat-re" id="subCntRe">△0</span>
+                            <span class="sub-stat-ng" id="subCntNg">×0</span>
+                            <span style="color:#757575;" id="subCntAbsent"></span>
+                        </div>
                     </div>
                     <button class="btn-rec-small goto" id="subAllOkBtn" style="font-size:0.75rem;margin-left:8px;">全員○</button>
                 </div>

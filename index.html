@@ -13638,7 +13638,7 @@
                     +   '<button class="sub-absent-btn' + (isAbsent ? ' absent-on' : '') + '" data-idx="' + i + '"'
                     +     ' title="' + (isAbsent ? '欠席を解除' : '欠席にする') + '">' + (isAbsent ? '欠席中' : '欠席') + '</button>'
                     +   '<div class="sub-row-done' + (st ? ' ok' : '') + '">' + (st ? '✓' : '') + '</div>'
-                    +   '<input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '>'
+                    +   '<label style="display:flex;align-items:center;min-height:var(--tap-min);"><input type="checkbox" class="sub-correction-check" data-idx="' + i + '" title="お直し完了" ' + corrChecked + ' ' + corrDisabled + '></label>'
                     + '</div>'
                     + '<div class="sub-status-btns">'
                     +   '<button class="sub-status-btn' + (st === 'submitted' ? ' sel-submitted' : '') + '" data-idx="' + i + '" data-status="submitted">○</button>'
@@ -14699,7 +14699,7 @@
                 if (c.correction.length) h += '<span class="sub-psn-chip re">お直し ' + c.correction.length + '</span>';
                 if (c.notice.length)     h += '<span class="sub-psn-chip nt">未届 ' + c.notice.length + '</span>';
             }
-            h += '<label style="margin-left:auto;font-size:0.75rem;display:flex;align-items:center;gap:5px;cursor:pointer;min-height:38px;">'
+            h += '<label style="margin-left:auto;font-size:0.75rem;display:flex;align-items:center;gap:5px;cursor:pointer;min-height:var(--tap-min);">'
               +    '<input type="checkbox" id="subPsnDoneChk"' + (subPsnShowDone ? ' checked' : '') + ' style="width:20px;height:20px;">提出済みも表示</label>'
               +  '<button class="btn-rec-small" id="subPsnCloseBtn" style="min-height:var(--tap-min);">✕ 閉じる</button>'
               + '</div>';

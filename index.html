@@ -2895,6 +2895,12 @@
                                 <option>思考・判断・表現</option>
                                 <option value="主体性">主体的に学習に取り組む態度</option>
                             </select>
+                            <div id="recInputModeWrap" style="display:none;grid-column:1/-1;gap:6px;align-items:center;">
+                                <span style="font-size:0.78rem;color:var(--text-light);">入力形式:</span>
+                                <button type="button" class="btn-rec-small" id="recInputModeScoreBtn" onclick="recSetInputMode('score')" style="min-height:var(--tap-min);">得点</button>
+                                <button type="button" class="btn-rec-small" id="recInputModeAbc5Btn" onclick="recSetInputMode('abc5')" style="min-height:var(--tap-min);">5段階</button>
+                            </div>
+                            <div id="recInputModeLockNote" style="display:none;grid-column:1/-1;font-size:0.74rem;color:var(--text-light);">⚠️ 得点が入力済みのため入力形式は変更できません</div>
                             <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" inputmode="numeric">
                             <input type="date" id="recTestDate">
                             <select id="recTestTerm" title="成績の学期分け（空欄なら実施日から自動判定）">
@@ -7360,7 +7366,7 @@
             if (test.type === 'matome') return 'complex';
             var isPE = test.testType === '実技記録';
             if (isPE && (kenteiGetPresetId(test.peUnit) !== null || peRubricGetPresetId(test.peUnit) !== null)) return 'complex';
-            if (isABCTest(test.category, test.testType)) return 'choice';
+            if (getItemInputMode(test) === 'abc5') return 'choice';
             return 'numeric';
         }
 
@@ -7638,8 +7644,51 @@
         // category==='主体性'条件には乗せられず、testTypeの別項として追加する。
         // v1.21.25 (段階8-2): testType='作文'を追加。記述問題と同様、categoryは自由選択
         // (特に思考・判断・表現での使用を想定)のまま入力形式だけ5段階にする。
-        function isABCTest(category, testType) {
-            return category === '主体性' || testType === 'ルーブリック' || testType === '記述問題' || testType === '作文';
+        // v1.48.0: testType='振り返り'を追加。記述問題・作文と同型(categoryは自由選択のまま
+        // 入力形式だけ5段階にする)。体育の振り返りシート(思考・判断・表現/主体性を想定)向け。
+        // <option>・REC_TYPE_ORDER・REC_PREFIX_MAP_TYPE・REC_ALL_PREFIXESは既に登録済みで
+        // 変更不要(既存のoptgroup整列・自動プレフィックスがそのまま機能する)。
+        // 第3引数maxScoreは省略可能: 振り返りはこの変更以前、maxScore>0の数値方式で保存
+        // されていた既存データがありうるため、既存test.maxScoreを渡した呼び出しに限り
+        // 数値方式のまま(ABC扱いにしない)判定する。フォーム操作(種別/観点セレクトの
+        // onchange)からの呼び出しは省略したまま渡さないため、新規作成時は従来どおり
+        // 常にABC扱いになる(既存データの読み取り・編集経路だけを特別扱いする設計)。
+        function isABCTest(category, testType, maxScore) {
+            if (testType === '振り返り' && typeof maxScore === 'number' && maxScore > 0) return false;
+            return category === '主体性' || testType === 'ルーブリック' || testType === '記述問題' || testType === '作文' || testType === '振り返り';
+        }
+
+        // v1.49.0: 評価項目ごとに入力形式(得点/5段階)を選べるようにするため、項目に
+        // test.inputMode('score'|'abc5')という明示フラグを持たせる。フラグがあれば
+        // それを最優先し、フラグの無い既存項目(このバージョン以前に作成されたデータ)は
+        // 従来どおりisABCTest(category, testType, maxScore)にフォールバックする
+        // (後方互換。既存データへのフラグ付与・書き換えはしない)。
+        // 項目データ(testオブジェクト)を扱う箇所(連続入力/リスト/座席・課題カード・
+        // 偏差値・個人カルテ・成績処理統合・データ出力・監査ツール等)は、isABCTest/
+        // recTestKindを直接呼ばず必ずこの関数を経由すること(段階0でabcTo10がコピー・
+        // ドリフトした前例があるため、同じ轍を踏まない)。フォームの初期値決定
+        // (recOnTestTypeChange/recOnCategoryChangeが種別・観点変更直後に出す既定値)
+        // だけはisABCTest(2引数)を直接使ってよい(まだtestオブジェクトが存在しないため)。
+        function getItemInputMode(test) {
+            if (!test) return 'score';
+            if (test.inputMode === 'score' || test.inputMode === 'abc5') return test.inputMode;
+            return isABCTest(test.category, test.testType, test.maxScore) ? 'abc5' : 'score';
+        }
+
+        // v1.49.0: 得点/5段階を物理タブで選べる種別かどうか。まとめ/単元テスト(設問ごとに
+        // 配点・観点を持つ複合型)・実技記録(peUnit別の専用入力)・授業態度(○/－/×の固定語彙)は、
+        // 既に専用の入力方式が決まっているため対象外とする(選択欄自体を出さない)。
+        function recIsInputModeToggleable(testType) {
+            return !!testType && testType !== 'まとめテスト' && testType !== '単元テスト' &&
+                testType !== '実技記録' && testType !== '授業態度';
+        }
+
+        // 指定テストに、値ありのスコアレコードが1件でもあるか(入力形式ロック判定用)。
+        function recTestHasAnyScore(testId) {
+            if (testId === null || testId === undefined) return false;
+            return recGetScores().some(function(s) {
+                return s.testId === testId && s.score !== undefined && s.score !== null && s.score !== '';
+            });
         }
 
         function recRenderList(test) {
@@ -7647,7 +7696,7 @@
             if (!list) return;
             var students = recGetStudents();
             var scores = recGetScores();
-            var isABC = isABCTest(test.category, test.testType);
+            var isABC = (getItemInputMode(test) === 'abc5');
             var isMatome = test.type === 'matome';
             var isPE = test.testType === '実技記録';
             var isNawatobi = isPE && kenteiGetPresetId(test.peUnit) !== null;
@@ -7961,7 +8010,7 @@
             // 存在し、実技記録はテストごとに得点の大小と優劣の向きが異なり得る一方、この偏差値
             // 計算式(50+10*(score-mean)/sd)は常に「得点が高いほど良い」前提の実装になっている。
             // この不整合が除外理由の一つではないかと推測されるが、断定はできない。
-            if (isABCTest(test.category, test.testType) || test.testType === '実技記録') return null;
+            if ((getItemInputMode(test) === 'abc5') || test.testType === '実技記録') return null;
             var rows = recGetScores().filter(function(s) {
                 return s.testId === testId && !s.absent && typeof s.score === 'number';
             });
@@ -8029,7 +8078,7 @@
                 return;
             }
 
-            var isABC = isABCTest(test.category, test.testType);
+            var isABC = (getItemInputMode(test) === 'abc5');
             var isNawatobi = test.testType === '実技記録' && kenteiGetPresetId(test.peUnit) !== null;
             var kConfig = isNawatobi ? kenteiGetConfig(test) : null;
             var count = scores.length;
@@ -9687,7 +9736,7 @@
             if (!test) return;
             var students = recGetStudents();
             var scores = recGetScores();
-            var isABC = isABCTest(test.category, test.testType);
+            var isABC = (getItemInputMode(test) === 'abc5');
             var isMatome = test.type === 'matome';
             if (isABC || isMatome) { showToast('保存済みです', 'success'); return; }
             var saved = 0, rejected = 0;
@@ -9908,6 +9957,44 @@
         var REC_TYPE_ORDER = ['まとめテスト','単元テスト','小テスト','授業課題','実技記録','授業態度','作文','記述問題','振り返り'];
         var REC_CAT_ORDER  = ['知識・技能','思考・判断・表現','主体性'];
 
+        // v1.49.0: 追加・編集フォームの「得点/5段階」物理タブの状態。
+        // _recFormInputMode: 'score' | 'abc5' | null(未選択/種別未選択)。
+        // _recFormInputModeManual: 今回のフォームセッションでタブを手動クリックしたらtrueになる。
+        //   trueの間は種別・観点セレクトのonchangeで初期値が上書きされない
+        //   (「種別を切り替えたら初期値を更新するが、手動で選んだ後は上書きしない」要件)。
+        // _recSuppressInputModeAutoDefault: recEditTest()がフォームへ既存項目を読み込む
+        //   瞬間だけtrueにする。_recSuppressAutoPrefixと同じ方針(その一度の同期呼び出しで
+        //   自動既定値に上書きされるのを防ぐ)。
+        var _recFormInputMode = null;
+        var _recFormInputModeManual = false;
+        var _recSuppressInputModeAutoDefault = false;
+
+        window.recSetInputMode = function(mode) {
+            if (mode !== 'score' && mode !== 'abc5') return;
+            var btn = document.getElementById(mode === 'score' ? 'recInputModeScoreBtn' : 'recInputModeAbc5Btn');
+            if (btn && btn.disabled) return; // 得点入力済みでロック中
+            _recFormInputMode = mode;
+            _recFormInputModeManual = true;
+            recSyncInputModeUi();
+        };
+
+        // 得点/5段階タブの見た目とmaxScore欄の状態をまとめて同期する唯一の関数。
+        function recSyncInputModeUi() {
+            var scoreBtn = document.getElementById('recInputModeScoreBtn');
+            var abc5Btn = document.getElementById('recInputModeAbc5Btn');
+            // 得点が1件でも入力済みの項目は、保存済みデータの型(数値⇔文字列)が変わって
+            // しまうため入力形式を変更不可にする(確認ダイアログなし、理由を1行表示)。
+            var locked = recEditingTestId !== null && recTestHasAnyScore(recEditingTestId);
+            if (scoreBtn) { scoreBtn.classList.toggle('active', _recFormInputMode === 'score'); scoreBtn.disabled = locked; }
+            if (abc5Btn) { abc5Btn.classList.toggle('active', _recFormInputMode === 'abc5'); abc5Btn.disabled = locked; }
+            var note = document.getElementById('recInputModeLockNote');
+            if (note) note.style.display = locked ? 'block' : 'none';
+            var maxEl = document.getElementById('recTestMaxScore');
+            if (!maxEl) return;
+            if (_recFormInputMode === 'abc5') { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
+            else if (_recFormInputMode === 'score') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
+        }
+
         window.recOnTestTypeChange = function() {
             var type = document.getElementById('recTestType').value;
             var cat = document.getElementById('recTestCategory').value;
@@ -9918,6 +10005,11 @@
             matomeF.style.display = 'none'; peF.style.display = 'none';
             var catEl = document.getElementById('recTestCategory'); if (catEl) { catEl.disabled = false; catEl.title = ''; }
             maxEl.disabled = false; maxEl.placeholder = '満点（例：100）';
+            // v1.49.0: 得点/5段階の物理タブは、まとめ/実技記録/授業態度以外の種別でだけ表示する
+            // (これらは専用の入力方式が既に決まっているため対象外)。
+            var toggleable = recIsInputModeToggleable(type);
+            var modeWrap = document.getElementById('recInputModeWrap');
+            if (modeWrap) modeWrap.style.display = toggleable ? 'flex' : 'none';
             if (type === 'まとめテスト' || type === '単元テスト') {
                 matomeF.style.display = 'grid';
                 if (catEl) { catEl.disabled = true; catEl.title = '設問ごとに観点を設定します（選択不要）'; }
@@ -9931,14 +10023,20 @@
                 recOnPeUnitChange();
             } else if (type === '授業態度') {
                 maxEl.value = '10'; maxEl.disabled = true;
-            } else if (isABCTest(cat, type)) {
-                // v1.21.19 (段階4-3): 従来はtype==='ルーブリック'のみ見ていたため、
-                // category='主体性'単独(例:主体性+小テスト)の組み合わせでこの関数が
-                // 上のmaxEl.disabled=falseで上書きしてしまっていた(recEditTest編集時に発覚)。
-                // isABCTest()に統一し、どちらの経路でもABC評価扱いになるようにする。
-                maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価';
-                // ルーブリック種別ではルーブリック入力欄を自動表示
-                if (rf) rf.classList.add('show');
+            } else if (toggleable) {
+                // v1.49.0: 従来はisABCTest(cat,type)がtrueの場合だけABCに固定していたが、
+                // 種別・観点によらずタブで選べるようにする。手動選択済み
+                // (_recFormInputModeManual)でなければ、従来isABCTestが返していた値を
+                // 初期値として使う(記述問題・作文・振り返り・ルーブリック・観点=主体性は
+                // 従来どおり5段階が初期値になる。それ以外は得点が初期値)。
+                if (!_recFormInputModeManual && !_recSuppressInputModeAutoDefault) {
+                    _recFormInputMode = isABCTest(cat, type) ? 'abc5' : 'score';
+                } else if (_recFormInputMode === null) {
+                    _recFormInputMode = isABCTest(cat, type) ? 'abc5' : 'score';
+                }
+                recSyncInputModeUi();
+                // ルーブリック種別、または5段階選択中はルーブリック入力欄を自動表示
+                if ((type === 'ルーブリック' || _recFormInputMode === 'abc5') && rf) rf.classList.add('show');
             }
             // ルーブリック種別以外で、観点未選択なら非表示に
             // v1.21.19: ここはcatを再利用せず必ず再取得すること。実技記録+検定/実技ルーブリック
@@ -9986,10 +10084,20 @@
         window.recOnCategoryChange = function() {
             var cat = document.getElementById('recTestCategory').value;
             var type = document.getElementById('recTestType').value;
-            var maxEl = document.getElementById('recTestMaxScore');
             var isRubric = type === 'ルーブリック';
-            if (isABCTest(cat, type)) { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
-            else if (type !== 'まとめテスト' && type !== '単元テスト' && type !== '実技記録' && type !== '授業態度') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
+            var toggleable = recIsInputModeToggleable(type);
+            // v1.49.0: 得点/5段階タブのある種別は、手動選択済みでなければ観点変更に応じて
+            // 初期値(isABCTestの結果)を更新する(recOnTestTypeChangeと同じ方針)。
+            // まとめ/実技記録/授業態度はmaxEl自体を触らない(recOnTestTypeChange側の
+            // 専用分岐が既に管理しているため、従来から本関数では何もしていなかった)。
+            if (toggleable) {
+                if (!_recFormInputModeManual && !_recSuppressInputModeAutoDefault) {
+                    _recFormInputMode = isABCTest(cat, type) ? 'abc5' : 'score';
+                } else if (_recFormInputMode === null) {
+                    _recFormInputMode = isABCTest(cat, type) ? 'abc5' : 'score';
+                }
+                recSyncInputModeUi();
+            }
             // ルーブリックフィールド表示
             var rf = document.getElementById('recRubricFields');
             if (rf) { rf.classList.toggle('show', !!(cat || isRubric)); }
@@ -10178,11 +10286,17 @@
             var _termEl  = document.getElementById('recTestTerm');
             var termVal  = _termEl ? _termEl.value : '';
 
-            var isABC     = isABCTest(category, testType);
+            var tests = recGetTests();
             var isMatome  = testType === 'まとめテスト' || testType === '単元テスト';
             var isPE      = testType === '実技記録';
             var isAttitude= testType === '授業態度';
             var isRubric  = testType === 'ルーブリック';
+            // v1.49.0: 得点/5段階タブのある種別は、フォームのタブ選択状態(_recFormInputMode)を
+            // 唯一の判定源とする(まとめ/実技記録/授業態度は従来どおりisABCTest(2引数)。
+            // これらは上のisMatome/isPE/isAttitudeで別途maxScoreが決まるため実質未使用だが、
+            // isABCTestを経由しない直書き条件のコピーを避けるため残す)。
+            var toggleable = recIsInputModeToggleable(testType);
+            var isABC = toggleable ? (_recFormInputMode === 'abc5') : isABCTest(category, testType);
 
             if (isMatome && !category) category = '複合';
             if (!subject || !testType || !name || !category || !date) { showToast('全項目を入力してください', 'warning'); return; }
@@ -10209,7 +10323,6 @@
                 if (matomePoints.length === 0 || matomeMaxScore <= 0) { showToast('設問の配点を設定してください', 'warning'); return; }
             }
 
-            var tests = recGetTests();
             var rubricA = (document.getElementById('recRubricA').value || '').trim();
             var rubricB = (document.getElementById('recRubricB').value || '').trim();
             var rubricC = (document.getElementById('recRubricC').value || '').trim();
@@ -10224,6 +10337,23 @@
             if (rubricA) test.rubricA = rubricA;
             if (rubricB) test.rubricB = rubricB;
             if (rubricC) test.rubricC = rubricC;
+            // v1.49.0: inputModeフラグの書き込み方針。
+            //   - 新規作成(recEditingTestId===null): 常に明示フラグを付与する(今回決まった
+            //     入力形式を最初から記録しておく。既存データではないため書き換え問題は無い)。
+            //   - 編集で手動タブ選択した(_recFormInputModeManual): 選んだとおりに更新する。
+            //   - 編集だがタブに触れていない: 元データのinputModeをそのまま引き継ぐ
+            //     (フラグの無い既存項目にタブを開いただけで勝手にフラグが付くことはない。
+            //     isABCTestフォールバック判定のままにしておく)。
+            if (toggleable) {
+                if (recEditingTestId === null || _recFormInputModeManual) {
+                    test.inputMode = isABC ? 'abc5' : 'score';
+                } else {
+                    var _origForInputMode = tests.find(function(t) { return t.id === recEditingTestId; });
+                    if (_origForInputMode && (_origForInputMode.inputMode === 'score' || _origForInputMode.inputMode === 'abc5')) {
+                        test.inputMode = _origForInputMode.inputMode;
+                    }
+                }
+            }
             if (isMatome) {
                 test.matomePoints = matomePoints;
                 test.matomeQuestionTypes = matomeTypes;
@@ -10311,6 +10441,13 @@
             if (ms) { ms.value = ''; ms.disabled = false; ms.placeholder = '満点（例：100）'; }
             document.getElementById('recMatomeFields').style.display = 'none';
             document.getElementById('recPeFields').style.display = 'none';
+            // v1.49.0: 得点/5段階タブの状態を初期化(未選択・タブ非表示・ロック解除)
+            _recFormInputMode = null;
+            _recFormInputModeManual = false;
+            var _mw = document.getElementById('recInputModeWrap'); if (_mw) _mw.style.display = 'none';
+            var _sb = document.getElementById('recInputModeScoreBtn'); if (_sb) { _sb.classList.remove('active'); _sb.disabled = false; }
+            var _ab = document.getElementById('recInputModeAbc5Btn'); if (_ab) { _ab.classList.remove('active'); _ab.disabled = false; }
+            var _ln = document.getElementById('recInputModeLockNote'); if (_ln) _ln.style.display = 'none';
             // 検定カード選択で変更されたフォーム状態を初期化
             var _ce = document.getElementById('recTestCategory'); if (_ce) { _ce.disabled = false; _ce.title = ''; }
             var _ue = document.getElementById('recTestPeUnit');   if (_ue) _ue.value = '秒';
@@ -10345,19 +10482,26 @@
             var rf = document.getElementById('recRubricFields');
             if (rf) rf.classList.toggle('show', !!test.category);
             var ms = document.getElementById('recTestMaxScore');
-            if (isABCTest(test.category, test.testType)) { ms.value = ''; ms.disabled = true; ms.placeholder = 'ABC評価'; }
-            else if (test.testType === '実技記録') { ms.value = ''; ms.disabled = true; ms.placeholder = '自動'; }
-            else if (test.testType === 'まとめテスト' || test.testType === '単元テスト') { ms.value = ''; ms.disabled = true; ms.placeholder = '配点合計で自動計算'; }
-            else { ms.value = test.maxScore || ''; ms.disabled = false; }
+            // v1.49.0: 得点/5段階タブのある種別は、getItemInputMode(test)(フラグ優先・無ければ
+            // isABCTestにフォールバック)を今回の編集セッションの初期状態とする。
+            // _recFormInputModeManualはfalseにしておき(このセッションでまだ手動選択していない)、
+            // 種別・観点を変えない限りrecOnTestTypeChange()の自動再判定で上書きされないよう
+            // _recSuppressInputModeAutoDefaultで抑制する(_recSuppressAutoPrefixと同じ方針)。
+            var _editToggleable = recIsInputModeToggleable(test.testType);
+            _recFormInputMode = _editToggleable ? getItemInputMode(test) : null;
+            _recFormInputModeManual = false;
+            if (_editToggleable) { ms.value = (test.maxScore || test.maxScore === 0) ? test.maxScore : ''; }
             // v1.22.3: recOnTestTypeChange()はフィールド表示/disabled/placeholderの同期に
             // 編集時も必要だが、その内部で呼ばれるrecAutoPrefix()は「開いただけで課題名が
             // 無断で書き換わる」事故を起こすため、ここでの呼び出し中だけ抑制する。
             // 例外発生時もフラグが立ちっぱなしにならないようtry/finallyで戻す。
             _recSuppressAutoPrefix = true;
+            _recSuppressInputModeAutoDefault = true;
             try {
                 recOnTestTypeChange();
             } finally {
                 _recSuppressAutoPrefix = false;
+                _recSuppressInputModeAutoDefault = false;
             }
             if (test.testType === '実技記録') {
                 // バグ修正: 編集時に単位・方向・計測が復元されず「秒」に戻っていた
@@ -10487,7 +10631,7 @@
                 var cnt = scores.filter(function(s) { return s.testId === test.id; }).length;
                 var isMatome = test.type === 'matome';
                 var isPE = test.testType === '実技記録';
-                var scoreInfo = isABCTest(test.category, test.testType) ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
+                var scoreInfo = (getItemInputMode(test) === 'abc5') ? 'ABC評価' : (isPE ? '実技' : (test.maxScore + '点満点'));
                 var termBadge = (typeof window.grdTermBadgeHtml === 'function') ? window.grdTermBadgeHtml(test) : '';
                 return '<div class="rec-test-item' + (test.id === recCurrentTestId ? ' selected' : '') +
                     (isPE ? ' pe-item' : '') + (isMatome ? ' matome-item' : '') + '">' +
@@ -10919,6 +11063,10 @@
         // v1.21.26 (段階9-2): 監査診断(MODULE:AUDIT_DIAGNOSIS、別IIFE)がmaxScore欠損判定で
         // 5段階項目かどうかをisABCTest経由で判定するために公開。条件式のコピーを避けるため。
         window.isABCTest = isABCTest;
+        // v1.49.0: 同じ監査診断がmaxScore欠損判定をgetItemInputMode(test)経由に切り替えたため
+        // (test.inputModeフラグを最優先し、無ければisABCTestにフォールバックする判定に統一)、
+        // これも公開する。
+        window.getItemInputMode = getItemInputMode;
 
     })();
 
@@ -15986,8 +16134,15 @@
                     if (sr.absent === true) { aItems.push({ name: test.name, type: test.testType||'', score10: null, raw: null, max: null, itemKey: ik, weight: w }); return; }
                     var sv = sr.score;
                     if (test.testType === '授業態度') { if (sv === '○') sv = 'A'; else if (sv === '－') sv = 'B'; else if (sv === '×') sv = 'C'; }
-                    var s10 = abcTo10(sv);
-                    aItems.push({ name: test.name, type: test.testType||'', score10: s10 !== null ? Math.round(s10*10)/10 : null, raw: sr.score, max: null, itemKey: ik, weight: w });
+                    // v1.49.0: 主体性(category==='主体性')は従来、testType='授業態度'の記号変換を
+                    // 除き常にabcTo10(sv)固定だった(観点が主体性なら常にABC入力という前提)。
+                    // 得点/5段階タブの追加でcategory=主体性でも得点方式の項目を作れるようになった
+                    // ため、getItemInputMode(test)で分岐する(知識・技能/思考・判断・表現の
+                    // 各ブロックは元々typeof sr.scoreで分岐しており、値の型がinputModeと必ず
+                    // 一致するためこの変更は不要)。
+                    var _aMode = getItemInputMode(test);
+                    var s10 = (_aMode === 'score') ? scoreTo10(sv, test.maxScore) : abcTo10(sv);
+                    aItems.push({ name: test.name, type: test.testType||'', score10: s10 !== null ? Math.round(s10*10)/10 : null, raw: sr.score, max: (_aMode === 'score' ? test.maxScore : null), itemKey: ik, weight: w });
                 });
                 allMatomeTests.forEach(function(test) {
                     var sr = ss.find(function(s) { return s.testId === test.id; });
@@ -18820,13 +18975,13 @@
             // v1.21.26 (段階9-2): 5段階項目(isABCTest)はmaxScore=0が正常のため、除外しないと
             // 正常データを異常として報告し続けてしまう。5段階判定は必ずisABCTest経由にすること。
             var maxScoreMissing = tests.filter(function(t) {
-                return t.type !== 'matome' && !isABCTest(t.category, t.testType) && (!t.maxScore || t.maxScore <= 0);
+                return t.type !== 'matome' && !(getItemInputMode(t) === 'abc5') && (!t.maxScore || t.maxScore <= 0);
             }).length;
 
             // maxScore 欠損の testType × subject 内訳 (5段階項目除く)
             var maxScoreEmptyMap = {};
             tests.filter(function(t) {
-                return t.type !== 'matome' && !isABCTest(t.category, t.testType) && (!t.maxScore || t.maxScore <= 0);
+                return t.type !== 'matome' && !(getItemInputMode(t) === 'abc5') && (!t.maxScore || t.maxScore <= 0);
             }).forEach(function(t) {
                 var key = (t.testType || '(未設定)') + '|' + (t.subject || '(未設定)');
                 maxScoreEmptyMap[key] = (maxScoreEmptyMap[key] || 0) + 1;

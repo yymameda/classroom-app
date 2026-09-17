@@ -9,6 +9,7 @@
 // 実行: cd tests && node pe-score10.test.js
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const BASE_URL = 'http://localhost:8123/index.html';
 
@@ -18,6 +19,8 @@ function check(name, cond, detail) {
     console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
 function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (eps || 0.05); }
+
+const TEST_DATE = termSafeDate(10);
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -59,7 +62,7 @@ function near(a, b, eps) { return typeof a === 'number' && Math.abs(a - b) < (ep
 
     function peTest(id, name, peUnit) {
         return { id, subject: '体育', testType: '実技記録', category: '知識・技能', name: name,
-                 type: 'standard', maxScore: 9999, peUnit: peUnit, date: '2026-06-01', createdAt: new Date().toISOString() };
+                 type: 'standard', maxScore: 9999, peUnit: peUnit, date: TEST_DATE, createdAt: new Date().toISOString() };
     }
 
     const tests = [

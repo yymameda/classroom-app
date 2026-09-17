@@ -22,6 +22,7 @@
 // 実行: cd tests && node rec-edit-return-flow.test.js
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const BASE_URL = 'http://localhost:8123/index.html';
 
@@ -30,6 +31,9 @@ function check(name, cond, detail) {
     results.push({ name, pass: !!cond, detail });
     console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
+
+// termSafeDate(10+N)で元の'2026-06-0N'の相対順序(日付ソート確認用)を保つ。
+// 基準10は他のtests/配下のファイルと合わせている(単なるオフセットの起点で意味はない)。
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -118,8 +122,8 @@ function check(name, cond, detail) {
         // ================================================================
         // Check 1+2: 入力画面 → 編集ボタン → 管理画面遷移＋プリフィル → 保存 → 復帰
         // ================================================================
-        const TEST_A = { id: 900001, subject: '国語', testType: '小テスト', name: 'EDT_課題A', category: '知識・技能', type: 'standard', maxScore: 100, date: '2026-06-01', createdAt: new Date().toISOString() };
-        const TEST_B = { id: 900002, subject: '算数', testType: '小テスト', name: 'EDT_課題B', category: '知識・技能', type: 'standard', maxScore: 50, date: '2026-06-02', createdAt: new Date().toISOString() };
+        const TEST_A = { id: 900001, subject: '国語', testType: '小テスト', name: 'EDT_課題A', category: '知識・技能', type: 'standard', maxScore: 100, date: termSafeDate(11), createdAt: new Date().toISOString() };
+        const TEST_B = { id: 900002, subject: '算数', testType: '小テスト', name: 'EDT_課題B', category: '知識・技能', type: 'standard', maxScore: 50, date: termSafeDate(12), createdAt: new Date().toISOString() };
         const SCORE_A0 = { id: 1, studentIndex: 0, testId: 900001, score: 80, createdAt: new Date().toISOString() };
         await seed([TEST_A, TEST_B], [SCORE_A0]);
 
@@ -187,7 +191,7 @@ function check(name, cond, detail) {
         //   - 編集中にユーザーが種別ドロップダウンを手動変更した場合は、
         //     従来どおりプレフィックスが付け替わる(抑制が効きすぎていないこと)
         // ================================================================
-        const TEST_E = { id: 900005, subject: '算数', testType: '小テスト', name: 'SUP_課題E', category: '知識・技能', type: 'standard', maxScore: 100, date: '2026-06-05', createdAt: new Date().toISOString() };
+        const TEST_E = { id: 900005, subject: '算数', testType: '小テスト', name: 'SUP_課題E', category: '知識・技能', type: 'standard', maxScore: 100, date: termSafeDate(15), createdAt: new Date().toISOString() };
         await seed([TEST_E], []);
         await page.evaluate(() => { window.recShowSub('tests'); });
 
@@ -215,7 +219,7 @@ function check(name, cond, detail) {
         // 直接localStorageに入っていた場合、recEditTest()で開くと'(名称未設定)'が
         // 入り、保存が拒否されずに完了すること(recAddTestの!nameガードのすり抜け防止)。
         // ================================================================
-        const TEST_G = { id: 900007, subject: '国語', testType: '小テスト', category: '知識・技能', type: 'standard', maxScore: 100, date: '2026-06-07', createdAt: new Date().toISOString() }; // nameフィールドなし
+        const TEST_G = { id: 900007, subject: '国語', testType: '小テスト', category: '知識・技能', type: 'standard', maxScore: 100, date: termSafeDate(17), createdAt: new Date().toISOString() }; // nameフィールドなし
         await seed([TEST_G], []);
         await page.evaluate(() => { window.recShowSub('tests'); });
         await page.evaluate((gid) => { window.recEditTest(gid); }, TEST_G.id);
@@ -232,7 +236,7 @@ function check(name, cond, detail) {
         // ================================================================
         // Check 4: 既存得点を超えるmaxScoreへの変更は警告 → キャンセル可 → 続行時も既存得点は不変
         // ================================================================
-        const TEST_C = { id: 900003, subject: '理科', testType: '小テスト', name: 'EDT_課題C', category: '知識・技能', type: 'standard', maxScore: 100, date: '2026-06-03', createdAt: new Date().toISOString() };
+        const TEST_C = { id: 900003, subject: '理科', testType: '小テスト', name: 'EDT_課題C', category: '知識・技能', type: 'standard', maxScore: 100, date: termSafeDate(13), createdAt: new Date().toISOString() };
         const SCORE_C0 = { id: 2, studentIndex: 0, testId: 900003, score: 90, createdAt: new Date().toISOString() };
         const SCORE_C1 = { id: 3, studentIndex: 1, testId: 900003, score: 30, createdAt: new Date().toISOString() };
         const SCORE_C2 = { id: 4, studentIndex: 2, testId: 900003, score: 95, createdAt: new Date().toISOString() };
@@ -266,7 +270,7 @@ function check(name, cond, detail) {
         // ================================================================
         // Check 5: 復帰対象の課題が削除済みの場合、エラーにならず未選択状態で復帰する
         // ================================================================
-        const TEST_D = { id: 900004, subject: '社会', testType: '小テスト', name: 'EDT_課題D', category: '知識・技能', type: 'standard', maxScore: 100, date: '2026-06-04', createdAt: new Date().toISOString() };
+        const TEST_D = { id: 900004, subject: '社会', testType: '小テスト', name: 'EDT_課題D', category: '知識・技能', type: 'standard', maxScore: 100, date: termSafeDate(14), createdAt: new Date().toISOString() };
         await seed([TEST_D], []);
         await page.select('#recInputTestSelect', String(TEST_D.id));
         await new Promise(r => setTimeout(r, 150));

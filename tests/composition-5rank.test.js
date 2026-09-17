@@ -13,6 +13,7 @@
 // 実行: cd tests && node composition-5rank.test.js
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const BASE_URL = 'http://localhost:8123/index.html';
 
@@ -21,6 +22,8 @@ function check(name, cond, detail) {
     results.push({ name, pass: !!cond, detail });
     console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
+
+const TEST_DATE = termSafeDate(10);
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -90,7 +93,7 @@ function check(name, cond, detail) {
         // ================================================================
         // 1. 新規作成 → 5段階のABCボタンUIが出る(まずcategory=主体性で確認)
         // ================================================================
-        await fillTestForm({ subject: '国語', testType: '作文', name: 'ISABC82_主体性', category: '主体性', date: '2026-06-01' });
+        await fillTestForm({ subject: '国語', testType: '作文', name: 'ISABC82_主体性', category: '主体性', date: TEST_DATE });
         const formState1 = await maxScoreFieldState();
         check('作成フォーム: 作文選択直後、満点欄がdisabled・プレースホルダー「ABC評価」になる', formState1.disabled === true && formState1.placeholder === 'ABC評価', JSON.stringify(formState1));
 
@@ -118,7 +121,7 @@ function check(name, cond, detail) {
         ];
         const createdByCat = { '主体性': created1 };
         for (const c of categoryCases) {
-            await fillTestForm({ subject: '国語', testType: '作文', name: c.name, category: c.cat, date: '2026-06-01' });
+            await fillTestForm({ subject: '国語', testType: '作文', name: c.name, category: c.cat, date: TEST_DATE });
             await page.evaluate(() => { window.recAddTest(); });
             await new Promise(r => setTimeout(r, 150));
             const created = await findTestByName('作文_' + c.name);
@@ -230,7 +233,7 @@ function check(name, cond, detail) {
         // 7. 「記述問題」(段階8)に関わる挙動が変更されていないことの回帰確認
         //    記述問題は既にisABCTest対象。今回の変更後も引き続きABC評価のままであること。
         // ================================================================
-        await fillTestForm({ subject: '国語', testType: '記述問題', name: 'ISABC82_記述回帰', category: '知識・技能', date: '2026-06-01' });
+        await fillTestForm({ subject: '国語', testType: '記述問題', name: 'ISABC82_記述回帰', category: '知識・技能', date: TEST_DATE });
         const descFormState = await maxScoreFieldState();
         check('記述問題回帰: 満点欄がdisabled・プレースホルダー「ABC評価」のまま(従来どおり)', descFormState.disabled === true && descFormState.placeholder === 'ABC評価', JSON.stringify(descFormState));
         await page.evaluate(() => { window.recAddTest(); });

@@ -11,6 +11,7 @@
 // 実行: cd tests && node pe-rubric.test.js
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const BASE_URL = 'http://localhost:8123/index.html';
 
@@ -19,6 +20,8 @@ function check(name, cond, detail) {
     results.push({ name, pass: !!cond, detail });
     console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
+
+const TEST_DATE = termSafeDate(10);
 
 const MAT_CONFIG = {
     presetId: 'mat', combine: 'average', bonusMode: 'each', cap: 10,
@@ -70,9 +73,9 @@ const VOLLEY_CONFIG = {
 
     const students = [{name:'児童A'},{name:'児童B'},{name:'児童C'},{name:'児童D'}];
     const tests = [
-        { id: matTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: JSON.parse(JSON.stringify(MAT_CONFIG)), date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: volleyTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ソフトバレー', type:'standard', maxScore:9999, peUnit:'実技:volley', peRubric: JSON.parse(JSON.stringify(VOLLEY_CONFIG)), date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: nwTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'なわとび', type:'standard', maxScore:9999, peUnit:'なわとびカード', date:'2026-08-19', createdAt:new Date().toISOString() }
+        { id: matTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: JSON.parse(JSON.stringify(MAT_CONFIG)), date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: volleyTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ソフトバレー', type:'standard', maxScore:9999, peUnit:'実技:volley', peRubric: JSON.parse(JSON.stringify(VOLLEY_CONFIG)), date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: nwTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'なわとび', type:'standard', maxScore:9999, peUnit:'なわとびカード', date: TEST_DATE, createdAt:new Date().toISOString() }
     ];
     // 児童0=マット完了(①6②10③10④0), 児童1=マット未完了(3/4項目), 児童2=マット全未入力
     const scores = [
@@ -228,14 +231,14 @@ const VOLLEY_CONFIG = {
     //    合成config直接注入ではなく、実際の課題登録フォーム→recAddTest()→
     //    peRubricGetPresetId→peRubricBuildFromPreset の経路そのものを検証する。
     // ================================================================
-    const created = await page.evaluate(() => {
+    const created = await page.evaluate((dateStr) => {
         showView('records');
         recShowSub('tests');
         document.getElementById('recTestSubject').value = '体育';
         document.getElementById('recTestType').value = '実技記録';
         recOnTestTypeChange();
         document.getElementById('recTestName').value = 'ソフトバレー(実プリセット)';
-        document.getElementById('recTestDate').value = '2026-08-19';
+        document.getElementById('recTestDate').value = dateStr;
         document.getElementById('recTestPeUnit').value = '実技:volley';
         recOnPeUnitChange();
         var catEl = document.getElementById('recTestCategory');
@@ -250,7 +253,7 @@ const VOLLEY_CONFIG = {
         var tests = JSON.parse(StorageManager.getRaw(KEYS.tests));
         var test = tests.find(function(t){ return t.name === 'ソフトバレー(実プリセット)'; });
         return { uiState: uiState, test: test };
-    });
+    }, TEST_DATE);
     check('フォーム: 実技:volley選択でカテゴリが知識・技能に自動固定・方向欄が隠れる・未対応警告が出ない',
         created.uiState.catValue === '知識・技能' && created.uiState.catDisabled === true &&
         created.uiState.wrapHidden && created.uiState.noConvertHintHidden, JSON.stringify(created.uiState));
@@ -311,12 +314,12 @@ const VOLLEY_CONFIG = {
     // ================================================================
     // 6. プリセット実配線検証(commit5: マット運動)
     // ================================================================
-    const matCreated = await page.evaluate(() => {
+    const matCreated = await page.evaluate((dateStr) => {
         document.getElementById('recTestSubject').value = '体育';
         document.getElementById('recTestType').value = '実技記録';
         recOnTestTypeChange();
         document.getElementById('recTestName').value = 'マット運動(実プリセット)';
-        document.getElementById('recTestDate').value = '2026-08-19';
+        document.getElementById('recTestDate').value = dateStr;
         document.getElementById('recTestPeUnit').value = '実技:mat';
         recOnPeUnitChange();
         var catEl = document.getElementById('recTestCategory');
@@ -331,7 +334,7 @@ const VOLLEY_CONFIG = {
         var tests = JSON.parse(StorageManager.getRaw(KEYS.tests));
         var test = tests.find(function(t){ return t.name === 'マット運動(実プリセット)'; });
         return { uiState: uiState, test: test };
-    });
+    }, TEST_DATE);
     check('フォーム: 実技:mat選択でカテゴリ固定・方向欄が隠れる・未対応警告なし(option追加のみで動くことの確認)',
         matCreated.uiState.catValue === '知識・技能' && matCreated.uiState.catDisabled === true &&
         matCreated.uiState.wrapHidden && matCreated.uiState.noConvertHintHidden, JSON.stringify(matCreated.uiState));
@@ -461,7 +464,7 @@ const VOLLEY_CONFIG = {
     const scrollTestId = now + 200;
     const scrollStudents = [{ name: '児童X' }, { name: '児童Y' }];
     const scrollTests = [
-        { id: scrollTestId, subject: '体育', testType: '実技記録', category: '知識・技能', type: 'standard', maxScore: 9999, peUnit: '実技:mat', date: '2026-08-19', createdAt: new Date().toISOString() }
+        { id: scrollTestId, subject: '体育', testType: '実技記録', category: '知識・技能', type: 'standard', maxScore: 9999, peUnit: '実技:mat', date: TEST_DATE, createdAt: new Date().toISOString() }
     ];
     // 児童1(index1)は加点(大きな前転)だけ入力済み。閉じた状態でもそれが分かるかの確認用
     const scrollScores = [
@@ -561,7 +564,7 @@ const VOLLEY_CONFIG = {
     };
     const pendingStudents = [{name:'児童A'},{name:'児童B'},{name:'児童C'}];
     const pendingTests = [
-        { id: pendingTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動(未確定一覧テスト)', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: JSON.parse(JSON.stringify(pendingConfig)), date:'2026-08-19', createdAt:new Date().toISOString() }
+        { id: pendingTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動(未確定一覧テスト)', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: JSON.parse(JSON.stringify(pendingConfig)), date: TEST_DATE, createdAt:new Date().toISOString() }
     ];
     // 児童0=完了, 児童1=未完了(3/4項目), 児童2=全未入力(レコードなし)
     const pendingScores = [
@@ -604,16 +607,16 @@ const VOLLEY_CONFIG = {
     });
     check('未確定一覧: 全児童完了でバナーが非表示になる(常時表示にしない)', bannerAllDone.visible === false, JSON.stringify(bannerAllDone));
 
-    const bannerOtherTest = await page.evaluate(() => {
+    const bannerOtherTest = await page.evaluate((dateStr) => {
         var tests = JSON.parse(StorageManager.getRaw(KEYS.tests));
-        var t2 = { id: Date.now()+999, subject:'国語', testType:'小テスト', category:'知識・技能', name:'漢字', type:'standard', maxScore:100, date:'2026-08-19', createdAt:new Date().toISOString() };
+        var t2 = { id: Date.now()+999, subject:'国語', testType:'小テスト', category:'知識・技能', name:'漢字', type:'standard', maxScore:100, date: dateStr, createdAt:new Date().toISOString() };
         tests.push(t2);
         StorageManager.setImmediate(KEYS.tests, JSON.stringify(tests));
         recInvalidateCache();
         recSelectTestGoto(t2.id);
         var banner = document.getElementById('recPeRubricPendingBanner');
         return { visible: banner.style.display !== 'none' };
-    });
+    }, TEST_DATE);
     check('未確定一覧: 実技ルーブリック以外のテスト選択中はバナーが出ない', bannerOtherTest.visible === false, JSON.stringify(bannerOtherTest));
 
     // ================================================================
@@ -649,7 +652,7 @@ const VOLLEY_CONFIG = {
 
     const vaultTestId = now + 300;
     const vaultStudents = [{name:'児童V1'},{name:'児童V2'}];
-    const vaultTests = [{ id: vaultTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: null, date:'2026-08-19', createdAt:new Date().toISOString() }];
+    const vaultTests = [{ id: vaultTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: null, date: TEST_DATE, createdAt:new Date().toISOString() }];
     // 児童0(V1): 旧④加点技(b1=首はね跳び・頭はね跳び、現行presetのbonusには存在しないid)を保持。児童1(V2): 保持しない。
     const vaultScores = [
         { id: 1, studentIndex: 0, testId: vaultTestId, rubricData: { items: { vt1:2,vt2:1,vt3:1 }, bonus: { b1: 1 } }, createdAt: new Date().toISOString() },
@@ -731,12 +734,12 @@ const VOLLEY_CONFIG = {
 
     const hurdleTestId = now + 301;
     const hurdleStudents = [{name:'児童H1'},{name:'児童H2'}];
-    await page.evaluate(({testId, students}) => {
+    await page.evaluate(({testId, students, dateStr}) => {
         StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year:2026, grade:5, class:1, termSystem:3 } }));
-        var tests = [{ id: testId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: peRubricGetConfig({peUnit:'実技:hurdle'}), date:'2026-08-19', createdAt:new Date().toISOString() }];
+        var tests = [{ id: testId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: peRubricGetConfig({peUnit:'実技:hurdle'}), date: dateStr, createdAt:new Date().toISOString() }];
         StorageManager.set(KEYS.tests, JSON.stringify(tests));
         StorageManager.set(KEYS.scores, JSON.stringify([]));
-    }, { testId: hurdleTestId, students: hurdleStudents });
+    }, { testId: hurdleTestId, students: hurdleStudents, dateStr: TEST_DATE });
     await page.reload({ waitUntil: 'networkidle0' });
 
     const hurdleWired = await page.evaluate((testId) => {
@@ -776,13 +779,13 @@ const VOLLEY_CONFIG = {
     const fiveStudents = [{name:'児童F1'}];
     const matId = fiveTestBase, volleyId = fiveTestBase+1, vaultId = fiveTestBase+2, hurdleId = fiveTestBase+3, swimId = fiveTestBase+4, paperId = fiveTestBase+5, otherSubjId = fiveTestBase+6;
     const fiveTests = [
-        { id: matId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: {}, date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: volleyId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ソフトバレー', type:'standard', maxScore:9999, peUnit:'実技:volley', peRubric: {}, date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: vaultId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: {}, date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: hurdleId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: {}, date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: swimId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'水泳', type:'standard', maxScore:9999, peUnit:'検定:swimming', date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: paperId, subject:'体育', testType:'小テスト', category:'知識・技能', name:'ペーパーテスト', type:'standard', maxScore:100, date:'2026-08-19', createdAt:new Date().toISOString() },
-        { id: otherSubjId, subject:'国語', testType:'小テスト', category:'知識・技能', name:'漢字', type:'standard', maxScore:100, date:'2026-08-19', createdAt:new Date().toISOString() }
+        { id: matId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: {}, date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: volleyId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ソフトバレー', type:'standard', maxScore:9999, peUnit:'実技:volley', peRubric: {}, date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: vaultId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: {}, date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: hurdleId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: {}, date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: swimId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'水泳', type:'standard', maxScore:9999, peUnit:'検定:swimming', date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: paperId, subject:'体育', testType:'小テスト', category:'知識・技能', name:'ペーパーテスト', type:'standard', maxScore:100, date: TEST_DATE, createdAt:new Date().toISOString() },
+        { id: otherSubjId, subject:'国語', testType:'小テスト', category:'知識・技能', name:'漢字', type:'standard', maxScore:100, date: TEST_DATE, createdAt:new Date().toISOString() }
     ];
     const fiveScoresPartial = [
         { id: 1, studentIndex: 0, testId: matId, score10: 7, score: 7, createdAt: new Date().toISOString() },
@@ -877,7 +880,7 @@ const VOLLEY_CONFIG = {
         StorageManager.set(KEYS.tests, JSON.stringify(tests));
         StorageManager.set(KEYS.scores, JSON.stringify(scores));
     }, {
-        tests: [{ id: resetVaultTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動(旧データ)', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: OLD_VAULT_SNAPSHOT, date:'2026-08-19', createdAt:new Date().toISOString() }],
+        tests: [{ id: resetVaultTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'跳び箱運動(旧データ)', type:'standard', maxScore:9999, peUnit:'実技:vault', peRubric: OLD_VAULT_SNAPSHOT, date: TEST_DATE, createdAt:new Date().toISOString() }],
         students: resetVaultStudents, scores: resetVaultScores
     });
     await page.reload({ waitUntil: 'networkidle0' });
@@ -941,7 +944,7 @@ const VOLLEY_CONFIG = {
         StorageManager.set(KEYS.tests, JSON.stringify(tests));
         StorageManager.set(KEYS.scores, JSON.stringify(scores));
     }, {
-        tests: [{ id: resetHurdleTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走(旧データ)', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: OLD_HURDLE_SNAPSHOT, date:'2026-08-19', createdAt:new Date().toISOString() }],
+        tests: [{ id: resetHurdleTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'ハードル走(旧データ)', type:'standard', maxScore:9999, peUnit:'実技:hurdle', peRubric: OLD_HURDLE_SNAPSHOT, date: TEST_DATE, createdAt:new Date().toISOString() }],
         students: resetHurdleStudents, scores: resetHurdleScores
     });
     await page.reload({ waitUntil: 'networkidle0' });
@@ -980,7 +983,7 @@ const VOLLEY_CONFIG = {
         StorageManager.set(KEYS.tests, JSON.stringify(tests));
         StorageManager.set(KEYS.scores, JSON.stringify(scores));
     }, {
-        tests: [{ id: noopResetTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動(カスタム基準)', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: customizedMatConfig, date:'2026-08-19', createdAt:new Date().toISOString() }],
+        tests: [{ id: noopResetTestId, subject:'体育', testType:'実技記録', category:'知識・技能', name:'マット運動(カスタム基準)', type:'standard', maxScore:9999, peUnit:'実技:mat', peRubric: customizedMatConfig, date: TEST_DATE, createdAt:new Date().toISOString() }],
         students: noopStudents, scores: noopScores
     });
     await page.reload({ waitUntil: 'networkidle0' });

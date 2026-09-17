@@ -12,6 +12,7 @@
 // 実行: cd tests && node absent.test.js
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const BASE_URL = 'http://localhost:8123/index.html';
 
@@ -59,11 +60,15 @@ const MAT_CONFIG = {
     const matTestId = now + 2;   // 実技ルーブリック(マット運動)
     const legacyTestId = now + 3; // 旧形式の欠席レコード検証用の別テスト
 
+    // grdCalculate等の学期フィルタ(termSystem:3)に必ず含まれるよう、実行時点の学期開始日を使う
+    // (固定日付だとテスト実行月によって学期外に弾かれ、項目がITEM_NOT_FOUNDになる)
+    const TEST_DATE = termSafeDate(10);
+
     const students = [{ name: '児童A' }, { name: '児童B' }, { name: '児童C' }, { name: '児童D' }];
     const tests = [
-        { id: numTestId, subject: '国語', testType: '単元テスト', category: '知識・技能', type: 'standard', maxScore: 100, name: '漢字テスト', date: '2026-08-19', createdAt: new Date().toISOString() },
-        { id: matTestId, subject: '体育', testType: '実技記録', category: '知識・技能', type: 'standard', maxScore: 9999, peUnit: '実技:mat', peRubric: JSON.parse(JSON.stringify(MAT_CONFIG)), date: '2026-08-19', createdAt: new Date().toISOString() },
-        { id: legacyTestId, subject: '算数', testType: '単元テスト', category: '知識・技能', type: 'standard', maxScore: 100, name: '計算テスト', date: '2026-08-19', createdAt: new Date().toISOString() }
+        { id: numTestId, subject: '国語', testType: '単元テスト', category: '知識・技能', type: 'standard', maxScore: 100, name: '漢字テスト', date: TEST_DATE, createdAt: new Date().toISOString() },
+        { id: matTestId, subject: '体育', testType: '実技記録', category: '知識・技能', type: 'standard', maxScore: 9999, peUnit: '実技:mat', peRubric: JSON.parse(JSON.stringify(MAT_CONFIG)), date: TEST_DATE, createdAt: new Date().toISOString() },
+        { id: legacyTestId, subject: '算数', testType: '単元テスト', category: '知識・技能', type: 'standard', maxScore: 100, name: '計算テスト', date: TEST_DATE, createdAt: new Date().toISOString() }
     ];
     // 児童3(index3)のlegacyTestIdに、旧実装が生成していた形の欠席レコード(5フィールドのみ)を直接投入する
     const scores = [

@@ -14,6 +14,7 @@
 // 実行: cd tests && node isabc-consolidation.test.js
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const BASE_URL = 'http://localhost:8123/index.html';
 
@@ -22,6 +23,8 @@ function check(name, cond, detail) {
     results.push({ name, pass: !!cond, detail });
     console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name + (detail ? ' :: ' + detail : ''));
 }
+
+const TEST_DATE = termSafeDate(10);
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -93,25 +96,25 @@ function check(name, cond, detail) {
         // 期待値はabcTo10とは無関係にrecAddTest自身の式(9629-9630行目付近)から導かれる
         // リテラル値。isABCTest集約の前後で変わらないことをこのテストで保証する。
         // ================================================================
-        await fillTestForm({ subject: '国語', testType: '小テスト', name: 'ISABC_主体性', category: '主体性', maxScore: '', date: '2026-06-01' });
+        await fillTestForm({ subject: '国語', testType: '小テスト', name: 'ISABC_主体性', category: '主体性', maxScore: '', date: TEST_DATE });
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const tCategoryOnly = await findTestByName('ISABC_主体性');
         check('パターン1 category=主体性: maxScore=0', tCategoryOnly && tCategoryOnly.maxScore === 0, JSON.stringify(tCategoryOnly));
 
-        await fillTestForm({ subject: '家庭', testType: 'ルーブリック', name: 'ISABC_ルーブリック', category: '知識・技能', maxScore: '', date: '2026-06-01' });
+        await fillTestForm({ subject: '家庭', testType: 'ルーブリック', name: 'ISABC_ルーブリック', category: '知識・技能', maxScore: '', date: TEST_DATE });
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const tRubric = await findTestByName('ISABC_ルーブリック');
         check('パターン2 testType=ルーブリック(category=知識・技能): maxScore=0', tRubric && tRubric.maxScore === 0, JSON.stringify(tRubric));
 
-        await fillTestForm({ subject: '体育', testType: '授業態度', name: 'ISABC_授業態度', category: '知識・技能', date: '2026-06-01' });
+        await fillTestForm({ subject: '体育', testType: '授業態度', name: 'ISABC_授業態度', category: '知識・技能', date: TEST_DATE });
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const tAttitude = await findTestByName('ISABC_授業態度');
         check('パターン3 授業態度: maxScore=10', tAttitude && tAttitude.maxScore === 10, JSON.stringify(tAttitude));
 
-        await fillTestForm({ subject: '体育', testType: '実技記録', name: 'ISABC_実技記録', category: '知識・技能', date: '2026-06-01' });
+        await fillTestForm({ subject: '体育', testType: '実技記録', name: 'ISABC_実技記録', category: '知識・技能', date: TEST_DATE });
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const tPE = await findTestByName('ISABC_実技記録');
@@ -119,7 +122,7 @@ function check(name, cond, detail) {
 
         // まとめテスト: 種別選択でrecOnTestTypeChange→recRenderMatomePreviewが走り、
         // 設問数を2に絞ると既定配点5点×2問=10点になる(recRenderMatomePreviewの既定値'5'、index.html該当箇所)。
-        await fillTestForm({ subject: '算数', testType: 'まとめテスト', name: 'ISABC_まとめ', date: '2026-06-01' });
+        await fillTestForm({ subject: '算数', testType: 'まとめテスト', name: 'ISABC_まとめ', date: TEST_DATE });
         await page.evaluate(() => {
             document.getElementById('recMatomeQCount').value = '2';
             window.recRenderMatomePreview();
@@ -130,7 +133,7 @@ function check(name, cond, detail) {
         const tMatome = await findTestByName('ISABC_まとめ');
         check('パターン5 まとめテスト(設問2問×既定5点): maxScore=10(=matomeMaxScore)', tMatome && tMatome.maxScore === 10, JSON.stringify(tMatome));
 
-        await fillTestForm({ subject: '国語', testType: '小テスト', name: 'ISABC_通常', category: '知識・技能', maxScore: '80', date: '2026-06-01' });
+        await fillTestForm({ subject: '国語', testType: '小テスト', name: 'ISABC_通常', category: '知識・技能', maxScore: '80', date: TEST_DATE });
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const tNormal = await findTestByName('ISABC_通常');

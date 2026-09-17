@@ -19,6 +19,7 @@
 //   ⑩ 入力タブへ往復してもデータが壊れない（自動保存との競合がない）
 
 const puppeteer = require('puppeteer-core');
+const { termSafeDate } = require('./helpers/term-date');
 
 const URL = 'http://localhost:8123/index.html';
 const CHROME = process.env.CHROME_PATH
@@ -30,31 +31,36 @@ function check(label, ok, detail) {
   else { fail++; console.log('  FAIL ' + label + (detail ? '\n       ' + detail : '')); }
 }
 
+// termSafeDate(10+N)で元データの日付差分をそのまま保持する: 07-03→+0 / 07-05→+2 /
+// 07-08→+5 / 07-10→+7 / 07-29→+26 (並べ替え確認用。基準10は他のtests/配下のファイルと
+// 合わせているだけで意味はない)。
+const D03 = termSafeDate(10), D05 = termSafeDate(12), D08 = termSafeDate(15), D10 = termSafeDate(17), D29 = termSafeDate(36);
+
 // --- テストデータ ---------------------------------------------------------
 // 課題 104 はわざと「誰も記録がない」状態にして、未集計の隔離を確かめる。
-// あおい(0) は 7/10 に病欠。課題 101 は 7/10 なので「欠席由来の未提出」になる。
+// あおい(0) は D10 に病欠。課題 101 は D10 なので「欠席由来の未提出」になる。
 const SEED = {
   spa_master: JSON.stringify({
     classInfo: { grade: 5, className: '1', termSystem: 3 },
     students: [{ name: 'あおい' }, { name: 'かえで' }, { name: 'さくら' }]
   }),
   spa_submissions_assignments: JSON.stringify([
-    { id: 101, subject: '国語', name: '漢字ドリル⑤', date: '2026-07-10', createdAt: '2026-07-10T00:00:00.000Z' },
-    { id: 102, subject: '算数', name: '計算プリント', date: '2026-07-08', createdAt: '2026-07-08T00:00:00.000Z' },
-    { id: 103, subject: '社会', name: '新聞づくり',   date: '2026-07-05', createdAt: '2026-07-05T00:00:00.000Z' },
-    { id: 104, subject: '理科', name: '観察カード',   date: '2026-07-29', createdAt: '2026-07-29T00:00:00.000Z' }
+    { id: 101, subject: '国語', name: '漢字ドリル⑤', date: D10, createdAt: D10 + 'T00:00:00.000Z' },
+    { id: 102, subject: '算数', name: '計算プリント', date: D08, createdAt: D08 + 'T00:00:00.000Z' },
+    { id: 103, subject: '社会', name: '新聞づくり',   date: D05, createdAt: D05 + 'T00:00:00.000Z' },
+    { id: 104, subject: '理科', name: '観察カード',   date: D29, createdAt: D29 + 'T00:00:00.000Z' }
   ]),
   spa_submissions_data: JSON.stringify([
-    { id: 1, studentIndex: 0, assignmentId: 102, status: 'submitted', correctionDone: true,  lateOnDue: false, createdAt: '2026-07-08T01:00:00.000Z' },
-    { id: 2, studentIndex: 1, assignmentId: 103, status: 'resubmit',  correctionDone: false, lateOnDue: false, createdAt: '2026-07-05T01:00:00.000Z' },
-    { id: 3, studentIndex: 2, assignmentId: 101, status: 'submitted', correctionDone: true,  lateOnDue: false, createdAt: '2026-07-10T01:00:00.000Z' },
-    { id: 4, studentIndex: 2, assignmentId: 103, status: 'submitted', correctionDone: true,  lateOnDue: false, createdAt: '2026-07-05T02:00:00.000Z' }
+    { id: 1, studentIndex: 0, assignmentId: 102, status: 'submitted', correctionDone: true,  lateOnDue: false, createdAt: D08 + 'T01:00:00.000Z' },
+    { id: 2, studentIndex: 1, assignmentId: 103, status: 'resubmit',  correctionDone: false, lateOnDue: false, createdAt: D05 + 'T01:00:00.000Z' },
+    { id: 3, studentIndex: 2, assignmentId: 101, status: 'submitted', correctionDone: true,  lateOnDue: false, createdAt: D10 + 'T01:00:00.000Z' },
+    { id: 4, studentIndex: 2, assignmentId: 103, status: 'submitted', correctionDone: true,  lateOnDue: false, createdAt: D05 + 'T02:00:00.000Z' }
   ]),
   spa_attendance: JSON.stringify({
-    '2026-07-10': { '0': '×', '1': '○', '2': '○' },  // あおい病欠 → 未届1件 + 課題101が欠席由来
-    '2026-07-03': { '1': 'チ' }                        // かえで遅刻（届出あり）
+    [D10]: { '0': '×', '1': '○', '2': '○' },  // あおい病欠 → 未届1件 + 課題101が欠席由来
+    [D03]: { '1': 'チ' }                        // かえで遅刻（届出あり）
   }),
-  spa_attendance_notice: JSON.stringify({ '2026-07-03': { '1': true } })
+  spa_attendance_notice: JSON.stringify({ [D03]: { '1': true } })
 };
 
 // 期待するバッジ（＝未提出＋お直し＋未届。104は未集計なので含めない）
@@ -276,10 +282,10 @@ const H = {
     await page.waitForFunction(() => !document.querySelector('#subPsnDetail .sub-psn-nt-btn.off'));
     const nt = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('spa_attendance_notice') || '{}'));
-    check('7/10 のあおいに届出が立つ',
-      nt['2026-07-10'] && nt['2026-07-10']['0'] === true, JSON.stringify(nt));
-    check('かえでの既存届出(7/3)は消えていない',
-      nt['2026-07-03'] && nt['2026-07-03']['1'] === true, JSON.stringify(nt));
+    check('D10 のあおいに届出が立つ',
+      nt[D10] && nt[D10]['0'] === true, JSON.stringify(nt));
+    check('かえでの既存届出(D03)は消えていない',
+      nt[D03] && nt[D03]['1'] === true, JSON.stringify(nt));
     check('あおいのバッジが ✓ になる', (await page.evaluate(H.badges))[0] === '✓');
 
     // ── ⑩ 入力タブとの往復 ─────────────────────────────

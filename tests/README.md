@@ -26,40 +26,78 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計1322件）
+## 全テストの実行と一覧（`node run-all.js`）
 
-| ファイル | 件数 |
-|---|---|
-| `pe-rubric.test.js` | 74 |
-| `pe-score10.test.js` | 23 |
-| `absent.test.js` | 14 |
-| `attendance-stats.test.js` | 22 |
-| `v1.8.49.test.js` | 24 |
-| `v1.8.51.test.js` | 8 |
-| `v1.8.51_commit3.test.js` | 14 |
-| `undo.test.js` | 32 |
-| `emptystate.test.js` | 7 |
-| `test_grades.js` | 86 |
-| `audit-range-check.test.js` | 25 |
-| `data-reflection.test.js` | 45 |
-| `roster-preserve.test.js` | 10 |
-| `category-edit-inputmode.test.js` | 9 |
-| `audit-inputmode-conflict.test.js` | 12 |
-| `student-id-migration.test.js` | 37 |
-| `student-remap.test.js` | 53 |
-| `roster-shift.test.js` | 240 |
-| `idb-residue.test.js` | 27 |
-| `roster-transaction.test.js` | 70 |
-| `roster-pf.test.js` | 71 |
-| `roster-ui.test.js` | 67 |
-| `pf-diagnosis.test.js` | 37 |
-| `backup-restore.test.js` | 71 |
-| `pf-migration.test.js` | 116 |
-| `toast-passthrough.test.js` | 8 |
-| `boot-race.test.js` | 8 |
-| `pf-guard.test.js` | 46 |
-| `pf-takeover.test.js` | 72 |
-| **合計** | **1322** |
+全体実行の標準手順は **`cd tests && node run-all.js`**（リポジトリのルートで `python3 -m http.server 8123` を起動しておく）。
+`tests/` 直下の `*.js` を**名前規則に頼らず**すべて順番に実行する（`*.test.js` 以外の `test_grades.js`・`attendance-snapshot.js` も含む。
+`helpers/` は対象外）。ファイルごとの検査数と終了コードを表示し、合計と、下の表との照合結果を出す。
+終了コードは、全ファイルが成功（終了コード0・失敗0）かつ表と一致したときだけ 0。
+`--only=名前の一部` で一部だけ実行、`--list` で対象の一覧、`--write-readme` で下の表を実測値に更新（テストを追加・変更したら実行する）。
+検査数は各ファイルの集計行から読み取る（形式は複数ある）。**新しいテストが読み取れない形式で出力する場合は `run-all.js` の `parseCounts` に形式を加える**。
+（`node <名前>.test.js` の単独実行もこれまでどおり可能。並列には走らせない。）
+
+<!-- run-all:table:start -->
+| ファイル | 検査数(PASS) | FAIL |
+|---|---|---|
+| `absent.test.js` | 14 | 0 |
+| `attendance-snapshot.js` | 1 | 0 |
+| `attendance-stats.test.js` | 22 | 0 |
+| `audit-inputmode-conflict.test.js` | 12 | 0 |
+| `audit-maxscore-abc-exclusion.test.js` | 10 | 0 |
+| `audit-range-check.test.js` | 25 | 0 |
+| `backup-restore.test.js` | 71 | 0 |
+| `boot-race.test.js` | 8 | 0 |
+| `category-edit-inputmode.test.js` | 14 | 0 |
+| `composition-5rank.test.js` | 28 | 0 |
+| `data-load-failure-guard.test.js` | 10 | 0 |
+| `data-reflection.test.js` | 45 | 0 |
+| `descriptive-item-5rank.test.js` | 26 | 0 |
+| `emptystate.test.js` | 7 | 0 |
+| `idb-residue.test.js` | 27 | 0 |
+| `isabc-consolidation.test.js` | 18 | 0 |
+| `isabc-editform-fix.test.js` | 10 | 0 |
+| `item-input-mode.test.js` | 27 | 0 |
+| `kentei-nw-delete-on-zero.test.js` | 21 | 0 |
+| `list-scroll-cutoff.test.js` | 33 | 0 |
+| `matome-abc-deadcode-removal.test.js` | 15 | 0 |
+| `matome-abc-mode-removal.test.js` | 20 | 0 |
+| `matome-range-check.test.js` | 32 | 0 |
+| `pe-reflection-5rank.test.js` | 20 | 0 |
+| `pe-rubric-dense-render-error.test.js` | 6 | 0 |
+| `pe-rubric.test.js` | 115 | 0 |
+| `pe-score10.test.js` | 25 | 0 |
+| `person.test.js` | 34 | 0 |
+| `pf-diagnosis.test.js` | 37 | 0 |
+| `pf-guard.test.js` | 46 | 0 |
+| `pf-migration.test.js` | 116 | 0 |
+| `pf-takeover.test.js` | 72 | 0 |
+| `rec-edit-return-flow.test.js` | 36 | 0 |
+| `rec-input-term-filter.test.js` | 14 | 0 |
+| `rec-save-inline-btn.test.js` | 8 | 0 |
+| `recaddtest-maxscore-validation.test.js` | 16 | 0 |
+| `roster-pf.test.js` | 71 | 0 |
+| `roster-preserve.test.js` | 10 | 0 |
+| `roster-shift.test.js` | 240 | 0 |
+| `roster-transaction.test.js` | 70 | 0 |
+| `roster-ui.test.js` | 71 | 0 |
+| `rubric-band-move-v1.42.0.test.js` | 14 | 0 |
+| `student-id-migration.test.js` | 37 | 0 |
+| `student-remap.test.js` | 53 | 0 |
+| `sub-progress-filter-merge-v1.47.0.test.js` | 56 | 0 |
+| `sub-tile-fit.test.js` | 8 | 0 |
+| `test_grades.js` | 89 | 0 |
+| `tile-btns-oneline.test.js` | 14 | 0 |
+| `tile-vheight-v1.41.0.test.js` | 28 | 0 |
+| `toast-passthrough.test.js` | 8 | 0 |
+| `undo.test.js` | 32 | 0 |
+| `v1.8.49.test.js` | 24 | 0 |
+| `v1.8.51.test.js` | 8 | 0 |
+| `v1.8.51_commit2.test.js` | 20 | 0 |
+| `v1.8.51_commit3.test.js` | 14 | 0 |
+| `v1.8.52.test.js` | 13 | 0 |
+| `v1.8.54_cleanup.test.js` | 13 | 0 |
+| **合計（57ファイル）** | **1934** | **0** |
+<!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
 
@@ -77,7 +115,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 
 `data-reflection.test.js`（v1.50.0〜）は `ONLY=H1,H2,H3,M1,M6` で項目別に実行できる。
 
-**`test_grades.js` は v1.49.0(5ac43ca)から2件失敗している(既知・未調査。DATA_FLOW_AUDIT.md 21.1)。上の「常時グリーン」の表の86件は、実際は84件PASS。**全体実行には `node test_grades.js` も加えること。`test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
+`test_grades.js`（v1.54.1 で 89/89。v1.49.0〜v1.54.0 は2件失敗していたが、旧データの観点変更の不具合の修正と、古くなっていた期待の更新で解消。DATA_FLOW_AUDIT.md 22章）は、全体実行（`run-all.js`）に含まれる。`test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
 プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・
 abcToNum・calcWeightedScore・grdGetCurrentTerm など成績計算コア(grdCalculate)の
 換算値を、window公開済みの実装関数を直接呼ぶ形で検証する（ロジックのハードコピーはしない）。

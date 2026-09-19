@@ -2,7 +2,7 @@
   "name": "classroom-app-tests",
   "private": true,
   "scripts": {
-    "test": "node v1.8.49.test.js"
+    "test": "node run-all.js"
   },
   "dependencies": {
     "puppeteer-core": "^25.1.0"

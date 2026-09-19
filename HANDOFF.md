@@ -5,7 +5,7 @@
 
 ## 1. 現在の状態
 
-- 公開済み: **v1.53.1**（iPad 確認済み）。手元の `main` は **v1.54.0（4c。commit 済み・push は先生の承認待ち）**。`git log origin/main..HEAD` で確認する。
+- 公開済み: **v1.54.0**（4c。v1.53.1 までは iPad 確認済み）。手元の `main` は **v1.54.1（テスト実行の漏れの修正・観点変更の不具合の修正。commit 済み・push は先生の承認待ち）**。`git log origin/main..HEAD` で確認する。
 - 端末は先生の iPad（PWA・DevTools なし。確認は必ず画面操作で案内する）。1クラス最大30人。
 - 先生は 4b（v1.53.0）以降を入れる前にバックアップ済み。**iPad（v1.53.1）で確認済み（2026-09-20・問題なし）**:
   バージョン表示 v1.53.1／起動直後に「新しい方式に更新しました」の通知／診断カードが「児童ごと（新方式）」「一致しています」／
@@ -25,11 +25,12 @@
 | 4d-1 | `importBackup` の安全化（復元前の退避・検証付き書き込み・取り消し） | v1.52.2 | 18 |
 | 4b | pf の記録を studentId キーへ（起動時移行・名簿変更・復元・取り込み・pf画面） | v1.53.0 | 19 |
 | 追加 | 通知がボタンを隠す不具合の修正／起動直後の競合の修正／`pf.html` 暫定ガード | v1.53.1 | 20 |
-| 4c | 旧方式の記録の「氏名で引き継ぐ」・`pf-residual` の単体復元・`pf-unlinked` | v1.54.0（未push） | 21 |
+| 4c | 旧方式の記録の「氏名で引き継ぐ」・`pf-residual` の単体復元・`pf-unlinked` | v1.54.0 | 21 |
+| 追加 | テスト実行の漏れ（`run-all.js`）・旧課題の観点変更の不具合の修正 | v1.54.1（未push） | 22 |
 
 関連: H8（IndexedDB の鏡に氏名が残る）は 12 章で対応済み（v1.51.2・v1.51.3）。
 
-### 残り（実施順: 4d-2 → 4e。4c は実装済み・push 待ち）
+### 残り（実施順: 4d-2 → 4e。4c は実装済み・公開済み）
 
 - 4c の実装内容は DATA_FLOW_AUDIT.md 21章。先生の端末は名簿が一致して自動移行済みのため、4c の画面は今の端末には出ない。
 - **4d-2**（16.6）: バックアップに `version: 11`・`studentIdSchema: 1`・`pfSchema: 2` の印を付け、
@@ -47,8 +48,7 @@
 - **M9** テスト成績/提出物CSVが生データのみ（提出物CSVの欠席セルだけ M6 で対応済み）。
 - **L1〜L7**（将来リスク。3章「低」）: 未使用キー `spa_grades`、授業態度記号の変換、専科の評定しきい値固定、
   課題保存時の `createdAt` 上書き、名簿縮小後の範囲外 studentIndex の混入、「入力済 x/N」の数え方、主体性得点の文字列 score。
-- **`tests/test_grades.js` が2件失敗（v1.49.0・コミット 5ac43ca から。H4 とは無関係。21.1）**。「category復帰後の割合(87%)」「別の課題に切り替えてから戻っても割合」。
-  `*.test.js` の名前規則から外れるため全体実行から漏れていた。アプリの不具合かテストの期待の古さかは未調査。
+- （解消済み）`tests/test_grades.js` の2件の失敗（v1.49.0〜）は、アプリの不具合の修正＋古い期待の更新で解消（v1.54.1・22章）。
 - **メモリ記載の予定**: Step4-D — `recNwUpdateCardUI` 汎用化時に `recNwCalcGrade` → `kenteiStageToLabel` へ置き換える。
 - **H4 の既知の制約**（19章・18章）: 旧方式で一致しない端末で pf の「名簿を読み込む」を押すと、従来どおり記録が別の児童に付く
   （10.5。次の起動でその状態を忠実に新方式へ移行するだけで、新たなずれは作らない。4c で解消）。
@@ -99,13 +99,13 @@
 python3 -m http.server 8123
 # もう一つのターミナルで:
 cd tests && npm install                # 初回のみ
-node <名前>.test.js                    # 単独
-for f in *.test.js; do node $f; done   # 全体(55ファイル)
-node test_grades.js                    # 名前規則の外(全体に含まれない)。現在2件失敗(上記)
-node attendance-snapshot.js            # 引数なし。全体実行のあとに必ず PASS を確認
+node <名前>.js                         # 単独
+node run-all.js                        # 全体(57ファイル。名前規則に頼らず tests/ 直下の *.js をすべて。README の表とも照合)
+node run-all.js --write-readme         # テストを追加・変更したら実行して README の表を更新
+node run-all.js --only=pf-,roster-     # 一部だけ(名前の一部)。--list で対象の一覧
 ```
 
-- `*.test.js` の全体は55ファイル・1589 PASS・0 FAIL（約13分）。`tests/README.md` の表の合計（1322）は数え方が違う（PASS 行の数でなく検査の集計。`test_grades.js` を含む）ので、件数は実行結果で確認する。Chrome は `/Applications/Google Chrome.app`。
+- 全体は `node run-all.js`（57ファイル・約13分。件数は実行結果と README の表で確認する）。新しいテストの出力形式が読み取れない場合は `run-all.js` の `parseCounts` に形式を追加する。Chrome は `/Applications/Google Chrome.app`。
 - 環境変数: `ONLY=H1,H2…`（data-reflection）、`PFM_ONLY=1,4`（pf-migration の章指定）、
   `ROSTER_SHIFT_FORCE=1`（roster-shift の実適用を強制）、`PF_BASE=http://…/`（pf-guard の接続先）。
 - **同じテストを並列に走らせない**（一時ファイル名の衝突）。テストの追加・`index.html`/`pf.html` の変更中に全体実行をしない。
@@ -140,7 +140,7 @@ node attendance-snapshot.js            # 引数なし。全体実行のあとに
 
 ## 8. 次の一手（推奨）
 
-1. 4c（v1.54.0）の push を先生に承認してもらう（承認後に push → 先生の端末は変化なし・確認は「バージョン表示が v1.54.0 になり、いつもの操作が変わらない」）。
+1. v1.54.1（テスト実行の漏れ・観点変更の不具合の修正）の push を先生に承認してもらう。
 2. 4d-2 の設計を確認して実装（commit まで → 報告 → 承認 → push）。
 3. 4e。4e の後で `pf-residual`・暫定ガードの整理と、DATA_FLOW_AUDIT.md の 7.5 の実施順の更新。
 4. H4 完了後に M2〜M5・M7〜M9・L1〜L7 の優先順位を先生と決める（成績値が変わるものは方針確認が先）。

@@ -509,10 +509,33 @@ function applyManualRoster(){
   showToast('✅ '+roster.length+'名を登録しました');
 }
 
+// v1.51.2 (H8): localStorage だけから消すと、index.html 側の IndexedDB の鏡(StorageManager)に残り、次回起動で
+// キャッシュに復活してバックアップにも入る。同じオリジンの鏡(spa_classroom_db / kv)からも消す。
+// 鏡がまだ無い場合は作らない(空のDBを作ると index.html の初期化(objectStore作成)が走らなくなるため onupgradeneeded で中止)。
+function pfRemoveKey(key){
+  localStorage.removeItem(key);
+  try{
+    if(!window.indexedDB)return;
+    const req=indexedDB.open('spa_classroom_db');
+    req.onupgradeneeded=function(e){try{e.target.transaction.abort();}catch(_){}};
+    req.onsuccess=function(e){
+      const db=e.target.result;
+      try{
+        if(db.objectStoreNames.contains('kv')){
+          const tx=db.transaction('kv','readwrite');
+          tx.objectStore('kv').delete(key);
+          tx.oncomplete=tx.onabort=tx.onerror=function(){try{db.close();}catch(_){}};
+        }else{db.close();}
+      }catch(_){try{db.close();}catch(__){}}
+    };
+    req.onerror=function(){};
+  }catch(_){}
+}
+
 function clearRoster(){
   if(!confirm('名簿をリセットしますか？記録データは残ります。')){return;}
   roster=[];
-  localStorage.removeItem(rosterKey());
+  pfRemoveKey(rosterKey());
   renderRosterPreview();
   renderInputGrid();
 }
@@ -930,7 +953,7 @@ function transferToSpa(){
 function confirmClearData(){
   if(!confirm('記録データをすべて削除しますか？名簿は残ります。\nこの操作は取り消せません。')){return;}
   records={};
-  localStorage.removeItem(storageKey());
+  pfRemoveKey(storageKey());
   renderInputGrid();
   showToast('🗑 記録データを削除しました');
 }

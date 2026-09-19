@@ -4801,9 +4801,23 @@
                     var req = store.getAll();
                     req.onsuccess = function() {
                         var items = req.result || [];
+                        // v1.51.2 (H8): pf_* は pf(内蔵版・pf.html)が localStorage へ直接書くだけで、IndexedDB へ単独で書くことは無い。
+                        // localStorage に無い pf_* の鏡は「pf側で削除された」残りなので、復活させず鏡からも消す。
+                        // pf 以外のキーは、容量超過で localStorage へ書けなかった新しい値の可能性があるため触らない。
+                        var ghosts = [];
                         items.forEach(function(item) {
+                            var lsHas = true;
+                            try { lsHas = localStorage.getItem(item.key) !== null; } catch (e) {}
+                            if (/^pf_/.test(item.key) && !lsHas) { ghosts.push(item.key); return; }
                             self._cache[item.key] = item.value;
                         });
+                        if (ghosts.length) {
+                            try {
+                                var gtx = self._idb.transaction(_IDB_STORE, 'readwrite');
+                                ghosts.forEach(function(k) { gtx.objectStore(_IDB_STORE).delete(k); });
+                            } catch (e) { console.warn('[IDB] ghost purge failed:', e.message); }
+                            console.log('[IDB] removed stale pf mirror keys:', ghosts.length);
+                        }
                         self._cacheLoaded = true;
                         self._phase = 'C';
                         console.log('[IDB] Phase C cache loaded:', items.length, 'keys');
@@ -6876,11 +6890,21 @@
         }
     }
     // --- 退勤モード: 端末データ消去 ---
+    // v1.51.2 (H8): KEYS に無い個人データのキー。新体力テスト(pf_*: 名簿=氏名・記録)と、移行時の旧バックアップ類。
+    // (同じオリジンの別アプリのキー(doc-index-v1・task系など)は含めない)
+    function isPersonalExtraKey(k) {
+        return /^(pf_|scoreDataBackup_|spa_kanji_backup_|spa_submissions_removed_)/.test(k);
+    }
     function wipeLocalData() {
         try {
             // 全SPAキーを削除
             Object.keys(KEYS).forEach(function(k) {
                 StorageManager.remove(KEYS[k]);
+            });
+            // v1.51.2 (H8): pf・旧バックアップも削除する(従来は残り、氏名が端末に残った)。getAllKeys は
+            // 起動後はキャッシュ(IndexedDB由来)のキーを返すため、localStorage に無く鏡にだけ残るキーも対象になる。
+            StorageManager.getAllKeys().slice().forEach(function(k) {
+                if (isPersonalExtraKey(k)) StorageManager.remove(k);
             });
             // マスターデータをリセット
             master = {
@@ -21551,7 +21575,7 @@
     function pf_clearRoster(){
         if(!confirm('名簿をリセットしますか？記録データは残ります。')){return;}
         pf_roster=[];
-        localStorage.removeItem(pf_rosterKey());
+        StorageManager.remove(pf_rosterKey()); // v1.51.2 (H8): localStorage だけでなく IndexedDB の鏡からも消す
         pf_renderRosterPreview();
         pf_renderInputGrid();
     }
@@ -21850,7 +21874,7 @@
 
     function pf_confirmClearData(){
         if(!confirm('記録データをすべて削除しますか？名簿は残ります。\nこの操作は取り消せません。')){return;}
-        pf_records={};localStorage.removeItem(pf_storageKey());pf_renderInputGrid();showToast('🗑 記録データを削除しました','success');
+        pf_records={};StorageManager.remove(pf_storageKey());pf_renderInputGrid();showToast('🗑 記録データを削除しました','success');
     }
 
     function pf_switchView(id){

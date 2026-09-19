@@ -357,3 +357,25 @@ spa_student_archive = { version: 1, entries: [
   - **変異テスト**: 実装を一時的に壊して、テストが失敗することを確認した（付け替え先を変えない→roster-shift 57件・student-remap 2件失敗／削除児童の席が残る→3件・4件失敗／忘れ物集計の合計を更新しない→student-remapで1件失敗）。確認後に元へ戻した。
 - **次（2b）**: `storageVerifiedWrite`（段階1の移行の検証も置き換え）・スナップショット・ジャーナル・起動時ロールバック・`applyRosterChange`・退避(`spa_student_archive`)と復元・失敗注入テスト。2c: pf連携。
 
+## 12. H8 IndexedDB の鏡に削除したデータ（氏名）が残る（段階2bの調査中に新規発見）｜ ✅対応済(v1.51.2)
+
+**背景（コード確認）**: `StorageManager` は localStorage を真実とし、IndexedDB を鏡にしている。起動のたびに `migrateFromLS` が localStorage の全キーを IndexedDB へ**上書きコピー**し（値は自己修復する）、`loadCache` が IndexedDB の全キーをメモリキャッシュへ読む。**キーの削除は鏡に反映されない**（`migrateFromLS` は削除をしない）。
+
+**再現テストの結果（`tests/idb-residue.test.js`、修正前は19件中10件失敗）**
+| 操作 | 結果 |
+|---|---|
+| 課題の削除・記録の削除 | **残らない**（配列を書き直すので IndexedDB の値も更新され、localStorage と全キー一致）。回帰確認として保持 |
+| 退勤モードの端末データ消去（`wipeLocalData`） | `KEYS` の全キーは localStorage・IndexedDB とも消える。**しかし `KEYS` に無い個人データが残る**: 新体力テスト `pf_roster`（**氏名**）・`pf_records_*`（記録）・`pf_setting`、移行時の旧バックアップ（`scoreDataBackup_*`・`spa_kanji_backup_*`・`spa_submissions_removed_*`）。消去後に書き出したバックアップにも氏名が入る（トーストは「安全に退勤できます」） |
+| pf の名簿リセット・記録データ削除（`index.html` 内蔵版と `pf.html`） | `localStorage.removeItem` だけ。IndexedDB の鏡に残り、**次回起動で `loadCache` によりキャッシュに復活**する |
+
+**復活する経路（実測）**: 鏡に残ったキーは(1)再読み込み後のキャッシュに現れ、(2) `exportAll`（キャッシュのキーを使う）でバックアップに入り、(3) そのバックアップを復元すると localStorage に戻る。`pf_*` は読み取りが localStorage 直接のため画面には出ないが、バックアップ経由で削除した名簿・記録が持ち出される。
+
+**重大度**: 中（データの破損・喪失ではなく、プライバシー。「消したはずの氏名が端末・バックアップに残る」）。修正は小さく安全なため、段階2bとは別のコミットで対応した。
+
+**修正（v1.51.2）**
+1. `wipeLocalData`: `KEYS` に加え、`pf_*`・`scoreDataBackup_*`・`spa_kanji_backup_*`・`spa_submissions_removed_*` も `StorageManager.remove`（localStorage・鏡・キャッシュ）で削除。起動後の `getAllKeys` はキャッシュ由来のため、鏡にだけ残るキーも対象になる。同じオリジンの別アプリのキー（`doc-index-v1`・task系）は消さない。
+2. `pf` 内蔵版の名簿リセット・記録データ削除は `StorageManager.remove` 経由に変更。
+3. `pf.html` の同2操作は `pfRemoveKey`（localStorage＋同じオリジンの鏡）に変更。**鏡が未作成の場合は作らない**（空の IndexedDB を作ると index.html の初期化（objectStore 作成）が走らず Phase C にならない。`onupgradeneeded` で中止。ガードを外す変異で検出できることを確認）。
+4. 起動時（`loadCache`）: **localStorage に無い `pf_*` の鏡は、過去の pf 削除の残りとして、キャッシュに入れず鏡からも削除**（実機に既にある残りの掃除）。**`pf_*` 以外は消さない**: 容量超過で localStorage へ書けず IndexedDB にだけある新しい値の可能性があるため（`safeSetItem` は localStorage 失敗時も IndexedDB へ書く）。
+- 未対応・注意: `migrateFromLS` 自体は削除を反映しない設計のまま（一般のキー削除は `StorageManager.remove` 経由なら鏡からも消える。localStorage を直接消すコードを新たに書かないこと）。段階2bの `storageVerifiedRemove` は鏡（IndexedDB・キャッシュ）も消し、IndexedDB 準備前は保留リストで準備後に消す。
+

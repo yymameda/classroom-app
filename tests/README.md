@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計323件）
+## 常時グリーンのテスト（合計368件）
 
 | ファイル | 件数 |
 |---|---|
@@ -41,7 +41,10 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `emptystate.test.js` | 7 |
 | `test_grades.js` | 86 |
 | `audit-range-check.test.js` | 25 |
-| **合計** | **323** |
+| `data-reflection.test.js` | 45 |
+| **合計** | **368** |
+
+`data-reflection.test.js`（v1.50.0〜）は `ONLY=H1,H2,H3,M1,M6` で項目別に実行できる。
 
 `test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
 プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・

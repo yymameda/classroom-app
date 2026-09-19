@@ -295,6 +295,11 @@
         .ar-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px; border-radius: 8px; background: rgba(45,125,154,0.05); margin-bottom: 6px; }
         .ar-label { flex: 1 1 200px; font-size: 0.9rem; }
         .ar-sub { font-size: 0.75rem; color: var(--text-light); display: block; }
+        .pfd-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 4px; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+        .pfd-k { flex: 0 0 11em; font-weight: 700; }
+        .pfd-v { flex: 1 1 200px; }
+        .pfd-ok { color: var(--success); font-weight: 700; }
+        .pfd-ng { color: var(--danger); font-weight: 700; }
         .roster-count {
             text-align: center; font-size: 0.8rem;
             color: var(--text-light); margin-top: 8px;
@@ -2581,6 +2586,15 @@
                         「完全に削除」だけが、データを失う操作です。
                     </p>
                     <div id="archiveList"></div>
+                </div>
+                <!-- 新体力テストの連携状態(v1.52.1 H4 段階4a: 確認用の表示。読み取り専用で、データは一切変わらない。氏名は表示しない) -->
+                <div class="card" id="pfDiagCard">
+                    <h3>🔎 新体力テストの連携状態（確認用）</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 8px;">
+                        見るだけの表示です（データは変わりません。氏名も表示しません）。新体力テストの名簿とSPAの名簿が同じかどうかを確認できます。
+                    </p>
+                    <div id="pfDiagBody"></div>
+                    <button type="button" class="rl-btn" data-act="pfdiag-refresh" style="margin-top:8px;">🔄 もう一度確認する</button>
                 </div>
                 <!-- 身体データ -->
                 <div class="card" id="physicalDataCard" style="display:none;">
@@ -6586,6 +6600,79 @@
         planPfChange: planPfChange, verifyPfInvariants: verifyPfInvariants, pfMatch: srPfMatch
     };
 
+    // ================================================================
+    // 新体力テスト(pf)の連携状態の診断 — H4 案B 段階4a(読み取り専用)
+    // localStorage を読むだけで、何も書かない(キャッシュも変えない)。氏名は結果に含めない(件数・年度・理由のみ)。
+    // iPad には DevTools が無いため、設定画面に表示して実機の状態を確認できるようにする。
+    // ================================================================
+    function pfDiagnose() {
+        var out = { state: 'none', reason: '', spaCount: 0, pfRosterCount: null, extraCount: null, fitnessYears: [], recordYears: [] };
+        var m = srParse(storageDirect(KEYS.master));
+        var students = (m && Array.isArray(m.students)) ? m.students : [];
+        var spaNames = {};
+        students.forEach(function(s) { var n = s && typeof s.name === 'string' ? s.name.trim() : ''; if (n) { spaNames[n] = true; out.spaCount++; } });
+        var raws = srReadPfRaws();
+        var keys = Object.keys(raws.keyed);
+        keys.forEach(function(k) {
+            var y = k.replace(/^pf_(records|fitness)_/, '');
+            if (k.indexOf('pf_fitness_') === 0) out.fitnessYears.push(y);
+            else {
+                var d = srParse(raws.keyed[k]);
+                out.recordYears.push({ year: y, count: srIsPlainObject(d) ? srPfCountIds(d) : null });
+            }
+        });
+        var roster = srParse(raws.roster);
+        if (Array.isArray(roster)) {
+            out.pfRosterCount = roster.length;
+            out.extraCount = roster.filter(function(e) { var n = e && typeof e.name === 'string' ? e.name.trim() : ''; return !spaNames[n]; }).length;
+        }
+        if ((raws.roster === null || raws.roster === undefined) && keys.length === 0) return out;
+        var mt = srPfMatch(raws, students);
+        out.state = mt.ok ? 'match' : 'mismatch';
+        out.reason = mt.ok ? '' : mt.reason;
+        return out;
+    }
+    var PF_DIAG_REASONS = {
+        'no-roster': '新体力テストの名簿がありません（記録だけが残っています）',
+        'roster-invalid': '新体力テストの名簿のデータが読み取れません',
+        'length-differs': '人数が違います',
+        'entry-invalid': '新体力テストの名簿の形式が正しくありません',
+        'name-or-order-differs': '氏名または並び順が違います',
+        'id-not-position': '番号が名簿の位置と合っていません（手入力の名簿の可能性があります）'
+    };
+    function renderPfDiagCard() {
+        var box = document.getElementById('pfDiagBody');
+        if (!box) return;
+        var d;
+        try { d = pfDiagnose(); } catch (e) { box.innerHTML = '<div class="pfd-row"><span class="pfd-ng">確認できませんでした</span></div>'; console.error('pfDiagnose failed:', e); return; }
+        var row = function(k, v, key) { return '<div class="pfd-row" data-pfd="' + key + '"><span class="pfd-k">' + k + '</span><span class="pfd-v">' + v + '</span></div>'; };
+        var st;
+        if (d.state === 'none') st = '<span>新体力テストのデータはありません</span>';
+        else if (d.state === 'match') st = '<span class="pfd-ok">一致しています</span>（氏名・順序・番号がSPAの名簿と同じです）';
+        else st = '<span class="pfd-ng">一致していません</span>：' + escapeHtml(PF_DIAG_REASONS[d.reason] || d.reason);
+        var html = row('名簿の一致', st, 'state');
+        html += row('人数', 'SPAの名簿 ' + d.spaCount + '名／新体力テストの名簿 ' + (d.pfRosterCount === null ? 'なし' : d.pfRosterCount + '名'), 'counts');
+        html += row('単体ページの使用', d.fitnessYears.length
+            ? '<span class="pfd-ng">あり</span>（成績転送の集計が ' + d.fitnessYears.map(escapeHtml).join('・') + '年度分あります。単体ページ pf.html を使った痕跡）'
+            : 'なし（単体ページ pf.html を使った痕跡はありません）', 'fitness');
+        html += row('SPAの名簿にいない児童', d.extraCount === null
+            ? '確認できません（新体力テストの名簿がないか、読み取れません）'
+            : (d.extraCount === 0 ? 'なし' : '<span class="pfd-ng">' + d.extraCount + '名</span>（新体力テストの名簿にだけいる児童。手入力で登録した痕跡）'), 'extra');
+        html += row('記録', d.recordYears.length
+            ? d.recordYears.map(function(r) { return escapeHtml(r.year) + '年度：' + (r.count === null ? '読み取れません' : r.count + '名分'); }).join('　')
+            : 'なし', 'records');
+        box.innerHTML = html;
+        var card = document.getElementById('pfDiagCard');
+        if (card && !card._pfdBound) {
+            card._pfdBound = true;
+            card.addEventListener('click', function(e) {
+                var b = e.target.closest ? e.target.closest('button[data-act="pfdiag-refresh"]') : null;
+                if (b) { renderPfDiagCard(); showToast('確認しました', 'success'); }
+            });
+        }
+    }
+    window.pfDiagnose = pfDiagnose;
+
     function updateSettingsUI() {
         var ci = master.classInfo || {};
         document.getElementById('setYear').value = ci.year || '';
@@ -6596,6 +6683,7 @@
         var _t2El = document.getElementById('setTerm2Start'); if (_t2El) _t2El.value = ci.term2Start || '09-01';
         var _t3El = document.getElementById('setTerm3Start'); if (_t3El) _t3El.value = ci.term3Start || '01-01';
         renderRosterUi();
+        renderPfDiagCard();
         renderPhysicalTable();
     }
 

@@ -14,6 +14,7 @@
 // 実行: cd tests && node student-id-migration.test.js
 
 const puppeteer = require('puppeteer-core');
+const ui = require('./helpers/roster-ui');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -182,20 +183,23 @@ function dataKeys() {
 
         // ---------------- (7) 名簿保存で ID が失われない(H6の属性保持と併用) ----------------
         const withIds = stuNoId().map((s, i) => Object.assign(s, { studentId: 'stu_saveid0' + i }));
-        async function saveRoster(lines) {
+        // v1.52.0(H4 段階3): 名簿の編集はリスト編集UI。実際の画面操作(edit)のあと「保存」を押し、再読み込みを待つ
+        async function saveRoster(edit) {
             await reset({ spa_master: masterRaw(withIds) });
-            await page.evaluate((lines) => { showView('settings'); if (lines) document.getElementById('masterRoster').value = lines.join('\n'); saveMasterRoster(); flushSaveQueue && flushSaveQueue(); }, lines);
-            await page.reload({ waitUntil: 'networkidle0' }); await sleep(400);
+            await ui.openSettings(page);
+            if (edit) await edit();
+            await ui.clickSave(page);
+            if (edit) await ui.waitReload(page);
             return (await master()).students;
         }
         let st = await saveRoster(null);
         check('名簿を変更せず保存: 全員のIDと視力・身長が残る', st.every((s, i) => s.studentId === 'stu_saveid0' + i && s.visionL === 'A' && s.height === 130 + i), JSON.stringify(st.map(s => s.studentId)));
-        st = await saveRoster(['甲,男', '乙乙,女', '丙,男', '丁,女']);
+        st = await saveRoster(async () => { await ui.setName(page, 1, '乙乙'); });
         check('同位置の改名: IDは保持され、名前だけ更新される', st[1].studentId === 'stu_saveid01' && st[1].name === '乙乙' && st[1].height === 131, JSON.stringify(st[1]));
-        st = await saveRoster(['甲,男', '乙,女', '丙,男', '丁,女', '戊,男']);
+        st = await saveRoster(async () => { await ui.act(page, 'insert', 3); await ui.setName(page, 4, '戊'); await ui.setGender(page, 4, '男'); });
         check('末尾に転入生を追加: 既存4名のIDは保持され、新しい児童にはIDが付く(重複しない)', st.length === 5 && [0, 1, 2, 3].every(i => st[i].studentId === 'stu_saveid0' + i) && ID_RE.test(st[4].studentId) && new Set(st.map(s => s.studentId)).size === 5, JSON.stringify(st.map(s => s.studentId)));
-        st = await saveRoster(['甲,男', '乙,女', '丙,男']);
-        check('末尾の児童を削除: 残る児童のIDは保持される', st.length === 3 && st.every((s, i) => s.studentId === 'stu_saveid0' + i), JSON.stringify(st.map(s => s.studentId)));
+        st = await saveRoster(async () => { await ui.act(page, 'del', 3); });
+        check('末尾の児童を削除: 残る児童のIDは保持される(削除した児童は退避に保管される)', st.length === 3 && st.every((s, i) => s.studentId === 'stu_saveid0' + i) && (await page.evaluate(() => studentArchiveSummary().length)) === 1, JSON.stringify(st.map(s => s.studentId)));
 
         // ---------------- (8) バックアップ復元でIDが失われない ----------------
         async function restoreFrom(backupObj) {

@@ -267,6 +267,34 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
         }
+        /* 名簿のリスト編集UI(iPadのタッチ操作前提: 押せる領域は 44px 以上) */
+        .rl-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+        .rl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px; border-radius: 8px; background: rgba(45,125,154,0.05); border: 2px solid transparent; }
+        .rl-row.rl-deleted { background: rgba(231,76,60,0.08); opacity: 0.85; }
+        .rl-row.rl-deleted .rl-name { text-decoration: line-through; }
+        .rl-row.rl-err { border-color: var(--danger); }
+        .rl-row.rl-new { background: rgba(39,174,96,0.08); }
+        .rl-row .roster-num { width: 32px; height: 32px; font-size: 0.8rem; }
+        .rl-name { flex: 1 1 160px; min-width: 120px; min-height: var(--tap-min); padding: 6px 10px; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; font-family: inherit; background: var(--white); }
+        .rl-gender { min-height: var(--tap-min); min-width: 72px; padding: 6px 8px; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; font-family: inherit; background: var(--white); }
+        .rl-btn { min-height: var(--tap-min); min-width: var(--tap-min); padding: 6px 12px; border: 2px solid var(--border); border-radius: 8px; background: var(--white); font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .rl-btn:active { background: var(--secondary); }
+        .rl-btn.rl-del { color: var(--danger); border-color: var(--danger); }
+        .rl-btn.rl-add { color: var(--primary); border-color: var(--primary); }
+        .rl-btn.rl-armed { background: var(--danger); color: white; }
+        .rl-tag { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #FDEDEC; color: var(--danger); }
+        .rl-tag.rl-tag-new { background: #E8F8EF; color: var(--success); }
+        .rl-tag.rl-tag-dup { background: #FEF5E7; color: #B7950B; }
+        .rl-top { margin-top: 8px; }
+        .rl-bulk { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .rl-bulk textarea { width: 100%; border: 2px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 1rem; font-family: inherit; }
+        .rl-banner { margin: 8px 0; padding: 10px 12px; border-radius: 8px; background: #FEF5E7; border: 2px solid #F5CBA7; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .rl-banner .rl-btn { min-height: var(--tap-min); }
+        .rl-save { min-height: 52px; font-size: 1rem; }
+        #rosterUndoBar { margin-top: 10px; }
+        .ar-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px; border-radius: 8px; background: rgba(45,125,154,0.05); margin-bottom: 6px; }
+        .ar-label { flex: 1 1 200px; font-size: 0.9rem; }
+        .ar-sub { font-size: 0.75rem; color: var(--text-light); display: block; }
         .roster-count {
             text-align: center; font-size: 0.8rem;
             color: var(--text-light); margin-top: 8px;
@@ -2525,23 +2553,34 @@
                     <small style="color: var(--text-light);">※ 開始日は成績の学期自動判定（3学期制）に使用。空欄・不正な値は既定（09-01 / 01-01）扱い</small><br>
                     <small style="color: var(--text-light);">※ 変更後は下の「💾 クラス情報と名簿を保存」を押してください</small>
                 </div>
-                <!-- 名簿 -->
-                <div class="card">
+                <!-- 名簿(リスト編集。v1.52.0 H4 段階3: 保存は必ず applyRosterChange を通る) -->
+                <div class="card" id="rosterEditorCard">
                     <h3>👥 統一名簿マスター</h3>
-                    <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 12px;">
-                        1行に1名ずつ入力。性別を登録する場合は「名前,男」または「名前,女」の形式。
+                    <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 8px;">
+                        ↑↓で並べ替え、＋でその下に転入生を追加、🗑で削除、氏名は直接書き換えられます。
+                        変更は下の「💾 保存」を押すまで反映されません。削除した児童のデータは「退避中の児童」に保管され、あとから戻せます。
                     </p>
-                    <div class="form-group">
-                        <textarea id="masterRoster" placeholder="例：&#10;山田 太郎,男&#10;鈴木 花子,女&#10;田中 次郎"></textarea>
-                        <small style="color: var(--text-light);">※ 転入生は末尾に追加、転出生は削除してください</small>
+                    <div id="rosterEditorBanner"></div>
+                    <div class="rl-top"><button type="button" class="rl-btn rl-add" data-act="insert-top">＋ 先頭に追加</button></div>
+                    <div id="rosterEditor" class="rl-list"></div>
+                    <div class="rl-bulk">
+                        <textarea id="rosterBulkAdd" rows="3" placeholder="まとめて追加（1行に1名。「氏名,男」「氏名,女」も可）&#10;例：&#10;山田 太郎,男&#10;鈴木 花子,女"></textarea>
+                        <button type="button" class="rl-btn" data-act="bulk-add">📥 貼り付けた氏名を末尾に追加</button>
                     </div>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" onclick="saveMasterRoster()">💾 クラス情報と名簿を保存</button>
+                    <div class="btn-group" style="margin-top:12px;">
+                        <button class="btn btn-primary rl-save" id="rosterSaveBtn" onclick="saveMasterRoster()">💾 保存（クラス情報と名簿）</button>
                     </div>
-                    <div class="roster-preview" id="rosterPreview">
-                        <div class="ui-empty"><div class="ui-empty-icon">👥</div><div class="ui-empty-msg">上の欄に児童名を1行ずつ貼り付けて、「クラス情報と名簿を保存」を押すと、ここに一覧が出ます。</div></div>
-                    </div>
+                    <div id="rosterUndoBar"></div>
                     <div class="roster-count" id="rosterCount"></div>
+                </div>
+                <!-- 退避中の児童(名簿から削除した児童のデータの保管場所) -->
+                <div class="card" id="archiveCard">
+                    <h3 id="archiveHeading">📦 退避中の児童</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 8px;">
+                        名簿から削除した児童のデータ（成績・出欠・カルテ・座席・新体力テストなど）は、消さずにここへ保管されます。「戻す」で名簿の末尾に戻せます。
+                        「完全に削除」だけが、データを失う操作です。
+                    </p>
+                    <div id="archiveList"></div>
                 </div>
                 <!-- 身体データ -->
                 <div class="card" id="physicalDataCard" style="display:none;">
@@ -6207,6 +6246,12 @@
         if (!p.ok) return fail(p.error || 'invariant-violation', { detail: p.detail, key: p.key, violations: p.violations });
         assignMissingStudentIds(ns); // 転入生にID(計画のあと)
         var nextMaster = Object.assign({}, oldMaster, { students: ns, lastSync: new Date().toISOString() });
+        // 名簿の保存ボタンからは、クラス情報の変更も同じ書き込み(名簿1キー)で保存する
+        var ciChanged = false;
+        if (opts.classInfo && typeof opts.classInfo === 'object') {
+            nextMaster.classInfo = Object.assign({}, oldMaster.classInfo || {}, opts.classInfo);
+            ciChanged = JSON.stringify(nextMaster.classInfo) !== JSON.stringify(oldMaster.classInfo || {});
+        }
         var masterNext = JSON.stringify(nextMaster);
         // 新体力テスト(pf): 名簿が一致すれば同じトランザクションで追従、一致しなければ触らず通知のみ
         var pfRaws = srReadPfRaws();
@@ -6226,7 +6271,7 @@
         };
         if (p.noop) {
             // 並べ替え・削除・転入が無い。名簿の中身(改名・属性)も同じなら書き込みゼロ(通知もしない)
-            if (JSON.stringify(ns) === JSON.stringify(oldMaster.students)) return { ok: true, noop: true, wrote: false, pf: pfInfo };
+            if (JSON.stringify(ns) === JSON.stringify(oldMaster.students) && !ciChanged) return { ok: true, noop: true, wrote: false, pf: pfInfo };
             if (pfp.status === 'followed' && Object.keys(pfp.newRaw).length) {
                 // 改名など: 名簿と pf_roster を同じトランザクションで更新
                 var rn = srRunTransaction({ kind: 'apply', storesNext: {}, archiveNext: null, pfNext: pfp.newRaw, masterNext: masterNext, verify: function(persisted) { return masterCheck(pfVerify(persisted)); } });
@@ -6436,6 +6481,13 @@
 
     // ---- 取り消し ----
     // 名簿変更(確定済み)の直前へ戻す。名簿変更のあとに(対象キーへの)入力があれば取り消さず、トーストで理由を表示する。
+    // 取り消せるか(確定済みのジャーナルとスナップショットがあり、確定後に対象キーが1つも変わっていない)。UIのボタン表示にも使う。
+    function srUndoStatus() {
+        var j = srParse(storageDirect(KEYS.roster_txn)), snap = srParse(storageDirect(KEYS.roster_snapshot));
+        if (!j || j.state !== 'committed' || !snap || !snap.keys) return { available: false, reason: 'nothing' };
+        var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
+        return { available: changed.length === 0, reason: changed.length ? 'changed' : '', changed: changed, at: j.at, kind: j.kind };
+    }
     function undoRosterChange(opts) {
         opts = opts || {};
         var j = srParse(storageDirect(KEYS.roster_txn));
@@ -6499,7 +6551,14 @@
         var flag = null;
         try { flag = sessionStorage.getItem(ROSTER_OPEN_SETTINGS_FLAG); sessionStorage.removeItem(ROSTER_OPEN_SETTINGS_FLAG); } catch (e) {}
         if (flag !== '1') return;
-        setTimeout(function() { try { showView('settings'); showToast('✅ 名簿を更新しました', 'success'); } catch (e) {} }, 400);
+        setTimeout(function() {
+            try {
+                showView('settings');
+                // 取り消せる名簿変更があれば、トーストに「元に戻す」を付ける(名簿設定の画面の取り消しボタンでも取り消せる)
+                if (srUndoStatus().available) showUndoToast('✅ 名簿を更新しました', function() { rosterUndoClick(); });
+                else showToast('✅ 名簿を更新しました', 'success');
+            } catch (e) {}
+        }, 400);
         // 再読み込みの前に出した通知(新体力テストが更新されなかった等)を、再読み込み後にも表示する
         var notes = [];
         try { notes = JSON.parse(sessionStorage.getItem(ROSTER_NOTICE_KEY) || '[]'); sessionStorage.removeItem(ROSTER_NOTICE_KEY); } catch (e) {}
@@ -6536,22 +6595,265 @@
         document.getElementById('setTermSystem').value = ci.termSystem || 3;
         var _t2El = document.getElementById('setTerm2Start'); if (_t2El) _t2El.value = ci.term2Start || '09-01';
         var _t3El = document.getElementById('setTerm3Start'); if (_t3El) _t3El.value = ci.term3Start || '01-01';
-        var rosterText = master.students.map(function(s) {
-            return s.gender ? s.name + ',' + s.gender : s.name;
-        }).join('\n');
-        document.getElementById('masterRoster').value = rosterText;
-        updateRosterPreview();
+        renderRosterUi();
         renderPhysicalTable();
     }
 
-    function saveMasterRoster() {
-        // クラス情報を取得
+    // ================================================================
+    // 名簿の編集UI(H4 案B 段階3): リスト編集。並べ替え・削除・転入(任意の位置)・改名は、保存時に必ず
+    // applyRosterChange(トランザクション)を通る。従来の「テキスト欄+警告つき保存」は廃止した。
+    // 確認ダイアログは使わない: 保存前の変更は「下書き」(削除は「削除予定」表示で戻せる)、保存後はトーストと
+    // 「取り消し」ボタン、削除した児童は「退避中の児童」から戻せる。完全削除だけは2回タップ(ダイアログではない)。
+    // ================================================================
+    var rosterDraft = null;        // [{student, isNew, deleted}] 名簿の下書き(保存するまでデータには反映されない)
+    var rosterNudged = false;      // この下書きでバックアップを促すトーストを出したか
+    var archiveArmed = {};         // 完全削除の1回目のタップ済み(archiveId → タイマー)
+
+    function rosterDraftInit() {
+        rosterDraft = (master.students || []).map(function(s) { return { student: srClone(s), isNew: false, deleted: false }; });
+        rosterNudged = false;
+    }
+    // 下書きから保存する名簿(削除予定を除く・氏名の前後の空白を除去)
+    // 下書きが持つのは氏名・性別の編集だけ。それ以外の項目(視力・身長など)は、保存時に**現在の名簿**(studentIdで対応)から取り込む
+    // (下書きを作ったあとに身体データを保存しても、古いコピーで上書きしない)。変更していない児童は1バイトも変えない。
+    function rosterDraftStudents() {
+        var cur = {};
+        (master.students || []).forEach(function(s) { if (s && s.studentId) cur[s.studentId] = s; });
+        return rosterDraft.filter(function(r) { return !r.deleted; }).map(function(r) {
+            var name = String(r.student.name || '').trim(), gender = r.student.gender || '';
+            var base = (!r.isNew && r.student.studentId && cur[r.student.studentId]) ? cur[r.student.studentId] : null;
+            if (!base) { var ns = Object.assign({}, r.student); ns.name = name; ns.gender = gender; return ns; }
+            var st = Object.assign({}, base);
+            if (name !== (base.name || '')) st.name = name;
+            if (gender !== (base.gender || '')) st.gender = gender;
+            return st;
+        });
+    }
+    function rosterDraftChanged() {
+        if (!rosterDraft) return false;
+        return JSON.stringify(rosterDraftStudents()) !== JSON.stringify(master.students || []);
+    }
+    // 名簿変更の前に、手動バックアップを促すトースト(操作は止めない)。直近10分以内にバックアップ済みなら出さない。
+    function rosterNudgeBackup() {
+        try {
+            var meta = StorageManager.get(KEYS.backup_meta, null);
+            var last = meta && meta.lastExportAt ? Date.parse(meta.lastExportAt) : 0;
+            if (last && Date.now() - last < 10 * 60 * 1000) return;
+        } catch (e) {}
+        try { showToast('名簿を変更する前に、バックアップを取っておくと安心です（左のメニューの 💾 から取れます）', 'warning'); } catch (e) {}
+    }
+    function rosterMarkChanged() {
+        if (rosterDraftChanged() && !rosterNudged) { rosterNudged = true; rosterNudgeBackup(); }
+        renderRosterBanner();
+        renderRosterCount();
+    }
+    function rosterGenderOptions(g) {
+        return ['', '男', '女'].map(function(v) { return '<option value="' + v + '"' + (g === v ? ' selected' : '') + '>' + (v || '—') + '</option>'; }).join('');
+    }
+    function renderRosterCount() {
+        var el = document.getElementById('rosterCount');
+        if (!el) return;
+        var list = rosterDraft ? rosterDraftStudents() : (master.students || []);
+        if (!list.length) { el.textContent = ''; return; }
+        var m = list.filter(function(s) { return s.gender === '男'; }).length, f = list.filter(function(s) { return s.gender === '女'; }).length;
+        el.textContent = '合計 ' + list.length + '名' + (m + f > 0 ? '（男子' + m + '名・女子' + f + '名）' : '');
+    }
+    function renderRosterBanner() {
+        var el = document.getElementById('rosterEditorBanner');
+        if (!el) return;
+        if (!rosterDraftChanged()) { el.innerHTML = ''; return; }
+        var added = rosterDraft.filter(function(r) { return r.isNew && !r.deleted; }).length;
+        var removed = rosterDraft.filter(function(r) { return !r.isNew && r.deleted; }).length;
+        el.innerHTML = '<div class="rl-banner" id="rosterDirtyBanner">✏️ 未保存の名簿の変更があります'
+            + (added ? '（追加' + added + '名' : '（') + (removed ? (added ? '・' : '') + '削除' + removed + '名' : '') + ((added || removed) ? '）' : '（並べ替え・改名など）')
+            + '<button type="button" class="rl-btn" data-act="backup">💾 バックアップを取る</button>'
+            + '<button type="button" class="rl-btn" data-act="discard">変更を破棄</button></div>';
+    }
+    function renderRosterEditor() {
+        var box = document.getElementById('rosterEditor');
+        if (!box) return;
+        if (!rosterDraft) rosterDraftInit();
+        if (!rosterDraft.length) {
+            box.innerHTML = emptyState('まだ名簿がありません。「＋ 先頭に追加」または「まとめて追加」で児童を追加し、「保存」を押してください。', null);
+            return;
+        }
+        var names = {};
+        rosterDraft.forEach(function(r) { var n = String(r.student.name || '').trim(); if (n && !r.deleted) names[n] = (names[n] || 0) + 1; });
+        var no = 0, html = '';
+        rosterDraft.forEach(function(r, i) {
+            var n = String(r.student.name || '').trim();
+            var dup = !r.deleted && n && names[n] > 1;
+            if (!r.deleted) no++;
+            html += '<div class="rl-row' + (r.deleted ? ' rl-deleted' : '') + (r.isNew ? ' rl-new' : '') + '" data-i="' + i + '">'
+                + '<span class="roster-num">' + (r.deleted ? '×' : no) + '</span>'
+                + '<input type="text" class="rl-name" data-act="name" data-i="' + i + '" value="' + escapeHtml(r.student.name || '') + '" placeholder="氏名" aria-label="氏名"' + (r.deleted ? ' disabled' : '') + '>'
+                + '<select class="rl-gender" data-act="gender" data-i="' + i + '" aria-label="性別"' + (r.deleted ? ' disabled' : '') + '>' + rosterGenderOptions(r.student.gender || '') + '</select>'
+                + (r.isNew ? '<span class="rl-tag rl-tag-new">転入</span>' : '')
+                + (r.deleted ? '<span class="rl-tag">削除予定</span>' : '')
+                + (dup ? '<span class="rl-tag rl-tag-dup">同じ氏名あり</span>' : '')
+                + '<button type="button" class="rl-btn" data-act="up" data-i="' + i + '" aria-label="上へ" title="上へ">↑</button>'
+                + '<button type="button" class="rl-btn" data-act="down" data-i="' + i + '" aria-label="下へ" title="下へ">↓</button>'
+                + '<button type="button" class="rl-btn rl-add" data-act="insert" data-i="' + i + '" aria-label="この下に追加" title="この下に転入生を追加">＋</button>'
+                + (r.deleted
+                    ? '<button type="button" class="rl-btn" data-act="undel" data-i="' + i + '" aria-label="削除を取り消す">↩ 戻す</button>'
+                    : '<button type="button" class="rl-btn rl-del" data-act="del" data-i="' + i + '" aria-label="削除" title="削除（退避に保管されます）">🗑</button>')
+                + '</div>';
+        });
+        box.innerHTML = html;
+    }
+    // 「直前の名簿変更を取り消す」ボタン(取り消せるときだけ表示)
+    function renderRosterUndoBar() {
+        var el = document.getElementById('rosterUndoBar');
+        if (!el) return;
+        var u = srUndoStatus();
+        if (!u.available) { el.innerHTML = ''; return; }
+        var t = u.at ? new Date(u.at) : null;
+        var when = t ? (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') : '';
+        el.innerHTML = '<button type="button" class="rl-btn" id="rosterUndoBtn" data-act="undo" style="width:100%;">↩ 直前の名簿変更を取り消す' + (when ? '（' + when + ' の変更）' : '') + '</button>';
+    }
+    // 退避中の児童の一覧・復元・完全削除
+    function renderArchiveList() {
+        var box = document.getElementById('archiveList');
+        var head = document.getElementById('archiveHeading');
+        if (!box) return;
+        var entries = readStudentArchive().entries;
+        var studentsE = entries.filter(function(e) { return !!e.studentId && !e.residual; });
+        var others = entries.filter(function(e) { return !e.studentId || e.residual; });
+        if (head) head.textContent = '📦 退避中の児童 ' + studentsE.length + '名' + (others.length ? '（その他の退避データ ' + others.length + '件）' : '');
+        if (!entries.length) {
+            box.innerHTML = '<div class="ui-empty"><div class="ui-empty-msg">退避中の児童はいません。名簿から削除した児童のデータは、ここに保管されます。</div></div>';
+            return;
+        }
+        var fmt = function(iso) { var d = iso ? new Date(iso) : null; return d ? (d.getMonth() + 1) + '月' + d.getDate() + '日' : ''; };
+        var html = '';
+        entries.forEach(function(e) {
+            var id = escapeHtml(e.archiveId);
+            var label, restoreBtn = '';
+            if (e.studentId && !e.residual) {
+                label = escapeHtml((e.student && e.student.name) || '（氏名なし）') + '<span class="ar-sub">' + fmt(e.archivedAt) + 'に退避（成績・出欠・カルテ・座席・新体力テストなど）</span>';
+                restoreBtn = '<button type="button" class="rl-btn rl-add" data-act="restore" data-id="' + id + '">↩ 戻す</button>';
+            } else if (e.residual) {
+                label = escapeHtml((e.student && e.student.name) || '（氏名なし）') + ' の新体力テストの記録のみ<span class="ar-sub">' + fmt(e.archivedAt) + '（名簿が一致しなかったため戻せなかった分。あとで戻せるようになります）</span>';
+            } else {
+                label = '名簿にない番号（' + ((e.orphanIndex || 0) + 1) + '番）のデータ<span class="ar-sub">' + fmt(e.archivedAt) + 'に退避（過去の削除で取り残されたデータ）</span>';
+            }
+            html += '<div class="ar-row" data-id="' + id + '"><span class="ar-label">' + label + '</span>' + restoreBtn
+                + '<button type="button" class="rl-btn rl-del" data-act="purge" data-id="' + id + '">完全に削除</button></div>';
+        });
+        box.innerHTML = html;
+    }
+    function renderRosterUi() {
+        renderRosterEditor();
+        renderRosterBanner();
+        renderRosterCount();
+        renderRosterUndoBar();
+        renderArchiveList();
+        rosterUiBind();
+    }
+    function updateRosterPreview() { renderRosterUi(); } // 互換(従来の名前)
+
+    function rosterFocusName(i) { var el = document.querySelector('#rosterEditor input[data-act="name"][data-i="' + i + '"]'); if (el) { el.focus(); } }
+    function rosterHandleAct(act, i, el) {
+        rosterDraft = rosterDraft || (rosterDraftInit(), rosterDraft);
+        var newRow = function() { return { student: { name: '', gender: '' }, isNew: true, deleted: false }; };
+        var focus = -1;
+        if (act === 'up' && i > 0) { var t = rosterDraft[i - 1]; rosterDraft[i - 1] = rosterDraft[i]; rosterDraft[i] = t; }
+        else if (act === 'down' && i < rosterDraft.length - 1) { var t2 = rosterDraft[i + 1]; rosterDraft[i + 1] = rosterDraft[i]; rosterDraft[i] = t2; }
+        else if (act === 'insert') { rosterDraft.splice(i + 1, 0, newRow()); focus = i + 1; }
+        else if (act === 'insert-top') { rosterDraft.splice(0, 0, newRow()); focus = 0; }
+        else if (act === 'del') { if (rosterDraft[i].isNew) rosterDraft.splice(i, 1); else rosterDraft[i].deleted = true; }
+        else if (act === 'undel') { rosterDraft[i].deleted = false; }
+        else if (act === 'bulk-add') {
+            var ta = document.getElementById('rosterBulkAdd');
+            var lines = ((ta && ta.value) || '').split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+            if (!lines.length) { showToast('追加する氏名を入力してください（1行に1名）', 'warning'); return; }
+            lines.forEach(function(line) { var parts = line.split(','); var r = newRow(); r.student.name = parts[0].trim(); r.student.gender = (parts[1] || '').trim(); rosterDraft.push(r); });
+            if (ta) ta.value = '';
+        }
+        else if (act === 'discard') { rosterDraftInit(); }
+        else if (act === 'backup') { if (typeof openBackupModal === 'function') openBackupModal(); return; }
+        else if (act === 'undo') { rosterUndoClick(); return; }
+        else return;
+        renderRosterEditor();
+        rosterMarkChanged();
+        if (act === 'discard') { renderRosterBanner(); renderRosterCount(); }
+        if (focus >= 0) rosterFocusName(focus);
+    }
+    function rosterUndoClick() {
+        if (rosterDraftChanged()) { showToast('先に、未保存の名簿の変更を保存するか破棄してください', 'warning'); return; }
+        undoRosterChange();
+    }
+    function archiveHandleAct(act, id, el) {
+        if (act === 'restore') {
+            if (rosterDraftChanged()) { showToast('先に、未保存の名簿の変更を保存するか破棄してください', 'warning'); return; }
+            var r = restoreArchivedStudent(id);
+            if (!r.ok) showToast(rosterErrorMessage(r), 'error');
+            return;
+        }
+        if (act === 'purge') {
+            // 完全削除は取り消せないため、ダイアログではなく「同じボタンをもう一度タップ」で実行する(4秒以内)
+            if (!archiveArmed[id]) {
+                el.textContent = 'もう一度タップで完全に削除'; el.classList.add('rl-armed');
+                archiveArmed[id] = setTimeout(function() { delete archiveArmed[id]; renderArchiveList(); }, 4000);
+                return;
+            }
+            clearTimeout(archiveArmed[id]); delete archiveArmed[id];
+            var pr = purgeArchivedStudent(id);
+            if (pr.ok) { showToast('退避していたデータを完全に削除しました', 'success'); renderArchiveList(); }
+            else showToast(rosterErrorMessage(pr), 'error');
+        }
+    }
+    // 名簿変更の失敗理由を、先生向けの文言にする(いずれも「データは変更されていません」を明記できる場合は明記)
+    function rosterErrorMessage(r) {
+        var e = r && r.error;
+        if (e === 'insufficient-storage') return '保存に必要な空き容量が足りないため、名簿の変更を中止しました（データは変更されていません）。バックアップを取ってから、不要なデータを整理してください';
+        if (e === 'txn-pending') return '前回の名簿変更が完了していません。アプリを開き直してください';
+        if (e === 'master-load-failed') return '名簿データの読み込みに失敗しているため、保存できません。バックアップから復元してください';
+        if (e === 'duplicate-id') return '同じ児童がすでに名簿にいるため、戻せません';
+        if (e === 'not-found') return '対象のデータが見つかりません（すでに削除された可能性があります）';
+        if (e === 'apply-failed' && r.rollbackFailed) return '保存に失敗し、元に戻せませんでした。バックアップから復元してください';
+        if (e === 'apply-failed' || e === 'snapshot-failed' || e === 'journal-failed') return '保存に失敗したため、名簿の変更を取り消して元に戻しました（データは変更されていません）';
+        if (e === 'invariant-violation' || e === 'store-invalid') return '名簿の変更の整合性を確認できなかったため中止しました（データは変更されていません）';
+        return '名簿の変更を中止しました（データは変更されていません）: ' + (e || '不明なエラー');
+    }
+    function rosterUiBind() {
+        var card = document.getElementById('rosterEditorCard'), arch = document.getElementById('archiveCard');
+        if (card && !card._rlBound) {
+            card._rlBound = true;
+            card.addEventListener('click', function(e) {
+                var b = e.target.closest ? e.target.closest('button[data-act]') : null;
+                if (!b) return;
+                rosterHandleAct(b.getAttribute('data-act'), parseInt(b.getAttribute('data-i'), 10), b);
+            });
+            card.addEventListener('input', function(e) {
+                var t = e.target;
+                if (!t || !t.matches || !t.matches('input[data-act="name"]')) return;
+                var i = parseInt(t.getAttribute('data-i'), 10);
+                if (rosterDraft && rosterDraft[i]) { rosterDraft[i].student.name = t.value; t.closest('.rl-row').classList.remove('rl-err'); rosterMarkChanged(); }
+            });
+            card.addEventListener('change', function(e) {
+                var t = e.target;
+                if (!t || !t.matches || !t.matches('select[data-act="gender"]')) return;
+                var i = parseInt(t.getAttribute('data-i'), 10);
+                if (rosterDraft && rosterDraft[i]) { rosterDraft[i].student.gender = t.value; rosterMarkChanged(); }
+            });
+        }
+        if (arch && !arch._arBound) {
+            arch._arBound = true;
+            arch.addEventListener('click', function(e) {
+                var b = e.target.closest ? e.target.closest('button[data-act]') : null;
+                if (b) archiveHandleAct(b.getAttribute('data-act'), b.getAttribute('data-id'), b);
+            });
+        }
+    }
+
+    function readClassInfoFromForm() {
         var _mmdd = function(id, dflt) {
             var el = document.getElementById(id);
             var v = el ? (el.value || '').trim() : '';
             return /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v) ? v : dflt;
         };
-        master.classInfo = {
+        return {
             year: parseInt(document.getElementById('setYear').value) || new Date().getFullYear(),
             grade: parseInt(document.getElementById('setGrade').value) || 4,
             class: parseInt(document.getElementById('setClass').value) || 1,
@@ -6560,78 +6862,41 @@
             term2Start: _mmdd('setTerm2Start', '09-01'),
             term3Start: _mmdd('setTerm3Start', '01-01')
         };
-        // 名簿をパース
-        var lines = document.getElementById('masterRoster').value.trim().split('\n').filter(function(l) { return l.trim(); });
-        // v1.50.1 (H6): 既存の児童オブジェクトの全項目(視力・身長など)を保持したまま name・gender だけを更新する。
-        // 従来は {name, gender} で作り直していたため、名簿を変えずに保存しても身体タブの入力が消えていた。
-        // 引き継ぎは添字位置のまま(並べ替え・途中削除への対応は児童ID導入=H4で行う)。
-        var _prevStudents = master.students || [];
-        var newStudents = lines.map(function(line, i) {
-            var parts = line.trim().split(',');
-            var name = parts[0].trim();
-            var gender = (parts[1] || '').trim();
-            var prev = _prevStudents[i];
-            return Object.assign({}, (prev && typeof prev === 'object') ? prev : null, { name: name, gender: gender || '' });
-        });
-        // v1.8.88: 名簿ズレ防止ガード。成績・出欠等は「名簿の並び順(番号)」に紐づくため、
-        // 途中の削除・挿入・並べ替えを検出したら警告する。末尾追加と男女修正・同位置の改名は安全。
-        var _old = master.students || [];
-        if (_old.length > 0) {
-            var _shift = false, _firstDiff = -1;
-            if (newStudents.length < _old.length) { _shift = true; }
-            for (var _gi = 0; _gi < _old.length && !(_shift && _firstDiff >= 0); _gi++) {
-                var _nw = newStudents[_gi];
-                if (!_nw || _nw.name !== _old[_gi].name) {
-                    if (_firstDiff < 0) _firstDiff = _gi;
-                    // 同位置の改名(誤字修正等)は許容。ただし旧名簿の別位置に同名が存在するなら並べ替え/削除の疑い
-                    var _movedFrom = -1;
-                    for (var _gk = 0; _gk < _old.length; _gk++) { if (_gk !== _gi && _nw && _old[_gk].name === _nw.name) { _movedFrom = _gk; break; } }
-                    if (!_nw || _movedFrom >= 0 || (newStudents.length !== _old.length)) _shift = true;
-                }
-            }
-            if (_shift) {
-                var _on = (_firstDiff >= 0 && _old[_firstDiff]) ? _old[_firstDiff].name : '（なし）';
-                var _nn = (_firstDiff >= 0 && newStudents[_firstDiff]) ? newStudents[_firstDiff].name : '（なし）';
-                var _msg = '⚠️ 名簿の並びが変わっています（' + (_firstDiff + 1) + '番: 「' + _on + '」→「' + _nn + '」）。\n\n'
-                    + 'このアプリでは成績・出欠・提出物・カルテなどの記録が「名簿の並び順」に紐づいています。\n'
-                    + 'このまま保存すると、' + (_firstDiff + 1) + '番以降の児童の記録が別の児童のものとして表示されるおそれがあります。\n\n'
-                    + '【安全な直し方】\n'
-                    + '・転出 → 行を削除せず、名前を「（転出）元の名前」に書き換える\n'
-                    + '・転入 → 名簿の一番下に追加する\n'
-                    + '・誤字の修正だけなら、この警告は無視して保存してかまいません\n\n'
-                    + 'それでも保存しますか？';
-                if (!confirm(_msg)) { showToast('名簿の保存を中止しました（データは変更されていません）', 'info'); return; }
-            }
-        }
-        master.students = newStudents;
-        assignMissingStudentIds(master.students); // v1.51.0: 転入生など、IDの無い児童にだけIDを付与(既存のIDは保持)
-        saveMaster();
-        updateRosterPreview();
-        renderPhysicalTable();
-        updateDashboard();
-        showToast('✅ 名簿を保存しました（' + master.students.length + '名）', 'success');
     }
-
-    function updateRosterPreview() {
-        var container = document.getElementById('rosterPreview');
-        var countEl = document.getElementById('rosterCount');
-        if (master.students.length === 0) {
-            container.innerHTML = emptyState('上の欄に児童名を1行ずつ貼り付けて、「クラス情報と名簿を保存」を押すと、ここに一覧が出ます。', null);
-            countEl.textContent = '';
-            return;
+    // 「保存」ボタン: クラス情報と名簿(下書き)を保存する。名簿に変更があるときは必ず applyRosterChange を通る
+    // (成功すると自動で再読み込みされ、名簿設定の画面が開く)。名簿の変更が無ければクラス情報だけを保存する(再読み込みなし)。
+    function saveMasterRoster() {
+        var ci = readClassInfoFromForm();
+        var mergedCi = Object.assign({}, master.classInfo || {}, ci);
+        var ciChanged = JSON.stringify(mergedCi) !== JSON.stringify(master.classInfo || {});
+        if (!rosterDraft) rosterDraftInit();
+        // 検証: 氏名が空の行は保存しない(該当の行を赤枠にする)
+        var emptyRows = [];
+        rosterDraft.forEach(function(r, i) { if (!r.deleted && !String(r.student.name || '').trim()) emptyRows.push(i); });
+        if (emptyRows.length) {
+            emptyRows.forEach(function(i) { var row = document.querySelector('#rosterEditor .rl-row[data-i="' + i + '"]'); if (row) row.classList.add('rl-err'); });
+            rosterFocusName(emptyRows[0]);
+            showToast('氏名が空の行があります。氏名を入力するか、その行を削除してください', 'warning');
+            return { ok: false, error: 'empty-name' };
         }
-        var html = '';
-        master.students.forEach(function(s, i) {
-            var gLabel = s.gender === '男' ? '♂' : s.gender === '女' ? '♀' : '';
-            html += '<div class="roster-row"><span class="roster-num">' + (i + 1) + '</span>' +
-                escapeHtml(s.name) + (gLabel ? ' <span style="font-size:0.8rem;color:var(--text-light);">' + gLabel + '</span>' : '') +
-                '</div>';
-        });
-        container.innerHTML = html;
-        var mCount = master.students.filter(function(s) { return s.gender === '男'; }).length;
-        var fCount = master.students.filter(function(s) { return s.gender === '女'; }).length;
-        countEl.textContent = '合計 ' + master.students.length + '名' +
-            (mCount + fCount > 0 ? '（男子' + mCount + '名・女子' + fCount + '名）' : '');
+        var students = rosterDraftStudents();
+        var rosterChanged = JSON.stringify(students) !== JSON.stringify(master.students || []);
+        if (!rosterChanged) {
+            if (!ciChanged) { showToast('変更はありません', 'info'); return { ok: true, noop: true }; }
+            master.classInfo = mergedCi;
+            saveMaster();
+            updateDashboard();
+            showToast('✅ クラス情報を保存しました', 'success');
+            return { ok: true, classInfoOnly: true };
+        }
+        rosterNudgeBackup(); // 名簿変更の直前(直近にバックアップ済みなら出さない)。操作は止めない
+        var names = {}, dupNames = [];
+        students.forEach(function(s) { if (names[s.name]) { if (dupNames.indexOf(s.name) < 0) dupNames.push(s.name); } names[s.name] = true; });
+        var r = applyRosterChange(students, { classInfo: ciChanged ? ci : undefined });
+        if (!r.ok) { showToast(rosterErrorMessage(r), 'error'); return r; }
+        rosterDraft = null; // 成功。この後、自動で再読み込みされる
+        if (dupNames.length) { try { showToast('同じ氏名の児童がいます（' + dupNames.join('、') + '）。新体力テストの取り込みで区別できないため、氏名を区別できるようにしてください', 'warning'); } catch (e) {} }
+        return r;
     }
     // ▲▲▲ MODULE:MASTER ▲▲▲
 

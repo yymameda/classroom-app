@@ -1,11 +1,11 @@
-# classroom-app 引き継ぎメモ（2026-09-20 時点・v1.53.1）
+# classroom-app 引き継ぎメモ（2026-09-20 時点・公開済みは v1.53.1／手元は v1.54.0）
 
 次のセッションは、まずこのファイルと `CLAUDE.md`、`UI_WORKLOG.md`（末尾の最新セッション）、
 `DATA_FLOW_AUDIT.md`（該当章）を読む。`push` は先生の承認が出るまでしない。
 
 ## 1. 現在の状態
 
-- 最新: **v1.53.1**（`sw.js` の `CACHE_VERSION`）。`origin/main` と同期済み（最後のコミットは docs）。
+- 公開済み: **v1.53.1**（iPad 確認済み）。手元の `main` は **v1.54.0（4c。commit 済み・push は先生の承認待ち）**。`git log origin/main..HEAD` で確認する。
 - 端末は先生の iPad（PWA・DevTools なし。確認は必ず画面操作で案内する）。1クラス最大30人。
 - 先生は 4b（v1.53.0）以降を入れる前にバックアップ済み。**iPad（v1.53.1）で確認済み（2026-09-20・問題なし）**:
   バージョン表示 v1.53.1／起動直後に「新しい方式に更新しました」の通知／診断カードが「児童ごと（新方式）」「一致しています」／
@@ -25,18 +25,13 @@
 | 4d-1 | `importBackup` の安全化（復元前の退避・検証付き書き込み・取り消し） | v1.52.2 | 18 |
 | 4b | pf の記録を studentId キーへ（起動時移行・名簿変更・復元・取り込み・pf画面） | v1.53.0 | 19 |
 | 追加 | 通知がボタンを隠す不具合の修正／起動直後の競合の修正／`pf.html` 暫定ガード | v1.53.1 | 20 |
+| 4c | 旧方式の記録の「氏名で引き継ぐ」・`pf-residual` の単体復元・`pf-unlinked` | v1.54.0（未push） | 21 |
 
 関連: H8（IndexedDB の鏡に氏名が残る）は 12 章で対応済み（v1.51.2・v1.51.3）。
 
-### 残り（実施順: 4c → 4d-2 → 4e）
+### 残り（実施順: 4d-2 → 4e。4c は実装済み・push 待ち）
 
-- **4c**（16.4・16.12・16.13）
-  - `pf-residual`（旧方式で pf 名簿が不一致のまま復元したときに退避へ残した pf の記録）の**単体復元**。
-    名簿に同じ `studentId` の児童がいるときだけ、その児童の記録として戻す。入力済みの値は上書きしない。
-    現状は `residual-not-restorable` で拒否（完全削除のみ可）。
-  - `pf-unlinked`（引き継げなかった記録の退避。完全削除のみ）。
-  - **「氏名で引き継ぐ」**（決定 c）: 名簿が一致しない旧方式の端末向け。pf の設定にプレビュー付きボタン。
-    氏名が一意に一致する児童だけ紐付け、残りは `pf-unlinked`。先生の端末は一致しているため対象外だが実装する。
+- 4c の実装内容は DATA_FLOW_AUDIT.md 21章。先生の端末は名簿が一致して自動移行済みのため、4c の画面は今の端末には出ない。
 - **4d-2**（16.6）: バックアップに `version: 11`・`studentIdSchema: 1`・`pfSchema: 2` の印を付け、
   `importBackup` で版を判別。復元後の整合性検査（`studentId` の重複・欠落、pf の新旧混在、退避の孤立）。
   現状の書き出しは version 10 のまま。
@@ -52,6 +47,8 @@
 - **M9** テスト成績/提出物CSVが生データのみ（提出物CSVの欠席セルだけ M6 で対応済み）。
 - **L1〜L7**（将来リスク。3章「低」）: 未使用キー `spa_grades`、授業態度記号の変換、専科の評定しきい値固定、
   課題保存時の `createdAt` 上書き、名簿縮小後の範囲外 studentIndex の混入、「入力済 x/N」の数え方、主体性得点の文字列 score。
+- **`tests/test_grades.js` が2件失敗（v1.49.0・コミット 5ac43ca から。H4 とは無関係。21.1）**。「category復帰後の割合(87%)」「別の課題に切り替えてから戻っても割合」。
+  `*.test.js` の名前規則から外れるため全体実行から漏れていた。アプリの不具合かテストの期待の古さかは未調査。
 - **メモリ記載の予定**: Step4-D — `recNwUpdateCardUI` 汎用化時に `recNwCalcGrade` → `kenteiStageToLabel` へ置き換える。
 - **H4 の既知の制約**（19章・18章）: 旧方式で一致しない端末で pf の「名簿を読み込む」を押すと、従来どおり記録が別の児童に付く
   （10.5。次の起動でその状態を忠実に新方式へ移行するだけで、新たなずれは作らない。4c で解消）。
@@ -98,13 +95,17 @@
 ### テストの実行
 
 ```sh
-cd classroom-app && python3 -m http.server 8123 &      # 別ターミナル
-cd tests && npm install                                 # 初回のみ
-node <名前>.test.js                                     # 単独。全体は `for f in *.test.js; do node $f; done`
-node attendance-snapshot.js                             # 引数なし。全体実行のあとに必ず PASS を確認
+# 別ターミナルで(リポジトリのルートで):
+python3 -m http.server 8123
+# もう一つのターミナルで:
+cd tests && npm install                # 初回のみ
+node <名前>.test.js                    # 単独
+for f in *.test.js; do node $f; done   # 全体(55ファイル)
+node test_grades.js                    # 名前規則の外(全体に含まれない)。現在2件失敗(上記)
+node attendance-snapshot.js            # 引数なし。全体実行のあとに必ず PASS を確認
 ```
 
-- 全体で54ファイル・1517 PASS・0 FAIL（約12分。`tests/README.md` に一覧）。Chrome は `/Applications/Google Chrome.app`。
+- `*.test.js` の全体は55ファイル・1589 PASS・0 FAIL（約13分）。`tests/README.md` の表の合計（1322）は数え方が違う（PASS 行の数でなく検査の集計。`test_grades.js` を含む）ので、件数は実行結果で確認する。Chrome は `/Applications/Google Chrome.app`。
 - 環境変数: `ONLY=H1,H2…`（data-reflection）、`PFM_ONLY=1,4`（pf-migration の章指定）、
   `ROSTER_SHIFT_FORCE=1`（roster-shift の実適用を強制）、`PF_BASE=http://…/`（pf-guard の接続先）。
 - **同じテストを並列に走らせない**（一時ファイル名の衝突）。テストの追加・`index.html`/`pf.html` の変更中に全体実行をしない。
@@ -139,7 +140,7 @@ node attendance-snapshot.js                             # 引数なし。全体�
 
 ## 8. 次の一手（推奨）
 
-1. 先生の iPad 確認の結果を受け取る（上の 1. の4点）。問題があれば操作を止めてもらい、スクリーンショットで原因を調べる。
-2. 問題がなければ 4c の設計を確認して実装（commit まで → 報告 → 先生の承認 → push）。
-3. 4d-2 → 4e。4e の後で `pf-residual`・暫定ガードの整理と、DATA_FLOW_AUDIT.md の 7.5 の実施順の更新。
+1. 4c（v1.54.0）の push を先生に承認してもらう（承認後に push → 先生の端末は変化なし・確認は「バージョン表示が v1.54.0 になり、いつもの操作が変わらない」）。
+2. 4d-2 の設計を確認して実装（commit まで → 報告 → 承認 → push）。
+3. 4e。4e の後で `pf-residual`・暫定ガードの整理と、DATA_FLOW_AUDIT.md の 7.5 の実施順の更新。
 4. H4 完了後に M2〜M5・M7〜M9・L1〜L7 の優先順位を先生と決める（成績値が変わるものは方針確認が先）。

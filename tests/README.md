@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計1250件）
+## 常時グリーンのテスト（合計1322件）
 
 | ファイル | 件数 |
 |---|---|
@@ -58,11 +58,14 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `toast-passthrough.test.js` | 8 |
 | `boot-race.test.js` | 8 |
 | `pf-guard.test.js` | 46 |
-| **合計** | **1250** |
+| `pf-takeover.test.js` | 72 |
+| **合計** | **1322** |
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
 
 `pf-diagnosis.test.js`(v1.52.1)は設定の「新体力テストの連携状態」表示を検証する。読み取り専用(localStorage/IndexedDBへの書き込み0回)・氏名を表示しない・一致/不一致の理由・pf_fitness の痕跡・SPAにいない児童の人数を、実際に画面を開いて確認する。
+
+`pf-takeover.test.js`(v1.54.0)は、旧方式の記録の「氏名で引き継ぐ」(計画・実行・全キー比較・失敗注入・画面)と、退避した pf-residual の単体復元を検証する。
 
 `toast-passthrough.test.js`(v1.53.1)は、通知(トースト)が保存ボタンなどへのタップを受けないことを、保存ボタンの真上に通知を重ねた状態で確認する(全体実行で一度だけ失敗した原因の再現テスト)。`boot-race.test.js` は IndexedDB の準備を遅らせた起動で、準備前に書き直されたキーが消されないことを確認する。`pf-guard.test.js` は新方式の端末で pf.html を開いても何も書き込まないこと(案内だけ表示)を確認する。
 
@@ -74,7 +77,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 
 `data-reflection.test.js`（v1.50.0〜）は `ONLY=H1,H2,H3,M1,M6` で項目別に実行できる。
 
-`test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
+**`test_grades.js` は v1.49.0(5ac43ca)から2件失敗している(既知・未調査。DATA_FLOW_AUDIT.md 21.1)。上の「常時グリーン」の表の86件は、実際は84件PASS。**全体実行には `node test_grades.js` も加えること。`test_grades.js` のみファイル名が `*.test.js` 命名規則から外れている（成績入力形式統一
 プロジェクト開始前からの既存ファイル名を踏襲）。abcTo10・scoreTo10・score10ToABC・
 abcToNum・calcWeightedScore・grdGetCurrentTerm など成績計算コア(grdCalculate)の
 換算値を、window公開済みの実装関数を直接呼ぶ形で検証する（ロジックのハードコピーはしない）。

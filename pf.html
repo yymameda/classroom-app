@@ -4,6 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>新体力テスト管理 | CM CLASS</title>
+<script>
+// v1.53.1 暫定ガード(H4 段階4b の安全策・4e の前倒しの最小版)。
+// このページ(単体ページ)は旧方式(記録のキー=位置番号)のままのため、新方式(記録のキー=児童ID)の端末で使うと、
+// 「名簿を読み込む」などで名簿が旧方式に戻り、新方式の記録が見えなくなる。新方式のデータを検出したら、
+// localStorage・IndexedDB に一切書き込まず、案内だけを表示して、以降のスクリプトを止める(読み取りだけ行う)。
+// 新方式の検出(いずれか): pf_roster に studentId を持つ項目がある／記録・集計(pf_records_年度・pf_fitness_年度)に数字でないキーがある／
+// 移行の完了の印(migration_pfStudentId_v1)がある。旧方式の端末・データなしの端末は、これまでどおり使える。
+(function(){
+  var v2=false,ls=null;
+  try{ls=window.localStorage;}catch(e){}
+  if(!ls)return;
+  try{
+    var raw=ls.getItem('pf_roster');
+    if(raw){var a=JSON.parse(raw);if(Array.isArray(a)&&a.some(function(e){return e&&typeof e.studentId==='string'&&e.studentId!=='';}))v2=true;}
+  }catch(e){}
+  try{
+    for(var i=0;i<ls.length&&!v2;i++){
+      var k=ls.key(i);
+      if(!/^pf_(records|fitness)_\d+$/.test(k))continue;
+      try{
+        var d=JSON.parse(ls.getItem(k));
+        if(d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).some(function(x){return !/^\d+$/.test(x);}))v2=true;
+      }catch(e2){}
+    }
+  }catch(e){}
+  try{if(!v2&&ls.getItem('migration_pfStudentId_v1')!==null)v2=true;}catch(e){}
+  if(!v2)return;
+  window.__PF_GUARD=true;
+  // 念のための二重の防御: このページからの localStorage・IndexedDB への書き込み・削除を無効にする
+  try{Storage.prototype.setItem=function(){};Storage.prototype.removeItem=function(){};Storage.prototype.clear=function(){};}catch(e){}
+  try{if(window.IDBFactory)IDBFactory.prototype.open=function(){throw new Error('pf.html guard: blocked');};}catch(e){}
+  document.addEventListener('DOMContentLoaded',function(){
+    document.title='新体力テストは、アプリの中で使ってください';
+    document.body.innerHTML='<div id="pfGuardNotice" style="max-width:560px;margin:48px auto;padding:24px 20px;background:#fff;border:2px solid #9fd4bb;border-radius:12px;font-family:-apple-system,BlinkMacSystemFont,\'Hiragino Sans\',sans-serif;line-height:1.8;color:#1a1a18;">'
+      +'<h1 style="font-size:20px;margin:0 0 12px;">🏃 新体力テストは、アプリの中で使ってください</h1>'
+      +'<p style="margin:0 0 12px;">この画面（単体ページ）は、もう使いません。<strong>アプリ内の新体力テストタブを使ってください。</strong></p>'
+      +'<p style="margin:0 0 12px;">新体力テストの記録は、アプリの「🏃 新体力」タブに、そのまま入っています。この画面では、記録は何も変えていません（見ただけで、書き込みはしていません）。</p>'
+      +'<a href="./index.html" style="display:inline-block;min-height:44px;line-height:44px;padding:0 24px;background:#1a6b4a;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;">アプリを開く</a>'
+      +'</div>';
+  });
+})();
+</script>
 <style>
 /* ===== RESET & BASE ===== */
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -352,6 +394,7 @@ canvas.radar{display:block;}
 <div class="toast" id="toast"></div>
 
 <script>
+if(window.__PF_GUARD){throw new Error('pf.html guard: 新方式(児童ID)のデータを検出したため、このページの処理を止めました');}
 // ============================================================
 // ▼▼▼ 定数：文科省公式 項目別得点表（小学生共通・男女別）
 // ============================================================

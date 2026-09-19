@@ -19188,6 +19188,34 @@
                 })
                 .sort(function(a, b) { return b.count - a.count; });
 
+            // v1.51.0 (H7の既存データ検出): 入力形式(得点/5段階)と満点が矛盾する課題を一覧にする(読み取り専用。自動修正はしない)。
+            //   kind='score': 得点方式なのに満点が0/未設定  例 {category:'主体性', maxScore:0, inputMode:'score'}
+            //   kind='abc5' : 5段階なのに満点が残っている    例 {category:'知識・技能', maxScore:80, inputMode:'abc5'}
+            // まとめ/単元テスト・実技記録・授業態度は専用の入力方式のため対象外。入力形式の判定は必ず getItemInputMode 経由。
+            // 課題名・教科などのみ記録し、児童の氏名は含めない(既存の「個人情報は表示・出力されない」方針を維持)。
+            var INPUT_MODE_CONFLICT_CAP = 20;
+            var inputModeConflictAll = [];
+            tests.forEach(function(t) {
+                if (t.type === 'matome' || t.testType === 'まとめテスト' || t.testType === '単元テスト' ||
+                    t.testType === '実技記録' || t.testType === '授業態度') return;
+                var mode = getItemInputMode(t);
+                var kind = null;
+                if (mode === 'score' && !(t.maxScore > 0)) kind = 'score';
+                else if (mode === 'abc5' && t.maxScore > 0) kind = 'abc5';
+                if (!kind) return;
+                var numeric = 0, str = 0;
+                scores.forEach(function(sc) {
+                    if (sc.testId !== t.id || sc.absent === true) return;
+                    if (typeof sc.score === 'number') numeric++;
+                    else if (typeof sc.score === 'string' && sc.score !== '') str++;
+                });
+                inputModeConflictAll.push({
+                    testId: t.id, name: t.name || '', subject: t.subject || '', testType: t.testType || '', category: t.category || '',
+                    maxScore: t.maxScore, inputMode: (t.inputMode === 'score' || t.inputMode === 'abc5') ? t.inputMode : '(未設定・観点から推定)',
+                    kind: kind, numericScores: numeric, stringScores: str
+                });
+            });
+
             // まとめテスト × matome_questions 対応
             var matomeTests = tests.filter(function(t) { return t.type === 'matome'; });
             var matomeNoQ = matomeTests.filter(function(t) {
@@ -19254,6 +19282,9 @@
                 categoryMissing:        categoryMissing,
                 maxScoreMissing:        maxScoreMissing,
                 maxScoreEmptyBreakdown: maxScoreEmptyBreakdown,
+                inputModeConflicts:        inputModeConflictAll.length,
+                inputModeConflictDetail:   inputModeConflictAll.slice(0, INPUT_MODE_CONFLICT_CAP),
+                inputModeConflictOverflow: Math.max(0, inputModeConflictAll.length - INPUT_MODE_CONFLICT_CAP),
                 matomeTotal:            matomeTests.length,
                 matomeNoQ:              matomeNoQ,
                 negativeScores:               negativeScoreList.length,
@@ -19637,6 +19668,11 @@
                 warn.push('maxScore 欠損または0のテスト ' + result.structuralIntegrity.maxScoreMissing + '件(matome除く)');
             }
 
+            // --- 入力形式と満点の矛盾(注意。検出のみで自動修正はしない) ---
+            if (result.structuralIntegrity.inputModeConflicts > 0) {
+                warn.push('入力形式と満点が矛盾する課題 ' + result.structuralIntegrity.inputModeConflicts + '件(得点なのに満点なし／5段階なのに満点あり。課題管理で確認)');
+            }
+
             // --- studentIndex 超過(注意) ---
             if (result.structuralIntegrity.studentIndexOver > 0) {
                 warn.push('studentIndex 範囲超過スコア ' + result.structuralIntegrity.studentIndexOver + '件(児童数:' + result.structuralIntegrity.studentCount + ')');
@@ -19850,6 +19886,18 @@
                 maxScoreCell += msHtml;
             }
             html += '<tr><td>' + _sts(si.maxScoreMissing === 0) + ' maxScore 欠損または0</td><td>' + maxScoreCell + '</td></tr>';
+            var imcCell = si.inputModeConflicts === 0 ? 'なし' : '<span class="audit-status-warn">' + si.inputModeConflicts + '件</span>';
+            if (si.inputModeConflicts > 0) {
+                imcCell += '<details class="audit-detail-block" open><summary>詳細を表示</summary><div class="audit-detail-body">';
+                imcCell += '<div style="margin-bottom:4px;">入力形式と満点が矛盾しています。<b>自動では修正しません</b>。児童の記録 &gt; 授業課題の管理で該当課題を開き、入力形式（得点/5段階）と満点を確認して保存し直してください。得点が入力済みの課題は入力形式を変更できないため、満点だけを入れ直してください。</div>';
+                si.inputModeConflictDetail.forEach(function(item) {
+                    imcCell += 'testId="' + item.testId + '" 「' + escapeHtml(item.name) + '」 ' + escapeHtml(item.subject) + '／' + escapeHtml(item.testType) + '／' + escapeHtml(item.category)
+                        + ' : ' + (item.kind === 'score' ? '得点方式なのに満点なし' : '5段階なのに満点あり') + '（満点=' + item.maxScore + '・入力形式=' + escapeHtml(item.inputMode) + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）<br>';
+                });
+                if (si.inputModeConflictOverflow > 0) imcCell += '他' + si.inputModeConflictOverflow + '件<br>';
+                imcCell += '</div></details>';
+            }
+            html += '<tr><td>' + _sts(si.inputModeConflicts === 0) + ' 入力形式と満点が矛盾する課題</td><td>' + imcCell + '</td></tr>';
             html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめテスト問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
 
             // 段階0.5: 範囲外スコアの検出（負の点数／maxScore超過／maxScore欠損なのに数値スコアあり）
@@ -20222,6 +20270,14 @@
                 si.maxScoreEmptyBreakdown.forEach(function(item) {
                     lines.push('  testType="' + item.testType + '" subject="' + item.subject + '" : ' + item.count + '件');
                 });
+            }
+            lines.push('入力形式と満点が矛盾する課題: ' + si.inputModeConflicts + '件（自動修正はしません）');
+            if (si.inputModeConflicts > 0) {
+                si.inputModeConflictDetail.forEach(function(item) {
+                    lines.push('  testId="' + item.testId + '" 「' + item.name + '」 ' + item.subject + '／' + item.testType + '／' + item.category
+                        + ' : ' + (item.kind === 'score' ? '得点方式なのに満点なし' : '5段階なのに満点あり') + '（満点=' + item.maxScore + '・入力形式=' + item.inputMode + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）');
+                });
+                if (si.inputModeConflictOverflow > 0) lines.push('  他' + si.inputModeConflictOverflow + '件');
             }
             lines.push('maxScore欠損/0なのに数値スコアあり: ' + si.numericScoreNoMaxScore + '件');
             if (si.numericScoreNoMaxScore > 0 && si.numericScoreNoMaxScoreByTest && si.numericScoreNoMaxScoreByTest.length > 0) {

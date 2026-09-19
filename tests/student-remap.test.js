@@ -188,7 +188,7 @@ function rng(seed) { let a = seed >>> 0; return function() { a |= 0; a = a + 0x6
         const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
         const literals = Array.from(new Set((src.match(/'spa_[A-Za-z0-9_]+'/g) || []).map(s => s.slice(1, -1))));
         const KNOWN_OTHER = {
-            spa_wiped: '退勤モードのフラグ', spa_capacity_probe: '名簿変更前の容量確認用の一時キー(書き込んですぐ消す)', spa_open_settings_after_roster: 'sessionStorageのフラグ(名簿変更後の再読み込みで名簿設定を開く)', spa_storage_persisted: '永続ストレージ要求の結果フラグ', spa_classroom_db: 'IndexedDBのデータベース名',
+            spa_wiped: '退勤モードのフラグ', spa_roster_notice_after_reload: 'sessionStorageの通知(名簿変更の再読み込み後に表示)', spa_capacity_probe: '名簿変更前の容量確認用の一時キー(書き込んですぐ消す)', spa_open_settings_after_roster: 'sessionStorageのフラグ(名簿変更後の再読み込みで名簿設定を開く)', spa_storage_persisted: '永続ストレージ要求の結果フラグ', spa_classroom_db: 'IndexedDBのデータベース名',
             spa_cleanup_missing_v1863_done: '移行の完了フラグ', spa_kanji_backup_v1851: '旧バックアップ(漢字の移行前の写し・削除可)',
             spa_kanji_backup_v1853_order: '旧バックアップ(漢字の並べ替え前の写し・削除可)', spa_submissions_removed_v1863: '旧バックアップ(削除した手動×提出記録の写し・削除可)'
         };

@@ -5960,7 +5960,7 @@
         return { ok: ok, needed: neededChars, probed: size, detail: detail };
     }
     // スナップショット/取り消し/付け替えの対象キー: 登録表の全ストア + 名簿 + 退避
-    function srSnapshotKeys() { return STUDENT_KEYED_STORES.map(function(st) { return st.key; }).concat([KEYS.master, KEYS.student_archive]); }
+    function srSnapshotKeys(extraKeys) { return STUDENT_KEYED_STORES.map(function(st) { return st.key; }).concat([KEYS.master, KEYS.student_archive]).concat(extraKeys || []); }
 
     // スナップショットの内容へ全キーを書き戻して、直接読み戻して一致を確認する。
     function srRollbackToSnapshot(snap) {
@@ -5990,13 +5990,15 @@
     function srRunTransaction(job) {
         var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
         var txnId = srNewId('txn_'), now = new Date().toISOString();
-        var snapKeys = srSnapshotKeys();
+        var pfKeys = Object.keys(job.pfNext || {}); // 新体力テスト(pf)も同じトランザクション(スナップショット・ジャーナル・ロールバック)に含める
+        var snapKeys = srSnapshotKeys(pfKeys);
         var snap = { v: 1, txnId: txnId, at: now, kind: job.kind, keys: {} };
         snapKeys.forEach(function(k) { snap.keys[k] = storageDirect(k); });
         var snapStr = JSON.stringify(snap);
         var writes = [];
         if (typeof job.archiveNext === 'string') writes.push([KEYS.student_archive, job.archiveNext]);
         STUDENT_KEYED_STORES.forEach(function(st) { if (typeof job.storesNext[st.key] === 'string') writes.push([st.key, job.storesNext[st.key]]); });
+        pfKeys.forEach(function(k) { writes.push([k, job.pfNext[k]]); }); // pf(名簿・記録・集計)は名簿の直前
         writes.push([KEYS.master, job.masterNext]);
         var journalStr = JSON.stringify({ id: txnId, state: 'applying', at: now, kind: job.kind, order: writes.map(function(w) { return w[0]; }) });
         // 容量の事前確認(書き込みゼロ)
@@ -6017,6 +6019,7 @@
             writes.forEach(function(w) { if (storageDirect(w[0]) !== w[1]) throw new Error('post-verify mismatch: ' + w[0]); });
             var persisted = {};
             STUDENT_KEYED_STORES.forEach(function(st) { persisted[st.key] = storageDirect(st.key); });
+            pfKeys.forEach(function(k) { persisted[k] = storageDirect(k); });
             var viol = job.verify ? job.verify(persisted) : [];
             if (viol && viol.length) throw new Error('invariant violated: ' + JSON.stringify(viol[0]));
             var hashes = {};
@@ -6032,6 +6035,15 @@
     }
 
     // 成功後: メモリ上の名簿・キャッシュを更新し、保存待ちを確定してから再読み込みする(名簿設定の画面を開く)。
+    // 通知: すぐトーストで表示し、再読み込みで消えないよう sessionStorage にも積んで、再読み込み後の起動時にも表示する。
+    var ROSTER_NOTICE_KEY = 'spa_roster_notice_after_reload';
+    var PF_MISMATCH_NOTICE = '新体力テストの名簿がSPAの名簿と一致しないため、新体力テストのデータは更新していません。新体力テストの画面で名簿を読み込み直してください';
+    function srQueueNotice(msg, opts) {
+        if (!msg) return;
+        try { showToast(msg, 'warning'); } catch (e) {}
+        if (opts && opts.reload === false) return;
+        try { var a = JSON.parse(sessionStorage.getItem(ROSTER_NOTICE_KEY) || '[]'); a.push(msg); sessionStorage.setItem(ROSTER_NOTICE_KEY, JSON.stringify(a)); } catch (e) {}
+    }
     function srFinishAndReload(masterNextStr, opts) {
         try { master = JSON.parse(masterNextStr); } catch (e) {}
         try { uiResetCaches(); } catch (e) {}
@@ -6049,7 +6061,7 @@
     }
     // 設定画面の「退避中の児童 N名」用(UIは段階3)。孤立データ(児童ではない)は数えない。
     function studentArchiveSummary() {
-        return readStudentArchive().entries.filter(function(e) { return !!e.studentId; })
+        return readStudentArchive().entries.filter(function(e) { return !!e.studentId && !e.residual; })
             .map(function(e) { return { archiveId: e.archiveId, studentId: e.studentId, name: (e.student && e.student.name) || '', archivedAt: e.archivedAt }; });
     }
     // 完全削除(記録を失う唯一の操作)。UIは段階3(確認ダイアログつき)。
@@ -6064,6 +6076,113 @@
             return { ok: false, error: 'write-failed', detail: srMsg(e) };
         }
         return { ok: true };
+    }
+
+    // ---- 新体力テスト(pf)連携(段階2c) ----
+    // pf は localStorage を直接読み書きし(StorageManager を通らない)、名簿 pf_roster=[{id,name,gender,age}]・記録 pf_records_年度[id]・
+    // 集計 pf_fitness_年度[id] を持つ。id は SPA名簿の「位置+1」(pf_loadFromSpa が採番。氏名が空の行は pf_roster から除外)。
+    // SPAの名簿を並べ替え・削除・転入しても pf 側には伝わらず、pf で「読み込み」を押すと id が振り直されて記録が別の児童に付く。
+    // そこで付け替え時に、pf_roster が付け替え前のSPA名簿と「氏名・順序・id(位置+1)とも一致」する場合に限り、pf の記録・集計・名簿を
+    // 同じトランザクションで追従させる。一致しなければ pf には触れず、通知だけする(勝手に付け替えて別の児童に紐づける事故を避ける)。
+    var PF_ROSTER_KEY = 'pf_roster';
+    var PF_KEYED_RE = /^pf_(records|fitness)_\d+$/;
+    function srPfKeyList() {
+        var out = [];
+        try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (PF_KEYED_RE.test(k)) out.push(k); } } catch (e) {}
+        return out.sort();
+    }
+    function srReadPfRaws() {
+        var keyed = {};
+        srPfKeyList().forEach(function(k) { keyed[k] = storageDirect(k); });
+        return { roster: storageDirect(PF_ROSTER_KEY), keyed: keyed };
+    }
+    // pf_roster が現在のSPA名簿と一致するか。{ok, reason, roster(パース済み)}
+    function srPfMatch(pfRaws, students) {
+        var roster = srParse(pfRaws.roster);
+        if (!Array.isArray(roster)) return { ok: false, reason: pfRaws.roster == null ? 'no-roster' : 'roster-invalid' };
+        var expected = [];
+        students.forEach(function(s, i) { if (s && s.name) expected.push({ idx: i, name: s.name }); }); // pf は氏名が空の行を除外して採番する(idは位置+1のまま)
+        if (roster.length !== expected.length) return { ok: false, reason: 'length-differs' };
+        for (var k = 0; k < expected.length; k++) {
+            var e = roster[k];
+            if (!e || typeof e !== 'object') return { ok: false, reason: 'entry-invalid' };
+            if (e.name !== expected[k].name) return { ok: false, reason: 'name-or-order-differs' };
+            if (Number(e.id) !== expected[k].idx + 1) return { ok: false, reason: 'id-not-position' };
+        }
+        return { ok: true, roster: roster };
+    }
+    // id(=位置+1)をキーにしたオブジェクトを付け替える。数字でないキー・0以下は無変更。
+    function srRemapPfKeyed(obj, remap, onArchive) {
+        var out = {};
+        Object.keys(obj).forEach(function(k) {
+            var id = srIndexOf(k);
+            if (id === null || id < 1) { out[k] = obj[k]; return; }
+            var d = srDestination(id - 1, remap);
+            if (d.t === 'move') out[String(d.to + 1)] = obj[k];
+            else onArchive(d.id, k, obj[k]);
+        });
+        return out;
+    }
+    function srPfCountIds(obj) { return Object.keys(obj).filter(function(k) { var id = srIndexOf(k); return id !== null && id >= 1; }).length; }
+    // pf の不変条件: P1 件数の保存則 / P2 idが新名簿の範囲内 / P3 pf_roster が新しいSPA名簿(氏名・順序)と一致 /
+    //                P4 pf_roster のid=位置+1 / P6 転入生のidに記録が付いていない
+    function verifyPfInvariants(pfRaws, res, ctx) {
+        var v = [];
+        var add = function(inv, key, detail) { v.push({ invariant: inv, key: key, detail: String(detail) }); };
+        var addedIds = {};
+        ctx.remap.added.forEach(function(i) { addedIds[String(i + 1)] = true; });
+        Object.keys(pfRaws.keyed).forEach(function(key) {
+            var before = srParse(pfRaws.keyed[key]) || {};
+            var after = srParse(res.newRaw[key] !== undefined ? res.newRaw[key] : pfRaws.keyed[key]) || {};
+            var arch = 0;
+            Object.keys(res.archive || {}).forEach(function(id) { if (res.archive[id][key] !== undefined) arch++; });
+            if (srPfCountIds(after) + arch !== srPfCountIds(before)) add('P1', key, 'before ' + srPfCountIds(before) + ' != after ' + srPfCountIds(after) + ' + archived ' + arch);
+            Object.keys(after).forEach(function(k) {
+                var id = srIndexOf(k);
+                if (id === null || id < 1) return;
+                if (id > ctx.remap.newLen) add('P2', key, 'id out of range ' + id);
+                if (addedIds[k]) add('P6', key, 'data at added student id ' + id);
+            });
+        });
+        var rosterA = srParse(res.newRaw[PF_ROSTER_KEY] !== undefined ? res.newRaw[PF_ROSTER_KEY] : pfRaws.roster);
+        var pos = [], names = [];
+        ctx.newStudents.forEach(function(s, j) { if (s && s.name) { pos.push(j + 1); names.push(s.name); } });
+        if (!Array.isArray(rosterA) || rosterA.length !== names.length || rosterA.some(function(e, i) { return !e || e.name !== names[i]; })) add('P3', PF_ROSTER_KEY, 'roster does not match new master');
+        else if (rosterA.some(function(e, i) { return Number(e.id) !== pos[i]; })) add('P4', PF_ROSTER_KEY, 'roster id is not position+1');
+        return v;
+    }
+    // 付け替え計画(書き込みなし)。status: 'none'(pfのデータなし) / 'mismatch'(名簿が一致しない=触らない) / 'followed'(追従)
+    function planPfChange(pfRaws, oldStudents, newStudents, remap) {
+        var none = { status: 'none', newRaw: {}, archive: {}, violations: [] };
+        var keyedKeys = Object.keys(pfRaws.keyed || {});
+        if ((pfRaws.roster === null || pfRaws.roster === undefined) && keyedKeys.length === 0) return none;
+        var m = srPfMatch(pfRaws, oldStudents);
+        if (!m.ok) return { status: 'mismatch', reason: m.reason, newRaw: {}, archive: {}, violations: [] };
+        var newRaw = {}, archive = {};
+        for (var i = 0; i < keyedKeys.length; i++) {
+            var key = keyedKeys[i], data = srParse(pfRaws.keyed[key]);
+            if (!srIsPlainObject(data)) return { status: 'mismatch', reason: 'records-invalid', newRaw: {}, archive: {}, violations: [] };
+            var out = srRemapPfKeyed(data, remap, function(id, k, val) { srSet(archive, id, key, val); });
+            var str = JSON.stringify(out);
+            if (str !== JSON.stringify(data)) newRaw[key] = str;
+        }
+        // pf_roster: 新しいSPA名簿から作り直す(生き残る児童は元の pf の項目(age など)を引き継ぐ。転入生は age=10)
+        var byId = {};
+        m.roster.forEach(function(e) { byId[Number(e.id)] = e; });
+        var inv = {};
+        Object.keys(remap.map).forEach(function(o) { inv[remap.map[o]] = Number(o); });
+        var roster = [];
+        newStudents.forEach(function(s, j) {
+            if (!s || !s.name) return;
+            var oe = inv[j] !== undefined ? byId[inv[j] + 1] : null;
+            roster.push(Object.assign({}, oe || { age: 10 }, { id: j + 1, name: s.name, gender: s.gender || (oe && oe.gender) || '' }));
+        });
+        remap.deleted.forEach(function(d) { if (byId[d.oldIdx + 1]) srSet(archive, d.studentId, PF_ROSTER_KEY, byId[d.oldIdx + 1]); });
+        var rosterStr = JSON.stringify(roster);
+        if (rosterStr !== JSON.stringify(m.roster)) newRaw[PF_ROSTER_KEY] = rosterStr;
+        var res = { status: 'followed', newRaw: newRaw, archive: archive };
+        res.violations = verifyPfInvariants(pfRaws, res, { remap: remap, oldStudents: oldStudents, newStudents: newStudents });
+        return res;
     }
 
     // ---- 名簿変更(applyRosterChange) ----
@@ -6089,22 +6208,59 @@
         assignMissingStudentIds(ns); // 転入生にID(計画のあと)
         var nextMaster = Object.assign({}, oldMaster, { students: ns, lastSync: new Date().toISOString() });
         var masterNext = JSON.stringify(nextMaster);
+        // 新体力テスト(pf): 名簿が一致すれば同じトランザクションで追従、一致しなければ触らず通知のみ
+        var pfRaws = srReadPfRaws();
+        var pfp = planPfChange(pfRaws, oldMaster.students, ns, p.remap);
+        if (pfp.violations.length) return fail('invariant-violation', { detail: 'pf', violations: pfp.violations });
+        var pfInfo = { status: pfp.status, reason: pfp.reason };
+        var pfVerify = function(persisted) {
+            if (pfp.status !== 'followed') return []; // 追従しない(none/mismatch)場合は pf に一切書かないので、pf の不変条件の対象外
+            var newRawP = {};
+            Object.keys(pfp.newRaw).forEach(function(k) { newRawP[k] = persisted[k]; });
+            return verifyPfInvariants(pfRaws, { newRaw: newRawP, archive: pfp.archive }, { remap: p.remap, oldStudents: oldMaster.students, newStudents: ns });
+        };
+        var masterCheck = function(v) {
+            var chk = srParse(storageDirect(KEYS.master));
+            if (!chk || !Array.isArray(chk.students) || chk.students.length !== ns.length || !chk.students.every(hasStudentId)) v.push({ invariant: 'master', key: KEYS.master, detail: 'persisted master invalid' });
+            return v;
+        };
         if (p.noop) {
-            // 並べ替え・削除・転入が無い。名簿の中身(改名・属性)も同じなら書き込みゼロ
-            if (JSON.stringify(ns) === JSON.stringify(oldMaster.students)) return { ok: true, noop: true, wrote: false };
+            // 並べ替え・削除・転入が無い。名簿の中身(改名・属性)も同じなら書き込みゼロ(通知もしない)
+            if (JSON.stringify(ns) === JSON.stringify(oldMaster.students)) return { ok: true, noop: true, wrote: false, pf: pfInfo };
+            if (pfp.status === 'followed' && Object.keys(pfp.newRaw).length) {
+                // 改名など: 名簿と pf_roster を同じトランザクションで更新
+                var rn = srRunTransaction({ kind: 'apply', storesNext: {}, archiveNext: null, pfNext: pfp.newRaw, masterNext: masterNext, verify: function(persisted) { return masterCheck(pfVerify(persisted)); } });
+                if (!rn.ok) return rn;
+                srFinishAndReload(masterNext, opts);
+                return { ok: true, noop: true, wrote: true, txnId: rn.txnId, pf: pfInfo };
+            }
             // 改名・属性だけの変更: 名簿1キーの検証付き書き込み(失敗したら元の値へ戻す)
             try { storageVerifiedWrite(KEYS.master, masterNext); }
             catch (e) {
                 try { storageVerifiedWrite(KEYS.master, masterRaw); } catch (e2) {}
                 return fail('write-failed', { detail: srMsg(e) });
             }
+            if (pfp.status === 'mismatch') srQueueNotice(PF_MISMATCH_NOTICE, opts);
             srFinishAndReload(masterNext, opts);
-            return { ok: true, noop: true, wrote: true };
+            return { ok: true, noop: true, wrote: true, pf: pfInfo };
         }
+        // 退避データに pf の分(記録・集計・pf_roster の項目)を加える
+        var archEntries = p.archiveEntries;
+        Object.keys(pfp.archive).forEach(function(id) {
+            if (id.indexOf('__orphan__:') === 0) {
+                var oi = parseInt(id.slice(11), 10);
+                var ex = archEntries.filter(function(e) { return e.orphanIndex === oi; })[0];
+                if (!ex) { ex = { orphanIndex: oi, data: {} }; archEntries.push(ex); }
+                Object.assign(ex.data, pfp.archive[id]);
+            } else {
+                var ex2 = archEntries.filter(function(e) { return e.studentId === id; })[0];
+                if (ex2) Object.assign(ex2.data, pfp.archive[id]);
+            }
+        });
         // 退避: 削除された児童・孤立データを spa_student_archive へ(既存の退避に追加)
         var archive = readStudentArchive();
         var stamp = new Date().toISOString();
-        p.archiveEntries.forEach(function(e) {
+        archEntries.forEach(function(e) {
             var entry = { archiveId: srNewId('arc_'), archivedAt: stamp, data: e.data };
             if (e.studentId) { entry.studentId = e.studentId; entry.reason = 'roster-delete'; entry.sourceIndex = e.sourceIndex; entry.student = e.student; }
             else { entry.reason = 'orphan'; entry.orphanIndex = e.orphanIndex; }
@@ -6113,21 +6269,21 @@
         var job = {
             kind: 'apply',
             storesNext: p.newRaw,
-            archiveNext: p.archiveEntries.length ? JSON.stringify(archive) : null,
+            archiveNext: archEntries.length ? JSON.stringify(archive) : null,
+            pfNext: pfp.newRaw,
             masterNext: masterNext,
             verify: function(persisted) {
                 var newRawP = {};
                 Object.keys(p.newRaw).forEach(function(k) { newRawP[k] = persisted[k]; });
                 var v = verifyRemapInvariants(rawMap, { newRaw: newRawP, archive: p.archive }, { remap: p.remap, oldStudents: oldMaster.students, newStudents: ns });
-                var chk = srParse(storageDirect(KEYS.master));
-                if (!chk || !Array.isArray(chk.students) || chk.students.length !== ns.length || !chk.students.every(hasStudentId)) v.push({ invariant: 'master', key: KEYS.master, detail: 'persisted master invalid' });
-                return v;
+                return masterCheck(v.concat(pfVerify(persisted)));
             }
         };
         var r = srRunTransaction(job);
         if (!r.ok) return r;
+        if (pfp.status === 'mismatch') srQueueNotice(PF_MISMATCH_NOTICE, opts);
         srFinishAndReload(masterNext, opts);
-        return { ok: true, txnId: r.txnId, archived: p.archiveEntries.length, moved: Object.keys(p.newRaw).length };
+        return { ok: true, txnId: r.txnId, archived: archEntries.length, moved: Object.keys(p.newRaw).length, pf: pfInfo };
     }
 
     // ---- 復元(末尾に同じ studentId で戻す) ----
@@ -6194,6 +6350,7 @@
         var archive = readStudentArchive();
         var entry = archive.entries.filter(function(e) { return e.archiveId === archiveId; })[0];
         if (!entry) return fail('not-found');
+        if (entry.residual) return fail('residual-not-restorable');
         if (!entry.studentId || !entry.student) return fail('orphan-not-restorable');
         var masterRaw = storageDirect(KEYS.master);
         var oldMaster = srParse(masterRaw);
@@ -6218,11 +6375,44 @@
             if (r.skipped) skippedTotal.push({ key: st.key, count: r.skipped });
         }
         var newLen = idx + 1;
-        var archiveNext = JSON.stringify({ version: 1, entries: archive.entries.filter(function(e) { return e.archiveId !== archiveId; }) });
+        // 新体力テスト(pf)の退避分: 現在の pf_roster がSPA名簿と一致していれば、同じトランザクションで末尾(id=idx+1)へ戻す。
+        // 一致しなければ pf には触れず、pf の分だけを退避に残して(pf-residual)通知する。
+        var pfPieceKeys = Object.keys(entry.data || {}).filter(function(k) { return PF_KEYED_RE.test(k); });
+        var pfNext = {}, pfStatus = 'none', residualEntry = null, pfRestoreKeys = [], pfBefore = null;
+        if (pfPieceKeys.length) {
+            pfBefore = srReadPfRaws();
+            var pm = srPfMatch(pfBefore, oldMaster.students);
+            if (pm.ok && restored.name) {
+                pfStatus = 'followed';
+                var pieceRoster = entry.data[PF_ROSTER_KEY] || {};
+                pm.roster.push(Object.assign({ age: 10 }, pieceRoster, { id: idx + 1, name: restored.name, gender: restored.gender || pieceRoster.gender || '' }));
+                pfNext[PF_ROSTER_KEY] = JSON.stringify(pm.roster);
+                pfPieceKeys.forEach(function(k) {
+                    var d = srParse(pfBefore.keyed[k]);
+                    if (pfBefore.keyed[k] != null && !srIsPlainObject(d)) d = null;
+                    if (d === null && pfBefore.keyed[k] != null) return;
+                    d = d || {};
+                    d[String(idx + 1)] = entry.data[k];
+                    pfNext[k] = JSON.stringify(d);
+                    pfRestoreKeys.push(k);
+                });
+            } else {
+                pfStatus = 'mismatch';
+                var rd = {};
+                pfPieceKeys.concat(entry.data[PF_ROSTER_KEY] !== undefined ? [PF_ROSTER_KEY] : []).forEach(function(k) { rd[k] = entry.data[k]; });
+                residualEntry = { archiveId: entry.archiveId, studentId: entry.studentId, student: entry.student, archivedAt: entry.archivedAt, sourceIndex: entry.sourceIndex, reason: 'pf-residual', residual: true, data: rd };
+            }
+        }
+        var archiveNext = JSON.stringify({ version: 1, entries: archive.entries.map(function(e) { return e.archiveId === archiveId ? residualEntry : e; }).filter(function(e) { return !!e; }) });
         var job = {
-            kind: 'restore', storesNext: storesNext, archiveNext: archiveNext, masterNext: masterNext,
+            kind: 'restore', storesNext: storesNext, archiveNext: archiveNext, pfNext: pfNext, masterNext: masterNext,
             verify: function(persisted) {
                 var v = [];
+                pfRestoreKeys.forEach(function(k) {
+                    var b = srParse(pfBefore.keyed[k]) || {}, a = srParse(persisted[k]) || {};
+                    if (srPfCountIds(a) !== srPfCountIds(b) + 1 || a[String(idx + 1)] === undefined) v.push({ invariant: 'R6', key: k, detail: 'pf record not restored' });
+                });
+                if (pfStatus === 'followed') { var pr2 = srParse(persisted[PF_ROSTER_KEY]); if (!Array.isArray(pr2) || Number(pr2[pr2.length - 1].id) !== idx + 1) v.push({ invariant: 'R7', key: PF_ROSTER_KEY, detail: 'pf roster entry not restored' }); }
                 STUDENT_KEYED_STORES.forEach(function(st) {
                     var rawB = before[st.key], rawA = persisted[st.key];
                     if (expect[st.key] === undefined) { if (rawB !== rawA) v.push({ invariant: 'R4', key: st.key, detail: 'unrelated store changed' }); return; }
@@ -6239,8 +6429,9 @@
         };
         var res = srRunTransaction(job);
         if (!res.ok) return res;
+        if (pfStatus === 'mismatch') srQueueNotice('新体力テストの名簿がSPAの名簿と一致しないため、新体力テストの記録は戻せませんでした(退避に残してあります)。新体力テストの画面で名簿を読み込み直してください', opts);
         srFinishAndReload(masterNext, opts);
-        return { ok: true, txnId: res.txnId, index: idx, skipped: skippedTotal };
+        return { ok: true, txnId: res.txnId, index: idx, skipped: skippedTotal, pf: { status: pfStatus } };
     }
 
     // ---- 取り消し ----
@@ -6309,6 +6500,10 @@
         try { flag = sessionStorage.getItem(ROSTER_OPEN_SETTINGS_FLAG); sessionStorage.removeItem(ROSTER_OPEN_SETTINGS_FLAG); } catch (e) {}
         if (flag !== '1') return;
         setTimeout(function() { try { showView('settings'); showToast('✅ 名簿を更新しました', 'success'); } catch (e) {} }, 400);
+        // 再読み込みの前に出した通知(新体力テストが更新されなかった等)を、再読み込み後にも表示する
+        var notes = [];
+        try { notes = JSON.parse(sessionStorage.getItem(ROSTER_NOTICE_KEY) || '[]'); sessionStorage.removeItem(ROSTER_NOTICE_KEY); } catch (e) {}
+        notes.forEach(function(m, i) { setTimeout(function() { try { showToast(m, 'warning'); } catch (e) {} }, 1200 + i * 300); });
     }
     // 起動時に復旧で削除したキーが、IndexedDB の鏡から復活しないよう掃除する(IndexedDB の準備後)
     function flushPendingIdbDeletes() {
@@ -6328,7 +6523,8 @@
         STORES: STUDENT_KEYED_STORES, NOT_KEYED: NOT_STUDENT_KEYED,
         computeRosterRemap: computeRosterRemap, planRosterChange: planRosterChange,
         verifyRemapInvariants: verifyRemapInvariants, collectStudentKeyedRaws: collectStudentKeyedRaws,
-        restoreStore: srRestoreStore
+        restoreStore: srRestoreStore,
+        planPfChange: planPfChange, verifyPfInvariants: verifyPfInvariants, pfMatch: srPfMatch
     };
 
     function updateSettingsUI() {

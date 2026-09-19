@@ -93,7 +93,9 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
     }, mode, at === undefined ? 1e9 : at, TXN_KEYS);
     const unfault = () => page.evaluate(() => { const s = window.__fault ? window.__fault.state : null; if (window.__fault) { window.__fault.restore(); window.__fault = null; } return s; });
     const reloadWait = async () => { await page.reload({ waitUntil: 'networkidle0' }); await sleep(1000); };
-    const bodyHas = (t) => page.evaluate((t) => document.body.textContent.indexOf(t) !== -1, t);
+    // トーストの表示を確認する(#toast が表示中で、#toastMsg に文言がある)。document.body.textContent は使わない:
+    // インライン <script> のソース文字列も含み、文言が常に見つかってしまうため。表示中(2.5秒)を待って確認する。
+    const bodyHas = (t, ms) => page.waitForFunction((t) => { const box = document.getElementById('toast'), el = document.getElementById('toastMsg') || box; return !!el && !!box && box.classList.contains('show') && el.textContent.indexOf(t) !== -1; }, { timeout: ms || 1500, polling: 50 }, t).then(() => true).catch(() => false);
     const delNS = (base) => OPS[2].make(base);    // 2番目を削除
     const owners = (raws, ids) => ownersOf(K, raws, ids);
 

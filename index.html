@@ -4819,16 +4819,20 @@
                             if (!lsHas && purgeDue && isClassroomOwnedKey(item.key)) { ghosts.push(item.key); purgedOwned++; return; }
                             self._cache[item.key] = item.value;
                         });
+                        var purgeFlagVal = null;
                         if (purgeDue) {
-                            try { localStorage.setItem('migration_idbGhostPurge_v1', JSON.stringify({ at: new Date().toISOString(), removed: purgedOwned })); } catch (e) {}
+                            purgeFlagVal = JSON.stringify({ at: new Date().toISOString(), removed: purgedOwned });
+                            try { localStorage.setItem('migration_idbGhostPurge_v1', purgeFlagVal); } catch (e) { purgeFlagVal = null; }
                             if (purgedOwned) console.log('[IDB] one-time cleanup removed stale mirror keys:', purgedOwned);
                         }
-                        if (ghosts.length) {
+                        if (ghosts.length || purgeFlagVal !== null) {
                             try {
                                 var gtx = self._idb.transaction(_IDB_STORE, 'readwrite');
                                 ghosts.forEach(function(k) { gtx.objectStore(_IDB_STORE).delete(k); });
+                                // 完了の印も鏡へ(localStorage と鏡の全キーが一致した状態にする)
+                                if (purgeFlagVal !== null) { gtx.objectStore(_IDB_STORE).put({ key: 'migration_idbGhostPurge_v1', value: purgeFlagVal }); self._cache['migration_idbGhostPurge_v1'] = purgeFlagVal; }
                             } catch (e) { console.warn('[IDB] ghost purge failed:', e.message); }
-                            console.log('[IDB] removed stale pf mirror keys:', ghosts.length);
+                            if (ghosts.length) console.log('[IDB] removed stale mirror keys:', ghosts.length);
                         }
                         self._cacheLoaded = true;
                         self._phase = 'C';
@@ -5931,7 +5935,7 @@
     //   どこかで失敗したらスナップショットへ全キーを書き戻し(名簿変更ごと中止)。途中で強制終了しても、
     //   次の起動で(loadMasterより前に)ジャーナルを検出してスナップショットから自動で元に戻す。
     // すべての書き込みは検証付き書き込み(localStorage を直接読み戻す)。
-    var ROSTER_LS_LIMIT_CHARS = 5 * 1024 * 1024; // 事前確認用の保守的な上限(ブラウザにより異なる。実際の書き込み失敗も必ず検出する)
+    var ROSTER_PROBE_KEY = 'spa_capacity_probe'; // 名簿変更前の容量確認用の一時キー(書き込んですぐ消す。StorageManager は通さない)
     var ROSTER_OPEN_SETTINGS_FLAG = 'spa_open_settings_after_roster'; // sessionStorage: 再読み込み後に名簿設定を開く
 
     function srParse(raw) { if (typeof raw !== 'string' || raw === '') return null; try { return JSON.parse(raw); } catch (e) { return null; } }
@@ -5943,16 +5947,17 @@
         for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
         return (h >>> 0).toString(16) + ':' + str.length;
     }
-    function srUsedChars() {
-        var used = 0;
-        try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); used += k.length + (localStorage.getItem(k) || '').length; } } catch (e) {}
-        return used;
-    }
-    // localStorage の空き容量の見積もり。足りなければ**書き込みゼロで**中止するための事前確認。
+    // localStorage の空き容量の確認。**端末ごとの実際の空き**で判定する: 必要量(見積もり+余裕32KB)と同じ大きさの
+    // 一時キーを実際に書いてみて、QuotaExceeded 等で失敗したら「足りない」と判断し、書き込みゼロ(名簿・記録・
+    // スナップショット等には一切触れない)で中止する。書けたらすぐ消す。ブラウザごとの上限を固定値で決め打ちしない
+    // (iPad の Safari と PC の Chrome で上限が違うため)。この確認を通っても、実際の書き込みの失敗は別途検出して
+    // ロールバックする(確認は「早めに諦めるため」で、安全性はトランザクション側が担う)。
     function srRoomCheck(neededChars) {
-        var limit = window.ROSTER_LS_LIMIT_CHARS_OVERRIDE || ROSTER_LS_LIMIT_CHARS;
-        var used = srUsedChars(), margin = 32 * 1024;
-        return { ok: used + neededChars + margin <= limit, used: used, limit: limit, needed: neededChars };
+        var size = neededChars + 32 * 1024, ok = true, detail = '';
+        try { localStorage.setItem(ROSTER_PROBE_KEY, new Array(size + 1).join('x')); }
+        catch (e) { ok = false; detail = srMsg(e); }
+        try { localStorage.removeItem(ROSTER_PROBE_KEY); } catch (e2) { console.error('capacity probe cleanup failed:', e2); }
+        return { ok: ok, needed: neededChars, probed: size, detail: detail };
     }
     // スナップショット/取り消し/付け替えの対象キー: 登録表の全ストア + 名簿 + 退避
     function srSnapshotKeys() { return STUDENT_KEYED_STORES.map(function(st) { return st.key; }).concat([KEYS.master, KEYS.student_archive]); }
@@ -5998,7 +6003,7 @@
         var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + 8192;
         writes.forEach(function(w) { need += Math.max(0, w[1].length - (snap.keys[w[0]] ? snap.keys[w[0]].length : 0)); });
         var room = srRoomCheck(need);
-        if (!room.ok) return { ok: false, error: 'insufficient-storage', needed: room.needed, used: room.used, limit: room.limit };
+        if (!room.ok) return { ok: false, error: 'insufficient-storage', needed: room.needed, probed: room.probed, detail: room.detail };
         var restorePrev = function() {
             try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
             try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
@@ -6272,6 +6277,8 @@
         console.error('recoverRosterTxnOnStartup failed:', detail);
     }
     function recoverRosterTxnOnStartup() {
+        // 容量確認用の一時キーが(書き込み直後の強制終了などで)残っていれば消す
+        if (storageDirect(ROSTER_PROBE_KEY) !== null) { try { storageVerifiedRemove(ROSTER_PROBE_KEY); } catch (e) {} }
         var raw = storageDirect(KEYS.roster_txn);
         if (raw === null) {
             // ジャーナルが無いスナップショット(スナップショットを書いた直後、ジャーナルを書く前に中断した残り)は、

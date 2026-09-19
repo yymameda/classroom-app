@@ -57,7 +57,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         };
         await page.evaluate((K, raws, extras, students) => {
             if (window.__fault) { window.__fault.restore(); window.__fault = null; }
-            window.ROSTER_LS_LIMIT_CHARS_OVERRIDE = undefined;
+            if (window.__quotaStub) { window.__quotaStub.restore(); window.__quotaStub = null; }
             StorageManager.getAllKeys().slice().forEach(k => StorageManager.remove(k));
             localStorage.clear();
             window.__pendingIdbDeletes = [];
@@ -72,12 +72,15 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
     const applyNS = (ns, opts) => page.evaluate((ns, opts) => window.applyRosterChange(ns, opts), ns, opts || { reload: false });
     // 書き込み・削除の障害注入(localStorage層)。txn関連キーだけを数える。
     //   crash: at回の書き込みが成功したあと、以降の書き込み・削除はすべて例外(=プロセスが死んだ状態と同じ永続状態)
+    //   probe-quota: 容量確認の書き込みだけ QuotaExceededError / probe-ignore: 容量確認の書き込みを素通り(実際の書き込みだけ検証)
     //   quota: (at+1)回目の書き込みだけ QuotaExceededError  /  corrupt: (at+1)回目の書き込みだけ末尾が欠けて保存される  /  count: 数えるだけ
     const fault = (mode, at) => page.evaluate((mode, at, keys) => {
         const set = new Set(keys), state = { n: 0, log: [] };
         const oSet = Storage.prototype.setItem, oRem = Storage.prototype.removeItem;
         window.__fault = { state: state, restore() { Storage.prototype.setItem = oSet; Storage.prototype.removeItem = oRem; } };
         Storage.prototype.setItem = function(k, v) {
+            if (mode === 'probe-quota' && k === 'spa_capacity_probe') throw new DOMException('quota', 'QuotaExceededError');
+            if (mode === 'probe-ignore' && k === 'spa_capacity_probe') return; // 容量確認の書き込みを素通りさせ、実際の書き込みの失敗だけを見る
             if (set.has(k)) {
                 if (mode === 'crash' && state.n >= at) throw new Error('crash');
                 const i = state.n++; state.log.push(k);
@@ -136,34 +139,78 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         });
         check('段階1のID付与: 容量超過で失敗しても、localStorage・キャッシュ・メモリのすべてが付与前のまま(キャッシュだけ先行しない)', mig.res.ok === false && mig.ls && mig.cache && mig.mem, JSON.stringify(mig));
 
-        // ================= B. 容量の事前確認 =================
-        console.log('--- B. 容量の事前確認と QuotaExceeded ---');
+        // ================= B. 容量の事前確認(端末の実際の空きで判定) =================
+        console.log('--- B. 容量の事前確認: 固定の上限ではなく、実際に書き込みを試して判定する ---');
+        // 端末ごとの容量を疑似的に再現: 現在の使用量 + free 文字までしか書けない localStorage
+        const limitTo = (freeChars) => page.evaluate((free) => {
+            const oSet = Storage.prototype.setItem;
+            const used = () => { let u = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); u += k.length + localStorage.getItem(k).length; } return u; };
+            const limit = used() + free;
+            window.__quotaStub = { restore() { Storage.prototype.setItem = oSet; }, limit: limit };
+            Storage.prototype.setItem = function(k, v) {
+                const cur = localStorage.getItem(k);
+                const delta = (k.length + String(v).length) - (cur === null ? 0 : k.length + cur.length);
+                if (used() + delta > limit) throw new DOMException('quota', 'QuotaExceededError');
+                return oSet.apply(this, arguments);
+            };
+        }, freeChars);
+        const unlimit = () => page.evaluate(() => { if (window.__quotaStub) { window.__quotaStub.restore(); window.__quotaStub = null; } });
+        const noProbe = async () => !(await page.evaluate(() => localStorage.getItem('spa_capacity_probe') !== null));
+
         let s = await seed();
         let pre = await dump();
-        await page.evaluate(() => { window.ROSTER_LS_LIMIT_CHARS_OVERRIDE = 1; }); // 空き容量なしと見なす
-        await fault('count');
+        await fault('probe-quota');
         let rb = await applyNS(delNS(s.students));
         let st = await unfault();
         let post = await dump();
-        check('容量の事前確認: 空きが足りなければ error=insufficient-storage で中止(見積もりを返す)', rb.ok === false && rb.error === 'insufficient-storage' && rb.needed > 0, JSON.stringify(rb));
-        check('容量の事前確認: 中止時は書き込みゼロ(setItem 0回)・全キー(スナップショット・ジャーナルを含む)が変更前と同一', st.n === 0 && JSON.stringify(pre) === JSON.stringify(post), 'writes=' + st.n + ' diff=' + JSON.stringify(diffKeys(pre, post)));
-        // 実際の QuotaExceeded: localStorage を満杯にして(事前確認は無効化)、スナップショットの書き込みで例外を再現
+        check('容量の事前確認: 空きが足りない(容量確認の書き込みが QuotaExceeded)なら error=insufficient-storage で中止(見積もりを返す)', rb.ok === false && rb.error === 'insufficient-storage' && rb.needed > 0 && rb.probed > rb.needed, JSON.stringify(rb));
+        check('容量の事前確認: 中止時は名簿・記録への書き込みゼロ(スナップショット・ジャーナル・退避を含め0回)・全キーが変更前と同一・容量確認用の一時キーも残らない', st.n === 0 && JSON.stringify(pre) === JSON.stringify(post) && await noProbe(), 'writes=' + st.n + ' diff=' + JSON.stringify(diffKeys(pre, post)));
+
+        // 端末ごとの実際の容量: 小さい容量の端末(空き20KB相当)では中止し、十分な容量(空き600KB相当)では成功する
+        s = await seed(); pre = await dump();
+        await limitTo(20 * 1024);
+        rb = await applyNS(delNS(s.students));
+        await unlimit(); post = await dump();
+        check('端末の実際の空き(疑似: 空き20KB)が足りなければ、固定の上限に関係なく insufficient-storage で中止し、全キー不変', rb.ok === false && rb.error === 'insufficient-storage' && JSON.stringify(pre) === JSON.stringify(post) && await noProbe(), JSON.stringify(rb));
+        s = await seed(); pre = await dump();
+        await limitTo(600 * 1024);
+        rb = await applyNS(delNS(s.students));
+        await unlimit(); post = await dump();
+        check('端末の実際の空き(疑似: 空き600KB)が十分なら、成功する(容量確認の一時キーは残らない)', rb.ok === true && diffKeys(pre, post).length > 0 && await noProbe(), JSON.stringify(rb));
+        // 空きが見積もりぎりぎりの端末: 容量確認は通っても実際の書き込みで容量超過 → ロールバック(全キー不変)
+        s = await seed(); pre = await dump();
+        const need0 = await page.evaluate(() => { let n = 0; for (const k of [KEYS.scores, KEYS.karte_life, KEYS.master]) n += (localStorage.getItem(k) || '').length; return n; });
+        await limitTo(60 * 1024); // 容量確認(見積もり+32KB余裕)は通るが、書き込みの途中で使い切る量に狭める
+        await fault('quota', 8); // 8番目の書き込みで容量超過(実際の書き込みの途中で失敗)
+        rb = await applyNS(delNS(s.students));
+        await unfault(); await unlimit(); post = await dump();
+        check('容量確認を通っても、実際の書き込みの途中で容量超過になれば、ロールバックして全キー不変', rb.ok === false && rb.error === 'apply-failed' && rb.rolledBack === true && diffKeys(pre, post).length === 0, JSON.stringify(rb));
+
+        // 実際の QuotaExceeded(localStorage を満杯にする): 容量確認が実際の空きで失敗する
         s = await seed();
         const filled = await page.evaluate(() => {
             let big = 0, small = 0;
             try { while (true) { localStorage.setItem('zz_fill_' + big, 'x'.repeat(200000)); big++; } } catch (e) {}
             try { while (true) { localStorage.setItem('zz_pad_' + small, 'y'.repeat(500)); small++; } } catch (e) {}
             localStorage.removeItem('zz_pad_0'); // 500文字ぶんだけ空ける(スナップショットは入らない)
-            window.ROSTER_LS_LIMIT_CHARS_OVERRIDE = 1e12;
             return { big: big, small: small };
         });
         pre = await dump();
         rb = await applyNS(delNS(s.students));
         post = await dump();
-        check('実際のQuotaExceeded(localStorage満杯): スナップショットの書き込みで失敗し error=snapshot-failed', rb.ok === false && rb.error === 'snapshot-failed', JSON.stringify(rb) + ' 満杯まで約' + (filled.big * 200000) + '文字');
-        check('実際のQuotaExceeded: 中止後、全キーが変更前と1バイトも変わらない(スナップショット・ジャーナルも残らない)', JSON.stringify(pre) === JSON.stringify(post) && !(K.roster_snapshot in post) && !(K.roster_txn in post), JSON.stringify(diffKeys(pre, post)));
-        await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (/^zz_(fill|pad)_/.test(k)) localStorage.removeItem(k); window.ROSTER_LS_LIMIT_CHARS_OVERRIDE = undefined; });
-        // 既定の見積もり上限(5MiB相当)でも、満杯に近ければ事前確認が働く(またはブラウザの上限が先に働いて失敗する)ことを確認しない: 上限値そのものは保守的な目安
+        check('実際のQuotaExceeded(localStorage満杯): 容量確認が実際の空きで失敗し error=insufficient-storage', rb.ok === false && rb.error === 'insufficient-storage', JSON.stringify(rb) + ' 満杯まで約' + (filled.big * 200000) + '文字');
+        check('実際のQuotaExceeded: 中止後、全キーが変更前と1バイトも変わらない(スナップショット・ジャーナル・容量確認用の一時キーも残らない)', JSON.stringify(pre) === JSON.stringify(post) && !(K.roster_snapshot in post) && !(K.roster_txn in post) && !('spa_capacity_probe' in post), JSON.stringify(diffKeys(pre, post)));
+        // 容量確認をすり抜けた場合(確認の書き込みだけ素通り)でも、実際のスナップショット書き込みの容量超過で安全に失敗する
+        await fault('probe-ignore');
+        rb = await applyNS(delNS(s.students));
+        await unfault(); post = await dump();
+        check('容量確認をすり抜けても、実際のスナップショット書き込みで QuotaExceeded → snapshot-failed で中止し、全キー不変', rb.ok === false && rb.error === 'snapshot-failed' && JSON.stringify(pre) === JSON.stringify(post), JSON.stringify(rb));
+        await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (/^zz_(fill|pad)_/.test(k)) localStorage.removeItem(k); });
+        // 起動時: 容量確認用の一時キーが(書き込み直後の強制終了などで)残っていても、次の起動で消す
+        s = await seed();
+        await page.evaluate(() => { localStorage.setItem('spa_capacity_probe', 'x'.repeat(50000)); });
+        await reloadWait();
+        check('起動時: 残っていた容量確認用の一時キー(spa_capacity_probe)を削除する', !('spa_capacity_probe' in await dump()), '');
 
         // ================= C. 正常系 =================
         console.log('--- C. applyRosterChange の正常系 ---');

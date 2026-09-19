@@ -12643,7 +12643,12 @@
                         // (v1.49.0以前に作成)のまま観点・種別だけ変えて保存すると、フラグ無しの判定(isABCTest)が観点に追随して
                         // 入力形式を切り替えてしまい、数値データが5段階に化ける／戻すと満点0になり割合が出なくなっていた
                         // (5ac43ca 以降。H7 の修正はフラグ付きの項目だけが対象だった)。現在の入力形式を明示フラグとして固定する。
-                        test.inputMode = getItemInputMode(_origForInputMode);
+                        // ただし印を付けるのは、観点・種別の変更で印なしの判定が切り替わってしまう場合だけ(切り替わらない編集で
+                        // 印の無い既存項目に勝手に印を付けない。これまでどおり)。
+                        var _dataMode = getItemInputMode(_origForInputMode);
+                        var _derivedAfter = isABCTest(category, testType, maxScore) ? 'abc5' : 'score';
+                        if (_derivedAfter !== _dataMode) test.inputMode = _dataMode;
+                        else if (_origForInputMode.inputMode === 'score' || _origForInputMode.inputMode === 'abc5') test.inputMode = _origForInputMode.inputMode;
                     } else if (_origForInputMode && getItemInputMode(_origForInputMode) !== _formMode) {
                         // v1.50.1: 観点・種別の変更で自動既定値が入力形式を切り替えた場合は、その結果を明示フラグとして
                         // 記録する。元のフラグをそのまま引き継ぐと {category:'主体性', maxScore:0, inputMode:'score'} の

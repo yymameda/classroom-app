@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計898件）
+## 常時グリーンのテスト（合計963件）
 
 | ファイル | 件数 |
 |---|---|
@@ -42,7 +42,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `test_grades.js` | 86 |
 | `audit-range-check.test.js` | 25 |
 | `data-reflection.test.js` | 45 |
-| `roster-preserve.test.js` | 11 |
+| `roster-preserve.test.js` | 10 |
 | `category-edit-inputmode.test.js` | 9 |
 | `audit-inputmode-conflict.test.js` | 12 |
 | `student-id-migration.test.js` | 37 |
@@ -51,9 +51,12 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `idb-residue.test.js` | 27 |
 | `roster-transaction.test.js` | 70 |
 | `roster-pf.test.js` | 71 |
-| **合計** | **898** |
+| `roster-ui.test.js` | 66 |
+| **合計** | **963** |
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
+
+名簿編集UIは v1.52.0 でリスト編集UIに変わった。`roster-ui.test.js` は実際のタップ・入力でUI操作を行い(`helpers/roster-ui.js`)、6操作×18ストア＋pfのずれ0・取り消し・退避の復元/完全削除・再読み込み後の画面を検証する。`roster-preserve.test.js` と `student-id-migration.test.js` の名簿変更もこのUI操作経由。日本語入力欄の置き換えは `element.select()` を使うこと(トリプルクリックでは全選択にならない)。トーストは `#toast.show #toastMsg` を確認する。
 
 `data-reflection.test.js`（v1.50.0〜）は `ONLY=H1,H2,H3,M1,M6` で項目別に実行できる。
 

@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計963件）
+## 常時グリーンのテスト（合計1000件）
 
 | ファイル | 件数 |
 |---|---|
@@ -52,9 +52,12 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `roster-transaction.test.js` | 70 |
 | `roster-pf.test.js` | 71 |
 | `roster-ui.test.js` | 66 |
-| **合計** | **963** |
+| `pf-diagnosis.test.js` | 37 |
+| **合計** | **1000** |
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
+
+`pf-diagnosis.test.js`(v1.52.1)は設定の「新体力テストの連携状態」表示を検証する。読み取り専用(localStorage/IndexedDBへの書き込み0回)・氏名を表示しない・一致/不一致の理由・pf_fitness の痕跡・SPAにいない児童の人数を、実際に画面を開いて確認する。
 
 名簿編集UIは v1.52.0 でリスト編集UIに変わった。`roster-ui.test.js` は実際のタップ・入力でUI操作を行い(`helpers/roster-ui.js`)、6操作×18ストア＋pfのずれ0・取り消し・退避の復元/完全削除・再読み込み後の画面を検証する。`roster-preserve.test.js` と `student-id-migration.test.js` の名簿変更もこのUI操作経由。日本語入力欄の置き換えは `element.select()` を使うこと(トリプルクリックでは全選択にならない)。トーストは `#toast.show #toastMsg` を確認する。
 

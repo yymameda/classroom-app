@@ -3924,6 +3924,17 @@
 
                 <!-- 設定 -->
                 <div id="pf-view-settings" class="pf-sub">
+                    <!-- 旧方式の記録の引き継ぎ(H4 段階4c): 名簿が一致せず自動では新方式に更新されない端末だけに表示 -->
+                    <div class="pf-card" id="pf-takeoverCard" style="display:none;">
+                        <div class="pf-card-head"><span class="pf-card-title">🔁 旧方式の記録の引き継ぎ</span></div>
+                        <div class="pf-card-body">
+                            <div class="pf-info-box warn" style="margin-bottom:10px;">
+                                新体力テストの記録が、まだ古い方式（出席番号のまま）で残っています。名簿がSPAの名簿と一致しないため、自動では更新していません。
+                                氏名をもとに、児童ごとの新しい方式へ引き継げます。<strong>氏名が名簿と1人ずつ一致した児童だけ</strong>を引き継ぎ、一致しない分は消さずに「退避中の児童」に保管します。
+                            </div>
+                            <div id="pf-takeoverBody"></div>
+                        </div>
+                    </div>
                     <div class="pf-card">
                         <div class="pf-card-head"><span class="pf-card-title">名簿の取得</span></div>
                         <div class="pf-card-body">
@@ -5995,6 +6006,7 @@
     // すべての書き込みは検証付き書き込み(localStorage を直接読み戻す)。
     var ROSTER_PROBE_KEY = 'spa_capacity_probe'; // 名簿変更前の容量確認用の一時キー(書き込んですぐ消す。StorageManager は通さない)
     var ROSTER_OPEN_SETTINGS_FLAG = 'spa_open_settings_after_roster'; // sessionStorage: 再読み込み後に名簿設定を開く
+    var SETTINGS_FLASH_KEY = 'spa_settings_flash_title'; // sessionStorage: 再読み込み後に設定を開いたときのトーストの文言(既定は「名簿を更新しました」)
 
     function srParse(raw) { if (typeof raw !== 'string' || raw === '') return null; try { return JSON.parse(raw); } catch (e) { return null; } }
     function srMsg(e) { return String(e && e.message || e); }
@@ -6690,16 +6702,17 @@
         var snap = srParse(storageDirect(KEYS.roster_snapshot));
         var refuse = function(error, msg, extra) { try { showToast(msg, 'warning'); } catch (e) {} return Object.assign({ ok: false, error: error, message: msg }, extra || {}); };
         var isRestore = !!j && j.kind === BR_KIND;
+        var isTakeover = !!j && j.kind === 'pf-takeover';
         if (!j || j.state !== 'committed' || !snap || !snap.keys) return refuse('nothing-to-undo', '取り消せる名簿の変更がありません');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
-        if (changed.length) return refuse('changed-since', isRestore ? 'バックアップを復元したあとに入力があったため、取り消せません' : '名簿を変更したあとに入力があったため、取り消せません', { keys: changed });
+        if (changed.length) return refuse('changed-since', isRestore ? 'バックアップを復元したあとに入力があったため、取り消せません' : isTakeover ? '新体力テストの記録を引き継いだあとに入力があったため、取り消せません' : (j && j.kind === 'pf-restore') ? '新体力テストの記録を戻したあとに入力があったため、取り消せません' : '名簿を変更したあとに入力があったため、取り消せません', { keys: changed });
         var rb = srRollbackToSnapshot(snap);
         if (!rb.ok) return { ok: false, error: 'rollback-failed', errors: rb.errors };
         srCleanupTxn();
-        if (isRestore) {
-            try { sessionStorage.setItem(BR_NOTICE_KEY, JSON.stringify({ title: '✅ バックアップの復元を取り消しました', msgs: [] })); } catch (e) {}
+        if (isRestore || isTakeover) {
+            try { sessionStorage.setItem(BR_NOTICE_KEY, JSON.stringify({ title: isTakeover ? '✅ 新体力テストの引き継ぎを取り消しました' : '✅ バックアップの復元を取り消しました', msgs: [] })); } catch (e) {}
             srFinishAndReload(storageDirect(KEYS.master), Object.assign({}, opts, { openSettings: false }));
         } else srFinishAndReload(storageDirect(KEYS.master), opts);
         return { ok: true, kind: j.kind };
@@ -6823,6 +6836,241 @@
     window.planPfMigration = planPfMigration;
     window.migratePfStudentIdV1 = migratePfStudentIdV1;
     window.srPfMode = srPfMode;
+    // ---- 4c: 新体力テストの旧方式の記録を「氏名で引き継ぐ」／退避した pf-residual の単体復元 (H4 案B 段階4c。DATA_FLOW_AUDIT.md 16.3・16.4・21章) ----
+    // 引き継ぎ: 名簿が一致せず自動では新方式に移行しない端末向け。pf 名簿の各児童を、SPA名簿の氏名が「両方で一意に」一致する児童へ紐付け、
+    // その児童の studentId のキーへ記録・集計を移す。紐付けられなかった児童の記録は削除せず、退避(reason:'pf-unlinked')に残す。
+    // これは pf 画面で先生が見ている「id→氏名」の対応(pf_roster 内で自己整合)をそのまま引き継ぐ方式。過去の pf の「名簿を読み込む」で
+    // 既にずれた記録(id が振り直されたあとに入力された分)は、名前からは判別できず救えない。
+    function pfNameKey(n) { return typeof n === 'string' ? n.trim() : ''; }
+    function planPfTakeover(pfRaws, students) {
+        var skip = function(reason) { return { status: 'skip', reason: reason, newRaw: {}, archiveEntries: [], linked: [], unlinked: [], violations: [] }; };
+        var mode = srPfMode(pfRaws);
+        if (mode === 'none') return skip('no-pf-data');
+        if (mode === 'v2') return skip('already-v2');
+        if (!Array.isArray(students) || !students.length || !students.every(hasStudentId)) return skip('no-student-id');
+        var roster = srParse(pfRaws.roster);
+        if (!Array.isArray(roster) || !roster.every(function(e) { return srIsPlainObject(e) && typeof e.name === 'string' && pfNameKey(e.name) !== '' && /^\d+$/.test(String(e.id === undefined ? '' : e.id)); })) return skip('roster-invalid');
+        var seenId = {};
+        for (var ri = 0; ri < roster.length; ri++) { var rk = String(Number(roster[ri].id)); if (seenId[rk]) return skip('roster-ids-duplicate'); seenId[rk] = true; }
+        var spaSet = {}, byName = {};
+        students.forEach(function(st) { spaSet[st.studentId] = true; var n = pfNameKey(st.name); if (n) (byName[n] = byName[n] || []).push(st.studentId); });
+        var pfNameCount = {};
+        roster.forEach(function(e) { var n = pfNameKey(e.name); pfNameCount[n] = (pfNameCount[n] || 0) + 1; });
+        var sidById = {}, used = {}, linked = [], unlinked = [], byIdEntry = {};
+        roster.forEach(function(e) {
+            var key = String(Number(e.id)); byIdEntry[key] = e;
+            var isExtra = typeof e.studentId === 'string' && e.studentId.indexOf('pfm_') === 0; // 手入力の児童(新方式の形)は、そのまま残す
+            var sid = null, how = '';
+            if (isExtra) { sidById[key] = e.studentId; return; }
+            if (typeof e.studentId === 'string' && spaSet[e.studentId] && !used[e.studentId]) { sid = e.studentId; how = 'id'; }
+            else if (!(typeof e.studentId === 'string' && e.studentId)) {
+                var n = pfNameKey(e.name), cand = byName[n] || [];
+                if (cand.length === 1 && pfNameCount[n] === 1 && !used[cand[0]]) { sid = cand[0]; how = 'name'; }
+            }
+            if (sid) { used[sid] = true; sidById[key] = sid; linked.push({ name: e.name, studentId: sid, how: how, pfId: Number(e.id) }); }
+            else unlinked.push({ name: e.name, pfId: Number(e.id) });
+        });
+        if (!linked.length) return skip('nothing-linked');
+        var keys = Object.keys(pfRaws.keyed), newRaw = {}, unlinkedRecs = {};
+        var addUn = function(pfId, key, val) { (unlinkedRecs[pfId] = unlinkedRecs[pfId] || {})[key] = val; };
+        for (var ki = 0; ki < keys.length; ki++) {
+            var key2 = keys[ki], data = srParse(pfRaws.keyed[key2]);
+            if (!srIsPlainObject(data)) return skip('records-invalid');
+            var out = {}, collision = false;
+            Object.keys(data).forEach(function(k) {
+                if (/^\d+$/.test(k)) {
+                    var to = sidById[String(Number(k))];
+                    if (to) { if (out[to] !== undefined || data[to] !== undefined) collision = true; else out[to] = data[k]; }
+                    else addUn(Number(k), key2, data[k]);
+                } else if (spaSet[k] || /^pfm_/.test(k)) out[k] = data[k]; // 新旧混在: すでに児童IDのキーのものはそのまま
+                else addUn('x:' + k, key2, data[k]);
+            });
+            if (collision) return skip('collision');
+            newRaw[key2] = JSON.stringify(out);
+        }
+        var linkedEntry = {};
+        linked.forEach(function(l) { linkedEntry[l.studentId] = byIdEntry[String(l.pfId)]; });
+        var newRoster = [];
+        students.forEach(function(st, j) {
+            if (!st.name) return;
+            var oe = linkedEntry[st.studentId];
+            newRoster.push(Object.assign({}, oe || { age: 10 }, { id: j + 1, studentId: st.studentId, name: st.name, gender: st.gender || (oe && oe.gender) || '' }));
+        });
+        roster.forEach(function(e) { if (typeof e.studentId === 'string' && e.studentId.indexOf('pfm_') === 0) newRoster.push(e); });
+        newRaw[PF_ROSTER_KEY] = JSON.stringify(newRoster);
+        var archiveEntries = [];
+        unlinked.forEach(function(u) {
+            var d = {}; d[PF_ROSTER_KEY] = byIdEntry[String(u.pfId)];
+            var recs = unlinkedRecs[u.pfId] || {}; delete unlinkedRecs[u.pfId];
+            Object.keys(recs).forEach(function(k) { d[k] = recs[k]; });
+            u.records = Object.keys(recs).length;
+            archiveEntries.push({ name: u.name, pfId: u.pfId, data: d });
+        });
+        Object.keys(unlinkedRecs).forEach(function(id) { unlinked.push({ name: null, pfId: id, records: Object.keys(unlinkedRecs[id]).length }); archiveEntries.push({ name: null, pfId: id, data: unlinkedRecs[id] }); });
+        var res = { status: 'takeover', newRaw: newRaw, archiveEntries: archiveEntries, linked: linked, unlinked: unlinked, records: keys.length };
+        res.violations = verifyPfTakeover(pfRaws, { newRaw: newRaw, archiveEntries: archiveEntries, linked: linked }, students);
+        return res;
+    }
+    // 引き継ぎの不変条件: T1 件数の保存則(引き継ぎ後+退避=引き継ぎ前) / T2 記録のキーが名簿(SPAの児童・手入力)内 / T3 pf_roster のSPAの児童が新名簿(順序・氏名・id=位置+1)と一致 /
+    //                     T4 紐付けた児童の記録の値が1バイトも不変 / T5 退避した記録の値が元と同一
+    function verifyPfTakeover(pfRaws, res, students) {
+        var v = [];
+        var add = function(inv, key, detail) { v.push({ invariant: inv, key: key, detail: String(detail) }); };
+        var spaSet = {}; students.forEach(function(st) { if (st && st.studentId) spaSet[st.studentId] = true; });
+        var rosterA = srParse(res.newRaw[PF_ROSTER_KEY]);
+        if (!Array.isArray(rosterA)) { add('T3', PF_ROSTER_KEY, 'roster unreadable'); return v; }
+        var expected = []; students.forEach(function(st, j) { if (st && st.name) expected.push({ id: j + 1, studentId: st.studentId, name: st.name }); });
+        var spaEntries = rosterA.filter(function(e) { return e && spaSet[e.studentId]; });
+        if (spaEntries.length !== expected.length || spaEntries.some(function(e, i) { return e.studentId !== expected[i].studentId || e.name !== expected[i].name || Number(e.id) !== expected[i].id; })) add('T3', PF_ROSTER_KEY, 'roster does not match master');
+        var inRoster = {}; rosterA.forEach(function(e) { if (e && e.studentId) inRoster[e.studentId] = true; });
+        var toSid = {}; res.linked.forEach(function(l) { toSid[String(l.pfId)] = l.studentId; });
+        var rosterB = srParse(pfRaws.roster) || [];
+        rosterB.forEach(function(e) { if (e && typeof e.studentId === 'string' && e.studentId.indexOf('pfm_') === 0) toSid[String(Number(e.id))] = e.studentId; });
+        Object.keys(pfRaws.keyed).forEach(function(key) {
+            var before = srParse(pfRaws.keyed[key]) || {}, after = srParse(res.newRaw[key]) || {};
+            var arch = res.archiveEntries.filter(function(e) { return e.data[key] !== undefined; }).length;
+            if (Object.keys(after).length + arch !== Object.keys(before).length) add('T1', key, 'before ' + Object.keys(before).length + ' != after ' + Object.keys(after).length + ' + archived ' + arch);
+            Object.keys(after).forEach(function(k) { if (!inRoster[k]) add('T2', key, 'record key not in roster ' + k); });
+            Object.keys(before).forEach(function(k) {
+                if (/^\d+$/.test(k)) {
+                    var to = toSid[String(Number(k))];
+                    if (to !== undefined && JSON.stringify(after[to]) !== JSON.stringify(before[k])) add('T4', key, 'value changed/moved wrongly for ' + k);
+                    if (to === undefined) {
+                        var hit = res.archiveEntries.filter(function(e) { return String(e.pfId) === String(Number(k)) && e.data[key] !== undefined; })[0];
+                        if (!hit || JSON.stringify(hit.data[key]) !== JSON.stringify(before[k])) add('T5', key, 'archived value differs for ' + k);
+                    }
+                }
+            });
+        });
+        return v;
+    }
+    // 画面に出す状態(読み取りのみ): 「引き継ぎ」を案内すべきか(旧方式で、自動では移行しない状態)と、引き継ぎの計画
+    function pfTakeoverState() {
+        var m = srParse(storageDirect(KEYS.master)), students = (m && Array.isArray(m.students)) ? m.students : [];
+        var raws = srReadPfRaws(), mode = srPfMode(raws);
+        var out = { show: false, mode: mode, plan: null };
+        if (mode !== 'v1') return out;
+        var mig = planPfMigration(raws, students);
+        if (mig.status !== 'skip') return out; // 自動で移行できる(または移行済み)なら案内しない
+        out.show = true; out.migrationReason = mig.reason;
+        out.plan = planPfTakeover(raws, students);
+        return out;
+    }
+    function applyPfTakeover(opts) {
+        opts = opts || {};
+        var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
+        if (masterLoadFailed) return fail('master-load-failed');
+        var j = srParse(storageDirect(KEYS.roster_txn));
+        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        try { uiFlushPending(); } catch (e) {}
+        try { flushSaveQueue(); } catch (e) {}
+        var masterRaw = storageDirect(KEYS.master), m = srParse(masterRaw);
+        if (!m || !Array.isArray(m.students)) return fail('master-invalid');
+        var pfRaws = srReadPfRaws();
+        var plan = planPfTakeover(pfRaws, m.students);
+        if (plan.status !== 'takeover') return fail('takeover-unavailable', { reason: plan.reason });
+        if (plan.violations.length) return fail('invariant-violation', { violations: plan.violations });
+        var archive = readStudentArchive(), stamp = new Date().toISOString();
+        plan.archiveEntries.forEach(function(e) { archive.entries.push({ archiveId: srNewId('arc_'), archivedAt: stamp, reason: 'pf-unlinked', unlinked: true, name: e.name, pfId: e.pfId, data: e.data }); });
+        var job = {
+            kind: 'pf-takeover', storesNext: {}, archiveNext: plan.archiveEntries.length ? JSON.stringify(archive) : null, pfNext: plan.newRaw, masterNext: masterRaw,
+            verify: function(persisted) {
+                var np = {}; Object.keys(plan.newRaw).forEach(function(k) { np[k] = persisted[k]; });
+                var v = verifyPfTakeover(pfRaws, { newRaw: np, archiveEntries: plan.archiveEntries, linked: plan.linked }, m.students);
+                if (storageDirect(KEYS.master) !== masterRaw) v.push({ invariant: 'master', key: KEYS.master, detail: 'master changed' });
+                return v;
+            }
+        };
+        var r = srRunTransaction(job);
+        if (!r.ok) return r;
+        try { sessionStorage.setItem(BR_NOTICE_KEY, JSON.stringify({ title: '✅ 新体力テストの記録を引き継ぎました', undoable: true, kind: 'pf-takeover', msgs: [] })); } catch (e) {}
+        srFinishAndReload(masterRaw, Object.assign({}, opts, { openSettings: false }));
+        return { ok: true, txnId: r.txnId, linked: plan.linked.length, unlinked: plan.unlinked.length };
+    }
+    // 退避した pf-residual(旧方式で pf 名簿が不一致のまま児童を戻したときに、pf の分だけ退避に残したもの)の単体復元。
+    // 名簿に同じ studentId の児童がいて、pf が新方式のときだけ、その児童の記録として戻す。すでに入力されている項目は上書きしない
+    // (入力済みを優先し、戻せなかった分は退避に残す)。同じトランザクション・取り消しの仕組み。
+    function srResidualState(entry) {
+        var m = srParse(storageDirect(KEYS.master));
+        var inRoster = !!(m && Array.isArray(m.students) && m.students.some(function(s) { return s && s.studentId === entry.studentId; }));
+        if (!inRoster) return { ok: false, why: 'student-not-in-roster' };
+        if (srPfMode(srReadPfRaws()) !== 'v2') return { ok: false, why: 'pf-not-v2' };
+        return { ok: true };
+    }
+    function restoreArchivedResidual(archiveId, opts) {
+        opts = opts || {};
+        var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
+        if (masterLoadFailed) return fail('master-load-failed');
+        var j = srParse(storageDirect(KEYS.roster_txn));
+        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        try { uiFlushPending(); } catch (e) {}
+        try { flushSaveQueue(); } catch (e) {}
+        var archive = readStudentArchive();
+        var entry = archive.entries.filter(function(e) { return e.archiveId === archiveId; })[0];
+        if (!entry) return fail('not-found');
+        if (!entry.residual || !entry.studentId) return fail('not-residual');
+        var masterRaw = storageDirect(KEYS.master), m = srParse(masterRaw);
+        if (!m || !Array.isArray(m.students)) return fail('master-invalid');
+        var sid = entry.studentId;
+        var idx = -1; m.students.forEach(function(st, i) { if (st && st.studentId === sid) idx = i; });
+        if (idx < 0) return fail('student-not-in-roster');
+        var pfRaws = srReadPfRaws();
+        if (srPfMode(pfRaws) !== 'v2') return fail('pf-not-v2');
+        var roster = srParse(pfRaws.roster), st = m.students[idx];
+        var pieceKeys = Object.keys(entry.data || {}).filter(function(k) { return PF_KEYED_RE.test(k); });
+        var rosterPiece = (entry.data && entry.data[PF_ROSTER_KEY]) || null;
+        var pfNext = {}, leftover = {}, restored = 0, skipped = 0, expectRec = {};
+        pieceKeys.forEach(function(k) {
+            var piece = entry.data[k], raw = pfRaws.keyed[k], d = srParse(raw);
+            if (raw != null && !srIsPlainObject(d)) { leftover[k] = piece; skipped++; return; } // 壊れているキーには触らず、退避に残す
+            d = d || {};
+            var cur = d[sid], next;
+            if (cur === undefined) { next = piece; restored++; }
+            else if (/^pf_records_/.test(k) && srIsPlainObject(cur) && srIsPlainObject(piece)) {
+                next = Object.assign({}, cur); var left = {};
+                Object.keys(piece).forEach(function(ev) { if (next[ev] === undefined) { next[ev] = piece[ev]; restored++; } else if (JSON.stringify(next[ev]) !== JSON.stringify(piece[ev])) left[ev] = piece[ev]; });
+                if (Object.keys(left).length) { leftover[k] = left; skipped += Object.keys(left).length; }
+            } else { next = cur; if (JSON.stringify(cur) !== JSON.stringify(piece)) { leftover[k] = piece; skipped++; } }
+            if (JSON.stringify(next) !== JSON.stringify(cur)) { d[sid] = next; pfNext[k] = JSON.stringify(d); expectRec[k] = next; }
+        });
+        var hasEntry = roster.some(function(e) { return e.studentId === sid; });
+        if (!hasEntry && st.name) {
+            var byId = {}, masterIds = {}, nr = [];
+            roster.forEach(function(e) { byId[e.studentId] = e; });
+            m.students.forEach(function(s2) { if (s2 && s2.studentId) masterIds[s2.studentId] = true; });
+            m.students.forEach(function(s2, i) {
+                if (!s2 || !s2.name) return;
+                if (byId[s2.studentId]) nr.push(byId[s2.studentId]);
+                else if (s2.studentId === sid) nr.push(Object.assign({ age: 10 }, rosterPiece || {}, { id: i + 1, studentId: sid, name: s2.name, gender: s2.gender || (rosterPiece && rosterPiece.gender) || '' }));
+            });
+            roster.forEach(function(e) { if (!masterIds[e.studentId]) nr.push(e); }); // SPAの児童ではない項目(手入力)は末尾に残す
+            pfNext[PF_ROSTER_KEY] = JSON.stringify(nr);
+        }
+        if (!Object.keys(pfNext).length) return fail('nothing-to-restore');
+        var hasLeft = Object.keys(leftover).length > 0;
+        var archiveNext = JSON.stringify({ version: 1, entries: archive.entries.map(function(e) { return e.archiveId === archiveId ? (hasLeft ? Object.assign({}, e, { data: leftover }) : null) : e; }).filter(function(e) { return !!e; }) });
+        var job = {
+            kind: 'pf-restore', storesNext: {}, archiveNext: archiveNext, pfNext: pfNext, masterNext: masterRaw,
+            verify: function(persisted) {
+                var v = [];
+                Object.keys(expectRec).forEach(function(k) { var a = srParse(persisted[k]) || {}; if (JSON.stringify(a[sid]) !== JSON.stringify(expectRec[k])) v.push({ invariant: 'Q1', key: k, detail: 'record not restored' }); });
+                pieceKeys.forEach(function(k) { var b = srParse(pfRaws.keyed[k]) || {}, a = srParse(persisted[k] !== undefined ? persisted[k] : pfRaws.keyed[k]) || {}; Object.keys(b).forEach(function(id) { if (id !== sid && JSON.stringify(a[id]) !== JSON.stringify(b[id])) v.push({ invariant: 'Q2', key: k, detail: 'other student changed ' + id }); }); });
+                if (pfNext[PF_ROSTER_KEY]) { var pr = srParse(persisted[PF_ROSTER_KEY]); if (!Array.isArray(pr) || !pr.some(function(e) { return e.studentId === sid; })) v.push({ invariant: 'Q3', key: PF_ROSTER_KEY, detail: 'roster entry not restored' }); }
+                if (storageDirect(KEYS.master) !== masterRaw) v.push({ invariant: 'master', key: KEYS.master, detail: 'master changed' });
+                return v;
+            }
+        };
+        var r = srRunTransaction(job);
+        if (!r.ok) return r;
+        try { sessionStorage.setItem(SETTINGS_FLASH_KEY, '✅ 新体力テストの記録を戻しました'); } catch (e) {}
+        srFinishAndReload(masterRaw, opts);
+        return { ok: true, txnId: r.txnId, restored: restored, skipped: skipped, kept: hasLeft };
+    }
+    window.planPfTakeover = planPfTakeover;
+    window.pfTakeoverState = pfTakeoverState;
+    window.applyPfTakeover = applyPfTakeover;
+    window.restoreArchivedResidual = restoreArchivedResidual;
+
     // 再読み込み後に名簿設定の画面を開く(applyRosterChange / 復元 / 取り消しの後)
     function openSettingsAfterRosterReload() {
         var flag = null;
@@ -6832,8 +7080,10 @@
             try {
                 showView('settings');
                 // 取り消せる名簿変更があれば、トーストに「元に戻す」を付ける(名簿設定の画面の取り消しボタンでも取り消せる)
-                if (srUndoStatus().available) showUndoToast('✅ 名簿を更新しました', function() { rosterUndoClick(); });
-                else showToast('✅ 名簿を更新しました', 'success');
+                var title = '✅ 名簿を更新しました';
+                try { var ft = sessionStorage.getItem(SETTINGS_FLASH_KEY); sessionStorage.removeItem(SETTINGS_FLASH_KEY); if (ft) title = ft; } catch (e) {}
+                if (srUndoStatus().available) showUndoToast(title, function() { rosterUndoClick(); });
+                else showToast(title, 'success');
             } catch (e) {}
         }, 400);
         // 再読み込みの前に出した通知(新体力テストが更新されなかった等)を、再読み込み後にも表示する
@@ -6905,6 +7155,12 @@
         out.reason = mt.ok ? '' : mt.reason;
         return out;
     }
+    var PF_TAKEOVER_REASONS = {
+        'no-pf-data': '新体力テストのデータがありません', 'already-v2': 'すでに新しい方式です', 'no-student-id': '名簿に児童IDがありません',
+        'roster-invalid': '新体力テストの名簿が読み取れません', 'roster-ids-duplicate': '新体力テストの名簿の番号が重なっています',
+        'nothing-linked': '氏名が一致する児童がいません', 'records-invalid': '記録のデータが読み取れません', 'collision': '同じ児童の記録が重なっています'
+    };
+    window.PF_TAKEOVER_REASONS = PF_TAKEOVER_REASONS;
     var PF_DIAG_REASONS = {
         'no-roster': '新体力テストの名簿がありません（記録だけが残っています）',
         'roster-invalid': '新体力テストの名簿のデータが読み取れません',
@@ -6929,7 +7185,7 @@
         else if (d.mode === 'v2') {
             modeTxt = '<span class="pfd-ok">児童ごと（新方式）</span>';
             if (d.migration && d.migration.at) { var t = new Date(d.migration.at); modeTxt += '（' + (t.getMonth() + 1) + '月' + t.getDate() + '日に更新：記録 ' + d.migration.records + '件。更新の前後で、ほかの全データ ' + d.migration.compared + '件は変化なし）'; }
-        } else modeTxt = '<span class="pfd-ng">位置番号（旧方式）</span>' + (d.state === 'match' ? '（更新できていません。次に開いたときに自動でもう一度試します）' : '（名簿が一致しないため、自動では更新しません）');
+        } else modeTxt = '<span class="pfd-ng">位置番号（旧方式）</span>' + (d.state === 'match' ? '（更新できていません。次に開いたときに自動でもう一度試します）' : '（名簿が一致しないため、自動では更新しません。新体力テストの設定の「引き継ぎ」で、氏名をもとに引き継げます）');
         html += row('記録の管理方式', modeTxt, 'mode');
         html += row('人数', 'SPAの名簿 ' + d.spaCount + '名／新体力テストの名簿 ' + (d.pfRosterCount === null ? 'なし' : d.pfRosterCount + '名'), 'counts');
         html += row('単体ページの使用', d.fitnessYears.length
@@ -7077,7 +7333,10 @@
         if (!u.available) { el.innerHTML = ''; return; }
         var t = u.at ? new Date(u.at) : null;
         var when = t ? (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') : '';
-        var label = (u.kind === BR_KIND) ? '↩ 直前のバックアップの復元を取り消す' + (when ? '（' + when + ' の復元）' : '') : '↩ 直前の名簿変更を取り消す' + (when ? '（' + when + ' の変更）' : '');
+        var label = (u.kind === BR_KIND) ? '↩ 直前のバックアップの復元を取り消す' + (when ? '（' + when + ' の復元）' : '')
+            : (u.kind === 'pf-takeover') ? '↩ 直前の新体力テストの引き継ぎを取り消す' + (when ? '（' + when + '）' : '')
+            : (u.kind === 'pf-restore') ? '↩ 直前の新体力テストの記録の復元を取り消す' + (when ? '（' + when + '）' : '')
+            : '↩ 直前の名簿変更を取り消す' + (when ? '（' + when + ' の変更）' : '');
         el.innerHTML = '<button type="button" class="rl-btn" id="rosterUndoBtn" data-act="undo" style="width:100%;">' + label + '</button>';
     }
     // 退避中の児童の一覧・復元・完全削除
@@ -7102,7 +7361,12 @@
                 label = escapeHtml((e.student && e.student.name) || '（氏名なし）') + '<span class="ar-sub">' + fmt(e.archivedAt) + 'に退避（成績・出欠・カルテ・座席・新体力テストなど）</span>';
                 restoreBtn = '<button type="button" class="rl-btn rl-add" data-act="restore" data-id="' + id + '">↩ 戻す</button>';
             } else if (e.residual) {
-                label = escapeHtml((e.student && e.student.name) || '（氏名なし）') + ' の新体力テストの記録のみ<span class="ar-sub">' + fmt(e.archivedAt) + '（名簿が一致しなかったため戻せなかった分。あとで戻せるようになります）</span>';
+                var rs = srResidualState(e), why = rs.ok ? '（名簿が一致しなかったため戻せなかった分。「戻す」で、その児童の記録として戻せます）'
+                    : (rs.why === 'student-not-in-roster' ? '（名簿が一致しなかったため戻せなかった分。先にその児童を名簿に戻すと、記録を戻せます）' : '（名簿が一致しなかったため戻せなかった分。新体力テストが新しい方式になると戻せます）');
+                label = escapeHtml((e.student && e.student.name) || '（氏名なし）') + ' の新体力テストの記録のみ<span class="ar-sub">' + fmt(e.archivedAt) + why + '</span>';
+                if (rs.ok) restoreBtn = '<button type="button" class="rl-btn rl-add" data-act="restore-residual" data-id="' + id + '">↩ 戻す</button>';
+            } else if (e.reason === 'pf-unlinked') {
+                label = escapeHtml(e.name || ('番号' + e.pfId + 'の記録（氏名なし）')) + ' の新体力テストの記録（引き継げなかった分）<span class="ar-sub">' + fmt(e.archivedAt) + '（氏名がSPAの名簿と一意に一致しなかったため、消さずに保管しています。完全に削除のみできます）</span>';
             } else {
                 label = '名簿にない番号（' + ((e.orphanIndex || 0) + 1) + '番）のデータ<span class="ar-sub">' + fmt(e.archivedAt) + 'に退避（過去の削除で取り残されたデータ）</span>';
             }
@@ -7159,6 +7423,12 @@
             if (!r.ok) showToast(rosterErrorMessage(r), 'error');
             return;
         }
+        if (act === 'restore-residual') {
+            if (rosterDraftChanged()) { showToast('先に、未保存の名簿の変更を保存するか破棄してください', 'warning'); return; }
+            var rr = restoreArchivedResidual(id);
+            if (!rr.ok) showToast(rosterErrorMessage(rr), 'error');
+            return;
+        }
         if (act === 'purge') {
             // 完全削除は取り消せないため、ダイアログではなく「同じボタンをもう一度タップ」で実行する(4秒以内)
             if (!archiveArmed[id]) {
@@ -7179,6 +7449,10 @@
         if (e === 'txn-pending') return '前回の名簿変更が完了していません。アプリを開き直してください';
         if (e === 'master-load-failed') return '名簿データの読み込みに失敗しているため、保存できません。バックアップから復元してください';
         if (e === 'duplicate-id') return '同じ児童がすでに名簿にいるため、戻せません';
+        if (e === 'student-not-in-roster') return '先に、その児童を名簿に戻してください（退避中の児童の「戻す」）';
+        if (e === 'pf-not-v2') return '新体力テストが新しい方式になってから戻せます';
+        if (e === 'nothing-to-restore') return '同じ項目がすでに入力されているため、戻せる記録がありません（入力済みの値を優先します）';
+        if (e === 'takeover-unavailable') return '引き継げませんでした（' + (PF_TAKEOVER_REASONS[r.reason] || r.reason) + '）。データは変更されていません';
         if (e === 'not-found') return '対象のデータが見つかりません（すでに削除された可能性があります）';
         if (e === 'apply-failed' && r.rollbackFailed) return '保存に失敗し、元に戻せませんでした。バックアップから復元してください';
         if (e === 'apply-failed' || e === 'snapshot-failed' || e === 'journal-failed') return '保存に失敗したため、名簿の変更を取り消して元に戻しました（データは変更されていません）';
@@ -8341,7 +8615,7 @@
         setTimeout(function() {
             try {
                 var u = srUndoStatus();
-                if (n.title && n.undoable && u.available && u.kind === BR_KIND) showUndoToast(n.title, function() { undoRosterChange(); });
+                if (n.title && n.undoable && u.available && u.kind === (n.kind || BR_KIND)) showUndoToast(n.title, function() { undoRosterChange(); });
                 else if (n.title) showToast(n.title, 'success');
             } catch (e) {}
         }, t);
@@ -23432,6 +23706,45 @@
         pf_records={};StorageManager.remove(pf_storageKey());pf_renderInputGrid();showToast('🗑 記録データを削除しました','success');
     }
 
+    // ---- 旧方式の記録の引き継ぎ(H4 段階4c): 確認(プレビュー)→ボタンで確定。確認ダイアログは使わない。取り消せる ----
+    function pf_renderTakeover(preview){
+        var card=document.getElementById('pf-takeoverCard'),body=document.getElementById('pf-takeoverBody');
+        if(!card||!body)return;
+        var st;
+        try{st=window.pfTakeoverState();}catch(e){card.style.display='none';console.error(e);return;}
+        if(!st.show){card.style.display='none';return;}
+        card.style.display='';
+        var html='';
+        var btn='min-height:var(--tap-min);';
+        if(!preview){
+            html='<button type="button" class="pf-btn pf-btn-primary" data-pf-tk="preview" style="'+btn+'">🔍 引き継ぎの内容を確認する</button>';
+        }else if(st.plan.status!=='takeover'){
+            html='<div class="pf-info-box warn">自動では引き継げません：'+escapeHtml((window.PF_TAKEOVER_REASONS||{})[st.plan.reason]||st.plan.reason)+'</div>';
+        }else{
+            var p=st.plan;
+            html+='<div style="margin-bottom:8px;"><strong>引き継ぐ：'+p.linked.length+'名</strong></div><div style="margin-bottom:12px;font-size:12px;line-height:1.7;">'+p.linked.map(function(l){return escapeHtml(l.name);}).join('、')+'</div>';
+            if(p.unlinked.length){
+                html+='<div style="margin-bottom:8px;color:var(--warn);"><strong>引き継げない：'+p.unlinked.length+'件</strong>（氏名がSPAの名簿と1人ずつ一致しなかった分。消さずに「退避中の児童」に保管します）</div><div style="margin-bottom:12px;font-size:12px;line-height:1.7;">'+p.unlinked.map(function(u){return escapeHtml(u.name||('番号'+u.pfId+'の記録（氏名なし）'))+'（記録'+u.records+'件）';}).join('、')+'</div>';
+            }
+            html+='<div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="pf-btn pf-btn-primary" data-pf-tk="apply" style="'+btn+'">✅ この内容で引き継ぐ</button><button type="button" class="pf-btn" data-pf-tk="cancel" style="'+btn+'">やめる</button></div>';
+        }
+        body.innerHTML=html;
+        if(!card._tkBound){
+            card._tkBound=true;
+            card.addEventListener('click',function(e){
+                var b=e.target.closest?e.target.closest('button[data-pf-tk]'):null;
+                if(!b)return;
+                var act=b.getAttribute('data-pf-tk');
+                if(act==='preview')pf_renderTakeover(true);
+                else if(act==='cancel')pf_renderTakeover(false);
+                else if(act==='apply'){
+                    var r=window.applyPfTakeover();
+                    if(!r.ok){showToast(window.rosterErrorMessage(r),'error');pf_renderTakeover(false);}
+                }
+            });
+        }
+    }
+
     function pf_switchView(id){
         document.querySelectorAll('.pf-subnav-btn').forEach(function(t){t.classList.remove('active');});
         document.querySelectorAll('.pf-sub').forEach(function(v){v.classList.remove('active');});
@@ -23441,6 +23754,7 @@
         if(id==='stats')pf_renderStats();
         if(id==='input')pf_renderInputGrid();
         if(id==='analysis'){pf_populateAnalysisSelect();pf_renderAnalysis();}
+        if(id==='settings')pf_renderTakeover(false);
     }
 
     function pf_populateAnalysisSelect(){
@@ -23560,6 +23874,7 @@
 
     function pf_onShowView(){
         pf_loadAll();
+        pf_renderTakeover(false);
         pf_renderInputGrid();
         pf_populateAnalysisSelect();
     }

@@ -76,9 +76,12 @@ const TEST_DATE = termSafeDate(10);
         async function fillTestForm(fields) {
             await page.evaluate((f) => {
                 if ('subject' in f) document.getElementById('recTestSubject').value = f.subject;
-                if ('testType' in f) document.getElementById('recTestType').value = f.testType;
+                // v1.49.0以降、recAddTestは入力形式(得点/5段階)を「フォームのタブ状態」で判定する。タブ状態は
+                // 種別・観点セレクトのonchange(recOnTestTypeChange/recOnCategoryChange)で初期化されるため、
+                // 実UIと同じくvalue代入の直後にonchange相当を呼ぶ(呼ばないと既定の「得点」のまま満点空欄で保存が拒否される)。
+                if ('testType' in f) { document.getElementById('recTestType').value = f.testType; window.recOnTestTypeChange(); }
                 if ('name' in f) document.getElementById('recTestName').value = f.name;
-                if ('category' in f) document.getElementById('recTestCategory').value = f.category;
+                if ('category' in f) { document.getElementById('recTestCategory').value = f.category; window.recOnCategoryChange(); }
                 if ('maxScore' in f) document.getElementById('recTestMaxScore').value = f.maxScore;
                 if ('date' in f) document.getElementById('recTestDate').value = f.date;
                 if ('matomeQCount' in f) document.getElementById('recMatomeQCount').value = f.matomeQCount;
@@ -87,7 +90,7 @@ const TEST_DATE = termSafeDate(10);
         async function findTestByName(name) {
             return page.evaluate((n) => {
                 var tests = StorageManager.get(KEYS.tests, []);
-                return tests.find(function(t) { return t.name === n; }) || null;
+                return tests.find(function(t) { return t.name === n || t.name.indexOf(n) !== -1; }) || null; // 種別・観点のonchangeで課題名に自動プレフィックス(小テ_等)が付くため部分一致
             }, name);
         }
 
@@ -179,7 +182,7 @@ const TEST_DATE = termSafeDate(10);
         await page.evaluate((id) => { window.recSelectTestGoto(id); }, tNormal.id);
         await new Promise(r => setTimeout(r, 150));
         await page.evaluate((id) => { window.recEditTest(id); }, tNormal.id);
-        await page.evaluate(() => { document.getElementById('recTestCategory').value = '主体性'; });
+        await page.evaluate(() => { document.getElementById('recTestCategory').value = '主体性'; window.recOnCategoryChange(); }); // 実UIと同じくonchangeを発火
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const afterCategoryToAbc = await page.evaluate(() => ({
@@ -189,7 +192,7 @@ const TEST_DATE = termSafeDate(10);
         check('category変更: 知識・技能→主体性でABCボタンに切り替わる', afterCategoryToAbc.abcBtnCount === 5 && afterCategoryToAbc.hasScInput === false, JSON.stringify(afterCategoryToAbc));
 
         await page.evaluate((id) => { window.recEditTest(id); }, tNormal.id);
-        await page.evaluate(() => { document.getElementById('recTestCategory').value = '知識・技能'; document.getElementById('recTestMaxScore').value = '80'; });
+        await page.evaluate(() => { document.getElementById('recTestCategory').value = '知識・技能'; window.recOnCategoryChange(); document.getElementById('recTestMaxScore').value = '80'; });
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const afterCategoryBack = await page.evaluate(() => ({

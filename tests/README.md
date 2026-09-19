@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計1071件）
+## 常時グリーンのテスト（合計1188件）
 
 | ファイル | 件数 |
 |---|---|
@@ -51,14 +51,17 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `idb-residue.test.js` | 27 |
 | `roster-transaction.test.js` | 70 |
 | `roster-pf.test.js` | 71 |
-| `roster-ui.test.js` | 66 |
+| `roster-ui.test.js` | 67 |
 | `pf-diagnosis.test.js` | 37 |
 | `backup-restore.test.js` | 71 |
-| **合計** | **1071** |
+| `pf-migration.test.js` | 116 |
+| **合計** | **1188** |
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
 
 `pf-diagnosis.test.js`(v1.52.1)は設定の「新体力テストの連携状態」表示を検証する。読み取り専用(localStorage/IndexedDBへの書き込み0回)・氏名を表示しない・一致/不一致の理由・pf_fitness の痕跡・SPAにいない児童の人数を、実際に画面を開いて確認する。
+
+`pf-migration.test.js`(v1.53.0)は新体力テストの児童ID化を検証する。起動時の移行(全キー比較・失敗注入)・新方式の名簿変更6操作・取り込み・pf画面の実操作・旧方式のバックアップの復元後の再移行。`PFM_ONLY=2,4 node pf-migration.test.js` のように章を指定して実行できる(変異テスト用)。`roster-pf.test.js` は旧方式(v1)の動作の検証のため、テスト専用フック `window.__spaSkipPfMigration` で起動時の移行を無効にしている。
 
 `backup-restore.test.js`(v1.52.2)はバックアップの復元の安全化を検証する。計画・退避(スナップショット/ジャーナル kind:backup-restore)・検証付き書き込み・ロールバック・起動時の自動復旧・取り消し・退避できないときの警告と続行を、容量超過15通り・内容破損15通り・強制終了18通りの失敗注入と、実際の画面(バックアップ画面のファイル選択→復元ボタン)で確認する。再読み込み後の通知は表示が数秒遅れて出るため、次の操作の前に `#toast` が消えるのを待つこと。
 

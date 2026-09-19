@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計827件）
+## 常時グリーンのテスト（合計898件）
 
 | ファイル | 件数 |
 |---|---|
@@ -50,7 +50,8 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `roster-shift.test.js` | 240 |
 | `idb-residue.test.js` | 27 |
 | `roster-transaction.test.js` | 70 |
-| **合計** | **827** |
+| `roster-pf.test.js` | 71 |
+| **合計** | **898** |
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
 

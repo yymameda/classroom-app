@@ -5514,6 +5514,348 @@
     window.migrateStudentIdsV1 = migrateStudentIdsV1;
     window.assignMissingStudentIds = assignMissingStudentIds;
 
+    // ================================================================
+    // 児童データの付け替え(純関数) — H4 案B 段階2a
+    // ================================================================
+    // 名簿の並べ替え・削除・転入で、添字で紐づく全データを studentId 基準で付け替えるための純関数群。
+    // **書き込みは一切しない**(入力を変更せず、新しい生JSONと退避分を返すだけ)。UIにも接続していない
+    // (段階2b: トランザクション・スナップショット・起動時ロールバック、段階3: 名簿編集UI)。
+    // 設計は DATA_FLOW_AUDIT.md 10章。ストアを足したら必ず下の登録表に入れること
+    // (tests/student-remap.test.js が KEYS と 'spa_*' の全リテラルを走査して登録漏れを検出する)。
+    //
+    // 種別(kind):
+    //   array-field        配列レコードの studentIndex        (記録・提出記録・机間巡視・カルテ児童記録)
+    //   object-key         オブジェクトのキー String(添字)      (カルテ4種・専科PDFコメント)
+    //   date-object-key    [日付][String(添字)]                (出席簿・出欠届・朝の準備・忘れ物・日記帳)
+    //   nested-checks      checks[String(添字)][文字番号]       (漢字チェック)
+    //   seat-value         座席キー → 添字(値)                 (座席)
+    //   subject-object-key data[教科][String(添字)]            (専科成績)
+    //   derived-history    [日付].students[添字] + total(派生)  (忘れ物の日別集計)
+    var STUDENT_KEYED_STORES = [
+        { key: KEYS.scores,                  kind: 'array-field', dup: ['testId'] },
+        { key: KEYS.submissions_data,        kind: 'array-field', dup: ['assignmentId'] },
+        { key: KEYS.patrol,                  kind: 'array-field', dup: null },
+        { key: KEYS.karte_recs,              kind: 'array-field', dup: null },
+        { key: KEYS.karte_life,              kind: 'object-key' },
+        { key: KEYS.karte_parent,            kind: 'object-key' },
+        { key: KEYS.karte_health,            kind: 'object-key' },
+        { key: KEYS.karte_learning,          kind: 'object-key' },
+        { key: KEYS.grades_ext_pdf_comments, kind: 'object-key' },
+        { key: KEYS.attendance,              kind: 'date-object-key' },
+        { key: KEYS.attendance_notice,       kind: 'date-object-key' },
+        { key: KEYS.morning_prep,            kind: 'date-object-key' },
+        { key: KEYS.forgotten_daily,         kind: 'date-object-key' },
+        { key: KEYS.submissions_diary,       kind: 'date-object-key' },
+        { key: KEYS.forgotten_history,       kind: 'derived-history' },
+        { key: KEYS.kanji,                   kind: 'nested-checks' },
+        { key: KEYS.seating,                 kind: 'seat-value' },
+        { key: KEYS.grades_external,         kind: 'subject-object-key' }
+    ];
+    // 児童に紐づかないキー(理由つき)。KEYS の全キーは「登録表」か「ここ」のどちらかに入っていなければならない。
+    var NOT_STUDENT_KEYED = {};
+    NOT_STUDENT_KEYED[KEYS.master] = '名簿本体(付け替えでは名簿を別途更新する)';
+    NOT_STUDENT_KEYED[KEYS.tests] = '課題(児童に紐づかない)';
+    NOT_STUDENT_KEYED[KEYS.submissions_assignments] = '提出物の課題(児童に紐づかない)';
+    NOT_STUDENT_KEYED[KEYS.submissions_diaryDays] = '日記帳の目標日数(クラス共通の数値)';
+    NOT_STUDENT_KEYED[KEYS.forgotten_items] = '忘れ物の品目リスト(児童に紐づかない)';
+    NOT_STUDENT_KEYED[KEYS.grades] = '定義のみで読み書きなし(旧キー)';
+    NOT_STUDENT_KEYED[KEYS.seating_groups] = '班は座席キーで持つ(児童に紐づかない)';
+    NOT_STUDENT_KEYED[KEYS.matome_questions] = 'まとめテストの設問定義(課題ごと)';
+    NOT_STUDENT_KEYED[KEYS.grade_thresholds] = '成績のしきい値(教科ごと)';
+    NOT_STUDENT_KEYED[KEYS.grade_weights] = '項目重み(教科・課題ごと)';
+    NOT_STUDENT_KEYED[KEYS.grade_basis_notes] = '算出根拠シートのメモ(教科ごと)';
+    NOT_STUDENT_KEYED[KEYS.karte_archive] = '定義のみで未使用';
+    NOT_STUDENT_KEYED[KEYS.backup_meta] = 'バックアップ日時のメタ情報';
+    NOT_STUDENT_KEYED[KEYS.migration_backup_studentId] = '名簿の写し(段階1の退避コピー。付け替え対象外)';
+
+    // 添字として読める値(0以上の整数、または先頭ゼロなしの数字列)。それ以外は null(児童に紐づかない扱い)。
+    function srIndexOf(v) {
+        if (typeof v === 'number') return (isFinite(v) && Math.floor(v) === v && v >= 0) ? v : null;
+        if (typeof v === 'string' && /^(0|[1-9]\d*)$/.test(v)) return parseInt(v, 10);
+        return null;
+    }
+    function srIsPlainObject(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+    function srClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+    // 旧名簿→新名簿の対応表。studentId で突き合わせる。エラー時は {ok:false, error, detail}。
+    //   map: {旧添字: 新添字} / deleted: [{studentId, oldIdx}] / added: [新添字](IDなし=転入) / identity: 何も変わらない
+    function computeRosterRemap(oldStudents, newStudents) {
+        var fail = function(code, detail) { return { ok: false, error: code, detail: detail === undefined ? '' : String(detail) }; };
+        if (!Array.isArray(oldStudents) || !Array.isArray(newStudents)) return fail('not-array');
+        var oldPos = {}, oldIds = [];
+        for (var i = 0; i < oldStudents.length; i++) {
+            var o = oldStudents[i];
+            if (!hasStudentId(o)) return fail('old-missing-id', i);
+            if (oldPos[o.studentId] !== undefined) return fail('old-duplicate-id', o.studentId);
+            oldPos[o.studentId] = i;
+            oldIds.push(o.studentId);
+        }
+        var map = {}, seen = {}, added = [];
+        for (var j = 0; j < newStudents.length; j++) {
+            var n = newStudents[j];
+            if (!n || typeof n !== 'object') return fail('new-not-object', j);
+            if (hasStudentId(n)) {
+                if (seen[n.studentId]) return fail('new-duplicate-id', n.studentId);
+                seen[n.studentId] = true;
+                if (oldPos[n.studentId] === undefined) return fail('new-unknown-id', n.studentId);
+                map[oldPos[n.studentId]] = j;
+            } else if (n.studentId !== undefined && n.studentId !== null && n.studentId !== '') {
+                return fail('new-invalid-id', j);
+            } else {
+                added.push(j);
+            }
+        }
+        var deleted = [], identity = oldStudents.length === newStudents.length && added.length === 0;
+        for (var k = 0; k < oldStudents.length; k++) {
+            if (map[k] === undefined) { deleted.push({ studentId: oldIds[k], oldIdx: k }); identity = false; }
+            else if (map[k] !== k) identity = false;
+        }
+        return { ok: true, map: map, deleted: deleted, added: added, identity: identity,
+                 oldLen: oldStudents.length, newLen: newStudents.length, oldIds: oldIds };
+    }
+
+    // 旧添字の行き先: {t:'move', to} / {t:'archive', id}(削除された児童、または範囲外=孤立データ)
+    function srDestination(idx, remap) {
+        if (idx >= remap.oldLen) return { t: 'archive', id: '__orphan__:' + idx };
+        if (remap.map[idx] !== undefined) return { t: 'move', to: remap.map[idx] };
+        return { t: 'archive', id: remap.oldIds[idx] };
+    }
+
+    // キーが添字のオブジェクトを付け替える。onArchive(id, key, value) で退避分を受け取る。
+    // 添字として読めないキー(メタ情報など)は無変更で残す。
+    function srRemapKeyedObject(obj, remap, onArchive) {
+        var out = {};
+        Object.keys(obj).forEach(function(k) {
+            var idx = srIndexOf(k);
+            if (idx === null) { out[k] = obj[k]; return; }
+            var d = srDestination(idx, remap);
+            if (d.t === 'move') out[String(d.to)] = obj[k];
+            else onArchive(d.id, k, obj[k]);
+        });
+        return out;
+    }
+    function srPush(arch, id, v) { (arch[id] = arch[id] || []).push(v); }
+    function srSet(arch, id, k, v) { (arch[id] = arch[id] || {})[k] = v; }
+
+    // 1ストア分の付け替え。raw(生JSON) → {raw(新しい生JSON), archived: {id: 退避分}}。パースできない・形が違う場合は例外。
+    function srRemapStore(store, raw, remap) {
+        var data = JSON.parse(raw);
+        var arch = {};
+        var kind = store.kind;
+        var res;
+        if (kind === 'array-field') {
+            if (!Array.isArray(data)) throw new Error('shape: array expected');
+            res = [];
+            data.forEach(function(rec) {
+                var idx = (rec && typeof rec === 'object') ? srIndexOf(rec.studentIndex) : null;
+                if (idx === null) { res.push(rec); return; }
+                var d = srDestination(idx, remap);
+                if (d.t === 'archive') { srPush(arch, d.id, rec); return; }
+                if (d.to === idx && typeof rec.studentIndex === 'number') { res.push(rec); return; } // 動かない記録は1バイトも変えない
+                var c = Object.assign({}, rec); c.studentIndex = d.to; res.push(c);
+            });
+        } else if (kind === 'object-key') {
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            res = srRemapKeyedObject(data, remap, function(id, k, v) { arch[id] = v; });
+        } else if (kind === 'date-object-key') {
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            res = {};
+            Object.keys(data).forEach(function(date) {
+                var inner = data[date];
+                if (!srIsPlainObject(inner)) { res[date] = inner; return; }
+                res[date] = srRemapKeyedObject(inner, remap, function(id, k, v) { srSet(arch, id, date, v); });
+            });
+        } else if (kind === 'nested-checks') {
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            res = data;
+            if (srIsPlainObject(data.checks)) {
+                res = Object.assign({}, data);
+                res.checks = srRemapKeyedObject(data.checks, remap, function(id, k, v) { arch[id] = v; });
+            }
+        } else if (kind === 'seat-value') {
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            res = {};
+            Object.keys(data).forEach(function(seat) {
+                var idx = srIndexOf(data[seat]);
+                if (idx === null) { res[seat] = data[seat]; return; }
+                var d = srDestination(idx, remap);
+                if (d.t === 'move') res[seat] = d.to;
+                else srPush(arch, d.id, seat); // 削除された児童の席は空席にする
+            });
+        } else if (kind === 'subject-object-key') {
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            res = data;
+            if (srIsPlainObject(data.data)) {
+                res = Object.assign({}, data);
+                res.data = {};
+                Object.keys(data.data).forEach(function(subj) {
+                    var inner = data.data[subj];
+                    if (!srIsPlainObject(inner)) { res.data[subj] = inner; return; }
+                    res.data[subj] = srRemapKeyedObject(inner, remap, function(id, k, v) { srSet(arch, id, subj, v); });
+                });
+            }
+        } else if (kind === 'derived-history') {
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            res = {};
+            Object.keys(data).forEach(function(date) {
+                var h = data[date];
+                if (!srIsPlainObject(h) || !srIsPlainObject(h.students)) { res[date] = h; return; }
+                var removed = 0;
+                var students = srRemapKeyedObject(h.students, remap, function(id, k, v) { removed += (Number(v) || 0); srSet(arch, id, date, v); });
+                var left = Object.keys(students).reduce(function(a, k) { return a + (srIndexOf(k) !== null ? (Number(students[k]) || 0) : 0); }, 0);
+                var remain = Object.keys(students).length;
+                if (remain === 0) return; // 残る児童が居ない日は削除(アプリの既存動作: 合計0なら日付ごと削除)
+                var total = (Number(h.total) || 0) - removed;
+                if (total <= 0) total = left;
+                res[date] = Object.assign({}, h, { total: total, students: students });
+            });
+        } else {
+            throw new Error('unknown kind: ' + kind);
+        }
+        return { raw: JSON.stringify(res), archived: arch };
+    }
+
+    // ストア内の「児童に紐づく項目」の一覧 [{idx, rec?}](不変条件の検証と件数の数え上げに使う)
+    function srEntries(store, data) {
+        var out = [];
+        var fromKeys = function(obj) { Object.keys(obj).forEach(function(k) { var i = srIndexOf(k); if (i !== null) out.push({ idx: i }); }); };
+        var kind = store.kind;
+        if (kind === 'array-field') {
+            (Array.isArray(data) ? data : []).forEach(function(rec) {
+                var i = (rec && typeof rec === 'object') ? srIndexOf(rec.studentIndex) : null;
+                if (i !== null) out.push({ idx: i, rec: rec });
+            });
+        } else if (kind === 'object-key') { if (srIsPlainObject(data)) fromKeys(data);
+        } else if (kind === 'date-object-key') {
+            if (srIsPlainObject(data)) Object.keys(data).forEach(function(d) { if (srIsPlainObject(data[d])) fromKeys(data[d]); });
+        } else if (kind === 'nested-checks') { if (srIsPlainObject(data) && srIsPlainObject(data.checks)) fromKeys(data.checks);
+        } else if (kind === 'seat-value') {
+            if (srIsPlainObject(data)) Object.keys(data).forEach(function(seat) { var i = srIndexOf(data[seat]); if (i !== null) out.push({ idx: i }); });
+        } else if (kind === 'subject-object-key') {
+            if (srIsPlainObject(data) && srIsPlainObject(data.data)) Object.keys(data.data).forEach(function(sub) { if (srIsPlainObject(data.data[sub])) fromKeys(data.data[sub]); });
+        } else if (kind === 'derived-history') {
+            if (srIsPlainObject(data)) Object.keys(data).forEach(function(d) { if (srIsPlainObject(data[d]) && srIsPlainObject(data[d].students)) fromKeys(data[d].students); });
+        }
+        return out;
+    }
+    // 退避分(1児童・1ストア)の項目数
+    function srPieceCount(store, piece) {
+        var k = store.kind;
+        if (k === 'array-field' || k === 'seat-value') return Array.isArray(piece) ? piece.length : 0;
+        if (k === 'object-key' || k === 'nested-checks') return 1;
+        return srIsPlainObject(piece) ? Object.keys(piece).length : 0; // date-object-key / subject-object-key / derived-history
+    }
+
+    // 不変条件の検証。違反の一覧 [{invariant, key, detail}] を返す(空なら全部OK)。
+    //   before: {キー: 生JSON|null} / result: {newRaw:{キー:生JSON}, archive:{id:{キー:退避分}}} / ctx: {remap, oldStudents, newStudents}
+    //   I1 件数の保存則(付け替え後＋退避分 = 付け替え前)  I2 全添字が新名簿の範囲内  I3 重複の増加なし
+    //   I4 登録表以外のキーを変更していない            I5 対応表とstudentIdの整合(一意・削除IDは新名簿に居ない)
+    //   I6 転入生の添字にデータが付いていない            I7 退避IDは削除された児童か孤立データのみ
+    function verifyRemapInvariants(before, result, ctx) {
+        var v = [];
+        var add = function(inv, key, detail) { v.push({ invariant: inv, key: key || '', detail: detail === undefined ? '' : String(detail) }); };
+        var remap = ctx.remap, oldS = ctx.oldStudents, newS = ctx.newStudents;
+        // 対応表そのものが不正(ID重複・不明なIDなど)なら、他の検証はせず I5 違反として返す
+        if (!remap || !remap.ok) { add('I5', '', 'remap invalid: ' + (remap && remap.error)); return v; }
+        var registered = {};
+        STUDENT_KEYED_STORES.forEach(function(st) { registered[st.key] = st; });
+        // I5
+        var newIds = {};
+        newS.forEach(function(s) { if (hasStudentId(s)) { if (newIds[s.studentId]) add('I5', '', 'duplicate id ' + s.studentId); newIds[s.studentId] = true; } });
+        Object.keys(remap.map).forEach(function(i) {
+            var o = oldS[i], n = newS[remap.map[i]];
+            if (!o || !n || o.studentId !== n.studentId) add('I5', '', 'map mismatch old ' + i);
+        });
+        remap.deleted.forEach(function(d) { if (newIds[d.studentId]) add('I5', '', 'deleted id still in new roster ' + d.studentId); });
+        // I4
+        Object.keys(result.newRaw || {}).forEach(function(k) { if (!registered[k]) add('I4', k, 'unregistered key written'); });
+        // I7
+        var deletedSet = {};
+        remap.deleted.forEach(function(d) { deletedSet[d.studentId] = true; });
+        Object.keys(result.archive || {}).forEach(function(id) {
+            if (!deletedSet[id] && id.indexOf('__orphan__:') !== 0) add('I7', '', 'archive id not deleted/orphan: ' + id);
+        });
+        var addedSet = {};
+        remap.added.forEach(function(i) { addedSet[i] = true; });
+        STUDENT_KEYED_STORES.forEach(function(store) {
+            var rawB = before[store.key];
+            if (rawB === undefined || rawB === null || rawB === '') return;
+            var dataB, dataA;
+            try {
+                dataB = JSON.parse(rawB);
+                var rawA = (result.newRaw && result.newRaw[store.key] !== undefined) ? result.newRaw[store.key] : rawB;
+                dataA = JSON.parse(rawA);
+            } catch (e) { add('I1', store.key, 'parse failed: ' + e.message); return; }
+            var eb = srEntries(store, dataB), ea = srEntries(store, dataA);
+            // I1
+            var archived = 0;
+            Object.keys(result.archive || {}).forEach(function(id) {
+                var piece = result.archive[id][store.key];
+                if (piece !== undefined) archived += srPieceCount(store, piece);
+            });
+            if (ea.length + archived !== eb.length) add('I1', store.key, 'before ' + eb.length + ' != after ' + ea.length + ' + archived ' + archived);
+            // I2 / I6
+            ea.forEach(function(e) {
+                if (e.idx >= remap.newLen) add('I2', store.key, 'index ' + e.idx + ' out of range (' + remap.newLen + ')');
+                if (addedSet[e.idx]) add('I6', store.key, 'data at added student index ' + e.idx);
+            });
+            // I3
+            if (store.dup) {
+                var dupCount = function(list) {
+                    var seen = {}, dups = 0;
+                    list.forEach(function(e) {
+                        var key = e.idx + '|' + store.dup.map(function(f) { return String(e.rec[f]); }).join('|');
+                        if (seen[key]) dups++; else seen[key] = true;
+                    });
+                    return dups;
+                };
+                if (dupCount(ea) > dupCount(eb)) add('I3', store.key, 'duplicates increased');
+            }
+        });
+        return v;
+    }
+
+    // 付け替え計画(書き込みなし): rawMap={キー: 生JSON|null} と 旧・新の名簿から、新しい生JSON・退避分・違反を作る。
+    //   ok:false のとき(対応表のエラー・形の不一致・不変条件の違反)は何も適用してはならない。
+    //   noop:true のとき(名簿が何も変わらない)は書き込み不要。
+    function planRosterChange(rawMap, oldStudents, newStudents) {
+        var remap = computeRosterRemap(oldStudents, newStudents);
+        if (!remap.ok) return { ok: false, error: remap.error, detail: remap.detail, violations: [] };
+        if (remap.identity) return { ok: true, noop: true, remap: remap, newRaw: {}, archive: {}, archiveEntries: [], violations: [] };
+        var newRaw = {}, archive = {};
+        for (var i = 0; i < STUDENT_KEYED_STORES.length; i++) {
+            var store = STUDENT_KEYED_STORES[i];
+            var raw = rawMap[store.key];
+            if (raw === undefined || raw === null || raw === '') continue;
+            var r;
+            try { r = srRemapStore(store, raw, remap); }
+            catch (e) { return { ok: false, error: 'store-invalid', key: store.key, detail: e.message, violations: [] }; }
+            // 意味が変わらないストアは書き込み対象にしない(再整形だけの差でバイト列を変えない)
+            if (r.raw !== JSON.stringify(JSON.parse(raw))) newRaw[store.key] = r.raw;
+            Object.keys(r.archived).forEach(function(id) { (archive[id] = archive[id] || {})[store.key] = r.archived[id]; });
+        }
+        var violations = verifyRemapInvariants(rawMap, { newRaw: newRaw, archive: archive }, { remap: remap, oldStudents: oldStudents, newStudents: newStudents });
+        var archiveEntries = [];
+        remap.deleted.forEach(function(d) {
+            archiveEntries.push({ studentId: d.studentId, sourceIndex: d.oldIdx, student: srClone(oldStudents[d.oldIdx]), data: archive[d.studentId] || {} });
+        });
+        Object.keys(archive).forEach(function(id) {
+            if (id.indexOf('__orphan__:') === 0) archiveEntries.push({ orphanIndex: parseInt(id.slice(11), 10), data: archive[id] });
+        });
+        return { ok: violations.length === 0, noop: false, remap: remap, newRaw: newRaw, archive: archive, archiveEntries: archiveEntries, violations: violations };
+    }
+    // 登録表の全ストアの生JSONを読む(読み取り専用。書き込みはしない)
+    function collectStudentKeyedRaws() {
+        var m = {};
+        STUDENT_KEYED_STORES.forEach(function(st) { m[st.key] = StorageManager.getRaw(st.key); });
+        return m;
+    }
+    window.StudentRemap = {
+        STORES: STUDENT_KEYED_STORES, NOT_KEYED: NOT_STUDENT_KEYED,
+        computeRosterRemap: computeRosterRemap, planRosterChange: planRosterChange,
+        verifyRemapInvariants: verifyRemapInvariants, collectStudentKeyedRaws: collectStudentKeyedRaws
+    };
+
     function updateSettingsUI() {
         var ci = master.classInfo || {};
         document.getElementById('setYear').value = ci.year || '';

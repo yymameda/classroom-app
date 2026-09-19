@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計437件）
+## 常時グリーンのテスト（合計616件）
 
 | ファイル | 件数 |
 |---|---|
@@ -46,7 +46,11 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `category-edit-inputmode.test.js` | 9 |
 | `audit-inputmode-conflict.test.js` | 12 |
 | `student-id-migration.test.js` | 37 |
-| **合計** | **437** |
+| `student-remap.test.js` | 53 |
+| `roster-shift.test.js` | 126 |
+| **合計** | **616** |
+
+`roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 実装までSKIP。`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
 
 `data-reflection.test.js`（v1.50.0〜）は `ONLY=H1,H2,H3,M1,M6` で項目別に実行できる。
 

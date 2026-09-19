@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計400件）
+## 常時グリーンのテスト（合計437件）
 
 | ファイル | 件数 |
 |---|---|
@@ -45,7 +45,8 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `roster-preserve.test.js` | 11 |
 | `category-edit-inputmode.test.js` | 9 |
 | `audit-inputmode-conflict.test.js` | 12 |
-| **合計** | **400** |
+| `student-id-migration.test.js` | 37 |
+| **合計** | **437** |
 
 `data-reflection.test.js`（v1.50.0〜）は `ONLY=H1,H2,H3,M1,M6` で項目別に実行できる。
 

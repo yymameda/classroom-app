@@ -4978,7 +4978,10 @@
         karte_recs:     'spa_karte_recs',
         morning_prep:   'spa_morning_prep',
         kanji:          'spa_kanji',
-        backup_meta:    'spa_backup_meta'
+        backup_meta:    'spa_backup_meta',
+        // v1.51.0 (H4 段階1): 児童ID付与の前に退避する spa_master の生JSON(1世代)。氏名を含むため、
+        // 端末データ消去(退勤モード)とバックアップの対象にするため KEYS に登録する。
+        migration_backup_studentId: 'spa_migration_backup_studentId'
     };
 
     // マスターデータ
@@ -5259,6 +5262,7 @@
         cleanupSubmissionMissingV1863();
         migrateSubmissionIdTypesV1893(); // v1.8.93: 提出物ID型正規化
         loadMaster();
+        migrateStudentIdsV1(); // v1.51.0 (H4 段階1): 児童IDを持たない児童にだけIDを付与(冪等・失敗時は元に戻す)
         updateSettingsUI();
         updateDashboard();
         setTimeout(updateStorageDisplay, 300);
@@ -5412,6 +5416,104 @@
         StorageManager.setImmediate(KEYS.master, JSON.stringify(master));
     }
 
+    // ================================================================
+    // 児童ID(studentId) — H4 案B 段階1
+    // ================================================================
+    // 児童ごとに不変のID('stu_'+8桁)を持たせる。段階1ではIDを付与して保持するだけで、記録の紐付け
+    // (添字キー)や画面の動作は一切変えない。名簿の並べ替え・削除への対応(添字の一括付け替え)は段階2以降。
+    // フィールド名は studentId。pf.html は s.id を新体力テストの児童キーに使うため、students[].id は増やさない。
+    // 注意(段階1の制約): 名簿保存時のIDは添字位置に付いて残る(H6の属性保持と同じ)。並べ替え・途中削除でIDが
+    // 人に付いて動くのは段階3(IDでの突き合わせ)から。
+    function hasStudentId(s) { return !!s && typeof s === 'object' && typeof s.studentId === 'string' && s.studentId !== ''; }
+    function generateStudentId(used) {
+        var id, tries = 0;
+        do {
+            var r = '';
+            if (window.crypto && window.crypto.getRandomValues) {
+                var a = new Uint8Array(8);
+                window.crypto.getRandomValues(a);
+                for (var i = 0; i < 8; i++) r += (a[i] % 36).toString(36);
+            } else {
+                for (var j = 0; j < 8; j++) r += Math.floor(Math.random() * 36).toString(36);
+            }
+            id = 'stu_' + r;
+            tries++;
+        } while (used[id] && tries < 100);
+        used[id] = true;
+        return id;
+    }
+    // students(配列)のうち studentId を持たない児童にだけIDを付与する(メモリ上のみ。冪等)。付与した人数を返す。
+    function assignMissingStudentIds(students) {
+        if (!Array.isArray(students)) return 0;
+        var used = {};
+        students.forEach(function(s) { if (hasStudentId(s)) used[s.studentId] = true; });
+        var n = 0;
+        students.forEach(function(s) {
+            if (s && typeof s === 'object' && !hasStudentId(s)) { s.studentId = generateStudentId(used); n++; }
+        });
+        return n;
+    }
+    // 起動時移行: ID を持たない児童にだけIDを付与して永続化する。
+    //   1) spa_master の生JSONを退避(1世代) → 2) 永続化済みの生JSONから複製してIDを付与 → 3) 書き込み →
+    //   4) 読み戻して検証(人数・各児童のID有無と一意性・ID以外の全項目が付与前と同一)
+    //   失敗(退避・書き込みの例外、検証の不一致)したら退避から書き戻し、ID なしの従来動作のまま続行する。
+    //   全員が付与済みなら何も書かない(退避も移行フラグも作らない)ので、再起動のたびに振り直さない。
+    function migrateStudentIdsV1() {
+        if (masterLoadFailed) return { ok: false, assigned: 0, reason: 'master-load-failed' };
+        var students = master && master.students;
+        if (!Array.isArray(students) || !students.some(function(s) { return s && typeof s === 'object' && !hasStudentId(s); })) {
+            return { ok: true, assigned: 0 };
+        }
+        var rawBefore = StorageManager.getRaw(KEYS.master);
+        if (typeof rawBefore !== 'string' || rawBefore === '') return { ok: true, assigned: 0, reason: 'not-persisted' };
+        try {
+            var orig = JSON.parse(rawBefore);
+            // 1) 退避(書き込み後に読み戻して一致を確認)
+            StorageManager.setImmediate(KEYS.migration_backup_studentId, rawBefore);
+            if (StorageManager.getRaw(KEYS.migration_backup_studentId) !== rawBefore) throw new Error('backup verify failed');
+            // 2) 付与(永続化済みの内容の複製に対して行う)
+            var next = JSON.parse(rawBefore);
+            var assigned = assignMissingStudentIds(next.students);
+            // 3) 書き込み(lastSync など既存の値は更新しない)
+            StorageManager.setImmediate(KEYS.master, JSON.stringify(next));
+            // 4) 検証
+            var chk = JSON.parse(StorageManager.getRaw(KEYS.master));
+            if (!Array.isArray(chk.students) || chk.students.length !== orig.students.length) throw new Error('verify: students length');
+            var seen = {};
+            chk.students.forEach(function(s, i) {
+                var o = orig.students[i];
+                if (o && typeof o === 'object') {
+                    if (!hasStudentId(s) || seen[s.studentId]) throw new Error('verify: studentId invalid/duplicate at ' + i);
+                    seen[s.studentId] = true;
+                    if (hasStudentId(o) && o.studentId !== s.studentId) throw new Error('verify: existing studentId changed at ' + i);
+                    var a = Object.assign({}, s), b = Object.assign({}, o);
+                    delete a.studentId; delete b.studentId;
+                    if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error('verify: student fields changed at ' + i);
+                } else if (JSON.stringify(s) !== JSON.stringify(o)) {
+                    throw new Error('verify: non-object student changed at ' + i);
+                }
+            });
+            var restA = Object.assign({}, chk), restB = Object.assign({}, orig);
+            delete restA.students; delete restB.students;
+            if (JSON.stringify(restA) !== JSON.stringify(restB)) throw new Error('verify: master fields changed');
+            master = chk;
+            StorageManager.setImmediate('migration_studentId_v1', JSON.stringify({ at: new Date().toISOString(), assigned: assigned }));
+            return { ok: true, assigned: assigned };
+        } catch (e) {
+            console.error('migrateStudentIdsV1 failed, rolling back:', e);
+            try { StorageManager.setImmediate(KEYS.master, rawBefore); } catch (e2) { console.error('migrateStudentIdsV1 rollback write failed:', e2); }
+            try {
+                master = JSON.parse(rawBefore);
+                if (!master.classInfo) master.classInfo = {};
+                if (!Array.isArray(master.students)) master.students = [];
+            } catch (e3) { console.error('migrateStudentIdsV1 rollback reload failed:', e3); }
+            try { showToast('⚠️ 児童IDの付与に失敗したため元に戻しました（名簿・記録は変更されていません）', 'warning'); } catch (e4) {}
+            return { ok: false, assigned: 0, reason: String(e && e.message || e) };
+        }
+    }
+    window.migrateStudentIdsV1 = migrateStudentIdsV1;
+    window.assignMissingStudentIds = assignMissingStudentIds;
+
     function updateSettingsUI() {
         var ci = master.classInfo || {};
         document.getElementById('setYear').value = ci.year || '';
@@ -5489,6 +5591,7 @@
             }
         }
         master.students = newStudents;
+        assignMissingStudentIds(master.students); // v1.51.0: 転入生など、IDの無い児童にだけIDを付与(既存のIDは保持)
         saveMaster();
         updateRosterPreview();
         renderPhysicalTable();
@@ -19449,6 +19552,8 @@
             allKeys.forEach(function(k) {
                 if (k.indexOf('igrated') >= 0 || k.indexOf('migration') >= 0) {
                     var val = StorageManager.getRaw ? StorageManager.getRaw(k) : localStorage.getItem(k);
+                    // v1.51.0: 児童ID付与前の名簿の退避コピーは氏名を含むため、診断出力(コピーして共有される)には内容を出さない
+                    if (k === KEYS.migration_backup_studentId && typeof val === 'string') val = '（退避コピー ' + val.length + '文字。氏名を含むため内容は表示しません）';
                     flags[k] = val;
                 }
             });

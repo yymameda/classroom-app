@@ -61,7 +61,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         }, roster || null);
         await page.reload({ waitUntil: 'networkidle0' });
         await sleep(300);
-        return page.evaluate(() => JSON.parse(StorageManager.getRaw(KEYS.master)).students);
+        // v1.51.0: 児童ID(studentId)は起動時に自動付与される。属性の保持を比較する対象は studentId 以外の全項目。
+        return page.evaluate(() => JSON.parse(StorageManager.getRaw(KEYS.master)).students.map(s => { const c = Object.assign({}, s); delete c.studentId; return c; }));
     }
 
     try {

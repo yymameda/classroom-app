@@ -513,24 +513,56 @@ async function setMockDate(page, ts) {
         check('状態遷移: 満点を15→20に変更すると、開いたままの採点画面のmax属性が更新される', afterMaxEdit.max === '20', JSON.stringify(afterMaxEdit));
         check('状態遷移: 満点変更後、割合が新しい満点で再計算される(13/20→65%、古い15基準の87%が残らない)', afterMaxEdit.pct === '／20(65%)', JSON.stringify(afterMaxEdit));
 
-        // --- category変更: 得点欄→ABCボタンに切り替わること ---
+        // --- category変更(得点入力済みの課題): 観点を変えても入力形式は数値のまま(入力形式ロック。v1.49.0・H7)。割合も正しいまま ---
+        // (旧: 「主体性に変えると得点欄が消えてABCボタンになる」を期待していたが、得点入力済みの課題は入力形式を変えない仕様(recInputModeLocked)。
+        //  旧データ(入力形式の印なし)は、保存すると観点に追随して5段階に化け、戻すと満点0になっていた不具合を v1.54.1 で修正した。
+        //  観点セレクトは実UIと同じく change を発火して操作する)
+        const setCategory = (cat, max) => page.evaluate((cat, max) => {
+            const el = document.getElementById('recTestCategory'); el.value = cat; el.dispatchEvent(new Event('change', { bubbles: true }));
+            if (max) { const mx = document.getElementById('recTestMaxScore'); mx.value = max; mx.dispatchEvent(new Event('input', { bubbles: true })); }
+        }, cat, max);
         await page.evaluate((testId) => { window.recEditTest(testId); }, ID.pctNormal);
-        await page.evaluate(() => { document.getElementById('recTestCategory').value = '主体性'; });
+        await setCategory('主体性');
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const afterCatToABC = await page.evaluate(() => ({
             hasScInput: !!document.getElementById('rec-sc-8'),
-            abcBtnCount: document.querySelectorAll('#rec-row-8 .rec-abc-btn').length
+            abcBtnCount: document.querySelectorAll('#rec-row-8 .rec-abc-btn').length,
+            pct: document.getElementById('rec-pct-8') ? document.getElementById('rec-pct-8').textContent : null
         }));
-        check('状態遷移: categoryを主体性に変更すると、得点入力欄が消える', afterCatToABC.hasScInput === false, JSON.stringify(afterCatToABC));
-        check('状態遷移: categoryを主体性に変更すると、ABCボタン(5個)に切り替わる', afterCatToABC.abcBtnCount === 5, JSON.stringify(afterCatToABC));
+        check('状態遷移: 得点入力済みの課題は、categoryを主体性に変更しても得点入力欄のまま(入力形式ロック)', afterCatToABC.hasScInput === true, JSON.stringify(afterCatToABC));
+        check('状態遷移: 得点入力済みの課題は、categoryを主体性に変更してもABCボタンに切り替わらず、割合(13/20→65%)も保たれる', afterCatToABC.abcBtnCount === 0 && afterCatToABC.pct === '／20(65%)', JSON.stringify(afterCatToABC));
 
-        // --- 逆方向: 主体性→他のcategoryに戻すと得点欄+正しい割合に戻ること ---
-        await page.evaluate((testId) => { window.recEditTest(testId); }, ID.pctNormal);
+        // --- 得点未入力の課題: categoryを主体性に変更すると、得点欄→ABCボタンに切り替わり、戻すと得点欄+満点に戻る ---
         await page.evaluate(() => {
+            document.getElementById('recTestSubject').value = '国語';
+            document.getElementById('recTestType').value = '小テスト';
+            document.getElementById('recTestName').value = '観点切替確認用';
             document.getElementById('recTestCategory').value = '知識・技能';
-            document.getElementById('recTestMaxScore').value = '15';
+            document.getElementById('recTestMaxScore').value = '10';
+            document.getElementById('recTestDate').value = '2026-06-02';
         });
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const swId = await page.evaluate(() => { var t = StorageManager.get(KEYS.tests, []).find(function(x) { return x.name === '観点切替確認用'; }); return t ? t.id : null; });
+        await page.evaluate((id) => { window.recSelectTestGoto(id); window.recEditTest(id); }, swId);
+        await setCategory('主体性');
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const swABC = await page.evaluate(() => ({ hasScInput: !!document.getElementById('rec-sc-0'), abcBtnCount: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length }));
+        check('状態遷移: 得点未入力の課題は、categoryを主体性に変更すると、得点入力欄が消える', swABC.hasScInput === false, JSON.stringify(swABC));
+        check('状態遷移: 得点未入力の課題は、categoryを主体性に変更すると、ABCボタン(5個)に切り替わる', swABC.abcBtnCount === 5, JSON.stringify(swABC));
+        await page.evaluate((id) => { window.recEditTest(id); }, swId);
+        await setCategory('知識・技能', '10');
+        await page.evaluate(() => { window.recAddTest(); });
+        await new Promise(r => setTimeout(r, 150));
+        const swBack = await page.evaluate(() => ({ hasScInput: !!document.getElementById('rec-sc-0'), max: document.getElementById('rec-sc-0') ? document.getElementById('rec-sc-0').getAttribute('max') : null }));
+        check('状態遷移: 得点未入力の課題は、categoryを知識・技能に戻すと得点入力欄(満点10)に戻る', swBack.hasScInput === true && swBack.max === '10', JSON.stringify(swBack));
+        await page.evaluate((id) => { window.recDeleteTest ? window.recDeleteTest(id) : null; }, swId).catch(() => {});
+
+        // --- 逆方向: 主体性→他のcategoryに戻すと得点欄+正しい割合に戻ること(得点入力済み) ---
+        await page.evaluate((testId) => { window.recSelectTestGoto(testId); window.recEditTest(testId); }, ID.pctNormal);
+        await setCategory('知識・技能', '15');
         await page.evaluate(() => { window.recAddTest(); });
         await new Promise(r => setTimeout(r, 150));
         const afterCatBack = await page.evaluate(() => ({

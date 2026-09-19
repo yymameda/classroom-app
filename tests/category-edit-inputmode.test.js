@@ -74,7 +74,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             const t = StorageManager.get(KEYS.tests, []).find(t => t.id === id);
             return {
                 cat: t.category, max: t.maxScore, mode: t.inputMode, effective: getItemInputMode(t), tabAbc: tabAbc,
-                hasNum: !!document.getElementById('rec-sc-0'), abcBtns: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length
+                hasNum: !!document.getElementById('rec-sc-0'), abcBtns: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length,
+                maxAttr: document.getElementById('rec-sc-0') ? document.getElementById('rec-sc-0').getAttribute('max') : null,
+                pct: document.getElementById('rec-pct-0') ? document.getElementById('rec-pct-0').textContent : null
             };
         }, id, category, max);
     }
@@ -115,6 +117,35 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         await page.evaluate(() => { showView('records'); recShowSub('tests'); });
         r = await editCategory(7, '主体性');
         check('フラグ無しの既存項目 知識・技能→主体性: 5段階(maxScore=0)で保存され、入力画面もABCボタン', r.max === 0 && r.effective === 'abc5' && r.abcBtns === 5, JSON.stringify(r));
+
+        // (5) フラグの無い既存項目(v1.49.0以前のデータ)で、得点(数値)が入力済み: 観点を 主体性 に変えても数値のまま(ロック)。
+        //     戻して満点を直すと、その満点で割合が出る。(修正前: 主体性へ変えると「5段階」に化け、戻すと満点0になり割合が出なかった)
+        await fresh();
+        await page.evaluate(() => {
+            StorageManager.setImmediate(KEYS.tests, JSON.stringify([{ id: 8, subject: '国語', testType: '小テスト', name: '旧データ得点あり', category: '知識・技能', type: 'standard', maxScore: 15, date: '2026-06-01' }]));
+            StorageManager.setImmediate(KEYS.scores, JSON.stringify([{ id: 1, studentIndex: 0, testId: 8, score: 13, createdAt: new Date().toISOString() }]));
+        });
+        await page.reload({ waitUntil: 'networkidle0' });
+        await sleep(300);
+        await page.evaluate(() => { showView('records'); recShowSub('tests'); });
+        r = await editCategory(8, '主体性');
+        check('旧データ(印なし)・得点入力済みで 知識・技能→主体性: 数値のまま(入力形式は score)・満点15を保持し、入力画面も得点欄', r.cat === '主体性' && r.max === 15 && r.effective === 'score' && r.hasNum === true && r.abcBtns === 0, JSON.stringify(r));
+        check('  → 入力済みの得点(13)は数値のままで、割合が表示される(13/15→87%)', r.pct === '／15(87%)', JSON.stringify(r));
+        r = await editCategory(8, '知識・技能', '20');
+        check('旧データ(印なし)・得点入力済みで 主体性→知識・技能(満点を20に直す): 満点20で保存され、割合が出る(13/20→65%)', r.cat === '知識・技能' && r.max === 20 && r.effective === 'score' && r.pct === '／20(65%)', JSON.stringify(r));
+        check('  → 入力欄の max 属性が満点(20)で、0にならない', r.maxAttr === '20', JSON.stringify(r));
+
+        // (6) 逆向き: フラグの無い既存の 主体性(5段階)項目に、ABC(文字)の記録が入力済み: 観点を 知識・技能 に変えても5段階のまま
+        await fresh();
+        await page.evaluate(() => {
+            StorageManager.setImmediate(KEYS.tests, JSON.stringify([{ id: 9, subject: '国語', testType: '小テスト', name: '旧データABC', category: '主体性', type: 'standard', maxScore: 0, date: '2026-06-01' }]));
+            StorageManager.setImmediate(KEYS.scores, JSON.stringify([{ id: 1, studentIndex: 0, testId: 9, score: 'A', createdAt: new Date().toISOString() }]));
+        });
+        await page.reload({ waitUntil: 'networkidle0' });
+        await sleep(300);
+        await page.evaluate(() => { showView('records'); recShowSub('tests'); });
+        r = await editCategory(9, '知識・技能', '50');
+        check('旧データ(印なし)・ABC入力済みで 主体性→知識・技能: 5段階のまま(maxScore=0)で、入力画面もABCボタン(文字の記録と矛盾しない)', r.cat === '知識・技能' && r.max === 0 && r.effective === 'abc5' && r.abcBtns === 5 && r.hasNum === false, JSON.stringify(r));
     } catch (e) {
         check('テスト実行中に例外なし', false, e && e.stack || String(e));
     } finally {

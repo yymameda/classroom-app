@@ -12638,7 +12638,13 @@
                 } else {
                     var _origForInputMode = tests.find(function(t) { return t.id === recEditingTestId; });
                     var _formMode = isABC ? 'abc5' : 'score';
-                    if (_origForInputMode && getItemInputMode(_origForInputMode) !== _formMode) {
+                    if (_origForInputMode && recInputModeLocked()) {
+                        // v1.54.1: 得点入力済み(ロック中)の項目は、入力形式が既存データで決まっている。フラグの無い既存項目
+                        // (v1.49.0以前に作成)のまま観点・種別だけ変えて保存すると、フラグ無しの判定(isABCTest)が観点に追随して
+                        // 入力形式を切り替えてしまい、数値データが5段階に化ける／戻すと満点0になり割合が出なくなっていた
+                        // (5ac43ca 以降。H7 の修正はフラグ付きの項目だけが対象だった)。現在の入力形式を明示フラグとして固定する。
+                        test.inputMode = getItemInputMode(_origForInputMode);
+                    } else if (_origForInputMode && getItemInputMode(_origForInputMode) !== _formMode) {
                         // v1.50.1: 観点・種別の変更で自動既定値が入力形式を切り替えた場合は、その結果を明示フラグとして
                         // 記録する。元のフラグをそのまま引き継ぐと {category:'主体性', maxScore:0, inputMode:'score'} の
                         // ような矛盾したデータになり、入力画面が満点0の数値欄になっていた。

@@ -26,7 +26,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
    node v1.8.49.test.js
    ```
 
-## 常時グリーンのテスト（合計1188件）
+## 常時グリーンのテスト（合計1250件）
 
 | ファイル | 件数 |
 |---|---|
@@ -55,11 +55,16 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `pf-diagnosis.test.js` | 37 |
 | `backup-restore.test.js` | 71 |
 | `pf-migration.test.js` | 116 |
-| **合計** | **1188** |
+| `toast-passthrough.test.js` | 8 |
+| `boot-race.test.js` | 8 |
+| `pf-guard.test.js` | 46 |
+| **合計** | **1250** |
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
 
 `pf-diagnosis.test.js`(v1.52.1)は設定の「新体力テストの連携状態」表示を検証する。読み取り専用(localStorage/IndexedDBへの書き込み0回)・氏名を表示しない・一致/不一致の理由・pf_fitness の痕跡・SPAにいない児童の人数を、実際に画面を開いて確認する。
+
+`toast-passthrough.test.js`(v1.53.1)は、通知(トースト)が保存ボタンなどへのタップを受けないことを、保存ボタンの真上に通知を重ねた状態で確認する(全体実行で一度だけ失敗した原因の再現テスト)。`boot-race.test.js` は IndexedDB の準備を遅らせた起動で、準備前に書き直されたキーが消されないことを確認する。`pf-guard.test.js` は新方式の端末で pf.html を開いても何も書き込まないこと(案内だけ表示)を確認する。
 
 `pf-migration.test.js`(v1.53.0)は新体力テストの児童ID化を検証する。起動時の移行(全キー比較・失敗注入)・新方式の名簿変更6操作・取り込み・pf画面の実操作・旧方式のバックアップの復元後の再移行。`PFM_ONLY=2,4 node pf-migration.test.js` のように章を指定して実行できる(変異テスト用)。`roster-pf.test.js` は旧方式(v1)の動作の検証のため、テスト専用フック `window.__spaSkipPfMigration` で起動時の移行を無効にしている。
 

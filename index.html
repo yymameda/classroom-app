@@ -4804,13 +4804,25 @@
                         // v1.51.2 (H8): pf_* は pf(内蔵版・pf.html)が localStorage へ直接書くだけで、IndexedDB へ単独で書くことは無い。
                         // localStorage に無い pf_* の鏡は「pf側で削除された」残りなので、復活させず鏡からも消す。
                         // pf 以外のキーは、容量超過で localStorage へ書けなかった新しい値の可能性があるため触らない。
-                        var ghosts = [];
+                        // v1.51.3 (H8): 実機に既に残っている鏡の一回限りの掃除。localStorage に無い「アプリが所有するキー」
+                        // (KEYS・pf_*・旧バックアップ)を鏡から削除する。所有しないキー(同じオリジンの別アプリ等)は決して触らない。
+                        // 実行条件(idbGhostPurgeDue): 未実行 かつ (localStorage に所有キーが1つ以上ある=localStorage が生きている
+                        // または 直前が退勤モード消去)。localStorage が空で退勤モードの印も無い場合は、localStorage だけが消えて
+                        // 鏡が唯一の写しになっている可能性があるため掃除しない。
+                        var purgeDue = false;
+                        try { purgeDue = idbGhostPurgeDue(); } catch (e) {}
+                        var ghosts = [], purgedOwned = 0;
                         items.forEach(function(item) {
                             var lsHas = true;
                             try { lsHas = localStorage.getItem(item.key) !== null; } catch (e) {}
-                            if (/^pf_/.test(item.key) && !lsHas) { ghosts.push(item.key); return; }
+                            if (!lsHas && /^pf_/.test(item.key)) { ghosts.push(item.key); return; }
+                            if (!lsHas && purgeDue && isClassroomOwnedKey(item.key)) { ghosts.push(item.key); purgedOwned++; return; }
                             self._cache[item.key] = item.value;
                         });
+                        if (purgeDue) {
+                            try { localStorage.setItem('migration_idbGhostPurge_v1', JSON.stringify({ at: new Date().toISOString(), removed: purgedOwned })); } catch (e) {}
+                            if (purgedOwned) console.log('[IDB] one-time cleanup removed stale mirror keys:', purgedOwned);
+                        }
                         if (ghosts.length) {
                             try {
                                 var gtx = self._idb.transaction(_IDB_STORE, 'readwrite');
@@ -5291,6 +5303,7 @@
         // --- 起動時: データが空なら復元案内を表示 ---
         var wasWiped = false;
         try { wasWiped = localStorage.getItem('spa_wiped') === '1'; } catch(e) {}
+        window.__spaWasWiped = wasWiped; // 鏡の一回限りの掃除(idbGhostPurgeDue)が参照する
         if (wasWiped || (!master.students || master.students.length === 0)) {
             var guideOverlay = document.getElementById('restoreGuideOverlay');
             if (guideOverlay && wasWiped) {
@@ -7338,6 +7351,21 @@
     // (同じオリジンの別アプリのキー(doc-index-v1・task系など)は含めない)
     function isPersonalExtraKey(k) {
         return /^(pf_|scoreDataBackup_|spa_kanji_backup_|spa_submissions_removed_)/.test(k);
+    }
+    // v1.51.3 (H8): このアプリが所有するキー(KEYS の全キー + pf・旧バックアップ)。別アプリのキーは含まない。
+    function isClassroomOwnedKey(k) {
+        if (isPersonalExtraKey(k)) return true;
+        for (var name in KEYS) { if (KEYS[name] === k) return true; }
+        return false;
+    }
+    // 鏡の一回限りの掃除を今回の起動で行うか(loadCache から呼ばれる)
+    function idbGhostPurgeDue() {
+        try { if (localStorage.getItem('migration_idbGhostPurge_v1') !== null) return false; } catch (e) { return false; }
+        if (window.__spaWasWiped === true) return true;
+        try {
+            for (var i = 0; i < localStorage.length; i++) { if (isClassroomOwnedKey(localStorage.key(i))) return true; }
+        } catch (e) { return false; }
+        return false;
     }
     function wipeLocalData() {
         try {

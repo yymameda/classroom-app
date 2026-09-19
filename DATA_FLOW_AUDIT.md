@@ -394,3 +394,12 @@ spa_student_archive = { version: 1, entries: [
 - **設計上の発見・判断**: (1) 起動時は localStorage が真実（`migrateFromLS` が全キーを IndexedDB へ上書きコピー）。(2) `StorageManager.setImmediate` は容量超過を握りつぶしキャッシュを先に更新する（12章のH8と同じ「鏡」の性質）。(3) 強制終了は「以降の書き込み・削除がすべて失敗する」障害注入で再現（永続状態が同じ）。
 - **次**: 2c（pf連携: `pf_roster` が付け替え前の名簿と一致する場合のみ `pf_records_*` を追従）。段階3（名簿編集UIを `applyRosterChange` に接続、`saveMasterRoster` の警告ダイアログを置換、退避の一覧・復元・完全削除UI）。
 
+### 12.1 H8 追補（v1.51.3）: 実機に既に残っている鏡の一回限りの掃除（所有キー全般）
+
+v1.51.2 の起動時掃除は `pf_*` だけだったため、KEYS のキー等が退勤モード消去（IndexedDB 準備前・削除の中断など）で鏡に残っている実機は掃除されなかった。レビューの指示で、**利用者の操作（PWAの削除・再設置など）なしに**、起動時に一回だけ掃除する処理を追加した。
+- **対象**: localStorage に無く IndexedDB にだけある、**アプリが所有するキー**（`KEYS` の全キー・`pf_*`・旧バックアップ類。判定は `isClassroomOwnedKey`）。同じオリジンの別アプリのキー（`doc-index-v1`・task系）や未知のキーは**決して触らない**（テストで確認）。削除は鏡（IndexedDB）とメモリキャッシュから。localStorage は1バイトも書き換えない（完了の印 `migration_idbGhostPurge_v1` を除く）。
+- **一回限り**: 完了の印（`{at, removed}`）が localStorage にあれば実行しない。以後の残存は、削除処理の修正（v1.51.2）と `storageVerifiedRemove` で防ぐ。
+- **安全策（実行条件 `idbGhostPurgeDue`）**: 未実行 かつ（localStorage に所有キーが1つ以上ある＝localStorage が生きている、または直前が退勤モード消去〔`spa_wiped` の印〕）。**localStorage が空で退勤モードの印も無い場合は掃除しない**（localStorage だけが消えて、鏡が唯一の写しになっている可能性を守る。印が付かないので、localStorage にデータが入った次回以降に実行される）。localStorage が読めない場合も実行しない。
+- **方針の変更（記録）**: v1.51.2 では「pf以外のキーは、容量超過で localStorage へ書けなかった新しい値の可能性があるため触らない」としていたが、指示により所有キーは削除対象とした。リスクは、容量超過で localStorage に書けず鏡にだけ入った新しい値を失うこと。ただし起動時の `migrateFromLS` が localStorage の値で鏡を毎回上書きしており、localStorage が真実という設計は既に同じ性質（既存キーの新しい値は既に失われる）のため、許容とした。
+- **テスト**（`idb-residue.test.js` 27件）: 所有キー（KEYS・pf・旧バックアップ）が鏡・キャッシュから消える／所有しないキーは残る／localStorage の既存キーは不変／完了の印／一回限り（完了後は繰り返さない）／localStorage が空＋印なしは掃除しない／退勤モード直後は空でも掃除して氏名が残らない。
+

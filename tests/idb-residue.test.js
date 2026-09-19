@@ -105,14 +105,14 @@ const withName = (obj) => Object.keys(obj).filter(k => String(obj[k]).indexOf(NA
             const r = indexedDB.open('spa_classroom_db');
             r.onsuccess = (e) => { const db = e.target.result; const tx = db.transaction('kv', 'readwrite'); const st = tx.objectStore('kv');
                 st.put({ key: 'pf_roster', value: JSON.stringify([{ id: 1, name: NAME }]) });
-                st.put({ key: 'spa_forgotten_items', value: JSON.stringify(['IDBだけにある品目']) });
+                st.put({ key: 'zz_unowned_key', value: JSON.stringify(['アプリのキーではない']) });
                 tx.oncomplete = () => { db.close(); res(); }; };
         }), NAME);
         await page.reload({ waitUntil: 'networkidle0' }); await sleep(900);
         const idb3 = await idbAll(page);
-        const cache3 = await page.evaluate(() => ({ pf: StorageManager._cache['pf_roster'], other: StorageManager._cache['spa_forgotten_items'] }));
+        const cache3 = await page.evaluate(() => ({ pf: StorageManager._cache['pf_roster'], other: StorageManager._cache['zz_unowned_key'] }));
         check('起動時: localStorage に無い pf キーは鏡(IndexedDB)から削除され、キャッシュにも復活しない', !idb3.some(x => x.key === 'pf_roster') && cache3.pf === undefined, JSON.stringify({ idb: idb3.some(x => x.key === 'pf_roster'), cache: cache3.pf }));
-        check('起動時: pf 以外のキーは、IndexedDB にだけあっても消さない(新しい値を失わないため)', idb3.some(x => x.key === 'spa_forgotten_items') && cache3.other !== undefined, JSON.stringify(cache3.other));
+        check('起動時: アプリが所有しないキー(別アプリ等)は、IndexedDB にだけあっても消さない', idb3.some(x => x.key === 'zz_unowned_key') && cache3.other !== undefined, JSON.stringify(cache3.other));
 
         // ================= 4. 課題・記録の削除は残らない(回帰確認) =================
         console.log('--- 4. 課題・記録の削除 ---');
@@ -130,6 +130,57 @@ const withName = (obj) => Object.keys(obj).filter(k => String(obj[k]).indexOf(NA
         check('課題の削除: IndexedDB(鏡)の課題・記録も空になり、localStorage と一致する', val('spa_tests') === '[]' && val('spa_scores') === '[]' && ls4['spa_tests'] === '[]' && ls4['spa_scores'] === '[]', JSON.stringify([val('spa_tests'), val('spa_scores')]));
         const mismatch = Object.keys(ls4).filter(k => (idb4.find(x => x.key === k) || {}).value !== ls4[k]);
         check('課題の削除後: localStorage の全キーの値が IndexedDB(鏡)と一致する', mismatch.length === 0, JSON.stringify(mismatch));
+
+        // ================= 6. 実機に既に残っている鏡の一回限りの掃除(所有キー全般) =================
+        console.log('--- 6. 既存の残りの一回限りの掃除(localStorage に無い所有キーを IndexedDB から削除) ---');
+        const putIdb = (items) => page.evaluate((items) => new Promise((res) => {
+            const r = indexedDB.open('spa_classroom_db');
+            r.onsuccess = (e) => { const db = e.target.result; const tx = db.transaction('kv', 'readwrite'); const st = tx.objectStore('kv'); items.forEach(it => st.put(it)); tx.oncomplete = () => { db.close(); res(); }; };
+        }), items);
+        const resetAll = () => page.evaluate(() => { StorageManager.getAllKeys().slice().forEach(k => StorageManager.remove(k)); localStorage.clear(); });
+        const boot = async () => { await page.reload({ waitUntil: 'networkidle0' }); await sleep(900); };
+        const ghostItems = [
+            { key: 'spa_karte_life', value: JSON.stringify({ '0': [{ summary: NAME + 'の生活記録' }] }) },
+            { key: 'spa_scores', value: JSON.stringify([{ studentIndex: 0, testId: 1, score: 50 }]) },
+            { key: 'spa_forgotten_items', value: JSON.stringify(['IDBだけの品目']) },
+            { key: 'pf_records_2025', value: JSON.stringify({ 1: { 握力: 20 } }) },
+            { key: 'scoreDataBackup_1700000001', value: '[]' },
+            { key: 'doc-index-v1', value: 'other-app-idb-only' },       // 別アプリ(所有しない)
+            { key: 'taskOtherApp', value: 'other-app-task' },
+            { key: 'zz_unowned_key', value: 'x' }
+        ];
+        // 6a: localStorage が生きている(所有キーがある)状態で、鏡にだけ残った所有キーを1回だけ掃除する
+        await resetAll();
+        await page.evaluate((NAME) => { StorageManager.setImmediate(KEYS.master, JSON.stringify({ version: 2, students: [{ name: NAME }], classInfo: { year: 2026 } })); StorageManager.setImmediate(KEYS.tests, '[]'); }, NAME);
+        await boot();                                   // 鏡ができる(この起動で一回限りの印が付くため、更新前の端末を再現するために印を消す)
+        await page.evaluate(() => { localStorage.removeItem('migration_idbGhostPurge_v1'); });
+        const lsBefore = await lsAll(page);
+        await putIdb(ghostItems);
+        await boot();
+        const idb6 = await idbAll(page), cache6 = await page.evaluate(() => Object.keys(StorageManager._cache)), ls6 = await lsAll(page);
+        const owned6 = ['spa_karte_life', 'spa_scores', 'spa_forgotten_items', 'pf_records_2025', 'scoreDataBackup_1700000001'];
+        check('一回限りの掃除: localStorage に無い所有キー(KEYS・pf・旧バックアップ)が IndexedDB(鏡)から消える', owned6.every(k => !idb6.some(x => x.key === k)), JSON.stringify(idb6.filter(x => owned6.indexOf(x.key) !== -1).map(x => x.key)));
+        check('一回限りの掃除: キャッシュにも復活しない(氏名を含む生活記録が見えない)', owned6.every(k => cache6.indexOf(k) === -1), JSON.stringify(cache6.filter(k => owned6.indexOf(k) !== -1)));
+        check('一回限りの掃除: アプリが所有しないキー(別アプリ・task系・未知のキー)は IndexedDB にもキャッシュにも残す', ['doc-index-v1', 'taskOtherApp', 'zz_unowned_key'].every(k => idb6.some(x => x.key === k) && cache6.indexOf(k) !== -1), '');
+        check('一回限りの掃除: localStorage の既存キーは1つも書き換えない(氏名を含む名簿・課題はそのまま)', ['spa_master', 'spa_tests'].every(k => ls6[k] === lsBefore[k]), '');
+        check('一回限りの掃除: 完了の印(migration_idbGhostPurge_v1)が localStorage に残る', !!ls6['migration_idbGhostPurge_v1'] && JSON.parse(ls6['migration_idbGhostPurge_v1']).removed >= 4, ls6['migration_idbGhostPurge_v1']);
+        // 6b: 一回限り: 完了後に新しく鏡だけに現れたキーは、この処理では消さない(以後の残存は削除処理の修正で防ぐ)
+        await putIdb([{ key: 'spa_karte_health', value: JSON.stringify({ '0': { familyMemo: NAME } }) }]);
+        await boot();
+        const idb6b = await idbAll(page);
+        check('一回限り: 完了の印がある起動では、掃除を繰り返さない(以後は削除処理の修正で残存を防ぐ)', idb6b.some(x => x.key === 'spa_karte_health'), '');
+        // 6c: localStorage が空(所有キーが1つも無い)で退勤モードの印も無い場合は、掃除しない(localStorage だけが消えた場合の唯一の写しを守る)
+        await resetAll();
+        await putIdb([{ key: 'spa_master', value: JSON.stringify({ version: 2, students: [{ name: NAME }], classInfo: {} }) }]);
+        await boot();
+        const idb6c = await idbAll(page), ls6c = await lsAll(page), cache6c = await page.evaluate(() => StorageManager._cache['spa_master']);
+        check('localStorage が空で退勤モードの印も無い場合は掃除しない(IndexedDB が唯一の写しかもしれない)', idb6c.some(x => x.key === 'spa_master') && cache6c !== undefined && !ls6c['migration_idbGhostPurge_v1'], JSON.stringify(Object.keys(ls6c)));
+        // 6d: 直前が退勤モード消去(印あり)なら、localStorage が空でも掃除する(消したはずの氏名が鏡に残っている)
+        await page.evaluate(() => { localStorage.setItem('spa_wiped', '1'); });
+        await boot();
+        const idb6d = await idbAll(page), cache6d = await page.evaluate(() => StorageManager._cache['spa_master']);
+        check('退勤モード消去の直後(印あり)なら、localStorage が空でも鏡の残りを掃除する(氏名が残らない)', !idb6d.some(x => x.key === 'spa_master') && cache6d === undefined && !idb6d.some(x => String(x.value).indexOf(NAME) !== -1), JSON.stringify(idb6d.map(x => x.key)));
+        await resetAll();
     } catch (e) {
         check('テスト実行中に例外なし(内蔵版)', false, e && e.stack || String(e));
     }

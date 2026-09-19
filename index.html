@@ -5447,11 +5447,16 @@
         };
         // 名簿をパース
         var lines = document.getElementById('masterRoster').value.trim().split('\n').filter(function(l) { return l.trim(); });
-        var newStudents = lines.map(function(line) {
+        // v1.50.1 (H6): 既存の児童オブジェクトの全項目(視力・身長など)を保持したまま name・gender だけを更新する。
+        // 従来は {name, gender} で作り直していたため、名簿を変えずに保存しても身体タブの入力が消えていた。
+        // 引き継ぎは添字位置のまま(並べ替え・途中削除への対応は児童ID導入=H4で行う)。
+        var _prevStudents = master.students || [];
+        var newStudents = lines.map(function(line, i) {
             var parts = line.trim().split(',');
             var name = parts[0].trim();
             var gender = (parts[1] || '').trim();
-            return { name: name, gender: gender || '' };
+            var prev = _prevStudents[i];
+            return Object.assign({}, (prev && typeof prev === 'object') ? prev : null, { name: name, gender: gender || '' });
         });
         // v1.8.88: 名簿ズレ防止ガード。成績・出欠等は「名簿の並び順(番号)」に紐づくため、
         // 途中の削除・挿入・並べ替えを検出したら警告する。末尾追加と男女修正・同位置の改名は安全。

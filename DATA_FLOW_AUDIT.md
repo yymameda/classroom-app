@@ -379,3 +379,18 @@ spa_student_archive = { version: 1, entries: [
 4. 起動時（`loadCache`）: **localStorage に無い `pf_*` の鏡は、過去の pf 削除の残りとして、キャッシュに入れず鏡からも削除**（実機に既にある残りの掃除）。**`pf_*` 以外は消さない**: 容量超過で localStorage へ書けず IndexedDB にだけある新しい値の可能性があるため（`safeSetItem` は localStorage 失敗時も IndexedDB へ書く）。
 - 未対応・注意: `migrateFromLS` 自体は削除を反映しない設計のまま（一般のキー削除は `StorageManager.remove` 経由なら鏡からも消える。localStorage を直接消すコードを新たに書かないこと）。段階2bの `storageVerifiedRemove` は鏡（IndexedDB・キャッシュ）も消し、IndexedDB 準備前は保留リストで準備後に消す。
 
+## 13. H4 案B 段階2b 実施記録（v1.51.2）— 検証付き書き込み・トランザクション・退避/復元・取り消し（UI未接続）
+
+- **実装**（`index.html` MASTER モジュール。`window.applyRosterChange` などで公開。**名簿画面(`saveMasterRoster`)には未接続で、既存の名簿保存の挙動は変わらない**）:
+  - `storageVerifiedWrite/Remove`: localStorage へ書いて**直接読み戻し**、失敗（容量超過・内容の破損）は例外にする。キャッシュ・IndexedDB は検証後に反映。`storageIdbFlush`: 再読み込み前に IndexedDB への書き込み・削除の完了を待つ。IndexedDB 準備前に消したキーは保留リストに積み、準備後に鏡から消す。**段階1のID付与の検証もこれに置き換え済み**（容量超過でキャッシュだけ先行しないことをテストで確認）。
+  - `applyRosterChange(newStudents)`: 計画(書き込みゼロ・不変条件)→容量の事前確認→スナップショット(1世代)→ジャーナル(applying)→退避→各ストア→名簿(最後)→永続層から読み直して検証→確定(committed＋全対象キーのハッシュ)。失敗したらスナップショットへ全キーを書き戻して名簿変更ごと中止。同一名簿は書き込みゼロ、改名・属性だけの変更は名簿1キーのみ（失敗したら元へ）。成功後は `flushSaveQueue` → IndexedDB の完了待ち → 再読み込み（`sessionStorage` のフラグで再読み込み後に名簿設定の画面を開く）。
+  - 容量の事前確認: スナップショット＋各キーの増分＋余裕(32KB)が localStorage の空き（既定5MiB相当の保守的な上限）に入らなければ、**書き込みゼロ**で `insufficient-storage`（見積もりを返す）。実際の QuotaExceeded は localStorage を満杯にして再現（Chrome では約520万文字で満杯）し、スナップショットの書き込みで失敗→変更前と同一に戻ることを確認。IndexedDB の空き(`navigator.storage.estimate`)は非同期のため事前確認には含めない（IndexedDB は鏡で、書き込みは検証対象の localStorage）。
+  - 起動時 `recoverRosterTxnOnStartup`（**`DOMContentLoaded` の最初、`loadMaster` や他の移行より前**）: `applying`/`rollback-failed` のジャーナルとスナップショットを検出したら自動ロールバックして「元に戻しました」を通知。`committed` は取り消し用に残す。`rolled-back` は後始末のみ。復旧できない（スナップショットなし・破損・書き戻し失敗）場合は赤いバー（既存のリカバリーバー）で「バックアップから復元」を案内し、`masterLoadFailed` を立てて保存を停止（壊れた状態の上に書かない）。ジャーナルの無いスナップショット（スナップショット直後・ジャーナル前の中断の残り）は全データの写しを端末に残さないよう削除。
+  - 退避 `spa_student_archive`（`KEYS` に登録＝端末データ消去・バックアップの対象）: `studentArchiveSummary`（設定の「退避中の児童 N名」用）、`restoreArchivedStudent`（末尾に同じ `studentId` で戻す。ID重複は `duplicate-id` で拒否、孤立データは `orphan-not-restorable`。席が埋まっていれば席だけ戻さず `skipped` で通知）、`purgeArchivedStudent`（完全削除）。復元も付け替えと同じトランザクション。
+  - 取り消し `undoRosterChange`: 確定後に対象キー(18ストア＋名簿＋退避)が1つでも変わっていれば**取り消さず**、トースト「名簿を変更したあとに入力があったため、取り消せません」を表示（確認ダイアログは使わない）。1世代。
+  - バックアップ: スナップショットとジャーナルは含めない（容量が倍にならない・復元先で古い取り消し点として誤動作しない）。退避は含める。
+- **テスト**（`tests/roster-transaction.test.js` 65件、すべてPASS）: 検証付き書き込み／容量の事前確認と実QuotaExceeded／正常系（書き込み順・ハッシュ・保存待ちのflush・ずれ0・非対象キーの不変）／**書き込みの合間の中断を全23通り再現**（各書き込みの直前で強制終了→再起動で自動復旧→全キーが変更前と1バイトも変わらず、ジャーナル・スナップショット・退避がキャッシュ・鏡にも復活しない）／**容量超過・内容破損を各書き込み(23通り)に注入**→ロールバック／ロールバック自体の失敗・起動時の復旧失敗／起動時ジャーナル検出の全状態／退避・復元・取り消し／バックアップ・端末データ消去・鏡の整合。`tests/roster-shift.test.js` の **B（実適用）のSKIPを外し、6操作×18ストアで実際の `applyRosterChange` 経由でもずれ0**（合計240件PASS）。
+- **変異テスト**（実装を一時的に壊して、テストが失敗することを確認。確認後に元へ戻した）: ロールバックが何も書き戻さない→14件失敗／起動時の自動ロールバックを無効化→10件／検証付き書き込みが読み戻しを検証しない→2件／取り消しが入力を検出しない→2件／容量の事前確認を無効化→2件。**適用後の永続層からの再検証(post-verify)だけは、書き込み時の検証が先に働く冗長な二重チェックのため、除去してもテストでは区別できない**（多重防御として残す）。
+- **設計上の発見・判断**: (1) 起動時は localStorage が真実（`migrateFromLS` が全キーを IndexedDB へ上書きコピー）。(2) `StorageManager.setImmediate` は容量超過を握りつぶしキャッシュを先に更新する（12章のH8と同じ「鏡」の性質）。(3) 強制終了は「以降の書き込み・削除がすべて失敗する」障害注入で再現（永続状態が同じ）。
+- **次**: 2c（pf連携: `pf_roster` が付け替え前の名簿と一致する場合のみ `pf_records_*` を追従）。段階3（名簿編集UIを `applyRosterChange` に接続、`saveMasterRoster` の警告ダイアログを置換、退避の一覧・復元・完全削除UI）。
+

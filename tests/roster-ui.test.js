@@ -79,7 +79,9 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
     const dump = () => page.evaluate(() => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return o; });
     const diffKeys = (pre, post) => Array.from(new Set(Object.keys(pre).concat(Object.keys(post)))).filter(k => INFRA.indexOf(k) === -1 && !NOISE.test(k) && pre[k] !== post[k]);
     const masterOf = (d) => JSON.parse(d[K.master]);
-    const pfBad = (d, newStudents) => { const bad = []; ['pf_records_2026', 'pf_fitness_2026'].forEach(key => { const o = JSON.parse(d[key] || '{}'); Object.keys(o).forEach(id => { const s = newStudents[Number(id) - 1]; if (!s || o[id]._owner !== s.studentId) bad.push(key + '#' + id); }); }); return bad; };
+    // pf の持ち主の照合。起動時に旧方式→新方式へ移行される(v1.53.0)ため、新方式(キーが studentId)は「値の持ち主=キーで、その児童が新名簿にいる」、
+    // 旧方式(キーが位置+1の数字)は従来どおり位置で照合する。
+    const pfBad = (d, newStudents) => { const bad = []; const ids = {}; newStudents.forEach(x => { if (x.studentId) ids[x.studentId] = true; }); ['pf_records_2026', 'pf_fitness_2026'].forEach(key => { const o = JSON.parse(d[key] || '{}'); Object.keys(o).forEach(id => { if (/^\d+$/.test(id)) { const s = newStudents[Number(id) - 1]; if (!s || o[id]._owner !== s.studentId) bad.push(key + '#' + id); } else if (o[id]._owner !== id || !ids[id]) bad.push(key + '#' + id); }); }); return bad; };
     const coreBad = (d, ids, newStudents) => { const m = misplaced(ownersOf(K, d, ids), newStudents); return STORE_NAMES.filter(n => m[n].shifted !== 0); };
     const marker = () => page.evaluate(() => window.__marker === 1);
     const activeView = () => page.evaluate(() => (document.querySelector('.view.active') || {}).id);
@@ -122,6 +124,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
             check(op.name + '(UI): 名簿の氏名・順序・studentId が期待どおり(既存は同じID、転入生は新しいID)・属性(身長)が残る', m.length === expected.length && m.every((x, j) => x.name === expected[j].name && (expected[j].studentId ? x.studentId === expected[j].studentId && x.height === expected[j].height : /^stu_[a-z0-9]{8}$/.test(x.studentId))), JSON.stringify(m.map(x => [x.name, x.studentId])));
             check(op.name + '(UI): 核となる18ストアがすべてずれ0', coreBad(post, ids, m).length === 0, JSON.stringify(coreBad(post, ids, m)));
             check(op.name + '(UI): 新体力テスト(pf)の記録・集計もずれ0で、pf_roster も新しい名簿と一致する', pfBad(post, m).length === 0 && JSON.parse(post.pf_roster).map(e => e.name).join() === m.filter(x => x.name).map(x => x.name).join(), JSON.stringify(pfBad(post, m)));
+            check(op.name + '(UI): pf の記録・集計は新方式(キーが児童ID)のまま(起動時に移行済みの端末での検証)', ['pf_records_2026', 'pf_fitness_2026'].every(k => Object.keys(JSON.parse(post[k] || '{}')).every(id => /^stu_/.test(id))), '');
             check(op.name + '(UI): 再読み込み後に「元に戻す」つきのトーストと、取り消しボタンが出る', await ui.toastHas(page, '名簿を更新しました', 5000) && await page.evaluate(() => document.getElementById('toastUndoBtn').style.display !== 'none' && !!document.getElementById('rosterUndoBtn')), '');
             check(op.name + '(UI): 課題・別アプリ等の非対象キーは1バイトも変わらない', pre[K.tests] === post[K.tests] && pre['doc-index-v1'] === post['doc-index-v1'], '');
         }
@@ -203,7 +206,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         // pf の名簿が食い違った状態で戻す → pf の分だけ退避に残る(完全削除のみ可能)
         s = await openFresh();
         await ui.act(page, 'del', 1); await ui.clickSave(page); await ui.waitReload(page);
-        await page.evaluate(() => { const r = JSON.parse(localStorage.getItem('pf_roster')); r.reverse(); localStorage.setItem('pf_roster', JSON.stringify(r)); });
+        await page.evaluate(() => { const r = JSON.parse(localStorage.getItem('pf_roster')); r.reverse(); r.forEach(e => { delete e.studentId; }); localStorage.setItem('pf_roster', JSON.stringify(r)); }); // 新方式のまま名簿だけ旧方式の形・逆順に壊す(新方式のままなら一致判定なしで戻るため)
         await page.click('#archiveList button[data-act="restore"]');
         await ui.waitReload(page);
         const resid = await page.evaluate(() => Array.from(document.querySelectorAll('#archiveList .ar-row')).map(r => ({ text: r.textContent, hasRestore: !!r.querySelector('button[data-act="restore"]'), hasPurge: !!r.querySelector('button[data-act="purge"]') })));

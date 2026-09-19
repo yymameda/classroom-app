@@ -7,6 +7,7 @@
 // 記録が別の児童に付く(既存の問題)。それを名簿変更の時点で防ぐ。
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
+// 注: v1.53.0(H4 段階4b)から起動時に旧方式→新方式へ移行するため、このテストは移行を無効化(テスト専用フック)して旧方式の動作を検証する。
 // 実行: cd tests && node roster-pf.test.js
 
 const puppeteer = require('puppeteer-core');
@@ -26,6 +27,7 @@ const NOTICE = '新体力テストの名簿がSPAの名簿と一致しないた�
 (async () => {
     const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', defaultViewport: { width: 1180, height: 820 } });
     const page = await browser.newPage();
+    await page.evaluateOnNewDocument(() => { window.__spaSkipPfMigration = true; }); // 旧方式(v1)の名簿変更の追従を、再読み込みをまたいで検証する(起動時の新方式への移行は pf-migration.test.js で検証)
     const consoleErrors = [];
     page.on('console', msg => { if (msg.type() === 'error') { const l = msg.location() || {}; if ((l.url || '').indexOf('favicon.ico') === -1) consoleErrors.push(msg.text()); } });
     page.on('pageerror', err => consoleErrors.push('PAGEERROR: ' + err.message));

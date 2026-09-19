@@ -5352,6 +5352,7 @@
         migrateSubmissionIdTypesV1893(); // v1.8.93: 提出物ID型正規化
         loadMaster();
         migrateStudentIdsV1(); // v1.51.0 (H4 段階1): 児童IDを持たない児童にだけIDを付与(冪等・失敗時は元に戻す)
+        migratePfStudentIdV1(); // v1.53.0 (H4 段階4b): 新体力テストの記録を児童IDで管理する新方式へ移行(名簿が一致するときだけ・検証付き・失敗時は元に戻す)
         updateSettingsUI();
         updateDashboard();
         openSettingsAfterRosterReload(); // 名簿変更・復元・取り消しの再読み込み後は名簿設定の画面を開く
@@ -6181,6 +6182,7 @@
     // pf の不変条件: P1 件数の保存則 / P2 idが新名簿の範囲内 / P3 pf_roster が新しいSPA名簿(氏名・順序)と一致 /
     //                P4 pf_roster のid=位置+1 / P6 転入生のidに記録が付いていない
     function verifyPfInvariants(pfRaws, res, ctx) {
+        if (ctx && ctx.v2) return verifyPfInvariantsV2(pfRaws, res, ctx);
         var v = [];
         var add = function(inv, key, detail) { v.push({ invariant: inv, key: key, detail: String(detail) }); };
         var addedIds = {};
@@ -6205,11 +6207,165 @@
         else if (rosterA.some(function(e, i) { return Number(e.id) !== pos[i]; })) add('P4', PF_ROSTER_KEY, 'roster id is not position+1');
         return v;
     }
+    // ---- 新体力テスト(pf) v2: 児童ID(studentId)をキーにする — H4 案B 段階4b (DATA_FLOW_AUDIT.md 16・19章) ----
+    // v1(旧方式): 記録・集計のキーが pf_roster の id(=SPA名簿の位置+1)。v2(新方式): pf_roster の各項目が studentId を持ち、
+    // 記録・集計のキーが studentId。id は表示用の通し番号(位置+1)に格下げされ、記録のキーには使わない。
+    // 判別はキーの形(数字か studentId か)で行う。手入力の児童(SPAに居ない)は移行の対象外(v2 では pfm_ で始まる ID を持つ)。
+    function srPfIsV2(pfRaws) {
+        var roster = srParse(pfRaws.roster);
+        if (!Array.isArray(roster) || roster.length === 0) return false;
+        if (!roster.every(function(e) { return e && typeof e === 'object' && typeof e.studentId === 'string' && e.studentId !== ''; })) return false;
+        return Object.keys(pfRaws.keyed || {}).every(function(k) {
+            var d = srParse(pfRaws.keyed[k]);
+            return srIsPlainObject(d) && Object.keys(d).every(function(x) { return !/^\d+$/.test(x); });
+        });
+    }
+    // 'none'(pfのデータなし) / 'v2' / 'v1'(旧方式。混在・壊れたデータも含む)
+    function srPfMode(pfRaws) {
+        var noRoster = pfRaws.roster === null || pfRaws.roster === undefined;
+        if (noRoster && Object.keys(pfRaws.keyed || {}).length === 0) return 'none';
+        return srPfIsV2(pfRaws) ? 'v2' : 'v1';
+    }
+    var PF_MIGRATION_FLAG = 'migration_pfStudentId_v1';
+    // 移行の不変条件: M1 件数の保存則 / M2 pf_roster の全項目が studentId を持ち一意でSPA名簿に居る / M3 位置(id)の児童の氏名・studentId が一致 /
+    // M4 記録のキーがすべて pf_roster の studentId / M5 pf_roster の studentId 以外の項目は不変 / M6 記録の値は1バイトも変わらない
+    function verifyPfMigration(pfRaws, newRaw, students) {
+        var v = [];
+        var add = function(inv, key, detail) { v.push({ invariant: inv, key: key, detail: String(detail) }); };
+        var rosterB = srParse(pfRaws.roster) || [], rosterA = srParse(newRaw[PF_ROSTER_KEY]);
+        if (!Array.isArray(rosterA) || rosterA.length !== rosterB.length) { add('M2', PF_ROSTER_KEY, 'roster length'); return v; }
+        var spaIds = {}; students.forEach(function(st) { if (st && st.studentId) spaIds[st.studentId] = true; });
+        var seen = {}, sidOfId = {};
+        rosterA.forEach(function(e, i) {
+            var b = rosterB[i];
+            if (!e || typeof e.studentId !== 'string' || !e.studentId || seen[e.studentId] || !spaIds[e.studentId]) add('M2', PF_ROSTER_KEY, 'studentId invalid/duplicate/unknown at ' + i);
+            else seen[e.studentId] = true;
+            var st = students[Number(b.id) - 1];
+            if (!st || st.studentId !== e.studentId || st.name !== e.name) add('M3', PF_ROSTER_KEY, 'entry does not match master position ' + b.id);
+            var ea = Object.assign({}, e), eb = Object.assign({}, b); delete ea.studentId; delete eb.studentId;
+            if (JSON.stringify(ea) !== JSON.stringify(eb)) add('M5', PF_ROSTER_KEY, 'entry fields changed at ' + i);
+            sidOfId[String(Number(b.id))] = e.studentId;
+        });
+        Object.keys(pfRaws.keyed).forEach(function(key) {
+            var before = srParse(pfRaws.keyed[key]) || {}, after = srParse(newRaw[key] !== undefined ? newRaw[key] : pfRaws.keyed[key]) || {};
+            if (Object.keys(after).length !== Object.keys(before).length) add('M1', key, 'count ' + Object.keys(before).length + ' -> ' + Object.keys(after).length);
+            Object.keys(after).forEach(function(k) { if (!seen[k]) add('M4', key, 'record key not in roster: ' + k); });
+            Object.keys(before).forEach(function(k) {
+                var to = /^\d+$/.test(k) ? sidOfId[String(Number(k))] : k;
+                if (to === undefined || JSON.stringify(after[to]) !== JSON.stringify(before[k])) add('M6', key, 'record value changed/moved wrongly for ' + k);
+            });
+        });
+        return v;
+    }
+    // 旧方式(v1)の pf を v2 へ移行する計画(書き込みなし)。位置による変換は、pf_roster がSPA名簿と「氏名・順序・id(位置+1)とも一致」するときだけ。
+    // status: 'none'(pfのデータなし) / 'already'(v2) / 'skip'(理由つき。何も変えない) / 'migrate'
+    function planPfMigration(pfRaws, students) {
+        var skip = function(reason, extra) { return Object.assign({ status: 'skip', reason: reason, newRaw: {}, violations: [] }, extra || {}); };
+        var mode = srPfMode(pfRaws);
+        if (mode === 'none') return { status: 'none', newRaw: {}, violations: [] };
+        if (mode === 'v2') return { status: 'already', newRaw: {}, violations: [] };
+        if (!Array.isArray(students) || !students.every(hasStudentId)) return skip('no-student-id');
+        var m = srPfMatch(pfRaws, students);
+        if (!m.ok) return skip(m.reason);
+        var idToSid = {}, sidSet = {};
+        for (var i = 0; i < m.roster.length; i++) {
+            var e = m.roster[i], sid = students[Number(e.id) - 1].studentId;
+            if (e.studentId !== undefined && e.studentId !== sid) return skip('studentid-conflict');
+            idToSid[String(Number(e.id))] = sid; sidSet[sid] = true;
+        }
+        var newRaw = {}, records = 0, keys = Object.keys(pfRaws.keyed);
+        for (var ki = 0; ki < keys.length; ki++) {
+            var key = keys[ki], data = srParse(pfRaws.keyed[key]);
+            if (!srIsPlainObject(data)) return skip('records-invalid', { key: key });
+            var out = {}, ks = Object.keys(data);
+            for (var q = 0; q < ks.length; q++) {
+                var k = ks[q];
+                if (/^\d+$/.test(k)) {
+                    var to = idToSid[String(Number(k))];
+                    if (!to) return skip('records-not-in-roster', { key: key });
+                    if (out[to] !== undefined || data[to] !== undefined) return skip('collision', { key: key });
+                    out[to] = data[k];
+                } else if (sidSet[k]) { out[k] = data[k]; }
+                else return skip('records-invalid', { key: key });
+                records++;
+            }
+            newRaw[key] = JSON.stringify(out);
+        }
+        newRaw[PF_ROSTER_KEY] = JSON.stringify(m.roster.map(function(en) { return Object.assign({}, en, { studentId: idToSid[String(Number(en.id))] }); }));
+        var res = { status: 'migrate', newRaw: newRaw, records: records, keys: keys.length };
+        res.violations = verifyPfMigration(pfRaws, newRaw, students);
+        return res;
+    }
+    // v2 の名簿変更計画: 記録のキーは studentId なので、並べ替え・転入・改名では記録に一切触れない。削除された児童の記録だけを退避へ移す。
+    // pf_roster は新しいSPA名簿から作り直す(id=位置+1 を振り直し、age など pf 側の項目は引き継ぐ。SPAの児童ではない項目は末尾に残す)。
+    function planPfChangeV2(pfRaws, oldStudents, newStudents, remap) {
+        var mm = function(reason) { return { status: 'mismatch', reason: reason, newRaw: {}, archive: {}, violations: [], v2: true }; };
+        var roster = srParse(pfRaws.roster);
+        var newRaw = {}, archive = {}, deleted = {};
+        remap.deleted.forEach(function(d) { deleted[d.studentId] = true; });
+        var keys = Object.keys(pfRaws.keyed);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i], data = srParse(pfRaws.keyed[key]);
+            if (!srIsPlainObject(data)) return mm('records-invalid');
+            var out = {};
+            Object.keys(data).forEach(function(k) { if (deleted[k]) srSet(archive, k, key, data[k]); else out[k] = data[k]; });
+            var str = JSON.stringify(out);
+            if (str !== JSON.stringify(data)) newRaw[key] = str;
+        }
+        var oldSet = {}, byId = {};
+        oldStudents.forEach(function(st) { if (st && st.studentId) oldSet[st.studentId] = true; });
+        roster.forEach(function(e) { byId[e.studentId] = e; });
+        var newRoster = [];
+        newStudents.forEach(function(st, j) {
+            if (!st || !st.name) return;
+            var oe = byId[st.studentId];
+            newRoster.push(Object.assign({}, oe || { age: 10 }, { id: j + 1, studentId: st.studentId, name: st.name, gender: st.gender || (oe && oe.gender) || '' }));
+        });
+        roster.forEach(function(e) { if (!oldSet[e.studentId]) newRoster.push(e); });
+        remap.deleted.forEach(function(d) { if (byId[d.studentId]) srSet(archive, d.studentId, PF_ROSTER_KEY, byId[d.studentId]); });
+        var rosterStr = JSON.stringify(newRoster);
+        if (rosterStr !== JSON.stringify(roster)) newRaw[PF_ROSTER_KEY] = rosterStr;
+        var res = { status: 'followed', newRaw: newRaw, archive: archive, v2: true };
+        res.violations = verifyPfInvariantsV2(pfRaws, res, { remap: remap, oldStudents: oldStudents, newStudents: newStudents });
+        return res;
+    }
+    // v2 の不変条件: P1 件数の保存則(記録+退避=変更前) / P2 削除された児童の記録が残っていない / P3 pf_roster のSPAの児童が新名簿(順序・氏名・id=位置+1)と一致し削除された児童がいない /
+    //               P6 転入生に記録が付いていない / P7 生き残る児童の記録の値が不変
+    function verifyPfInvariantsV2(pfRaws, res, ctx) {
+        var v = [];
+        var add = function(inv, key, detail) { v.push({ invariant: inv, key: key, detail: String(detail) }); };
+        var newIds = {}, addedIds = {}, deletedIds = {};
+        ctx.newStudents.forEach(function(st) { if (st && st.studentId) newIds[st.studentId] = true; });
+        ctx.remap.added.forEach(function(i) { var st = ctx.newStudents[i]; if (st && st.studentId) addedIds[st.studentId] = true; });
+        ctx.remap.deleted.forEach(function(d) { deletedIds[d.studentId] = true; });
+        Object.keys(pfRaws.keyed).forEach(function(key) {
+            var before = srParse(pfRaws.keyed[key]) || {}, after = srParse(res.newRaw[key] !== undefined ? res.newRaw[key] : pfRaws.keyed[key]) || {};
+            var arch = 0;
+            Object.keys(res.archive || {}).forEach(function(id) { if (res.archive[id][key] !== undefined) arch++; });
+            if (Object.keys(after).length + arch !== Object.keys(before).length) add('P1', key, 'before ' + Object.keys(before).length + ' != after ' + Object.keys(after).length + ' + archived ' + arch);
+            Object.keys(after).forEach(function(k) {
+                if (deletedIds[k]) add('P2', key, 'record of deleted student remains ' + k);
+                if (addedIds[k]) add('P6', key, 'data at added student ' + k);
+                if (before[k] !== undefined && JSON.stringify(after[k]) !== JSON.stringify(before[k])) add('P7', key, 'record value changed ' + k);
+            });
+        });
+        var rosterA = srParse(res.newRaw[PF_ROSTER_KEY] !== undefined ? res.newRaw[PF_ROSTER_KEY] : pfRaws.roster);
+        if (!Array.isArray(rosterA)) { add('P3', PF_ROSTER_KEY, 'roster unreadable'); return v; }
+        var spaEntries = rosterA.filter(function(e) { return e && newIds[e.studentId]; });
+        var expected = [];
+        ctx.newStudents.forEach(function(st, j) { if (st && st.name) expected.push({ id: j + 1, studentId: st.studentId, name: st.name }); });
+        if (spaEntries.length !== expected.length || spaEntries.some(function(e, i) { return e.studentId !== expected[i].studentId || e.name !== expected[i].name || Number(e.id) !== expected[i].id; })) add('P3', PF_ROSTER_KEY, 'roster does not match new master');
+        if (rosterA.some(function(e) { return e && deletedIds[e.studentId]; })) add('P3', PF_ROSTER_KEY, 'deleted student remains in roster');
+        return v;
+    }
     // 付け替え計画(書き込みなし)。status: 'none'(pfのデータなし) / 'mismatch'(名簿が一致しない=触らない) / 'followed'(追従)
     function planPfChange(pfRaws, oldStudents, newStudents, remap) {
         var none = { status: 'none', newRaw: {}, archive: {}, violations: [] };
         var keyedKeys = Object.keys(pfRaws.keyed || {});
         if ((pfRaws.roster === null || pfRaws.roster === undefined) && keyedKeys.length === 0) return none;
+        if (srPfIsV2(pfRaws)) return planPfChangeV2(pfRaws, oldStudents, newStudents, remap); // 児童IDで持つ新方式
+        var rosterP = srParse(pfRaws.roster);
+        if (Array.isArray(rosterP) && rosterP.some(function(e) { return e && e.studentId; })) return { status: 'mismatch', reason: 'mixed-format', newRaw: {}, archive: {}, violations: [] }; // 新旧が混在(触らない)
         var m = srPfMatch(pfRaws, oldStudents);
         if (!m.ok) return { status: 'mismatch', reason: m.reason, newRaw: {}, archive: {}, violations: [] };
         var newRaw = {}, archive = {};
@@ -6277,7 +6433,7 @@
             if (pfp.status !== 'followed') return []; // 追従しない(none/mismatch)場合は pf に一切書かないので、pf の不変条件の対象外
             var newRawP = {};
             Object.keys(pfp.newRaw).forEach(function(k) { newRawP[k] = persisted[k]; });
-            return verifyPfInvariants(pfRaws, { newRaw: newRawP, archive: pfp.archive }, { remap: p.remap, oldStudents: oldMaster.students, newStudents: ns });
+            return verifyPfInvariants(pfRaws, { newRaw: newRawP, archive: pfp.archive }, { remap: p.remap, oldStudents: oldMaster.students, newStudents: ns, v2: !!pfp.v2 });
         };
         var masterCheck = function(v) {
             var chk = srParse(storageDirect(KEYS.master));
@@ -6438,11 +6594,28 @@
         // 新体力テスト(pf)の退避分: 現在の pf_roster がSPA名簿と一致していれば、同じトランザクションで末尾(id=idx+1)へ戻す。
         // 一致しなければ pf には触れず、pf の分だけを退避に残して(pf-residual)通知する。
         var pfPieceKeys = Object.keys(entry.data || {}).filter(function(k) { return PF_KEYED_RE.test(k); });
-        var pfNext = {}, pfStatus = 'none', residualEntry = null, pfRestoreKeys = [], pfBefore = null;
+        var pfNext = {}, pfStatus = 'none', residualEntry = null, pfRestoreKeys = [], pfBefore = null, pfV2 = false;
         if (pfPieceKeys.length) {
             pfBefore = srReadPfRaws();
             var pm = srPfMatch(pfBefore, oldMaster.students);
-            if (pm.ok && restored.name) {
+            pfV2 = srPfMode(pfBefore) === 'v2';
+            if (pfV2 && restored.name) {
+                // 新方式(児童ID): 一致判定なしで、同じ studentId の記録として戻す。すでにその児童の記録が入力されていれば上書きしない
+                pfStatus = 'followed';
+                var pieceRoster2 = entry.data[PF_ROSTER_KEY] || {};
+                var roster2 = srParse(pfBefore.roster);
+                if (!roster2.some(function(e) { return e.studentId === restored.studentId; })) roster2.push(Object.assign({ age: 10 }, pieceRoster2, { id: idx + 1, studentId: restored.studentId, name: restored.name, gender: restored.gender || pieceRoster2.gender || '' }));
+                pfNext[PF_ROSTER_KEY] = JSON.stringify(roster2);
+                pfPieceKeys.forEach(function(k) {
+                    var d2 = srParse(pfBefore.keyed[k]);
+                    if (pfBefore.keyed[k] != null && !srIsPlainObject(d2)) return;
+                    d2 = d2 || {};
+                    if (d2[restored.studentId] !== undefined) return;
+                    d2[restored.studentId] = entry.data[k];
+                    pfNext[k] = JSON.stringify(d2);
+                    pfRestoreKeys.push(k);
+                });
+            } else if (pm.ok && restored.name) {
                 pfStatus = 'followed';
                 var pieceRoster = entry.data[PF_ROSTER_KEY] || {};
                 pm.roster.push(Object.assign({ age: 10 }, pieceRoster, { id: idx + 1, name: restored.name, gender: restored.gender || pieceRoster.gender || '' }));
@@ -6468,11 +6641,16 @@
             kind: 'restore', storesNext: storesNext, archiveNext: archiveNext, pfNext: pfNext, masterNext: masterNext,
             verify: function(persisted) {
                 var v = [];
+                var pfCnt = pfV2 ? function(o) { return Object.keys(o).length; } : srPfCountIds, pfKey = pfV2 ? restored.studentId : String(idx + 1);
                 pfRestoreKeys.forEach(function(k) {
                     var b = srParse(pfBefore.keyed[k]) || {}, a = srParse(persisted[k]) || {};
-                    if (srPfCountIds(a) !== srPfCountIds(b) + 1 || a[String(idx + 1)] === undefined) v.push({ invariant: 'R6', key: k, detail: 'pf record not restored' });
+                    if (pfCnt(a) !== pfCnt(b) + 1 || a[pfKey] === undefined) v.push({ invariant: 'R6', key: k, detail: 'pf record not restored' });
                 });
-                if (pfStatus === 'followed') { var pr2 = srParse(persisted[PF_ROSTER_KEY]); if (!Array.isArray(pr2) || Number(pr2[pr2.length - 1].id) !== idx + 1) v.push({ invariant: 'R7', key: PF_ROSTER_KEY, detail: 'pf roster entry not restored' }); }
+                if (pfStatus === 'followed') {
+                    var pr2 = srParse(persisted[PF_ROSTER_KEY]);
+                    if (pfV2) { if (!Array.isArray(pr2) || !pr2.some(function(e) { return e.studentId === restored.studentId; })) v.push({ invariant: 'R7', key: PF_ROSTER_KEY, detail: 'pf roster entry not restored' }); }
+                    else if (!Array.isArray(pr2) || Number(pr2[pr2.length - 1].id) !== idx + 1) v.push({ invariant: 'R7', key: PF_ROSTER_KEY, detail: 'pf roster entry not restored' });
+                }
                 STUDENT_KEYED_STORES.forEach(function(st) {
                     var rawB = before[st.key], rawA = persisted[st.key];
                     if (expect[st.key] === undefined) { if (rawB !== rawA) v.push({ invariant: 'R4', key: st.key, detail: 'unrelated store changed' }); return; }
@@ -6565,6 +6743,83 @@
         try { showToast(j.kind === BR_KIND ? '⚠️ バックアップの復元が途中で中断したため、復元前の状態に戻しました（データは復元前のままです）' : '⚠️ 名簿の変更が途中で中断したため、元に戻しました（名簿・記録は変更前のままです）', 'warning'); } catch (e) {}
         return { recovered: true };
     }
+    // ---- 起動時: 新体力テスト(pf)の旧方式(v1)→新方式(v2)への移行 (H4 案B 段階4b) ----
+    // 児童ID(migrateStudentIdsV1)の付与のあとに呼ぶ。pf_roster がSPA名簿と一致するときだけ変換する(planPfMigration)。
+    // 名簿変更・復元と同じスナップショット・ジャーナル(kind:'pf-migration')の中で、検証付き書き込み → 検証 → 確定。
+    // 検証には「移行前の全キーとの比較」を含む: 移行前に端末の全キーのハッシュを取り、移行後に、pf の書き換えたキー以外の
+    // 全キーが1バイトも変わっていないことを確認する。失敗したらスナップショットへ書き戻し(記録は移行前のまま)、次の起動で再試行する。
+    // 途中で強制終了しても、次の起動の recoverRosterTxnOnStartup(loadMaster より前)が自動で元に戻す。
+    // 完了の印 migration_pfStudentId_v1 には結果(記録数・比較したキー数)を残し、設定の診断カードに表示する。
+    function pmLocalKeys() { var out = []; try { for (var i = 0; i < localStorage.length; i++) out.push(localStorage.key(i)); } catch (e) {} return out; }
+    function pmIgnoreKey(k) { return k === KEYS.roster_snapshot || k === KEYS.roster_txn || k === ROSTER_PROBE_KEY || k === '_hb' || k === PF_MIGRATION_FLAG; }
+    function migratePfStudentIdV1() {
+        var plan;
+        try {
+            if (window.__spaSkipPfMigration === true) return { status: 'skip', reason: 'disabled' }; // テスト専用(旧方式の動作を再読み込みをまたいで検証するため。画面や保存には現れない)
+            if (masterLoadFailed) return { status: 'skip', reason: 'master-load-failed' };
+            var jn = srParse(storageDirect(KEYS.roster_txn));
+            if (jn && (jn.state === 'applying' || jn.state === 'rollback-failed')) return { status: 'skip', reason: 'txn-pending' };
+            var m = srParse(storageDirect(KEYS.master));
+            plan = planPfMigration(srReadPfRaws(), (m && Array.isArray(m.students)) ? m.students : []);
+        } catch (e) { console.error('migratePfStudentIdV1 plan failed:', e); return { status: 'skip', reason: 'exception: ' + srMsg(e) }; }
+        if (plan.status !== 'migrate') return plan;
+        if (plan.violations.length) { console.error('migratePfStudentIdV1: invariant violation', plan.violations); return { status: 'skip', reason: 'invariant', violations: plan.violations }; }
+        var writes = Object.keys(plan.newRaw).sort().map(function(k) { return [k, plan.newRaw[k]]; });
+        var affected = writes.map(function(w) { return w[0]; }), aff = {};
+        affected.forEach(function(k) { aff[k] = true; });
+        var before = {}, others = {};
+        affected.forEach(function(k) { before[k] = storageDirect(k); });
+        pmLocalKeys().forEach(function(k) { if (!aff[k] && !pmIgnoreKey(k)) others[k] = srHash(storageDirect(k)); });
+        var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+        var txnId = srNewId('pfm_'), now = new Date().toISOString();
+        var snap = { v: 1, txnId: txnId, at: now, kind: 'pf-migration', keys: {} };
+        affected.forEach(function(k) { snap.keys[k] = before[k]; });
+        var snapStr = JSON.stringify(snap);
+        var journalStr = JSON.stringify({ id: txnId, state: 'applying', at: now, kind: 'pf-migration', order: affected });
+        var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + 8192;
+        writes.forEach(function(w) { need += Math.max(0, w[1].length - (before[w[0]] ? before[w[0]].length : 0)); });
+        var restorePrev = function() {
+            try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
+            try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+        };
+        var room = srRoomCheck(need);
+        if (!room.ok) return { status: 'skip', reason: 'insufficient-storage' }; // 何も書かない(旧方式のまま動く)。空きができたら次の起動で移行する
+        try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); storageVerifiedWrite(KEYS.roster_txn, journalStr); }
+        catch (e) { restorePrev(); return { status: 'skip', reason: 'snapshot-failed' }; }
+        try {
+            writes.forEach(function(w) { storageVerifiedWrite(w[0], w[1]); });
+            var viol = [];
+            writes.forEach(function(w) { if (storageDirect(w[0]) !== w[1]) viol.push('mismatch ' + w[0]); });
+            var compared = 0;
+            Object.keys(others).forEach(function(k) { compared++; if (srHash(storageDirect(k)) !== others[k]) viol.push('unrelated key changed ' + k); });
+            pmLocalKeys().forEach(function(k) { if (!aff[k] && !pmIgnoreKey(k) && others[k] === undefined) viol.push('unexpected new key ' + k); });
+            var persisted = {};
+            affected.forEach(function(k) { persisted[k] = storageDirect(k); });
+            var mv = verifyPfMigration(srReadPfRaws0(before), persisted, (srParse(storageDirect(KEYS.master)) || {}).students || []);
+            mv.forEach(function(x) { viol.push(JSON.stringify(x)); });
+            if (viol.length) throw new Error('pf migration verify failed: ' + viol[0]);
+            try { storageVerifiedWrite(PF_MIGRATION_FLAG, JSON.stringify({ at: now, records: plan.records, keys: plan.keys, compared: compared, unchanged: true })); } catch (eFlag) { console.warn('pf migration flag write failed', eFlag); }
+            srCleanupTxn(); restorePrev();
+            try { showToast('新体力テストの記録を、児童ごとに管理する新しい方式に更新しました（内容は変わっていません）', 'info'); } catch (e) {}
+            return { status: 'migrated', records: plan.records, keys: plan.keys, compared: compared };
+        } catch (e) {
+            console.error('migratePfStudentIdV1 failed, rolling back:', e);
+            var rb = srRollbackToSnapshot(snap);
+            if (rb.ok) { srCleanupTxn(); restorePrev(); try { showToast('⚠️ 新体力テストの記録の更新に失敗したため元に戻しました（記録は変更されていません）。次に開いたときにもう一度試します', 'warning'); } catch (e2) {} return { status: 'failed', rolledBack: true, reason: srMsg(e) }; }
+            try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: 'pf-migration', errors: rb.errors.slice(0, 5) })); } catch (e3) {}
+            try { showToast('⚠️ 新体力テストの記録の更新に失敗し、元に戻せませんでした。アプリを開き直してください（自動で元に戻します）', 'error'); } catch (e4) {}
+            return { status: 'failed', rolledBack: false, reason: srMsg(e), errors: rb.errors };
+        }
+    }
+    // 移行前の生の値(before: キー→文字列|null)から、検証用の pfRaws を作る(pf_roster と pf_records_* / pf_fitness_*)
+    function srReadPfRaws0(before) {
+        var keyed = {};
+        Object.keys(before).forEach(function(k) { if (PF_KEYED_RE.test(k)) keyed[k] = before[k]; });
+        return { roster: before[PF_ROSTER_KEY], keyed: keyed };
+    }
+    window.planPfMigration = planPfMigration;
+    window.migratePfStudentIdV1 = migratePfStudentIdV1;
+    window.srPfMode = srPfMode;
     // 再読み込み後に名簿設定の画面を開く(applyRosterChange / 復元 / 取り消しの後)
     function openSettingsAfterRosterReload() {
         var flag = null;
@@ -6611,7 +6866,7 @@
     // iPad には DevTools が無いため、設定画面に表示して実機の状態を確認できるようにする。
     // ================================================================
     function pfDiagnose() {
-        var out = { state: 'none', reason: '', spaCount: 0, pfRosterCount: null, extraCount: null, fitnessYears: [], recordYears: [] };
+        var out = { state: 'none', reason: '', spaCount: 0, pfRosterCount: null, extraCount: null, fitnessYears: [], recordYears: [], mode: 'none', migration: null };
         var m = srParse(storageDirect(KEYS.master));
         var students = (m && Array.isArray(m.students)) ? m.students : [];
         var spaNames = {};
@@ -6623,7 +6878,7 @@
             if (k.indexOf('pf_fitness_') === 0) out.fitnessYears.push(y);
             else {
                 var d = srParse(raws.keyed[k]);
-                out.recordYears.push({ year: y, count: srIsPlainObject(d) ? srPfCountIds(d) : null });
+                out.recordYears.push({ year: y, count: srIsPlainObject(d) ? Object.keys(d).length : null });
             }
         });
         var roster = srParse(raws.roster);
@@ -6631,6 +6886,8 @@
             out.pfRosterCount = roster.length;
             out.extraCount = roster.filter(function(e) { var n = e && typeof e.name === 'string' ? e.name.trim() : ''; return !spaNames[n]; }).length;
         }
+        out.mode = srPfMode(raws);
+        out.migration = srParse(storageDirect(PF_MIGRATION_FLAG));
         if ((raws.roster === null || raws.roster === undefined) && keys.length === 0) return out;
         var mt = srPfMatch(raws, students);
         out.state = mt.ok ? 'match' : 'mismatch';
@@ -6656,6 +6913,13 @@
         else if (d.state === 'match') st = '<span class="pfd-ok">一致しています</span>（氏名・順序・番号がSPAの名簿と同じです）';
         else st = '<span class="pfd-ng">一致していません</span>：' + escapeHtml(PF_DIAG_REASONS[d.reason] || d.reason);
         var html = row('名簿の一致', st, 'state');
+        var modeTxt;
+        if (d.mode === 'none') modeTxt = 'データなし';
+        else if (d.mode === 'v2') {
+            modeTxt = '<span class="pfd-ok">児童ごと（新方式）</span>';
+            if (d.migration && d.migration.at) { var t = new Date(d.migration.at); modeTxt += '（' + (t.getMonth() + 1) + '月' + t.getDate() + '日に更新：記録 ' + d.migration.records + '件。更新の前後で、ほかの全データ ' + d.migration.compared + '件は変化なし）'; }
+        } else modeTxt = '<span class="pfd-ng">位置番号（旧方式）</span>' + (d.state === 'match' ? '（更新できていません。次に開いたときに自動でもう一度試します）' : '（名簿が一致しないため、自動では更新しません）');
+        html += row('記録の管理方式', modeTxt, 'mode');
         html += row('人数', 'SPAの名簿 ' + d.spaCount + '名／新体力テストの名簿 ' + (d.pfRosterCount === null ? 'なし' : d.pfRosterCount + '名'), 'counts');
         html += row('単体ページの使用', d.fitnessYears.length
             ? '<span class="pfd-ng">あり</span>（成績転送の集計が ' + d.fitnessYears.map(escapeHtml).join('・') + '年度分あります。単体ページ pf.html を使った痕跡）'
@@ -18145,6 +18409,12 @@
             var idToIndex = {};
             var _dupNames = [], _usedIdx = {}; // v1.8.88: 同姓同名検出
             pfRoster.forEach(function(student) {
+                if (student.studentId) {
+                    // v1.53.0 (H4 段階4b): 新方式は児童ID(studentId)で照合する(氏名は使わない。同姓同名でも取り込める)
+                    var sidx = students.findIndex(function(s) { return s && s.studentId === student.studentId; });
+                    if (sidx !== -1) idToIndex[student.studentId] = sidx;
+                    return;
+                }
                 var idx = students.findIndex(function(s) { return s && s.name === student.name; });
                 if (idx !== -1) {
                     if (_usedIdx[idx]) { if (_dupNames.indexOf(student.name) < 0) _dupNames.push(student.name); }
@@ -18219,11 +18489,11 @@
                 var idx = idToIndex[id];
                 if (idx === undefined) {
                     unmatched++;
-                    var _ps = pfRoster.find(function(s) { return String(s.id) === String(id); });
+                    var _ps = pfRoster.find(function(s) { return String(s.studentId || s.id) === String(id); });
                     if (_ps && _ps.name) _unmatchedNames.push(_ps.name);
                     return;
                 }
-                var pfStudent = pfRoster.find(function(s) { return String(s.id) === String(id); });
+                var pfStudent = pfRoster.find(function(s) { return String(s.studentId || s.id) === String(id); });
                 if (!pfStudent) { unmatched++; return; }
                 var rec = pfRecords[id] || {};
                 var pfStudentGender = pfStudent.gender || '男';
@@ -22712,6 +22982,21 @@
     function pf_storageKey(){return 'pf_records_'+pf_setting.year;}
     function pf_rosterKey(){return 'pf_roster';}
     function pf_settingKey(){return 'pf_setting';}
+    // v1.53.0 (H4 段階4b): 記録・集計のキー。新方式は児童ID(studentId)、旧方式(studentId なし)は id(位置+1)。
+    function pf_key(s){return s&&s.studentId?s.studentId:String(s.id);}
+    // 旧方式の記録(数字のキー)が端末に残っているか。残っている間は、名簿を読み込み直しても studentId を付けない(旧方式のまま動かす)。
+    function pf_hasLegacyRecords(){
+        try{
+            for(var i=0;i<localStorage.length;i++){
+                var k=localStorage.key(i);
+                if(/^pf_(records|fitness)_\d+$/.test(k)){
+                    var d=JSON.parse(localStorage.getItem(k)||'{}');
+                    if(d&&typeof d==='object'&&Object.keys(d).some(function(x){return /^\d+$/.test(x);}))return true;
+                }
+            }
+        }catch(e){}
+        return false;
+    }
     // v1.8.96: quota超過等の保存失敗を検知しユーザーへ通知（成功時true）
     function pf_setItem(key,val){
         try{
@@ -22787,7 +23072,16 @@
             if(!raw){showToast('⚠️ spa_masterが見つかりません','warning');return;}
             var md=JSON.parse(raw);
             if(md.students&&Array.isArray(md.students)){
-                pf_roster=md.students.map(function(s,i){return{id:s.seqNo||s.id||(i+1),name:s.name||s.氏名||'',gender:s.gender||s.性別||'',age:s.age||s.年齢||10};}).filter(function(s){return s.name;});
+                var legacy=pf_hasLegacyRecords();
+                var prevRoster=(pf_roster||[]).slice();
+                var prevById={};prevRoster.forEach(function(e){if(e&&e.studentId)prevById[e.studentId]=e;});
+                pf_roster=md.students.map(function(s,i){
+                    var e={id:s.seqNo||s.id||(i+1),name:s.name||s.氏名||'',gender:s.gender||s.性別||'',age:s.age||s.年齢||10};
+                    if(!legacy&&s.studentId){e.studentId=s.studentId;var o=prevById[s.studentId];if(o&&o.age&&!(s.age||s.年齢))e.age=o.age;}
+                    return e;
+                }).filter(function(s){return s.name;});
+                // 手入力の児童(pfm_)は残す(SPAの名簿を読み込み直しても消さない)
+                if(!legacy)prevRoster.forEach(function(e){if(e&&typeof e.studentId==='string'&&e.studentId.indexOf('pfm_')===0)pf_roster.push(e);});
             }else if(Array.isArray(md)){
                 pf_roster=md.map(function(s,i){return{id:s.seqNo||s.id||(i+1),name:s.name||'',gender:s.gender||s.性別||'',age:s.age||10};}).filter(function(s){return s.name;});
             }
@@ -22813,7 +23107,7 @@
             if(parts.length>=3){id=parseInt(parts[0])||i+1;name=parts[1].trim();gender=parts[2].trim();age=parseInt(parts[3])||10;}
             else if(parts.length===2){id=i+1;name=parts[0].trim();gender=parts[1].trim();age=10;}
             else{id=i+1;name=parts[0].trim();gender='';age=10;}
-            if(name){pf_roster.push({id:id,name:name,gender:gender,age:age});}
+            if(name){var ne={id:id,name:name,gender:gender,age:age};if(!pf_hasLegacyRecords())ne.studentId='pfm_'+Math.random().toString(36).slice(2,10);pf_roster.push(ne);}
         });
         pf_setItem(pf_rosterKey(),JSON.stringify(pf_roster));
         pf_closeModal('pf-manualModal');
@@ -22872,7 +23166,7 @@
         html+='<th>合計<br>点</th><th>評価</th></tr></thead><tbody>';
         var inputIdx=0;
         filtered.forEach(function(s){
-            var rec=pf_records[s.id]||{};
+            var rec=pf_records[pf_key(s)]||{};
             var total=pf_calcTotal(s,rec);
             var ev=pf_calcEval(s,total);
             html+='<tr><td class="pf-name-cell" style="text-align:center;font-size:11px;color:var(--text-light);">'+s.id+'</td>';
@@ -22881,18 +23175,18 @@
                 if(e==='握力'){
                     var vL=rec['握力_左']!==undefined?rec['握力_左']:'';
                     var vR=rec['握力_右']!==undefined?rec['握力_右']:'';
-                    html+='<td><input type="number" step="0.1" min="0" inputmode="decimal" value="'+vL+'" placeholder="左" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'左\',this.value,this)" oninput="pf_setGripRecord('+s.id+',\'左\',this.value,this)" onkeydown="pfMoveNext(event,this)"></td>';
-                    html+='<td><input type="number" step="0.1" min="0" inputmode="decimal" value="'+vR+'" placeholder="右" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord('+s.id+',\'右\',this.value,this)" oninput="pf_setGripRecord('+s.id+',\'右\',this.value,this)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+s.id+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
+                    html+='<td><input type="number" step="0.1" min="0" inputmode="decimal" value="'+vL+'" placeholder="左" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord(\''+pf_key(s)+'\',\'左\',this.value,this)" oninput="pf_setGripRecord(\''+pf_key(s)+'\',\'左\',this.value,this)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="0.1" min="0" inputmode="decimal" value="'+vR+'" placeholder="右" data-pf-idx="'+(inputIdx++)+'" style="width:52px;" onchange="pf_setGripRecord(\''+pf_key(s)+'\',\'右\',this.value,this)" oninput="pf_setGripRecord(\''+pf_key(s)+'\',\'右\',this.value,this)" onkeydown="pfMoveNext(event,this)"><div id="pf-avg-grip-'+pf_key(s)+'" style="font-size:10px;color:#1a6b4a;margin-top:1px;">'+(rec['握力']!==undefined&&rec['握力']!==''?'平均:'+rec['握力']+'kg':'')+'</div></td>';
                 }else{
                     var step=e==='50m走'?'0.1':'1';
                     var v=rec[e]!==undefined?rec[e]:'';
-                    html+='<td><input type="number" step="'+step+'" min="0" inputmode="decimal" value="'+v+'" placeholder="—" data-pf-idx="'+(inputIdx++)+'" onchange="pf_setRecord('+s.id+',\''+e+'\',this.value,this)" oninput="pf_setRecord('+s.id+',\''+e+'\',this.value,this)" onkeydown="pfMoveNext(event,this)"></td>';
+                    html+='<td><input type="number" step="'+step+'" min="0" inputmode="decimal" value="'+v+'" placeholder="—" data-pf-idx="'+(inputIdx++)+'" onchange="pf_setRecord(\''+pf_key(s)+'\',\''+e+'\',this.value,this)" oninput="pf_setRecord(\''+pf_key(s)+'\',\''+e+'\',this.value,this)" onkeydown="pfMoveNext(event,this)"></td>';
                 }
             });
             var scoreHtml=total>0?total:'—';
             var evalHtml=ev?'<span class="pf-eval-'+ev+'">'+ev+'</span>':'—';
-            html+='<td class="pf-score-cell" id="pf-total-'+s.id+'">'+scoreHtml+'</td>';
-            html+='<td class="pf-eval-cell" id="pf-eval-'+s.id+'">'+evalHtml+'</td></tr>';
+            html+='<td class="pf-score-cell" id="pf-total-'+pf_key(s)+'">'+scoreHtml+'</td>';
+            html+='<td class="pf-eval-cell" id="pf-eval-'+pf_key(s)+'">'+evalHtml+'</td></tr>';
         });
         html+='</tbody></table></div>';
         wrap.innerHTML=html;
@@ -22912,7 +23206,7 @@
             pf_records[id][event]=n;
             if(inputEl)inputEl.classList.remove('range-error');
         }
-        var s=pf_roster.find(function(r){return r.id===id;});
+        var s=pf_roster.find(function(r){return pf_key(r)===id;});
         if(s){
             var total=pf_calcTotal(s,pf_records[id]);
             var ev=pf_calcEval(s,total);
@@ -22942,7 +23236,7 @@
         else if(L!==undefined){pf_records[id]['握力']=L;}
         else if(R!==undefined){pf_records[id]['握力']=R;}
         else{delete pf_records[id]['握力'];}
-        var s=pf_roster.find(function(r){return r.id===id;});
+        var s=pf_roster.find(function(r){return pf_key(r)===id;});
         if(s){
             var total=pf_calcTotal(s,pf_records[id]);
             var ev=pf_calcEval(s,total);
@@ -22996,7 +23290,7 @@
         PF_EVENTS.forEach(function(e){html+='<th>'+e+'<br><span style="font-weight:400;font-size:10px;">(点)</span></th>';});
         html+='<th>合計</th><th>評価</th></tr></thead><tbody>';
         filtered.forEach(function(s){
-            var rec=pf_records[s.id]||{};var g=s.gender==='女'?'女':'男';
+            var rec=pf_records[pf_key(s)]||{};var g=s.gender==='女'?'女':'男';
             var total=pf_calcTotal(s,rec);var ev=pf_calcEval(s,total);
             html+='<tr><td>'+s.id+'</td><td class="pf-name">'+escapeHtml(s.name)+'</td><td>'+(s.gender||'')+'</td>';
             PF_EVENTS.forEach(function(e){
@@ -23012,18 +23306,18 @@
 
     function pf_renderStats(){
         var el=document.getElementById('pf-statsContent');if(!el)return;
-        var completed=pf_roster.filter(function(s){return pf_records[s.id]&&PF_EVENTS.some(function(e){return pf_records[s.id][e]!==undefined;});});
+        var completed=pf_roster.filter(function(s){return pf_records[pf_key(s)]&&PF_EVENTS.some(function(e){return pf_records[pf_key(s)][e]!==undefined;});});
         if(completed.length===0){el.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">📈</div>入力データがありません</div>';return;}
         var evalCount={A:0,B:0,C:0,D:0,E:0},evalM={A:0,B:0,C:0,D:0,E:0},evalF={A:0,B:0,C:0,D:0,E:0};
         pf_roster.forEach(function(s){
-            var total=pf_calcTotal(s,pf_records[s.id]||{});var ev=pf_calcEval(s,total);
+            var total=pf_calcTotal(s,pf_records[pf_key(s)]||{});var ev=pf_calcEval(s,total);
             if(ev){evalCount[ev]++;if(s.gender==='男')evalM[ev]++;else if(s.gender==='女')evalF[ev]++;}
         });
         var eventAvgM={},eventAvgF={};
         PF_EVENTS.forEach(function(e){
             var male=[],female=[];
             pf_roster.forEach(function(s){
-                var rec=pf_records[s.id]||{};
+                var rec=pf_records[pf_key(s)]||{};
                 if(rec[e]!==undefined&&rec[e]!==''){
                     var pts=pf_getTableScore(s.gender==='女'?'女':'男',e,rec[e]);
                     if(s.gender==='男')male.push(pts);else if(s.gender==='女')female.push(pts);
@@ -23032,10 +23326,10 @@
             var avg=function(arr){return arr.length>0?(arr.reduce(function(a,b){return a+b;},0)/arr.length).toFixed(1):null;};
             eventAvgM[e]=avg(male);eventAvgF[e]=avg(female);
         });
-        var totals=pf_roster.map(function(s){return pf_calcTotal(s,pf_records[s.id]||{});}).filter(function(t){return t>0;});
+        var totals=pf_roster.map(function(s){return pf_calcTotal(s,pf_records[pf_key(s)]||{});}).filter(function(t){return t>0;});
         var avgTotal=totals.length>0?(totals.reduce(function(a,b){return a+b;},0)/totals.length).toFixed(1):0;
-        var avgMArr=pf_roster.filter(function(s){return s.gender==='男';}).map(function(s){return pf_calcTotal(s,pf_records[s.id]||{});}).filter(function(t){return t>0;});
-        var avgFArr=pf_roster.filter(function(s){return s.gender==='女';}).map(function(s){return pf_calcTotal(s,pf_records[s.id]||{});}).filter(function(t){return t>0;});
+        var avgMArr=pf_roster.filter(function(s){return s.gender==='男';}).map(function(s){return pf_calcTotal(s,pf_records[pf_key(s)]||{});}).filter(function(t){return t>0;});
+        var avgFArr=pf_roster.filter(function(s){return s.gender==='女';}).map(function(s){return pf_calcTotal(s,pf_records[pf_key(s)]||{});}).filter(function(t){return t>0;});
         var avgMVal=avgMArr.length?(avgMArr.reduce(function(a,b){return a+b;},0)/avgMArr.length).toFixed(1):'—';
         var avgFVal=avgFArr.length?(avgFArr.reduce(function(a,b){return a+b;},0)/avgFArr.length).toFixed(1):'—';
 
@@ -23100,7 +23394,7 @@
         });
         csv+='合計点,総合評価\n';
         pf_roster.forEach(function(s){
-            var rec=pf_records[s.id]||{};var g=s.gender==='女'?'女':'男';
+            var rec=pf_records[pf_key(s)]||{};var g=s.gender==='女'?'女':'男';
             var total=pf_calcTotal(s,rec);var ev=pf_calcEval(s,total);
             csv+=s.id+','+s.name+','+(s.gender||'')+','+(s.age||'')+',';
             PF_EVENTS.forEach(function(e){
@@ -23143,19 +23437,19 @@
         var cur=sel.value;
         sel.innerHTML='<option value="">児童を選択</option>';
         pf_roster.forEach(function(s){
-            var opt=document.createElement('option');opt.value=s.id;opt.textContent=s.name+(s.gender?' ('+s.gender+')':'');sel.appendChild(opt);
+            var opt=document.createElement('option');opt.value=pf_key(s);opt.textContent=s.name+(s.gender?' ('+s.gender+')':'');sel.appendChild(opt);
         });
         if(cur)sel.value=cur;
     }
 
     function pf_renderAnalysis(){
         var sel=document.getElementById('pf-analysisStudent');
-        var sid=sel?parseInt(sel.value):0;
+        var sid=sel?sel.value:'';
         var el=document.getElementById('pf-analysisContent');if(!el)return;
         if(!sid){el.innerHTML='<div class="pf-empty"><div class="pf-empty-icon">🎯</div>上の選択肢から児童を選んでください</div>';return;}
-        var s=pf_roster.find(function(r){return r.id===sid;});
+        var s=pf_roster.find(function(r){return pf_key(r)===sid;});
         if(!s){el.innerHTML='<div class="pf-empty">データなし</div>';return;}
-        var rec=pf_records[s.id]||{};var g=s.gender==='女'?'女':'男';
+        var rec=pf_records[pf_key(s)]||{};var g=s.gender==='女'?'女':'男';
         var total=pf_calcTotal(s,rec);var ev=pf_calcEval(s,total);
         var scores=PF_EVENTS.map(function(e){return{e:e,pts:(rec[e]!==undefined&&rec[e]!=='')?pf_getTableScore(g,e,rec[e]):null,val:rec[e]};});
         var filledScores=scores.filter(function(x){return x.pts!==null;});

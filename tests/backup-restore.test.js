@@ -30,6 +30,7 @@ const OTHER_APP = 'doc-index-v1';
 (async () => {
     const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', defaultViewport: { width: 1180, height: 820 } });
     const page = await browser.newPage();
+    await page.evaluateOnNewDocument(() => { window.__spaSkipPfMigration = true; }); // このテストの対象は復元。起動時の pf の新方式への移行(pf-migration.test.js で検証)で値が変わらないようにする
     const consoleErrors = [];
     page.on('console', msg => { if (msg.type() === 'error') { const l = msg.location() || {}; const t = msg.text(); if ((l.url || '').indexOf('favicon.ico') === -1 && t.indexOf('crash') === -1 && t.indexOf('quota') === -1 && t.indexOf('flushSaveQueue') === -1) consoleErrors.push(t); } });
     page.on('pageerror', err => consoleErrors.push('PAGEERROR: ' + err.message));

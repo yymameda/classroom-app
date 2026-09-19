@@ -6845,7 +6845,15 @@
     function flushPendingIdbDeletes() {
         var keys = window.__pendingIdbDeletes || [];
         window.__pendingIdbDeletes = [];
-        keys.forEach(function(k) { if (StorageManager._idb) _idbDelete(StorageManager._idb, k); delete StorageManager._cache[k]; });
+        keys.forEach(function(k) {
+            // v1.53.1: IndexedDB の準備前に同じキーが書き直されていたら(localStorage に値がある)、消さない。
+            // 消すと、localStorage にあるのにキャッシュ・鏡から見えない状態になる(起動直後の競合)。鏡には migrateFromLS が新しい値をコピー済み。
+            var rewritten = false;
+            try { rewritten = localStorage.getItem(k) !== null; } catch (e) {}
+            if (rewritten) return;
+            if (StorageManager._idb) _idbDelete(StorageManager._idb, k);
+            delete StorageManager._cache[k];
+        });
     }
 
     window.applyRosterChange = applyRosterChange;

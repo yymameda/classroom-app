@@ -378,6 +378,8 @@
             transition: transform 0.3s; white-space: nowrap;
             max-width: 90%;
             display: flex; align-items: center; gap: 12px;
+            /* v1.53.1: 通知は下のボタンへのタップを受けない(保存ボタンなどが画面の下端にあるとき、通知が重なってタップが当たり、押せなかった) */
+            pointer-events: none;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
         .toast.success { background: var(--success); }
@@ -388,6 +390,7 @@
             border-radius: 8px; padding: 0 10px; font-size: 0.85rem;
             font-weight: 600; cursor: pointer; flex-shrink: 0;
             min-height: var(--tap-min);
+            pointer-events: auto; /* 通知の中の「元に戻す」だけはタップできる */
         }
         .toast-undo-btn:active { background: rgba(255,255,255,0.4); }
 

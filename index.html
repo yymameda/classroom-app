@@ -4995,7 +4995,12 @@
         backup_meta:    'spa_backup_meta',
         // v1.51.0 (H4 段階1): 児童ID付与の前に退避する spa_master の生JSON(1世代)。氏名を含むため、
         // 端末データ消去(退勤モード)とバックアップの対象にするため KEYS に登録する。
-        migration_backup_studentId: 'spa_migration_backup_studentId'
+        migration_backup_studentId: 'spa_migration_backup_studentId',
+        // v1.51.2 (H4 段階2b): 名簿変更のトランザクション用。氏名・全記録を含むため端末データ消去(退勤モード)の対象。
+        // スナップショットとジャーナルはバックアップには含めない(exportBackup で除外)。退避は含める。
+        roster_snapshot: 'spa_roster_snapshot',   // 名簿変更前の全キーの写し(1世代)
+        roster_txn:      'spa_roster_txn',        // ジャーナル(applying / committed / rollback-failed)
+        student_archive: 'spa_student_archive'    // 名簿から削除した児童のデータの退避(無期限)
     };
 
     // マスターデータ
@@ -5269,6 +5274,7 @@
 
     let _lastCheckedDate = new Date().toLocaleDateString('sv-SE');
     document.addEventListener('DOMContentLoaded', function() {
+        recoverRosterTxnOnStartup(); // v1.51.2 (H4 段階2b): 中断した名簿変更があれば、他の処理より先にスナップショットへ戻す
         migrateScoreData();
         migrateKanjiToFlat();
         cleanupOldKanjiBackups();
@@ -5279,6 +5285,7 @@
         migrateStudentIdsV1(); // v1.51.0 (H4 段階1): 児童IDを持たない児童にだけIDを付与(冪等・失敗時は元に戻す)
         updateSettingsUI();
         updateDashboard();
+        openSettingsAfterRosterReload(); // 名簿変更・復元・取り消しの再読み込み後は名簿設定の画面を開く
         setTimeout(updateStorageDisplay, 300);
 
         // --- 起動時: データが空なら復元案内を表示 ---
@@ -5313,7 +5320,7 @@
                 // 初回マイグレーション完了を待ってからキャッシュロード
                 return StorageManager.migrateFromLS().then(function() {
                     return StorageManager.loadCache();
-                });
+                }).then(function() { flushPendingIdbDeletes(); });
             }
         }).then(function() {
             console.log('[Storage] Phase:', StorageManager._phase, '/ cache:', Object.keys(StorageManager._cache).length, 'keys');
@@ -5438,6 +5445,42 @@
     // フィールド名は studentId。pf.html は s.id を新体力テストの児童キーに使うため、students[].id は増やさない。
     // 注意(段階1の制約): 名簿保存時のIDは添字位置に付いて残る(H6の属性保持と同じ)。並べ替え・途中削除でIDが
     // 人に付いて動くのは段階3(IDでの突き合わせ)から。
+    // ---- 検証付き書き込み(段階2b) ----
+    // StorageManager.setImmediate は、localStorage への書き込み失敗(容量超過など)を例外にせず、先にメモリキャッシュへ
+    // 書くため、getRaw で読み戻しても失敗を検出できない。名簿の付け替え・ID付与のように「書けたこと」が重要な
+    // 処理は、localStorage へ書いたあとに**直接読み戻して**一致を確認し、失敗は例外にする。
+    // 起動時は localStorage が真実(migrateFromLS が全キーを IndexedDB へ上書きコピーする)。IndexedDB は鏡。
+    function storageDirect(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function storageVerifiedWrite(key, str) {
+        if (typeof str !== 'string') throw new Error('storageVerifiedWrite: string expected (' + key + ')');
+        localStorage.setItem(key, str); // 容量超過などは例外(握りつぶさない)
+        if (localStorage.getItem(key) !== str) throw new Error('write verify failed: ' + key);
+        StorageManager._cache[key] = str;
+        if (StorageManager._idb) _idbPut(StorageManager._idb, key, str);
+    }
+    function storageVerifiedRemove(key) {
+        localStorage.removeItem(key);
+        if (localStorage.getItem(key) !== null) throw new Error('remove verify failed: ' + key);
+        delete StorageManager._cache[key];
+        if (StorageManager._idb) _idbDelete(StorageManager._idb, key);
+        // IndexedDB が未初期化の起動直後は、鏡に古いキーが残ると loadCache で復活するため、準備後に消す
+        else { (window.__pendingIdbDeletes = window.__pendingIdbDeletes || []).push(key); }
+    }
+    // 直前までの IndexedDB への書き込み・削除がすべて完了するのを待つ(再読み込みの前に呼ぶ)
+    function storageIdbFlush() {
+        return new Promise(function(resolve) {
+            if (!StorageManager._idb) { resolve(); return; }
+            try {
+                var tx = StorageManager._idb.transaction(_IDB_STORE, 'readwrite');
+                tx.objectStore(_IDB_STORE).get('__flush__');
+                tx.oncomplete = function() { resolve(); };
+                tx.onerror = tx.onabort = function() { resolve(); };
+            } catch (e) { resolve(); }
+        });
+    }
+    window.storageVerifiedWrite = storageVerifiedWrite;
+    window.storageVerifiedRemove = storageVerifiedRemove;
+
     function hasStudentId(s) { return !!s && typeof s === 'object' && typeof s.studentId === 'string' && s.studentId !== ''; }
     function generateStudentId(used) {
         var id, tries = 0;
@@ -5478,20 +5521,19 @@
         if (!Array.isArray(students) || !students.some(function(s) { return s && typeof s === 'object' && !hasStudentId(s); })) {
             return { ok: true, assigned: 0 };
         }
-        var rawBefore = StorageManager.getRaw(KEYS.master);
+        var rawBefore = storageDirect(KEYS.master);
         if (typeof rawBefore !== 'string' || rawBefore === '') return { ok: true, assigned: 0, reason: 'not-persisted' };
         try {
             var orig = JSON.parse(rawBefore);
-            // 1) 退避(書き込み後に読み戻して一致を確認)
-            StorageManager.setImmediate(KEYS.migration_backup_studentId, rawBefore);
-            if (StorageManager.getRaw(KEYS.migration_backup_studentId) !== rawBefore) throw new Error('backup verify failed');
+            // 1) 退避(検証付き書き込み: localStorage を直接読み戻して一致を確認)
+            storageVerifiedWrite(KEYS.migration_backup_studentId, rawBefore);
             // 2) 付与(永続化済みの内容の複製に対して行う)
             var next = JSON.parse(rawBefore);
             var assigned = assignMissingStudentIds(next.students);
-            // 3) 書き込み(lastSync など既存の値は更新しない)
-            StorageManager.setImmediate(KEYS.master, JSON.stringify(next));
-            // 4) 検証
-            var chk = JSON.parse(StorageManager.getRaw(KEYS.master));
+            // 3) 書き込み(検証付き。lastSync など既存の値は更新しない)
+            storageVerifiedWrite(KEYS.master, JSON.stringify(next));
+            // 4) 検証(localStorage から直接読み直す)
+            var chk = JSON.parse(storageDirect(KEYS.master));
             if (!Array.isArray(chk.students) || chk.students.length !== orig.students.length) throw new Error('verify: students length');
             var seen = {};
             chk.students.forEach(function(s, i) {
@@ -5511,11 +5553,11 @@
             delete restA.students; delete restB.students;
             if (JSON.stringify(restA) !== JSON.stringify(restB)) throw new Error('verify: master fields changed');
             master = chk;
-            StorageManager.setImmediate('migration_studentId_v1', JSON.stringify({ at: new Date().toISOString(), assigned: assigned }));
+            try { storageVerifiedWrite('migration_studentId_v1', JSON.stringify({ at: new Date().toISOString(), assigned: assigned })); } catch (eFlag) { console.warn('migrateStudentIdsV1: flag write failed', eFlag); }
             return { ok: true, assigned: assigned };
         } catch (e) {
             console.error('migrateStudentIdsV1 failed, rolling back:', e);
-            try { StorageManager.setImmediate(KEYS.master, rawBefore); } catch (e2) { console.error('migrateStudentIdsV1 rollback write failed:', e2); }
+            try { storageVerifiedWrite(KEYS.master, rawBefore); } catch (e2) { console.error('migrateStudentIdsV1 rollback write failed:', e2); }
             try {
                 master = JSON.parse(rawBefore);
                 if (!master.classInfo) master.classInfo = {};
@@ -5581,6 +5623,9 @@
     NOT_STUDENT_KEYED[KEYS.karte_archive] = '定義のみで未使用';
     NOT_STUDENT_KEYED[KEYS.backup_meta] = 'バックアップ日時のメタ情報';
     NOT_STUDENT_KEYED[KEYS.migration_backup_studentId] = '名簿の写し(段階1の退避コピー。付け替え対象外)';
+    NOT_STUDENT_KEYED[KEYS.roster_snapshot] = '名簿変更前の全キーの写し(トランザクション用。付け替え対象外)';
+    NOT_STUDENT_KEYED[KEYS.roster_txn] = '名簿変更のジャーナル(トランザクション用)';
+    NOT_STUDENT_KEYED[KEYS.student_archive] = '削除した児童のデータの退避(studentIdで持つので添字の付け替え対象外)';
 
     // 添字として読める値(0以上の整数、または先頭ゼロなしの数字列)。それ以外は null(児童に紐づかない扱い)。
     function srIndexOf(v) {
@@ -5864,10 +5909,406 @@
         STUDENT_KEYED_STORES.forEach(function(st) { m[st.key] = StorageManager.getRaw(st.key); });
         return m;
     }
+    // ================================================================
+    // 名簿変更のトランザクション・退避・復元・取り消し — H4 案B 段階2b(UIには未接続)
+    // ================================================================
+    // 設計は DATA_FLOW_AUDIT.md 10章(10.7の確定事項を含む)。流れ:
+    //   計画(書き込みゼロ・不変条件を検証) → 容量の事前確認 → スナップショット(1世代) → ジャーナル(applying) →
+    //   退避 → 各ストア → 名簿(最後) → 永続層から読み直して検証 → 確定(committed)。
+    //   どこかで失敗したらスナップショットへ全キーを書き戻し(名簿変更ごと中止)。途中で強制終了しても、
+    //   次の起動で(loadMasterより前に)ジャーナルを検出してスナップショットから自動で元に戻す。
+    // すべての書き込みは検証付き書き込み(localStorage を直接読み戻す)。
+    var ROSTER_LS_LIMIT_CHARS = 5 * 1024 * 1024; // 事前確認用の保守的な上限(ブラウザにより異なる。実際の書き込み失敗も必ず検出する)
+    var ROSTER_OPEN_SETTINGS_FLAG = 'spa_open_settings_after_roster'; // sessionStorage: 再読み込み後に名簿設定を開く
+
+    function srParse(raw) { if (typeof raw !== 'string' || raw === '') return null; try { return JSON.parse(raw); } catch (e) { return null; } }
+    function srMsg(e) { return String(e && e.message || e); }
+    function srNewId(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+    function srHash(str) {
+        if (typeof str !== 'string') return 'null';
+        var h = 2166136261;
+        for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return (h >>> 0).toString(16) + ':' + str.length;
+    }
+    function srUsedChars() {
+        var used = 0;
+        try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); used += k.length + (localStorage.getItem(k) || '').length; } } catch (e) {}
+        return used;
+    }
+    // localStorage の空き容量の見積もり。足りなければ**書き込みゼロで**中止するための事前確認。
+    function srRoomCheck(neededChars) {
+        var limit = window.ROSTER_LS_LIMIT_CHARS_OVERRIDE || ROSTER_LS_LIMIT_CHARS;
+        var used = srUsedChars(), margin = 32 * 1024;
+        return { ok: used + neededChars + margin <= limit, used: used, limit: limit, needed: neededChars };
+    }
+    // スナップショット/取り消し/付け替えの対象キー: 登録表の全ストア + 名簿 + 退避
+    function srSnapshotKeys() { return STUDENT_KEYED_STORES.map(function(st) { return st.key; }).concat([KEYS.master, KEYS.student_archive]); }
+
+    // スナップショットの内容へ全キーを書き戻して、直接読み戻して一致を確認する。
+    function srRollbackToSnapshot(snap) {
+        var errors = [];
+        for (var pass = 0; pass < 2; pass++) { // 1回失敗しても再試行する
+            errors = [];
+            Object.keys(snap.keys).forEach(function(k) {
+                try {
+                    if (storageDirect(k) === snap.keys[k]) return;
+                    if (snap.keys[k] === null) storageVerifiedRemove(k); else storageVerifiedWrite(k, snap.keys[k]);
+                } catch (e) { errors.push(k + ': ' + srMsg(e)); }
+            });
+            Object.keys(snap.keys).forEach(function(k) { if (storageDirect(k) !== snap.keys[k]) errors.push('mismatch ' + k); });
+            if (errors.length === 0) break;
+        }
+        return { ok: errors.length === 0, errors: errors };
+    }
+    function srCleanupTxn() {
+        var ok = true;
+        try { storageVerifiedRemove(KEYS.roster_txn); } catch (e) { ok = false; }
+        if (ok) { try { storageVerifiedRemove(KEYS.roster_snapshot); } catch (e) { ok = false; } }
+        return ok;
+    }
+
+    // ジョブ: {kind, storesNext:{キー:新しい生JSON}, archiveNext:string|null(null=変更なし), masterNext:string,
+    //         verify(persistedRaws)→違反の配列}。戻り値 {ok, txnId, writes} または {ok:false, error, ...}
+    function srRunTransaction(job) {
+        var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+        var txnId = srNewId('txn_'), now = new Date().toISOString();
+        var snapKeys = srSnapshotKeys();
+        var snap = { v: 1, txnId: txnId, at: now, kind: job.kind, keys: {} };
+        snapKeys.forEach(function(k) { snap.keys[k] = storageDirect(k); });
+        var snapStr = JSON.stringify(snap);
+        var writes = [];
+        if (typeof job.archiveNext === 'string') writes.push([KEYS.student_archive, job.archiveNext]);
+        STUDENT_KEYED_STORES.forEach(function(st) { if (typeof job.storesNext[st.key] === 'string') writes.push([st.key, job.storesNext[st.key]]); });
+        writes.push([KEYS.master, job.masterNext]);
+        var journalStr = JSON.stringify({ id: txnId, state: 'applying', at: now, kind: job.kind, order: writes.map(function(w) { return w[0]; }) });
+        // 容量の事前確認(書き込みゼロ)
+        var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + 8192;
+        writes.forEach(function(w) { need += Math.max(0, w[1].length - (snap.keys[w[0]] ? snap.keys[w[0]].length : 0)); });
+        var room = srRoomCheck(need);
+        if (!room.ok) return { ok: false, error: 'insufficient-storage', needed: room.needed, used: room.used, limit: room.limit };
+        var restorePrev = function() {
+            try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
+            try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+        };
+        // 1) スナップショット / 2) ジャーナル(ここまでは名簿・記録に一切触れない。失敗したら直前の取り消し点も含めて元の状態へ)
+        try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); } catch (e) { restorePrev(); return { ok: false, error: 'snapshot-failed', detail: srMsg(e) }; }
+        try { storageVerifiedWrite(KEYS.roster_txn, journalStr); } catch (e) { restorePrev(); return { ok: false, error: 'journal-failed', detail: srMsg(e) }; }
+        // 3) 適用 → 検証 → 確定。失敗したらスナップショットへ書き戻す
+        try {
+            writes.forEach(function(w) { storageVerifiedWrite(w[0], w[1]); });
+            writes.forEach(function(w) { if (storageDirect(w[0]) !== w[1]) throw new Error('post-verify mismatch: ' + w[0]); });
+            var persisted = {};
+            STUDENT_KEYED_STORES.forEach(function(st) { persisted[st.key] = storageDirect(st.key); });
+            var viol = job.verify ? job.verify(persisted) : [];
+            if (viol && viol.length) throw new Error('invariant violated: ' + JSON.stringify(viol[0]));
+            var hashes = {};
+            snapKeys.forEach(function(k) { hashes[k] = srHash(storageDirect(k)); });
+            storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: job.kind, hashes: hashes }));
+        } catch (e) {
+            var rb = srRollbackToSnapshot(snap);
+            if (rb.ok) { srCleanupTxn(); return { ok: false, error: 'apply-failed', rolledBack: true, detail: srMsg(e) }; }
+            try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, errors: rb.errors.slice(0, 5) })); } catch (e2) {}
+            return { ok: false, error: 'apply-failed', rolledBack: false, rollbackFailed: true, detail: srMsg(e), errors: rb.errors };
+        }
+        return { ok: true, txnId: txnId, writes: writes.map(function(w) { return w[0]; }) };
+    }
+
+    // 成功後: メモリ上の名簿・キャッシュを更新し、保存待ちを確定してから再読み込みする(名簿設定の画面を開く)。
+    function srFinishAndReload(masterNextStr, opts) {
+        try { master = JSON.parse(masterNextStr); } catch (e) {}
+        try { uiResetCaches(); } catch (e) {}
+        try { flushSaveQueue(); } catch (e) {}
+        if (opts && opts.reload === false) return;
+        try { sessionStorage.setItem(ROSTER_OPEN_SETTINGS_FLAG, '1'); } catch (e) {}
+        storageIdbFlush().then(function() { location.reload(); });
+    }
+
+    // ---- 退避(spa_student_archive) ----
+    function readStudentArchive() {
+        var a = srParse(storageDirect(KEYS.student_archive));
+        if (!a || !Array.isArray(a.entries)) return { version: 1, entries: [] };
+        return a;
+    }
+    // 設定画面の「退避中の児童 N名」用(UIは段階3)。孤立データ(児童ではない)は数えない。
+    function studentArchiveSummary() {
+        return readStudentArchive().entries.filter(function(e) { return !!e.studentId; })
+            .map(function(e) { return { archiveId: e.archiveId, studentId: e.studentId, name: (e.student && e.student.name) || '', archivedAt: e.archivedAt }; });
+    }
+    // 完全削除(記録を失う唯一の操作)。UIは段階3(確認ダイアログつき)。
+    function purgeArchivedStudent(archiveId) {
+        var prev = storageDirect(KEYS.student_archive);
+        var a = readStudentArchive();
+        var next = a.entries.filter(function(e) { return e.archiveId !== archiveId; });
+        if (next.length === a.entries.length) return { ok: false, error: 'not-found' };
+        try { storageVerifiedWrite(KEYS.student_archive, JSON.stringify({ version: 1, entries: next })); }
+        catch (e) {
+            try { if (prev === null) storageVerifiedRemove(KEYS.student_archive); else storageVerifiedWrite(KEYS.student_archive, prev); } catch (e2) {}
+            return { ok: false, error: 'write-failed', detail: srMsg(e) };
+        }
+        return { ok: true };
+    }
+
+    // ---- 名簿変更(applyRosterChange) ----
+    // newStudents: 新しい名簿の児童オブジェクト(既存の児童は studentId 付き、転入生は studentId なし)。全項目をそのまま保存する。
+    // 戻り値: {ok:true, txnId, noop?} または {ok:false, error, ...}。成功時は既定で再読み込みする(opts.reload===false で抑止)。
+    function applyRosterChange(newStudents, opts) {
+        opts = opts || {};
+        var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
+        if (masterLoadFailed) return fail('master-load-failed');
+        if (!Array.isArray(newStudents)) return fail('not-array');
+        var j = srParse(storageDirect(KEYS.roster_txn));
+        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        try { uiFlushPending(); } catch (e) {}
+        try { flushSaveQueue(); } catch (e) {}
+        var masterRaw = storageDirect(KEYS.master);
+        var oldMaster = srParse(masterRaw);
+        if (!oldMaster || !Array.isArray(oldMaster.students)) return fail('master-invalid');
+        var ns = srClone(newStudents);
+        var rawMap = {};
+        STUDENT_KEYED_STORES.forEach(function(st) { rawMap[st.key] = storageDirect(st.key); });
+        var p = planRosterChange(rawMap, oldMaster.students, ns);
+        if (!p.ok) return fail(p.error || 'invariant-violation', { detail: p.detail, key: p.key, violations: p.violations });
+        assignMissingStudentIds(ns); // 転入生にID(計画のあと)
+        var nextMaster = Object.assign({}, oldMaster, { students: ns, lastSync: new Date().toISOString() });
+        var masterNext = JSON.stringify(nextMaster);
+        if (p.noop) {
+            // 並べ替え・削除・転入が無い。名簿の中身(改名・属性)も同じなら書き込みゼロ
+            if (JSON.stringify(ns) === JSON.stringify(oldMaster.students)) return { ok: true, noop: true, wrote: false };
+            // 改名・属性だけの変更: 名簿1キーの検証付き書き込み(失敗したら元の値へ戻す)
+            try { storageVerifiedWrite(KEYS.master, masterNext); }
+            catch (e) {
+                try { storageVerifiedWrite(KEYS.master, masterRaw); } catch (e2) {}
+                return fail('write-failed', { detail: srMsg(e) });
+            }
+            srFinishAndReload(masterNext, opts);
+            return { ok: true, noop: true, wrote: true };
+        }
+        // 退避: 削除された児童・孤立データを spa_student_archive へ(既存の退避に追加)
+        var archive = readStudentArchive();
+        var stamp = new Date().toISOString();
+        p.archiveEntries.forEach(function(e) {
+            var entry = { archiveId: srNewId('arc_'), archivedAt: stamp, data: e.data };
+            if (e.studentId) { entry.studentId = e.studentId; entry.reason = 'roster-delete'; entry.sourceIndex = e.sourceIndex; entry.student = e.student; }
+            else { entry.reason = 'orphan'; entry.orphanIndex = e.orphanIndex; }
+            archive.entries.push(entry);
+        });
+        var job = {
+            kind: 'apply',
+            storesNext: p.newRaw,
+            archiveNext: p.archiveEntries.length ? JSON.stringify(archive) : null,
+            masterNext: masterNext,
+            verify: function(persisted) {
+                var newRawP = {};
+                Object.keys(p.newRaw).forEach(function(k) { newRawP[k] = persisted[k]; });
+                var v = verifyRemapInvariants(rawMap, { newRaw: newRawP, archive: p.archive }, { remap: p.remap, oldStudents: oldMaster.students, newStudents: ns });
+                var chk = srParse(storageDirect(KEYS.master));
+                if (!chk || !Array.isArray(chk.students) || chk.students.length !== ns.length || !chk.students.every(hasStudentId)) v.push({ invariant: 'master', key: KEYS.master, detail: 'persisted master invalid' });
+                return v;
+            }
+        };
+        var r = srRunTransaction(job);
+        if (!r.ok) return r;
+        srFinishAndReload(masterNext, opts);
+        return { ok: true, txnId: r.txnId, archived: p.archiveEntries.length, moved: Object.keys(p.newRaw).length };
+    }
+
+    // ---- 復元(末尾に同じ studentId で戻す) ----
+    // 1ストア分の逆変換: raw(または null)に、児童の退避分 piece を新添字 idx で戻す。{raw, skipped}
+    function srRestoreStore(store, raw, idx, piece) {
+        var kind = store.kind, skipped = 0, key = String(idx);
+        var data = (raw === null || raw === undefined || raw === '') ? null : JSON.parse(raw);
+        if (kind === 'array-field') {
+            if (data === null) data = [];
+            if (!Array.isArray(data)) throw new Error('shape: array expected');
+            piece.forEach(function(rec) { var c = Object.assign({}, rec); c.studentIndex = idx; data.push(c); });
+        } else if (kind === 'object-key') {
+            if (data === null) data = {};
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            data[key] = piece;
+        } else if (kind === 'date-object-key') {
+            if (data === null) data = {};
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            Object.keys(piece).forEach(function(date) {
+                if (data[date] === undefined) data[date] = {};
+                if (!srIsPlainObject(data[date])) { skipped++; return; }
+                data[date][key] = piece[date];
+            });
+        } else if (kind === 'nested-checks') {
+            if (data === null) data = { chars: [], checks: {} };
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            if (!srIsPlainObject(data.checks)) data.checks = {};
+            data.checks[key] = piece;
+        } else if (kind === 'seat-value') {
+            if (data === null) data = {};
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            piece.forEach(function(seat) { if (data[seat] === undefined) data[seat] = idx; else skipped++; }); // 席が埋まっていれば席だけ諦める
+        } else if (kind === 'subject-object-key') {
+            if (data === null) data = { subjects: [], data: {} };
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            if (!srIsPlainObject(data.data)) data.data = {};
+            Object.keys(piece).forEach(function(subj) {
+                if (!Array.isArray(data.subjects) || data.subjects.indexOf(subj) === -1) { skipped++; return; } // 専科でなくなった教科には戻さない
+                if (!srIsPlainObject(data.data[subj])) data.data[subj] = {};
+                data.data[subj][key] = piece[subj];
+            });
+        } else if (kind === 'derived-history') {
+            if (data === null) data = {};
+            if (!srIsPlainObject(data)) throw new Error('shape: object expected');
+            Object.keys(piece).forEach(function(date) {
+                var h = data[date];
+                if (h === undefined) h = data[date] = { total: 0, students: {} };
+                if (!srIsPlainObject(h) || !srIsPlainObject(h.students)) { skipped++; return; }
+                h.students[key] = piece[date];
+                h.total = (Number(h.total) || 0) + (Number(piece[date]) || 0);
+            });
+        } else { throw new Error('unknown kind: ' + kind); }
+        return { raw: JSON.stringify(data), skipped: skipped };
+    }
+    // archiveId の児童を名簿の末尾に、退避時と同じ studentId で戻す。studentId が名簿に既にいれば拒否する。
+    function restoreArchivedStudent(archiveId, opts) {
+        opts = opts || {};
+        var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
+        if (masterLoadFailed) return fail('master-load-failed');
+        var j = srParse(storageDirect(KEYS.roster_txn));
+        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        try { uiFlushPending(); } catch (e) {}
+        try { flushSaveQueue(); } catch (e) {}
+        var archive = readStudentArchive();
+        var entry = archive.entries.filter(function(e) { return e.archiveId === archiveId; })[0];
+        if (!entry) return fail('not-found');
+        if (!entry.studentId || !entry.student) return fail('orphan-not-restorable');
+        var masterRaw = storageDirect(KEYS.master);
+        var oldMaster = srParse(masterRaw);
+        if (!oldMaster || !Array.isArray(oldMaster.students)) return fail('master-invalid');
+        if (oldMaster.students.some(function(s) { return s && s.studentId === entry.studentId; })) return fail('duplicate-id', { studentId: entry.studentId });
+        var idx = oldMaster.students.length;
+        var restored = srClone(entry.student); restored.studentId = entry.studentId;
+        var nextMaster = Object.assign({}, oldMaster, { students: oldMaster.students.concat([restored]), lastSync: new Date().toISOString() });
+        var masterNext = JSON.stringify(nextMaster);
+        var before = {}, storesNext = {}, expect = {};
+        var skippedTotal = [];
+        for (var i = 0; i < STUDENT_KEYED_STORES.length; i++) {
+            var st = STUDENT_KEYED_STORES[i];
+            before[st.key] = storageDirect(st.key);
+            var piece = entry.data && entry.data[st.key];
+            if (piece === undefined) continue;
+            var r;
+            try { r = srRestoreStore(st, before[st.key], idx, piece); }
+            catch (e) { return fail('store-invalid', { key: st.key, detail: srMsg(e) }); }
+            storesNext[st.key] = r.raw;
+            expect[st.key] = srPieceCount(st, piece) - r.skipped;
+            if (r.skipped) skippedTotal.push({ key: st.key, count: r.skipped });
+        }
+        var newLen = idx + 1;
+        var archiveNext = JSON.stringify({ version: 1, entries: archive.entries.filter(function(e) { return e.archiveId !== archiveId; }) });
+        var job = {
+            kind: 'restore', storesNext: storesNext, archiveNext: archiveNext, masterNext: masterNext,
+            verify: function(persisted) {
+                var v = [];
+                STUDENT_KEYED_STORES.forEach(function(st) {
+                    var rawB = before[st.key], rawA = persisted[st.key];
+                    if (expect[st.key] === undefined) { if (rawB !== rawA) v.push({ invariant: 'R4', key: st.key, detail: 'unrelated store changed' }); return; }
+                    var eb = srEntries(st, srParse(rawB) || (st.kind === 'array-field' ? [] : {})), ea = srEntries(st, srParse(rawA));
+                    if (ea.length !== eb.length + expect[st.key]) v.push({ invariant: 'R1', key: st.key, detail: 'before ' + eb.length + ' + ' + expect[st.key] + ' != after ' + ea.length });
+                    var atNew = ea.filter(function(e) { return e.idx === idx; }).length;
+                    if (atNew !== expect[st.key]) v.push({ invariant: 'R2', key: st.key, detail: 'entries at restored index ' + atNew + ' != ' + expect[st.key] });
+                    ea.forEach(function(e) { if (e.idx >= newLen) v.push({ invariant: 'R3', key: st.key, detail: 'index out of range ' + e.idx }); });
+                });
+                var chk = srParse(storageDirect(KEYS.master));
+                if (!chk || !Array.isArray(chk.students) || chk.students.length !== newLen || chk.students[idx].studentId !== entry.studentId) v.push({ invariant: 'R5', key: KEYS.master, detail: 'persisted master invalid' });
+                return v;
+            }
+        };
+        var res = srRunTransaction(job);
+        if (!res.ok) return res;
+        srFinishAndReload(masterNext, opts);
+        return { ok: true, txnId: res.txnId, index: idx, skipped: skippedTotal };
+    }
+
+    // ---- 取り消し ----
+    // 名簿変更(確定済み)の直前へ戻す。名簿変更のあとに(対象キーへの)入力があれば取り消さず、トーストで理由を表示する。
+    function undoRosterChange(opts) {
+        opts = opts || {};
+        var j = srParse(storageDirect(KEYS.roster_txn));
+        var snap = srParse(storageDirect(KEYS.roster_snapshot));
+        var refuse = function(error, msg, extra) { try { showToast(msg, 'warning'); } catch (e) {} return Object.assign({ ok: false, error: error, message: msg }, extra || {}); };
+        if (!j || j.state !== 'committed' || !snap || !snap.keys) return refuse('nothing-to-undo', '取り消せる名簿の変更がありません');
+        try { uiFlushPending(); } catch (e) {}
+        try { flushSaveQueue(); } catch (e) {}
+        var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
+        if (changed.length) return refuse('changed-since', '名簿を変更したあとに入力があったため、取り消せません', { keys: changed });
+        var rb = srRollbackToSnapshot(snap);
+        if (!rb.ok) return { ok: false, error: 'rollback-failed', errors: rb.errors };
+        srCleanupTxn();
+        srFinishAndReload(storageDirect(KEYS.master), opts);
+        return { ok: true };
+    }
+
+    // ---- 起動時: 中断した名簿変更の検出と自動ロールバック ----
+    // loadMaster より前に呼ぶ。ジャーナルが applying / rollback-failed のままなら、スナップショットへ書き戻す。
+    function showRosterRecoveryFailure(detail) {
+        masterLoadFailed = true; // 名簿・記録をこれ以上書き込まない(保存は停止)
+        try {
+            var bar = document.getElementById('recoveryBar');
+            if (bar) {
+                bar.style.display = 'block';
+                bar.innerHTML = '⚠️ 名簿変更が途中で中断し、自動で元に戻せませんでした(保存は停止中)。バックアップから復元してください '
+                    + '<button onclick="openBackupModal()" style="margin-left:12px;padding:6px 16px;border-radius:6px;border:none;background:white;color:var(--danger);font-weight:700;cursor:pointer;">バックアップから復元</button>';
+            }
+        } catch (e) {}
+        console.error('recoverRosterTxnOnStartup failed:', detail);
+    }
+    function recoverRosterTxnOnStartup() {
+        var raw = storageDirect(KEYS.roster_txn);
+        if (raw === null) {
+            // ジャーナルが無いスナップショット(スナップショットを書いた直後、ジャーナルを書く前に中断した残り)は、
+            // 取り消し点にもならず(取り消しは committed のジャーナルが必要)、名簿・記録の全データの写しが端末に残るだけなので消す。
+            // この時点で名簿・記録には一切触れていない。
+            if (storageDirect(KEYS.roster_snapshot) !== null) { try { storageVerifiedRemove(KEYS.roster_snapshot); } catch (e) {} }
+            return { recovered: false };
+        }
+        var j = srParse(raw);
+        if (!j) { showRosterRecoveryFailure('journal unreadable'); return { recovered: false, failed: true }; }
+        if (j.state === 'committed') return { recovered: false };            // 取り消し用に残す
+        if (j.state === 'rolled-back') { srCleanupTxn(); return { recovered: false }; }
+        var snap = srParse(storageDirect(KEYS.roster_snapshot));
+        if (!snap || !snap.keys) { showRosterRecoveryFailure('snapshot missing'); return { recovered: false, failed: true }; }
+        var rb = srRollbackToSnapshot(snap);
+        if (!rb.ok) {
+            try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: j.id, state: 'rollback-failed', at: j.at, errors: rb.errors.slice(0, 5) })); } catch (e) {}
+            showRosterRecoveryFailure(rb.errors.join(' | '));
+            return { recovered: false, failed: true, errors: rb.errors };
+        }
+        srCleanupTxn();
+        try { showToast('⚠️ 名簿の変更が途中で中断したため、元に戻しました（名簿・記録は変更前のままです）', 'warning'); } catch (e) {}
+        return { recovered: true };
+    }
+    // 再読み込み後に名簿設定の画面を開く(applyRosterChange / 復元 / 取り消しの後)
+    function openSettingsAfterRosterReload() {
+        var flag = null;
+        try { flag = sessionStorage.getItem(ROSTER_OPEN_SETTINGS_FLAG); sessionStorage.removeItem(ROSTER_OPEN_SETTINGS_FLAG); } catch (e) {}
+        if (flag !== '1') return;
+        setTimeout(function() { try { showView('settings'); showToast('✅ 名簿を更新しました', 'success'); } catch (e) {} }, 400);
+    }
+    // 起動時に復旧で削除したキーが、IndexedDB の鏡から復活しないよう掃除する(IndexedDB の準備後)
+    function flushPendingIdbDeletes() {
+        var keys = window.__pendingIdbDeletes || [];
+        window.__pendingIdbDeletes = [];
+        keys.forEach(function(k) { if (StorageManager._idb) _idbDelete(StorageManager._idb, k); delete StorageManager._cache[k]; });
+    }
+
+    window.applyRosterChange = applyRosterChange;
+    window.restoreArchivedStudent = restoreArchivedStudent;
+    window.purgeArchivedStudent = purgeArchivedStudent;
+    window.undoRosterChange = undoRosterChange;
+    window.readStudentArchive = readStudentArchive;
+    window.studentArchiveSummary = studentArchiveSummary;
+    window.recoverRosterTxnOnStartup = recoverRosterTxnOnStartup;
     window.StudentRemap = {
         STORES: STUDENT_KEYED_STORES, NOT_KEYED: NOT_STUDENT_KEYED,
         computeRosterRemap: computeRosterRemap, planRosterChange: planRosterChange,
-        verifyRemapInvariants: verifyRemapInvariants, collectStudentKeyedRaws: collectStudentKeyedRaws
+        verifyRemapInvariants: verifyRemapInvariants, collectStudentKeyedRaws: collectStudentKeyedRaws,
+        restoreStore: srRestoreStore
     };
 
     function updateSettingsUI() {
@@ -6810,6 +7251,9 @@
                 backup.rawLocalStorage[pfKey] = localStorage.getItem(pfKey);
             }
         }
+        // v1.51.2: 名簿変更のスナップショット(全データの写し)とジャーナルはバックアップに含めない(容量が倍になり、
+        // 復元先で古い取り消し点として誤動作するため)。退避(spa_student_archive)は含める。
+        [KEYS.roster_snapshot, KEYS.roster_txn].forEach(function(k) { delete backup.data[k]; delete backup.rawLocalStorage[k]; });
         var jsonStr = JSON.stringify(backup, null, 2);
 
         if (useEncryption) {

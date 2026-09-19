@@ -154,10 +154,11 @@ function dataKeys() {
             // reload で起動時移行が走ってしまうため、ID なしの状態を作り直してから、失敗させて手動で移行を実行する
             await page.evaluate((raw, k) => { StorageManager.setImmediate(KEYS.master, raw); StorageManager.remove(k); StorageManager.remove('migration_studentId_v1'); loadMaster(); }, masterRaw(stuNoId()), KN.backup);
             return page.evaluate((stubSrc) => {
-                const orig = StorageManager.setImmediate;
-                StorageManager.setImmediate = new Function('orig', 'return ' + stubSrc)(orig);
+                // v1.51.2: 移行は検証付き書き込み(localStorage を直接書いて読み戻す)を使うため、失敗は localStorage 層で注入する
+                const orig = Storage.prototype.setItem;
+                Storage.prototype.setItem = new Function('orig', 'return ' + stubSrc)(orig);
                 let res;
-                try { res = window.migrateStudentIdsV1(); } finally { StorageManager.setImmediate = orig; }
+                try { res = window.migrateStudentIdsV1(); } finally { Storage.prototype.setItem = orig; }
                 return { res: res, raw: StorageManager.getRaw(KEYS.master), backup: StorageManager.getRaw(KEYS.migration_backup_studentId), flag: StorageManager.getRaw('migration_studentId_v1'), mem: JSON.stringify(master.students) };
             }, stubSrc);
         }

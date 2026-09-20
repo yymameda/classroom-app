@@ -11015,6 +11015,9 @@
         window.kenteiCalcStage      = kenteiCalcStage;
         window.kenteiStageToScore10 = kenteiStageToScore10;
         window.kenteiGetPresetId    = kenteiGetPresetId;
+        // v1.60.1: 成績モジュールの面談用レーダーPDF(grdExtKenteiLabel)が呼ぶので公開する。
+        //   以前は公開されておらず、検定(なわとび・泳力)の記録がある児童がいると ReferenceError で PDF が作れなかった(v1.8.76〜)
+        window.kenteiStageToLabel   = kenteiStageToLabel;
         // ============================================================
         // KenteiCard 共通モジュール ここまで
         // ============================================================
@@ -20259,7 +20262,23 @@
             e('grdStatsSubj', grdRenderStats);
             e('grdWeightsSubj', grdRenderWeights);
             e('grdExtSubj', grdExtRenderGrid);
-            var btn = function(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+            // v1.60.1: ボタンの処理が例外で止まったときに、何も出ないまま終わらないよう通知する。
+            //   async の処理(PDF・Excel の書き出しなど)の失敗は、そのままだと Unhandled rejection としてコンソールに出るだけで、画面には何も出なかった。
+            var btn = function(id, fn) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                var notifyFail = function(err) {
+                    console.error('[grades] ボタン処理の失敗:', id, err);
+                    var label = (el.textContent || '').replace(/\s+/g, ' ').trim() || id;
+                    showToast('⚠️ 「' + label + '」に失敗しました: ' + ((err && err.message) ? err.message : String(err)), 'error');
+                };
+                el.addEventListener('click', function(ev) {
+                    try {
+                        var r = fn.call(el, ev);
+                        if (r && typeof r.then === 'function') r.then(null, notifyFail);
+                    } catch (err) { notifyFail(err); }
+                });
+            };
             btn('grdSaveThreshBtn', grdSaveAllThresholds);
             btn('grdSaveWeightsBtn', grdSaveWeights);
             btn('grdResetWeightsBtn', grdResetWeights);

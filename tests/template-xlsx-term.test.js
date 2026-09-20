@@ -135,9 +135,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const sc1 = c1.find(x => x.label === '一学期の意欲得点');
         check('1学期: 得点方式の主体性は「満点10」の得点入力(A/B/Cではない)。換算式は 得点÷満点×10(上限10)', sc1 && sc1.max === 10 && /ROUND\(MIN\(/.test(sc1.f) && !/UPPER\(/.test(sc1.f), JSON.stringify(sc1));
         const ab1 = c1.find(x => x.label === '一学期の態度五段階');
-        check('1学期: 5段階の主体性は今までどおり「A/B/C」入力(A=10・B=7・C=3の式)', ab1 && ab1.max === 'A/B/C' && /UPPER\(/.test(ab1.f), JSON.stringify(ab1));
+        check('1学期: 5段階の主体性は「A/B+/B/B-/C」入力(v1.60.3で B+・B- に対応。換算は template-abc5-conversion.test.js)', ab1 && ab1.max === 'A/B+/B/B-/C' && /UPPER\(/.test(ab1.f), JSON.stringify(ab1));
         const tai1 = c1.find(x => x.label === '授業態度メモ');
-        check('1学期: 授業態度の主体性は今までどおり「A/B/C」入力', tai1 && tai1.max === 'A/B/C' && /UPPER\(/.test(tai1.f), JSON.stringify(tai1));
+        check('1学期: 授業態度の主体性も「A/B+/B/B-/C」入力(v1.60.3)', tai1 && tai1.max === 'A/B+/B/B-/C' && /UPPER\(/.test(tai1.f), JSON.stringify(tai1));
         check('1学期: 知識・思考の得点入力の満点は今までどおり(漢字10・まとめテストの知識2・作文5)', c1[0].max === 10 && c1[1].max === 2 && c1[2].max === 5 && /ROUND\(MIN\(/.test(c1[0].f), JSON.stringify(c1.slice(0, 3).map(x => x.max)));
         const ws1 = w1.sheets['国語'];
         check('1学期: シートの題名に対象の学期が入る(「国語　成績計算（同僚用）（1学期）」)', ws1.A1 && ws1.A1.v === '国語　成績計算（同僚用）（1学期）', ws1.A1 && ws1.A1.v);
@@ -147,7 +147,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         // ============ 2. 成績画面が「2学期」 ============
         const w2 = await exportWith('2', 'grdTemplateBtn');
         const c2 = templateCols(w2);
-        check('2学期: 入力列は2学期のテスト・まとめテストだけ(得点方式の主体性は得点入力・5段階はA/B/C)', JSON.stringify(c2.map(x => x.label)) === JSON.stringify(T2) && c2.find(x => x.label === '二学期の意欲得点').max === 10 && c2.find(x => x.label === '二学期の態度五段階').max === 'A/B/C', JSON.stringify(c2.map(x => [x.label, x.max])));
+        check('2学期: 入力列は2学期のテスト・まとめテストだけ(得点方式の主体性は得点入力・5段階はA/B/C)', JSON.stringify(c2.map(x => x.label)) === JSON.stringify(T2) && c2.find(x => x.label === '二学期の意欲得点').max === 10 && c2.find(x => x.label === '二学期の態度五段階').max === 'A/B+/B/B-/C', JSON.stringify(c2.map(x => [x.label, x.max])));
 
         // ============ 3. 成績画面が「通年」 → 全学期(以前の出力と同じ列) ============
         const wa = await exportWith('all', 'grdTemplateBtn');

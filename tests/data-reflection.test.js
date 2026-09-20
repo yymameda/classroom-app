@@ -441,7 +441,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 }, i));
             }
             evidence('M6 個人カルテ提出率 [甲,乙,丙,丁]', karte.map(k => k.rate));
-            check('M6 個人カルテ 提出率: 100/100/0/100%', karte.map(k => k.rate).join() === '100%,100%,0%,100%', karte.map(k => k.rate).join());
+            check('M6 個人カルテ 提出率: 100/100/0/90%(v1.60.0 M2: 丁は後日提出1.0＋お直し前の再提出0.8=1.8÷2。成績と同じ数え方)', karte.map(k => k.rate).join() === '100%,100%,0%,90%', karte.map(k => k.rate).join());
             check('M6 個人カルテ: 丁(期限日欠席の後日提出)は提出遅れにならない', karte[3].late === false, String(karte[3].late));
             check('M6 個人カルテ: 乙の未提出は0件・丙は1件(欠席分は数えない)', karte[1].miss === '0' && karte[2].miss === '1', '乙' + karte[1].miss + ' 丙' + karte[2].miss);
 
@@ -451,7 +451,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 return { rate: st.rate, labels: st.rows.map(r => r.label).join('/') };
             }), assigns, subs);
             evidence('M6 PDF提出率 [甲,乙,丙,丁]', pdf.map(x => x.rate));
-            check('M6 PDF個票 提出率: 100/100/0/100%', pdf.map(x => x.rate).join() === '100%,100%,0%,100%', pdf.map(x => x.rate).join());
+            check('M6 PDF個票 提出率: 100/100/0/90%(v1.60.0 M2: 成績と同じ数え方)', pdf.map(x => x.rate).join() === '100%,100%,0%,90%', pdf.map(x => x.rate).join());
             check('M6 PDF個票: 乙の宿題1は「欠席(対象外)」表示で★未提出にならない', /対象外/.test(pdf[1].labels) && !/★未提出/.test(pdf[1].labels.split('/')[0]), pdf[1].labels);
 
             // --- 面談用テキスト ---
@@ -464,7 +464,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             const clip = await page.evaluate(() => window.__clip || '');
             const conf = names.map(n => { const m = new RegExp('氏名：' + n + '[\\s\\S]*?【提出物（(\\d+)%）】').exec(clip); return m ? m[1] : '?'; });
             evidence('M6 面談テキスト提出率 [甲,乙,丙,丁]', conf);
-            check('M6 面談テキスト 提出率: 100/100/0/100%', conf.join() === '100,100,0,100', conf.join());
+            check('M6 面談テキスト 提出率: 100/100/0/90%(v1.60.0 M2: 成績と同じ数え方)', conf.join() === '100,100,0,90', conf.join());
 
             // --- ダッシュボード ---
             const dash = await page.evaluate(() => {
@@ -479,8 +479,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 return { cls: cls, one: one };
             });
             evidence('M6 ダッシュボード 児童別 [甲,乙,丙,丁] / クラス', { one: dash.one, cls: dash.cls });
-            check('M6 ダッシュボード(児童): 100/100/0/100%', dash.one.join() === '100,100,0,100', dash.one.join());
-            check('M6 ダッシュボード(クラス): 80%（(提出4+再提出1×0.8)÷対象6）', dash.cls === '80%', dash.cls);
+            check('M6 ダッシュボード(児童): 100/100/0/90%(v1.60.0 M2: 成績と同じ数え方)', dash.one.join() === '100,100,0,90', dash.one.join());
+            check('M6 ダッシュボード(クラス): 80%（評価点4.8÷対象6。v1.60.0 M2で数え方を成績に揃えたが、この題材では同じ値）', dash.cls === '80%', dash.cls);
 
             // --- データ出力 提出物CSV ---
             await page.evaluate(() => { showView('export'); });

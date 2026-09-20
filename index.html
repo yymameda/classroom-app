@@ -2957,6 +2957,11 @@
                                 <button type="button" class="btn-rec-small" id="recInputModeAbc5Btn" onclick="recSetInputMode('abc5')" style="min-height:var(--tap-min);">5段階</button>
                             </div>
                             <div id="recInputModeLockNote" style="display:none;grid-column:1/-1;font-size:0.74rem;color:var(--text-light);">⚠️ 得点が入力済みのため入力形式は変更できません</div>
+                            <!-- v1.54.4: 記録と入力形式が食い違っている課題だけに出す。記録に合う形式へ戻す(記録は変換しない・取り消せる) -->
+                            <div id="recInputModeFixWrap" style="display:none;grid-column:1/-1;border:1.5px solid var(--accent);border-radius:8px;padding:8px 10px;">
+                                <div id="recInputModeFixText" style="font-size:0.78rem;margin-bottom:6px;"></div>
+                                <button type="button" class="btn-rec-small" id="recInputModeFixBtn" onclick="recFixInputModeClick()" style="min-height:var(--tap-min);"></button>
+                            </div>
                             <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" inputmode="numeric">
                             <input type="date" id="recTestDate">
                             <select id="recTestTerm" title="成績の学期分け（空欄なら実施日から自動判定）">
@@ -6703,16 +6708,17 @@
         var refuse = function(error, msg, extra) { try { showToast(msg, 'warning'); } catch (e) {} return Object.assign({ ok: false, error: error, message: msg }, extra || {}); };
         var isRestore = !!j && j.kind === BR_KIND;
         var isTakeover = !!j && j.kind === 'pf-takeover';
+        var isImFix = !!j && j.kind === 'input-mode-fix';
         if (!j || j.state !== 'committed' || !snap || !snap.keys) return refuse('nothing-to-undo', '取り消せる名簿の変更がありません');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
-        if (changed.length) return refuse('changed-since', isRestore ? 'バックアップを復元したあとに入力があったため、取り消せません' : isTakeover ? '新体力テストの記録を引き継いだあとに入力があったため、取り消せません' : (j && j.kind === 'pf-restore') ? '新体力テストの記録を戻したあとに入力があったため、取り消せません' : '名簿を変更したあとに入力があったため、取り消せません', { keys: changed });
+        if (changed.length) return refuse('changed-since', isRestore ? 'バックアップを復元したあとに入力があったため、取り消せません' : isTakeover ? '新体力テストの記録を引き継いだあとに入力があったため、取り消せません' : isImFix ? '入力形式を直したあとに課題の変更があったため、取り消せません' : (j && j.kind === 'pf-restore') ? '新体力テストの記録を戻したあとに入力があったため、取り消せません' : '名簿を変更したあとに入力があったため、取り消せません', { keys: changed });
         var rb = srRollbackToSnapshot(snap);
         if (!rb.ok) return { ok: false, error: 'rollback-failed', errors: rb.errors };
         srCleanupTxn();
-        if (isRestore || isTakeover) {
-            try { sessionStorage.setItem(BR_NOTICE_KEY, JSON.stringify({ title: isTakeover ? '✅ 新体力テストの引き継ぎを取り消しました' : '✅ バックアップの復元を取り消しました', msgs: [] })); } catch (e) {}
+        if (isRestore || isTakeover || isImFix) {
+            try { sessionStorage.setItem(BR_NOTICE_KEY, JSON.stringify({ title: isTakeover ? '✅ 新体力テストの引き継ぎを取り消しました' : isImFix ? '✅ 入力形式の変更を取り消しました' : '✅ バックアップの復元を取り消しました', msgs: [] })); } catch (e) {}
             srFinishAndReload(storageDirect(KEYS.master), Object.assign({}, opts, { openSettings: false }));
         } else srFinishAndReload(storageDirect(KEYS.master), opts);
         return { ok: true, kind: j.kind };
@@ -7336,6 +7342,7 @@
         var label = (u.kind === BR_KIND) ? '↩ 直前のバックアップの復元を取り消す' + (when ? '（' + when + ' の復元）' : '')
             : (u.kind === 'pf-takeover') ? '↩ 直前の新体力テストの引き継ぎを取り消す' + (when ? '（' + when + '）' : '')
             : (u.kind === 'pf-restore') ? '↩ 直前の新体力テストの記録の復元を取り消す' + (when ? '（' + when + '）' : '')
+            : (u.kind === 'input-mode-fix') ? '↩ 直前の入力形式の変更を取り消す' + (when ? '（' + when + '）' : '')
             : '↩ 直前の名簿変更を取り消す' + (when ? '（' + when + ' の変更）' : '');
         el.innerHTML = '<button type="button" class="rl-btn" id="rosterUndoBtn" data-act="undo" style="width:100%;">' + label + '</button>';
     }
@@ -9957,6 +9964,26 @@
             return isABCTest(test.category, test.testType, test.maxScore) ? 'abc5' : 'score';
         }
 
+        // v1.54.4: 5段階として有効な値(ボタンの値 A/B+/B/B-/C と、abcTo10 が読める旧記号)。診断と入力形式の修正で共有する。
+        var ABC5_VALID_VALUES = ['A', 'B+', 'B', 'B-', 'C', '◎', '○', '△'];
+        // v1.54.4: 記録と入力形式が食い違っている課題を、記録に合う形式へ戻せるか。診断(案内)と課題の編集画面(ボタン)で共有する唯一の判定。
+        //   記録(欠席・空欄を除く)がすべて数値なら 'score'、すべて有効な5段階の値なら 'abc5'。混在・有効でない文字があれば戻せない(null)。
+        //   戻せるのは「記録に合う形式」の方向だけ。戻し先がいまの入力形式と同じなら食い違いなし(null)。
+        //   戻し先が得点で満点が無い(0)ときは needsMax=true(戻すときに満点を入れる)。
+        function inputModeFixInfo(test, scores) {
+            if (!test || !recIsInputModeToggleable(test.testType)) return null;
+            var cur = getItemInputMode(test), numeric = 0, valid = 0, other = 0;
+            (scores || []).forEach(function(sc) {
+                if (!sc || sc.testId !== test.id || sc.absent === true) return;
+                var v = sc.score;
+                if (typeof v === 'number') numeric++;
+                else if (typeof v === 'string' && v !== '') { if (ABC5_VALID_VALUES.indexOf(v) !== -1) valid++; else other++; }
+            });
+            var dataMode = (numeric > 0 && valid === 0 && other === 0) ? 'score' : ((valid > 0 && numeric === 0 && other === 0) ? 'abc5' : null);
+            if (!dataMode || dataMode === cur) return null;
+            return { to: dataMode, needsMax: dataMode === 'score' && !(test.maxScore > 0), numeric: numeric, valid: valid, other: other };
+        }
+
         // v1.49.0: 得点/5段階を物理タブで選べる種別かどうか。まとめ/単元テスト(設問ごとに
         // 配点・観点を持つ複合型)・実技記録(peUnit別の専用入力)・授業態度(○/－/×の固定語彙)は、
         // 既に専用の入力方式が決まっているため対象外とする(選択欄自体を出さない)。
@@ -12251,6 +12278,83 @@
         var _recFormInputModeManual = false;
         var _recSuppressInputModeAutoDefault = false;
 
+        // v1.54.4: 記録と入力形式が食い違っている課題を、記録に合う形式へ戻す(記録は変換しない・戻せる方向は記録に合う形式だけ)。
+        //   名簿変更・復元と同じ仕組み(スナップショット spa_roster_snapshot・ジャーナル kind:'input-mode-fix'・検証付き書き込み・検証・失敗時はロールバック・
+        //   起動時の自動復旧・取り消し)で、書くのは課題(spa_tests)だけ。記録(spa_scores)は書かない(前後で1バイトも変えない)。
+        window.recFixInputMode = function(testId, maxScoreVal) {
+            var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
+            if (masterLoadFailed) return fail('master-load-failed');
+            var jn = srParse(storageDirect(KEYS.roster_txn));
+            if (jn && (jn.state === 'applying' || jn.state === 'rollback-failed')) return fail('txn-pending');
+            try { uiFlushPending(); } catch (e) {}
+            try { flushSaveQueue(); } catch (e) {}
+            var raw = storageDirect(KEYS.tests), tests = srParse(raw);
+            if (!Array.isArray(tests)) return fail('tests-invalid');
+            var test = tests.filter(function(t) { return t && t.id === testId; })[0];
+            if (!test) return fail('not-found');
+            var scoresRaw = storageDirect(KEYS.scores);
+            var info = inputModeFixInfo(test, srParse(scoresRaw) || []);
+            if (!info) return fail('nothing-to-fix');
+            var next = Object.assign({}, test, { inputMode: info.to });
+            if (info.to === 'score') {
+                var mx = test.maxScore > 0 ? test.maxScore : parseInt(maxScoreVal, 10);
+                if (!(mx > 0)) return fail('max-required');
+                next.maxScore = mx;
+            } else next.maxScore = 0;
+            var nextRaw = JSON.stringify(tests.map(function(t) { return t === test ? next : t; }));
+            var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+            var txnId = srNewId('imf_'), now = new Date().toISOString();
+            var snap = { v: 1, txnId: txnId, at: now, kind: 'input-mode-fix', keys: {} };
+            snap.keys[KEYS.tests] = raw;
+            var snapStr = JSON.stringify(snap);
+            var journalStr = JSON.stringify({ id: txnId, state: 'applying', at: now, kind: 'input-mode-fix', order: [KEYS.tests] });
+            var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + Math.max(0, nextRaw.length - raw.length) + 8192;
+            var restorePrev = function() {
+                try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
+                try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+            };
+            var room = srRoomCheck(need);
+            if (!room.ok) return fail('insufficient-storage');
+            try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); storageVerifiedWrite(KEYS.roster_txn, journalStr); }
+            catch (e) { restorePrev(); return fail('snapshot-failed', { detail: srMsg(e) }); }
+            try {
+                storageVerifiedWrite(KEYS.tests, nextRaw);
+                var chk = srParse(storageDirect(KEYS.tests)), viol = [];
+                if (!Array.isArray(chk) || chk.length !== tests.length) viol.push('tests length');
+                else chk.forEach(function(t, i) { var expect = tests[i] === test ? next : tests[i]; if (JSON.stringify(t) !== JSON.stringify(expect)) viol.push('test differs at ' + i); });
+                if (storageDirect(KEYS.scores) !== scoresRaw) viol.push('scores changed');
+                if (viol.length) throw new Error('verify failed: ' + viol[0]);
+                var hashes = {}; hashes[KEYS.tests] = srHash(storageDirect(KEYS.tests));
+                storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: 'input-mode-fix', hashes: hashes }));
+            } catch (e) {
+                var rb = srRollbackToSnapshot(snap);
+                if (rb.ok) { srCleanupTxn(); restorePrev(); return fail('apply-failed', { rolledBack: true, detail: srMsg(e) }); }
+                try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: 'input-mode-fix', errors: rb.errors.slice(0, 5) })); } catch (e2) {}
+                return fail('apply-failed', { rolledBack: false, rollbackFailed: true, detail: srMsg(e), errors: rb.errors });
+            }
+            try { window.recInvalidateCache && window.recInvalidateCache(); } catch (e) {}
+            try { uiResetCaches(); } catch (e) {}
+            return { ok: true, txnId: txnId, to: info.to, maxScore: next.maxScore, name: test.name };
+        };
+        function recFixErrorMessage(r) {
+            var e = r && r.error;
+            if (e === 'max-required') return '先に満点を入力してください';
+            if (e === 'nothing-to-fix') return 'この課題は、入力形式を直す必要がありません';
+            if (e === 'insufficient-storage') return '空き容量が足りないため、変更しませんでした（データは変更されていません）';
+            if (e === 'apply-failed' && r.rollbackFailed) return '変更に失敗し、元に戻せませんでした。アプリを開き直してください（自動で元に戻します）';
+            if (e === 'apply-failed' || e === 'snapshot-failed') return '保存に失敗したため、変更を取り消して元に戻しました（データは変更されていません）';
+            if (e === 'txn-pending') return '前の変更が完了していません。アプリを開き直してください';
+            return '入力形式を直せませんでした（データは変更されていません）: ' + (e || '不明なエラー');
+        }
+        window.recFixInputModeClick = function() {
+            if (recEditingTestId === null) return;
+            var id = recEditingTestId, mx = (document.getElementById('recTestMaxScore') || {}).value;
+            var r = window.recFixInputMode(id, mx);
+            if (!r.ok) { showToast(recFixErrorMessage(r), r.error === 'max-required' ? 'warning' : 'error'); return; }
+            recEditTest(id); // 保存済みの内容で編集画面を開き直す
+            showUndoToast('✅ 「' + r.name + '」を' + (r.to === 'score' ? '得点' : '5段階') + '入力に戻しました（記録は変えていません）', function() { undoRosterChange(); });
+        };
+
         window.recSetInputMode = function(mode) {
             if (mode !== 'score' && mode !== 'abc5') return;
             var btn = document.getElementById(mode === 'score' ? 'recInputModeScoreBtn' : 'recInputModeAbc5Btn');
@@ -12262,6 +12366,25 @@
 
         // 得点/5段階タブの見た目とmaxScore欄の状態をまとめて同期する唯一の関数。
         // 得点が1件でも入力済みの項目を編集中か(入力形式ロック中か)。recSyncInputModeUiと自動既定値の抑制で共有する。
+        // 記録と入力形式が食い違っている課題の編集画面に、記録に合う形式へ戻すボタンを出す(保存済みの課題と記録で判定。診断と同じ inputModeFixInfo)。
+        function recRefreshInputModeFix() {
+            var wrap = document.getElementById('recInputModeFixWrap');
+            if (!wrap) return null;
+            var info = null, t = null;
+            if (recEditingTestId !== null) { t = recGetTests().find(function(x) { return x.id === recEditingTestId; }); info = t ? inputModeFixInfo(t, recGetScores()) : null; }
+            wrap.style.display = info ? 'block' : 'none';
+            if (info) {
+                var txt = document.getElementById('recInputModeFixText'), btn = document.getElementById('recInputModeFixBtn');
+                if (info.to === 'score') {
+                    if (txt) txt.textContent = 'この課題の入力形式は5段階になっていますが、入力済みの記録は数値の点数です。押すと得点入力に戻ります（記録は変換せず、成績の計算は記録の数値のまま。取り消せます）。' + (info.needsMax ? '先に満点を入力してください。' : '');
+                    if (btn) btn.textContent = '🔁 記録（数値の点数）に合わせて、得点入力に戻す';
+                } else {
+                    if (txt) txt.textContent = 'この課題の入力形式は得点になっていますが、入力済みの記録はA・B・Cなどの文字です。押すと5段階入力に戻ります（記録は変換せず、満点は0になります。取り消せます）。';
+                    if (btn) btn.textContent = '🔁 記録（A・B・C…）に合わせて、5段階入力に戻す';
+                }
+            }
+            return info;
+        }
         function recInputModeLocked() {
             return recEditingTestId !== null && recTestHasAnyScore(recEditingTestId);
         }
@@ -12276,8 +12399,16 @@
             var note = document.getElementById('recInputModeLockNote');
             if (note) note.style.display = locked ? 'block' : 'none';
             var maxEl = document.getElementById('recTestMaxScore');
+            var fixInfo = recRefreshInputModeFix();
             if (!maxEl) return;
-            if (_recFormInputMode === 'abc5') { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
+            if (_recFormInputMode === 'abc5' && fixInfo && fixInfo.to === 'score') {
+                // 記録は数値なのに5段階になっている課題: 得点に戻すために満点欄を使えるようにする(保存済みの満点があれば表示する)
+                maxEl.disabled = false; maxEl.placeholder = '満点（例：100）';
+                var _sv = recGetTests().find(function(t) { return t.id === recEditingTestId; });
+                if ((!maxEl.value || maxEl.value === '0') && _sv && _sv.maxScore > 0) maxEl.value = _sv.maxScore;
+                else if (maxEl.value === '0') maxEl.value = ''; // 満点が無い(0)課題は空欄にして、入力を促す
+            }
+            else if (_recFormInputMode === 'abc5') { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = 'ABC評価'; }
             else if (_recFormInputMode === 'score') { maxEl.disabled = false; maxEl.placeholder = '満点（例：100）'; }
         }
 
@@ -13378,6 +13509,8 @@
         // (test.inputModeフラグを最優先し、無ければisABCTestにフォールバックする判定に統一)、
         // これも公開する。
         window.getItemInputMode = getItemInputMode;
+        window.inputModeFixInfo = inputModeFixInfo; // v1.54.4: 診断(別モジュール)と共有する判定
+        window.ABC5_VALID_VALUES = ABC5_VALID_VALUES;
 
     })();
 
@@ -21483,7 +21616,7 @@
             var INPUT_MODE_CONFLICT_CAP = 20;
             var inputModeConflictAll = [];
             // v1.54.2: 5段階として有効な値(ボタンの値 A/B+/B/B-/C と、abcTo10 が読める旧記号)。それ以外(数値の点数など)は5段階として読めない。
-            var ABC5_VALID = ['A', 'B+', 'B', 'B-', 'C', '◎', '○', '△'];
+            var ABC5_VALID = ABC5_VALID_VALUES;
             var PERSP_OF = { '知識・技能': ['knowledge', 'k_'], '思考・判断・表現': ['thinking', 't_'], '主体性': ['attitude', 'a_'] };
             var gradeAffectedStudents = {};
             tests.forEach(function(t) {
@@ -21524,7 +21657,9 @@
                 if (!kind) return;
                 // 画面操作での直し方(v1.54.2 で実UIで確認): 'fix-max'=課題の編集で満点を入れて保存 / 'fix-save'=課題の編集でそのまま保存(満点欄が消える) / 'none'=記録の型と入力形式が食い違い、入力形式が固定されているため画面では直せない
                 var guide = 'none';
-                if (kind === 'score' && str === 0) guide = 'fix-max';
+                var fixInfo = inputModeFixInfo(t, scores); // 記録に合う形式へ戻せる(課題の編集画面の「記録に合わせて…入力に戻す」ボタン。取り消せる)
+                if (fixInfo) guide = 'switch-' + fixInfo.to;
+                else if (kind === 'score' && str === 0) guide = 'fix-max';
                 else if (kind === 'abc5' && invalid5 === 0) guide = 'fix-save';
                 inputModeConflictAll.push({
                     testId: t.id, name: t.name || '', subject: t.subject || '', testType: t.testType || '', category: t.category || '',
@@ -21763,6 +21898,8 @@
         // v1.54.2: 入力形式の矛盾の1行表示(画面・コピー用テキスト共通)。氏名は出さない(課題名・件数・児童数のみ)。
         var IMC_KIND_LABEL = { score: '得点方式なのに満点なし', abc5: '5段階なのに満点あり', abc5num: '5段階(印のない旧課題)なのに数値の点数が入っている', scorestr: '得点方式なのに文字(5段階)の記録が入っている' };
         function imcGuideText(item) {
+            if (item.guide === 'switch-score') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、「記録に合わせて、得点入力に戻す」を押してください' + (item.maxScore > 0 ? '' : '（先に満点を入れます）') + '。記録は変わらず、取り消せます。';
+            if (item.guide === 'switch-abc5') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、「記録に合わせて、5段階入力に戻す」を押してください。記録は変わらず、取り消せます。';
             if (item.guide === 'fix-max') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、満点を入れて保存してください。';
             if (item.guide === 'fix-save') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、そのまま保存してください（満点欄が消えます）。';
             return '画面の操作では直せない状態です（記録の型と入力形式が食い違い、入力形式が固定されています）。お知らせください。';

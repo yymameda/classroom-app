@@ -133,7 +133,8 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
         check('案内: 満点なしの状態(記録が数値)は「満点を入れて保存」の一行が出る', d.lines.some(l => l.guide === 'fix-max' && /満点を入れて保存/.test(l.text)), '');
         check('案内: 満点ありの5段階(記録が文字)は「そのまま保存(満点欄が消えます)」の一行が出る', d.lines.some(l => l.guide === 'fix-save' && /そのまま保存/.test(l.text)), '');
         check('案内: 記録の型と入力形式が食い違う状態は「画面の操作では直せない状態です」と出る', d.lines.some(l => l.guide === 'none' && /画面の操作では直せない/.test(l.text)), '');
-        check('案内の対応: 直せる状態のガイドは fix-max(L1)・fix-save(L3)、直せない状態(L2・L4・F1・F2)は none', L('L1旧-知識-満点0-数値').guide === 'fix-max' && L('L3旧-主体性-満点20-A').guide === 'fix-save' && ['L2旧-主体性-満点20-数値13', 'L4旧-主体性-満点0-数値13', 'F1印あり-score-満点0-A', 'F2印あり-abc5-満点30-数値'].every(n => L(n).guide === 'none'), '');
+        check('案内の対応: 満点を入れる(L1)・そのまま保存(L3)・記録に合わせて戻す(数値の記録=switch-score: L2・L4・F2・L5・L6・L7、有効な文字の記録=switch-abc5: F1・F6・F7)・記録が混在/有効でない文字(L10)は none', L('L1旧-知識-満点0-数値').guide === 'fix-max' && L('L3旧-主体性-満点20-A').guide === 'fix-save' && ['L2旧-主体性-満点20-数値13', 'L4旧-主体性-満点0-数値13', 'F2印あり-abc5-満点30-数値', 'L5旧-主体性-満点0-数値2', 'L6旧-知識-記述-満点0-数値13', 'L7旧-思考-作文-満点0-数値13'].every(n => L(n).guide === 'switch-score') && ['F1印あり-score-満点0-A', 'F6印あり-score-満点20-文字(主体性)', 'F7印あり-score-満点20-文字(知識)'].every(n => L(n).guide === 'switch-abc5') && L('L10旧-主体性-満点0-X').guide === 'none', JSON.stringify(d.detail.map(x => [x.name.slice(0, 4), x.guide])));
+        check('案内: 記録に合わせて戻す状態には「記録に合わせて、得点入力に戻す／5段階入力に戻す」と「取り消せます」の一行が出る', d.lines.some(l => l.guide === 'switch-score' && /得点入力に戻す/.test(l.text) && /取り消せます/.test(l.text)) && d.lines.some(l => l.guide === 'switch-abc5' && /5段階入力に戻す/.test(l.text)), '');
 
         // 画面操作で編集を開く(入力画面で課題を選ぶ → 「この課題を編集」を実際にタップ)
         const openEdit = async (id) => {
@@ -187,22 +188,22 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
         await seed([T({ id: 2, name: 'L2旧-主体性-満点20-数値13', category: '主体性', maxScore: 20 })], [S(1, 2, 0, 13), S(2, 2, 1, 9)]);
         await openEdit(2);
         fs = await formState();
-        check('直せない(c) 5段階(判定)で数値の記録: 編集画面で入力形式のタブが両方とも押せない(固定)・固定の理由が表示される', fs.scoreBtnDisabled === true && fs.abcBtnDisabled === true && fs.lockNote === true, JSON.stringify(fs));
+        check('通常の操作では直せない(c) 5段階(判定)で数値の記録: 編集画面で入力形式のタブが両方とも押せない(固定)・固定の理由が表示される(専用の「記録に合わせて…戻す」ボタンで直す。input-mode-fix.test.js)', fs.scoreBtnDisabled === true && fs.abcBtnDisabled === true && fs.lockNote === true, JSON.stringify(fs));
         await page.click('#recInputModeScoreBtn').catch(() => {}); await sleep(100);
         await page.evaluate(() => { const el = document.getElementById('recTestCategory'); el.value = '知識・技能'; el.dispatchEvent(new Event('change', { bubbles: true })); });
         await save();
         const tc = await testOf(2);
         const dc = await diagnose();
-        check('直せない(c): タブを押す・観点を変える・保存しても、入力形式は5段階のまま(数値の記録と食い違ったまま)で、診断にも残る(印が付き満点0になっても、abc5num として検出される)', getModeOf(tc) === 'abc5' && tc.inputMode === 'abc5' && !!(dc.detail || []).find(x => x.testId === 2 && x.kind === 'abc5num'), JSON.stringify(tc));
+        check('通常の操作では直せない(c): タブを押す・観点を変える・保存しても、入力形式は5段階のまま(数値の記録と食い違ったまま)で、診断にも残る(印が付き満点0になっても、abc5num として検出される)', getModeOf(tc) === 'abc5' && tc.inputMode === 'abc5' && !!(dc.detail || []).find(x => x.testId === 2 && x.kind === 'abc5num'), JSON.stringify(tc));
         // (d) 直せない状態: 得点(判定)で文字の記録・満点なし
         await seed([T({ id: 13, name: 'F1印あり-score-満点0-A', category: '主体性', maxScore: 0, inputMode: 'score' })], [S(1, 13, 0, 'A')]);
         await openEdit(13);
         fs = await formState();
-        check('直せない(d) 得点(判定)で文字の記録・満点なし: 入力形式のタブが押せない(固定)', fs.scoreBtnDisabled === true && fs.abcBtnDisabled === true && fs.lockNote === true, JSON.stringify(fs));
+        check('通常の操作では直せない(d) 得点(判定)で文字の記録・満点なし: 入力形式のタブが押せない(固定)(専用ボタンで直す)', fs.scoreBtnDisabled === true && fs.abcBtnDisabled === true && fs.lockNote === true, JSON.stringify(fs));
         await typeMax(20); await save();
         const td = await testOf(13);
         const dd = await diagnose();
-        check('直せない(d): 満点を入れて保存しても、入力形式は得点のまま・文字の記録と食い違ったまま(5段階に戻せない)', td.inputMode === 'score' && td.maxScore === 20, JSON.stringify(td));
+        check('通常の操作では直せない(d): 満点を入れて保存しても、入力形式は得点のまま・文字の記録と食い違ったまま(5段階に戻せない)', td.inputMode === 'score' && td.maxScore === 20, JSON.stringify(td));
         check('(d) 満点を入れて保存したあとも、記録の食い違いが残る限り診断に出し続ける(kind=scorestr)', (dd.detail || []).some(x => x.testId === 13 && x.kind === 'scorestr'), JSON.stringify(dd.detail && dd.detail.map(x => [x.testId, x.kind])));
     } catch (e) {
         check('テスト実行中に例外なし', false, (e && e.stack) || String(e));

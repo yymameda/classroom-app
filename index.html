@@ -18733,7 +18733,7 @@
                     var subLine = '';
                     if (subRate !== null) {
                         var subComment = subRate >= 0.9 ? '大変よく提出できています' : subRate >= 0.7 ? 'おおむね提出できています。出し忘れの声かけを' : '提出習慣づくりを家庭と学校で連携して';
-                        subLine = '提出物：提出率 '+Math.round(subRate*100)+'%（'+Math.floor(subCount)+'/'+subTotal+'件）　'+subComment;
+                        subLine = '提出物：'+grdSubmissionDetailText(subCount, subTotal)+'　'+subComment; // v1.61.1: 評価点ベース(以前は評価点の合計を切り捨てた「提出率 60%（3/6件）」)
                     }
 
                     var goodSum = 0, concernSum = 0, anyPatrol = false;
@@ -18918,8 +18918,7 @@
             }
 
             if (subInfo.total > 0) {
-                var rate = subInfo.submitted / subInfo.total;
-                rows.push('提出率 ' + Math.round(rate * 100) + '%(' + Math.floor(subInfo.submitted) + '/' + subInfo.total + ')');
+                rows.push('提出物：' + grdSubmissionDetailText(subInfo.submitted, subInfo.total)); // v1.61.1: 評価点ベース(以前は評価点の合計を切り捨てた「提出率 60%(3/6)」)
             }
             if (kjChars && kjChars.length) {
                 rows.push('✍️ 漢字: ' + kjChars.length + '字中 ' + kjDone + '字定着(' + Math.round(kjDone / kjChars.length * 100) + '%)');
@@ -19035,6 +19034,11 @@
 
         // 提出物→10点
         // att(出席簿)は grdCalculate が1回だけ読んで渡す。省略時はここで読む。
+        // 提出物の説明文(例: 評価点 3.6/6（60%）)。成績処理の項目の説明文と、面談用レーダーPDFの提出物の表示が、この1つの関数で同じ文字になる。
+        //   credit=評価点の合計(お直し済み1.0・お直し前0.8・遅れ上限0.8)・counted=分母(期限日欠席の未提出を除く)。評価点は小数第1位まで(切り捨てない)。
+        function grdSubmissionDetailText(credit, counted) {
+            return '評価点 ' + (Math.round(credit * 10) / 10) + '/' + counted + '（' + Math.round(credit / counted * 100) + '%）';
+        }
         function grdGetSubmissionScore10(studentIndex, subject, term, att) {
             term = term || grdCurrentTermFilter || grdGetCurrentTerm();
             var assignments = grdGetAssignments().filter(function(a) {
@@ -19057,7 +19061,7 @@
             if (!counted) return { score10: null, detail: '提出物なし', submitted: 0, total: 0 };
             var rate = submitted / counted;
             // 説明文は評価点ベース(例: 評価点 3.6/6（60%）)。以前は評価点の合計を切り捨てて「3/6件（60%）」と出し、60%と合わないように見えた。成績の値(score10)は変えていない。
-            return { score10: Math.round(rate * 100) / 10, detail: '評価点 '+(Math.round(submitted * 10) / 10)+'/'+counted+'（'+Math.round(rate*100)+'%）', submitted: submitted, total: counted };
+            return { score10: Math.round(rate * 100) / 10, detail: grdSubmissionDetailText(submitted, counted), submitted: submitted, total: counted };
         }
 
         // 机間巡視→10点

@@ -101,19 +101,19 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const r1 = await pdfRun(clickRadar);
         check('レーダーPDF(出力画面=1学期): 本番のボタンから結果ダイアログまで到達し、コンソールエラー0件', r1.ok && consoleErrors.length === 0, JSON.stringify(consoleErrors.slice(0, 2)));
         check('レーダーPDF(出力画面=1学期): 1ページ目の表(観点別)は1学期の値(知A)。成績処理画面が2学期でも引きずられない', rowOf(r1.html[0]) === 'A,A,A,3', rowOf(r1.html[0]));
-        check('レーダーPDF(出力画面=1学期): 教科カードのテスト平均は80点・提出率は100%(1/1)・検定の行は1学期の1件だけ', avgOf(r1.text[1]) === '80' && /提出率 100%\(1\/1\)/.test(r1.text[1]) && (r1.text[1].match(/なわとび：/g) || []).length === 1, avgOf(r1.text[1]) + ' / ' + (r1.text[1].match(/提出率[^ ]*/) || [''])[0]);
-        check('レーダーPDF(出力画面=1学期): 1ページ目の「提出物・学習に臨む姿勢」の提出率(100%)・机間巡視(○1／△0)も1学期', /提出物：提出率 100%/.test(r1.text[0]) && /学習に臨む姿勢：○1／△0（○率 100%）/.test(r1.text[0]), (r1.text[0].match(/学習に臨む姿勢：[^ ]*/) || [''])[0]);
+        check('レーダーPDF(出力画面=1学期): 教科カードのテスト平均は80点・提出率は100%(1/1)・検定の行は1学期の1件だけ', avgOf(r1.text[1]) === '80' && /提出物：評価点 1\/1（100%）/.test(r1.text[1]) && (r1.text[1].match(/なわとび：/g) || []).length === 1, avgOf(r1.text[1]) + ' / ' + (r1.text[1].match(/提出物：[^ ]* [^ ]*/) || [''])[0]);   // v1.61.1: 提出物は評価点ベースの表記
+        check('レーダーPDF(出力画面=1学期): 1ページ目の「提出物・学習に臨む姿勢」の提出率(100%)・机間巡視(○1／△0)も1学期', /提出物：評価点 1\/1（100%）/.test(r1.text[0]) && /学習に臨む姿勢：○1／△0（○率 100%）/.test(r1.text[0]), (r1.text[0].match(/学習に臨む姿勢：[^ ]*/) || [''])[0]);
         check('レーダーPDF(1学期): 1ページ目にも2ページ目にも「対象学期：1学期」が印字される', /対象学期：1学期/.test(r1.text[0]) && /対象学期：1学期/.test(r1.text[1]), '');
 
         // ============ 2. 出力画面=2学期 ============
         await setGradeTerm('1');
         await setOutputTerm('2');
         const r2 = await pdfRun(clickRadar);
-        check('レーダーPDF(出力画面=2学期): 表は2学期の値(知C)・カードの平均40点・提出率0%(0/1)・検定の行は2学期の1件・「対象学期：2学期」', rowOf(r2.html[0]) === 'C,C,C,1' && avgOf(r2.text[1]) === '40' && /提出率 0%\(0\/1\)/.test(r2.text[1]) && (r2.text[1].match(/なわとび：/g) || []).length === 1 && /対象学期：2学期/.test(r2.text[0]) && /対象学期：2学期/.test(r2.text[1]) && /学習に臨む姿勢：○0／△1（○率 0%）/.test(r2.text[0]), rowOf(r2.html[0]) + ' / ' + avgOf(r2.text[1]));
+        check('レーダーPDF(出力画面=2学期): 表は2学期の値(知C)・カードの平均40点・提出率0%(0/1)・検定の行は2学期の1件・「対象学期：2学期」', rowOf(r2.html[0]) === 'C,C,C,1' && avgOf(r2.text[1]) === '40' && /提出物：評価点 0\/1（0%）/.test(r2.text[1]) && (r2.text[1].match(/なわとび：/g) || []).length === 1 && /対象学期：2学期/.test(r2.text[0]) && /対象学期：2学期/.test(r2.text[1]) && /学習に臨む姿勢：○0／△1（○率 0%）/.test(r2.text[0]), rowOf(r2.html[0]) + ' / ' + avgOf(r2.text[1]));
 
         // ============ 3. 出力画面=通年 ============
         const ra = await pdfRun(async () => { showView('karte'); kvSetMode('output'); const s = document.getElementById('kvTermSel'); s.value = 'all'; s.dispatchEvent(new Event('change')); document.getElementById('grdExtRadarPdfBtn').click(); });
-        check('レーダーPDF(出力画面=通年): 表は通年の値(知B)・平均60点・提出率50%(1/2)・検定の行は2件・「対象学期：通年」', rowOf(ra.html[0]) === 'B,B,B,2' && avgOf(ra.text[1]) === '60' && /提出率 50%\(1\/2\)/.test(ra.text[1]) && (ra.text[1].match(/なわとび：/g) || []).length === 2 && /対象学期：通年/.test(ra.text[0]) && /対象学期：通年/.test(ra.text[1]) && /学習に臨む姿勢：○1／△1（○率 50%）/.test(ra.text[0]), rowOf(ra.html[0]) + ' / ' + avgOf(ra.text[1]));
+        check('レーダーPDF(出力画面=通年): 表は通年の値(知B)・平均60点・提出率50%(1/2)・検定の行は2件・「対象学期：通年」', rowOf(ra.html[0]) === 'B,B,B,2' && avgOf(ra.text[1]) === '60' && /提出物：評価点 1\/2（50%）/.test(ra.text[1]) && (ra.text[1].match(/なわとび：/g) || []).length === 2 && /対象学期：通年/.test(ra.text[0]) && /対象学期：通年/.test(ra.text[1]) && /学習に臨む姿勢：○1／△1（○率 50%）/.test(ra.text[0]), rowOf(ra.html[0]) + ' / ' + avgOf(ra.text[1]));
         check('レーダーPDF: 漢字は学期に関係なく累計であることが、2ページ目の注記に書かれる', /漢字は学期に関係なく、これまでの累計/.test(ra.text[1]), '');
 
         // ============ 4. カルテPDF: 児童用は「通年」も印字(以前は学期を絞ったときだけ)・教員用は今までどおり対象期間 ============

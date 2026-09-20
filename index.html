@@ -3842,6 +3842,24 @@
                     <button id="expGradeBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 成績処理 CSV 出力</button>
                 </div>
 
+                <!-- 成績の明細（v1.61.0 M9。上の成績処理 CSV とは別のファイル） -->
+                <div class="card" style="margin-bottom:12px;">
+                    <div style="font-weight:700;margin-bottom:6px;">🔎 成績の明細（項目ごと）</div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                        <select id="expDetailSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);">
+                            <option value="">全教科</option>
+                        </select>
+                        <select id="expDetailTerm" title="出力する学期" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);">
+                            <option value="1">1学期</option>
+                            <option value="2">2学期</option>
+                            <option value="3">3学期</option>
+                            <option value="all">通年</option>
+                        </select>
+                    </div>
+                    <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:8px;">1行＝児童×項目（観点・満点・10点換算・重み・提出物の状態）。成績処理と同じ値で、点数の照合に使えます（専科の教科は含みません）。</div>
+                    <button id="expDetailBtn" class="btn btn-primary" style="width:100%;padding:10px;">📥 成績の明細 CSV 出力</button>
+                </div>
+
                 <!-- 監査診断 -->
                 <div class="card audit-diagnosis-section" style="margin-bottom:12px;">
                     <details>
@@ -20488,6 +20506,85 @@
             };
         });
 
+        // ================================================================
+        // v1.61.0 (M9): 成績の明細CSV(データ出力)の行を作る
+        //   1行＝児童×項目。値はすべて成績処理(grdCalculate・grdGetSubmissionScore10・grdSubmissionJudge)と同じ関数から取り、独自の計算はしない。
+        //   「10点換算」と「重み」から観点ごとに 重み付き平均(Σ10点換算×重み÷Σ重み。10点換算が空の行は入れない)を組むと、成績処理CSVの 知識平均・思考平均・主体平均 と一致する。
+        //   提出物は、観点(主体性)に入る集計の行(種別「提出物」・評価点の合計÷分母＝提出率→10点換算)と、その内訳の行(課題ごとの状態・評価点・欠席除外。種別「提出物（内訳）」。10点換算・重みは集計の行だけ)を出す。
+        //   専科(外部確定)の教科は項目を持たないので出さない。
+        // ================================================================
+        var GRD_DETAIL_HEADER = ['番号', '氏名', '教科', '学期', '観点', '項目名', '種別', '入力形式', '生の値', '満点', '10点換算', '重み', '状態', '評価点', '欠席除外', '日付'];
+        var GRD_DETAIL_PERSP = [['knowledge', '知識・技能'], ['thinking', '思考・判断・表現'], ['attitude', '主体性']];
+        // 明細に出せる教科(専科でないもの)
+        function grdDetailSubjects() { return grdGetAvailableSubjects().filter(function(s) { return !grdIsExternalSubject(s); }); }
+        // 提出記録1件の状態の言葉。評価点(credit)・除外(excused)・遅れ(late)は成績と同じ grdSubmissionJudge の結果をそのまま使う
+        function grdDetailSubmissionLabel(sub, j) {
+            if (j.credit > 0) {
+                if (sub && (sub.status === 'resubmit' || sub.status === '△')) { var base = (sub.correctionDone === true) ? 'お直し済み' : 'お直し前'; return j.late ? base + '（遅れ）' : base; }
+                return j.late ? '遅れて提出' : '提出';
+            }
+            if (j.excused) return '欠席（除外）';
+            return sub ? '未提出' : '記録なし';
+        }
+        function grdBuildDetailRows(subject, term) {
+            term = term || grdCurrentTermFilter || grdGetCurrentTerm();
+            if (grdIsExternalSubject(subject)) return [];
+            var termLabel = outputTermLabel(term);
+            var results = grdCalculate(subject, term);
+            var tests = {}; grdGetTests().forEach(function(t) { tests[String(t.id)] = t; });
+            var scores = grdGetScores();
+            var subAtt = StorageManager.get(KEYS.attendance, {});
+            var submissions = grdGetSubmissions();
+            var assigns = grdGetAssignments().filter(function(a) { return a.subject === subject && (term === 'all' || grdItemTerm(a) === term); });
+            var rows = [];
+            var num = function(v) { return (v === null || v === undefined) ? '' : v; };
+            var r2 = function(v) { return Math.round(v * 100) / 100; };   // 評価点の合計の小数の誤差(3.6000000000000005 など)を出さない
+            results.forEach(function(r) {
+                var i = r.index;
+                GRD_DETAIL_PERSP.forEach(function(p) {
+                    r[p[0]].items.forEach(function(it) {
+                        var base = [i + 1, r.name, subject];
+                        if (it.type === '提出物') {
+                            if (!assigns.length) return;   // 提出物の課題がない教科は行を出さない
+                            var sc = grdGetSubmissionScore10(i, subject, term, subAtt);
+                            var excludedN = 0;
+                            assigns.forEach(function(a) {
+                                var sv = submissions.find(function(s) { return (s.assignmentId === a.id || s.assignmentId === String(a.id)) && (s.studentIndex === i || s.studentIndex === String(i)); });
+                                if (grdSubmissionJudge(i, a, sv, subAtt).excused) excludedN++;
+                            });
+                            rows.push(base.concat([termLabel, p[1], it.name, '提出物', '提出率（評価点の合計÷分母）', num(sc.total > 0 ? r2(sc.submitted) : null), num(sc.total > 0 ? sc.total : null), num(it.score10), num(it.weight), sc.total > 0 ? '入力済み' : '提出物なし', num(sc.total > 0 ? r2(sc.submitted) : null), excludedN ? excludedN + '件' : '', '']));
+                            assigns.forEach(function(a) {
+                                var sv = submissions.find(function(s) { return (s.assignmentId === a.id || s.assignmentId === String(a.id)) && (s.studentIndex === i || s.studentIndex === String(i)); });
+                                var j = grdSubmissionJudge(i, a, sv, subAtt);
+                                rows.push(base.concat([outputTermLabel(grdItemTerm(a)), p[1], a.name || '', '提出物（内訳）', '提出状況', sv ? (sv.status || '') : '', '', '', '', grdDetailSubmissionLabel(sv, j), j.credit, j.excused ? 'あり' : '', a.date || '']));
+                            });
+                            return;
+                        }
+                        if (it.type === '机間巡視') {
+                            if (it.score10 === null || it.score10 === undefined) return;   // 記録がない机間巡視は行を出さない(平均に入らない)
+                            rows.push(base.concat([termLabel, p[1], it.name, '机間巡視', '○と△の割合（○÷(○+△)）', it.detail || '', '', num(it.score10), num(it.weight), it.score10 !== null && it.score10 !== undefined ? '入力済み' : '記録なし', '', '', '']));
+                            return;
+                        }
+                        var m = /^(k|t|a|mk|mt|ma)_(.+)$/.exec(it.itemKey || '');
+                        var test = m ? tests[m[2]] : null;
+                        var isMatome = !!(m && m[1].length === 2);
+                        var rec = test ? scores.find(function(s) { return Number(s.studentIndex) === i && s.testId === test.id; }) : null;
+                        var mode = isMatome ? 'まとめテスト（観点別の合計点）' : it.type === '実技記録' ? '実技記録（換算表による）'
+                            : (typeof it.raw === 'number') ? '得点' : (typeof it.raw === 'string' && it.raw !== '') ? '5段階'
+                            : (test ? (getItemInputMode(test) === 'abc5' ? '5段階' : '得点') : '');
+                        var hasScore10 = it.score10 !== null && it.score10 !== undefined;
+                        var status = hasScore10 ? '入力済み' : (rec && rec.absent === true) ? '欠席' : (rec || isMatome ? '未評価' : '未入力');
+                        var max = (mode === '得点' || isMatome) ? it.max : '';
+                        rows.push(base.concat([test ? outputTermLabel(grdItemTerm(test)) : termLabel, p[1], it.name, it.type || '', mode, num(it.raw), num(max), num(it.score10), num(it.weight), status, '', '', (test && test.date) || '']));
+                    });
+                });
+            });
+            return rows;
+        }
+        window.grdDetailSubjects = grdDetailSubjects;
+        window.grdBuildDetailRows = grdBuildDetailRows;
+        window.GRD_DETAIL_HEADER = GRD_DETAIL_HEADER;
+
         // Phase 8 から参照できるよう公開
         window.grdCalculate = grdCalculate;
         window.grdItemScore10 = grdItemScore10; // v1.54.2: 診断(入力形式の矛盾の成績への影響)が、成績処理と同じ換算を読み取り専用で使う
@@ -21783,6 +21880,29 @@
         }
 
         // ================================================================
+        // 成績の明細 CSV (v1.61.0 M9。既存のCSVは変えず、別のファイルとして出す)
+        //   行は成績処理と同じ関数から作る(grdBuildDetailRows)。ファイル名と先頭の説明に対象学期を入れる。
+        // ================================================================
+        function expExportGradeDetail() {
+            if (typeof window.grdBuildDetailRows !== 'function') { showToast('成績処理モジュールが未ロードです', 'error'); return; }
+            var subj = (document.getElementById('expDetailSubj') || {}).value || '';
+            var termEl = document.getElementById('expDetailTerm');
+            var term = (termEl && termEl.value) || (typeof window.grdGetCurrentTerm === 'function' ? window.grdGetCurrentTerm() : 'all');
+            var termLabel = outputTermLabel(term);
+            var subjects = subj ? [subj] : window.grdDetailSubjects();
+            var rows = [];
+            subjects.forEach(function(s) { rows = rows.concat(window.grdBuildDetailRows(s, term)); });
+            if (!rows.length) { showToast('データがありません', 'error'); return; }
+            var head = [
+                ['【成績の明細】対象学期：' + termLabel + '　教科：' + (subj || '全教科') + '　出力日：' + expToday()],
+                ['1行＝児童×項目。「10点換算」と「重み」から、観点ごとに 合計(10点換算×重み)÷合計(重み) を出すと、成績処理CSVの知識・思考・主体の平均と一致します（10点換算が空の行は入れません）。提出物は「提出物（内訳）」の評価点の合計÷分母が提出率です（欠席除外の課題は分母に入れません）。専科の教科は含みません。'],
+                window.GRD_DETAIL_HEADER
+            ];
+            expDownloadCSV(expRows(head.concat(rows)), '成績の明細_' + termLabel + '_' + (subj || '全教科') + '_' + expToday() + '.csv');
+            showToast('成績の明細CSVを出力しました');
+        }
+
+        // ================================================================
         // セレクト更新
         // ================================================================
         function expUpdateSelects() {
@@ -21836,6 +21956,20 @@
                 gradeSubj.innerHTML = '<option value="">教科を選択</option>' +
                     Object.keys(gradeSubjSet).map(function(s) { return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>'; }).join('');
             }
+
+            // 成績の明細(v1.61.0 M9): 全教科＋専科でない教科。学期の初期値は現在の学期(以降は選択を保持)
+            var detailTerm = document.getElementById('expDetailTerm');
+            if (detailTerm && !detailTerm.dataset.init) {
+                if (typeof window.grdGetCurrentTerm === 'function') detailTerm.value = window.grdGetCurrentTerm();
+                detailTerm.dataset.init = '1';
+            }
+            var detailSubj = document.getElementById('expDetailSubj');
+            if (detailSubj && typeof window.grdDetailSubjects === 'function') {
+                var prevDetail = detailSubj.value;
+                detailSubj.innerHTML = '<option value="">全教科</option>' +
+                    window.grdDetailSubjects().map(function(s) { return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>'; }).join('');
+                if (prevDetail) detailSubj.value = prevDetail;
+            }
         }
 
         // ================================================================
@@ -21849,6 +21983,7 @@
             b('expSubBtn',    expExportSubmissions);
             b('expFgtBtn',    expExportForgotten);
             b('expGradeBtn',  expExportGrades);
+            b('expDetailBtn', expExportGradeDetail);
         }
 
         // ================================================================

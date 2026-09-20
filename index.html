@@ -21493,26 +21493,34 @@
                 var numeric = 0, str = 0, invalid5 = 0, affected = {}, affectedN = 0;
                 var pp = PERSP_OF[t.category], weight = null;
                 if (pp && typeof grdGetItemWeight === 'function') { try { weight = grdGetItemWeight(t.subject, pp[0], pp[1] + t.id); } catch (e) { weight = null; } }
+                // 記録の型に合わせて読み直したときの入力形式(いまの入力形式の反対)。成績計算(grdItemScore10)を、入力形式だけ反対にして呼び、
+                // 「いまの計算」と比べる(遅れて提出の係数など成績計算の規則は、独自に再計算せず、成績計算の関数にそのまま任せる)。
+                var altTest = Object.assign({}, t, { inputMode: mode === 'abc5' ? 'score' : 'abc5' });
                 scores.forEach(function(sc) {
                     if (sc.testId !== t.id || sc.absent === true) return;
                     var isNum = typeof sc.score === 'number', isStr = typeof sc.score === 'string' && sc.score !== '';
                     if (isNum) numeric++; else if (isStr) str++;
-                    if (mode === 'abc5' && (isNum || (isStr && ABC5_VALID.indexOf(sc.score) === -1))) {
-                        invalid5++;
-                        // 成績処理統合(grdItemScore10。カルテ・出力の成績も同じ計算)が、この記録を「数値の点数として読んだ換算」と同じに扱えているか
-                        // (満点が無ければ換算できない=正しく入らない)。重みが0の項目は成績に入らないので数えない。氏名は扱わない(児童の番号だけ)。
-                        if (pp && weight !== 0 && typeof grdItemScore10 === 'function') {
-                            var actual = null; try { actual = grdItemScore10(t, sc, pp[0]); } catch (e) { actual = null; }
-                            var intended = (isNum && t.maxScore > 0) ? Math.min(10, sc.score / t.maxScore * 10) : null;
-                            if (!(intended !== null && actual !== null && Math.abs(actual - intended) < 0.1)) { affected[sc.studentIndex] = true; }
-                        }
+                    // 入力形式と食い違う記録: 5段階なのに数値・有効でない文字 / 得点方式なのに文字
+                    var mismatchRec = (mode === 'abc5') ? (isNum || (isStr && ABC5_VALID.indexOf(sc.score) === -1)) : isStr;
+                    if (!mismatchRec) return;
+                    invalid5++;
+                    // 成績への影響。重みが0の項目は成績に入らないので数えない。氏名は扱わない(児童の番号だけ)。
+                    if (pp && weight !== 0 && typeof grdItemScore10 === 'function') {
+                        var actual = null, intended = null;
+                        try { actual = grdItemScore10(t, sc, pp[0]); } catch (e) { actual = null; }
+                        // 記録の型に合わせて読めるか: 数値は満点があれば得点として、文字は有効な値なら5段階として読める(読めなければ換算できない)
+                        var readable = (mode === 'abc5') ? (isNum && t.maxScore > 0) : (ABC5_VALID.indexOf(sc.score) !== -1);
+                        if (readable) { try { intended = grdItemScore10(altTest, sc, pp[0]); } catch (e) { intended = null; } }
+                        var same = intended !== null && actual !== null && isFinite(actual) && isFinite(intended) && Math.abs(actual - intended) < 0.1;
+                        if (!same) { affected[sc.studentIndex] = true; }
                     }
                 });
                 Object.keys(affected).forEach(function(k) { affectedN++; gradeAffectedStudents[k] = true; });
                 var kind = null;
                 if (mode === 'score' && !(t.maxScore > 0)) kind = 'score';
                 else if (mode === 'abc5' && t.maxScore > 0) kind = 'abc5';
-                else if (mode === 'abc5' && invalid5 > 0) kind = 'abc5num'; // 判定上は5段階(満点なし)なのに、数値の点数など5段階として読めない値が入っている(印のない旧課題が主。印付きでも同じ矛盾なので対象)
+                else if (mode === 'abc5' && invalid5 > 0) kind = 'abc5num';
+                else if (mode === 'score' && invalid5 > 0) kind = 'scorestr'; // 得点方式(満点あり)なのに文字の記録が入っている(満点を入れて保存したあとも、記録の食い違いが残る限り出し続ける) // 判定上は5段階(満点なし)なのに、数値の点数など5段階として読めない値が入っている(印のない旧課題が主。印付きでも同じ矛盾なので対象)
                 if (!kind) return;
                 // 画面操作での直し方(v1.54.2 で実UIで確認): 'fix-max'=課題の編集で満点を入れて保存 / 'fix-save'=課題の編集でそのまま保存(満点欄が消える) / 'none'=記録の型と入力形式が食い違い、入力形式が固定されているため画面では直せない
                 var guide = 'none';
@@ -21753,7 +21761,7 @@
         }
 
         // v1.54.2: 入力形式の矛盾の1行表示(画面・コピー用テキスト共通)。氏名は出さない(課題名・件数・児童数のみ)。
-        var IMC_KIND_LABEL = { score: '得点方式なのに満点なし', abc5: '5段階なのに満点あり', abc5num: '5段階(印のない旧課題)なのに数値の点数が入っている' };
+        var IMC_KIND_LABEL = { score: '得点方式なのに満点なし', abc5: '5段階なのに満点あり', abc5num: '5段階(印のない旧課題)なのに数値の点数が入っている', scorestr: '得点方式なのに文字(5段階)の記録が入っている' };
         function imcGuideText(item) {
             if (item.guide === 'fix-max') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、満点を入れて保存してください。';
             if (item.guide === 'fix-save') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、そのまま保存してください（満点欄が消えます）。';

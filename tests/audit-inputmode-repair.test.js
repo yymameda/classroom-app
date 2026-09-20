@@ -1,4 +1,4 @@
-// H7 の診断(設定 > 診断を実行「入力形式と満点が矛盾する課題」)の拡張(v1.54.2)。読み取り専用のまま・自動修正はしない。
+// H7 の診断(データ出力(📤)の一番下「🔍 監査診断」>「診断を実行」の「入力形式と満点が矛盾する課題」)の拡張(v1.54.2)。読み取り専用のまま・自動修正はしない。
 //   1. 検出: 既存の2種類(得点方式で満点なし／5段階で満点あり)が、入力形式の印のない旧課題でも、判定上の入力形式で検出される。
 //            新しい種類: 印のない旧課題で、判定上は5段階なのに、5段階として有効な値以外(数値の点数など)が入っているもの。
 //   2. 成績への影響: 上の状態の記録が成績処理統合(grdItemScore10。カルテ・出力の成績も同じ計算)で正しく入っているかを、影響を受ける児童数(氏名なし)で表示する。
@@ -68,7 +68,10 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
             T({ id: 13, name: 'F1印あり-score-満点0-A', category: '主体性', maxScore: 0, inputMode: 'score' }),
             T({ id: 14, name: 'F2印あり-abc5-満点30-数値', maxScore: 30, inputMode: 'abc5' }),
             T({ id: 15, name: 'F5印あり-abc5-満点0-数値', category: '主体性', maxScore: 0, inputMode: 'abc5' }),
-            T({ id: 16, name: 'L11旧-主体性-満点0-欠席のみ', category: '主体性', maxScore: 0 })
+            T({ id: 16, name: 'L11旧-主体性-満点0-欠席のみ', category: '主体性', maxScore: 0 }),
+            T({ id: 17, name: 'F6印あり-score-満点20-文字(主体性)', category: '主体性', maxScore: 20, inputMode: 'score' }),
+            T({ id: 18, name: 'F7印あり-score-満点20-文字(知識)', category: '知識・技能', maxScore: 20, inputMode: 'score' }),
+            T({ id: 19, name: 'L12旧作文-満点5-数値-遅れ1', testType: '作文', category: '思考・判断・表現', maxScore: 5 })
         ];
         const scores = [
             S(1, 1, 0, 13), S(2, 1, 1, 8),
@@ -86,14 +89,16 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
             S(20, 13, 0, 'A'),
             S(21, 14, 0, 25),
             S(22, 15, 0, 13),
-            S(23, 16, 0, 13, { absent: true }), S(24, 16, 1, '')
+            S(23, 16, 0, 13, { absent: true }), S(24, 16, 1, ''),
+            S(25, 17, 1, 'A'), S(26, 18, 2, 'B'),
+            S(27, 19, 0, 4), S(28, 19, 1, 5), S(29, 19, 2, 3, { lateSubmit: true }), S(30, 19, 3, 2)
         ];
         await seed(tests, scores, { '国語': { attitude: { 'a_9': 0 } } });
         const before = await page.evaluate(() => [StorageManager.getRaw(KEYS.tests), StorageManager.getRaw(KEYS.scores), StorageManager.getRaw(KEYS.master)]);
         const d = await diagnose();
         const names = (d.detail || []).map(x => x.name).sort();
-        const expectListed = ['L1旧-知識-満点0-数値', 'L2旧-主体性-満点20-数値13', 'L3旧-主体性-満点20-A', 'L4旧-主体性-満点0-数値13', 'L5旧-主体性-満点0-数値2', 'L6旧-知識-記述-満点0-数値13', 'L7旧-思考-作文-満点0-数値13', 'L8旧-知識-記述-満点20-数値13', 'L9旧-主体性-満点0-数値13-重み0', 'L10旧-主体性-満点0-X', 'F1印あり-score-満点0-A', 'F2印あり-abc5-満点30-数値', 'F5印あり-abc5-満点0-数値'].sort();
-        check('検出: 矛盾する13件だけが一覧に出る(正常な旧5段階・旧振り返り・欠席のみ・空欄のみは出ない)', JSON.stringify(names) === JSON.stringify(expectListed) && d.count === 13, 'count=' + d.count + ' ' + JSON.stringify(names));
+        const expectListed = ['L1旧-知識-満点0-数値', 'L2旧-主体性-満点20-数値13', 'L3旧-主体性-満点20-A', 'L4旧-主体性-満点0-数値13', 'L5旧-主体性-満点0-数値2', 'L6旧-知識-記述-満点0-数値13', 'L7旧-思考-作文-満点0-数値13', 'L8旧-知識-記述-満点20-数値13', 'L9旧-主体性-満点0-数値13-重み0', 'L10旧-主体性-満点0-X', 'F1印あり-score-満点0-A', 'F2印あり-abc5-満点30-数値', 'F5印あり-abc5-満点0-数値', 'F6印あり-score-満点20-文字(主体性)', 'F7印あり-score-満点20-文字(知識)', 'L12旧作文-満点5-数値-遅れ1'].sort();
+        check('検出: 矛盾する16件だけが一覧に出る(正常な旧5段階・旧振り返り・欠席のみ・空欄のみは出ない)', JSON.stringify(names) === JSON.stringify(expectListed) && d.count === 16, 'count=' + d.count + ' ' + JSON.stringify(names));
         const L = (n) => byName(d, n) || {};
         check('既存の種類(印のない旧課題): 知識・技能で満点0 → 「得点方式なのに満点なし」(判定上の入力形式で検出)', L('L1旧-知識-満点0-数値').kind === 'score' && L('L1旧-知識-満点0-数値').inputMode === '(未設定・観点から推定)', JSON.stringify(L('L1旧-知識-満点0-数値')));
         check('既存の種類(印のない旧課題): 主体性で満点20 → 「5段階なのに満点あり」', L('L3旧-主体性-満点20-A').kind === 'abc5' && L('L2旧-主体性-満点20-数値13').kind === 'abc5', '');
@@ -108,13 +113,16 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
         check('成績への影響: 知識・技能の記述問題(満点20)は数値の点数のまま正しく計算される → 影響0人(「成績の値は変わりません」と表示)', L('L8旧-知識-記述-満点20-数値13').gradeAffectedStudents === 0 && d.lines.some(l => /成績の値は変わりません/.test(l.text)), '');
         check('成績への影響: 成績の重みが0の課題は影響0人(「重みが0のため、いまは成績に入っていません」)', L('L9旧-主体性-満点0-数値13-重み0').gradeAffectedStudents === 0 && L('L9旧-主体性-満点0-数値13-重み0').gradeWeight === 0 && /重みが0/.test(d.html), '');
         check('無効な値(X)は成績に入らない → 影響1人', L('L10旧-主体性-満点0-X').gradeAffectedStudents === 1, '');
+        check('遅れて提出の係数(0.8倍)は成績計算の関数に任せる: 旧作文(満点5・数値)の遅れて提出1件は「成績に入っていない」と数えない(影響0人・「成績の値は変わりません」)', L('L12旧作文-満点5-数値-遅れ1').gradeAffectedStudents === 0 && L('L12旧作文-満点5-数値-遅れ1').invalid5Scores === 4 && d.lines.some(l => /成績の値は変わりません/.test(l.text)), JSON.stringify(L('L12旧作文-満点5-数値-遅れ1')));
+        check('得点方式で文字の記録(満点あり): 満点を入れたあとも kind=scorestr で検出され続ける', L('F6印あり-score-満点20-文字(主体性)').kind === 'scorestr' && L('F7印あり-score-満点20-文字(知識)').kind === 'scorestr', JSON.stringify([L('F6印あり-score-満点20-文字(主体性)').kind, L('F7印あり-score-満点20-文字(知識)').kind]));
+        check('得点方式で文字の記録の成績への影響: 主体性は文字を点数として読めず成績が正しく入らない(1人)・知識・技能は文字を5段階として計算するので影響なし(0人)', L('F6印あり-score-満点20-文字(主体性)').gradeAffectedStudents === 1 && L('F7印あり-score-満点20-文字(知識)').gradeAffectedStudents === 0, '');
         check('影響を受ける児童の合計は、重複を除いた人数(児童の番号で数える)', d.affected === 4, 'affected=' + d.affected);
         check('画面: 「成績に正しく入っていない児童: 計4人」と、氏名は表示しない旨が出る', /成績に正しく入っていない児童: 計4人/.test(d.html) && /氏名は表示しません/.test(d.html), d.html.slice(0, 60));
         check('氏名は画面・診断結果のどこにも出ない(児童の氏名は含まれない)', NAMES.every(n => d.html.indexOf(n) === -1 && JSON.stringify(d.detail).indexOf(n) === -1), '');
         await page.evaluate(() => { copyAuditResultAsText(); }); await sleep(200);
         const clip = await page.evaluate(() => window.__clip || '');
         check('コピー用テキストにも、種類・直し方・成績への影響・児童数が含まれ、氏名は含まれない', /5段階\(印のない旧課題\)なのに数値の点数/.test(clip) && /直し方:/.test(clip) && /成績への影響:/.test(clip) && /成績に正しく入っていない児童: 計4人/.test(clip) && NAMES.every(n => clip.indexOf(n) === -1), clip.slice(0, 40));
-        check('注意欄(anomalies.warn)にも、種類と「成績に正しく入っていない児童 4人」が出る', (d.warn || []).some(w => /入力形式と満点が矛盾/.test(w) && /13件/.test(w) && /成績に正しく入っていない児童 4人/.test(w)), JSON.stringify(d.warn));
+        check('注意欄(anomalies.warn)にも、種類と「成績に正しく入っていない児童 4人」が出る', (d.warn || []).some(w => /入力形式と満点が矛盾/.test(w) && /16件/.test(w) && /成績に正しく入っていない児童 4人/.test(w)), JSON.stringify(d.warn));
         const after = await page.evaluate(() => [StorageManager.getRaw(KEYS.tests), StorageManager.getRaw(KEYS.scores), StorageManager.getRaw(KEYS.master)]);
         check('読み取り専用: 診断の前後で課題・記録・名簿が1バイトも変わらない', JSON.stringify(before) === JSON.stringify(after), '');
         const w = await page.evaluate(async () => { let n = 0; const o = Storage.prototype.setItem, r = Storage.prototype.removeItem; Storage.prototype.setItem = function() { n++; return o.apply(this, arguments); }; Storage.prototype.removeItem = function() { n++; return r.apply(this, arguments); }; try { runAuditDiagnosis(); await new Promise(res => setTimeout(res, 900)); copyAuditResultAsText(); await new Promise(res => setTimeout(res, 200)); } finally { Storage.prototype.setItem = o; Storage.prototype.removeItem = r; } return n; }); // 診断は少し遅れて計算されるため、終わるまで監視する
@@ -193,7 +201,9 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
         check('直せない(d) 得点(判定)で文字の記録・満点なし: 入力形式のタブが押せない(固定)', fs.scoreBtnDisabled === true && fs.abcBtnDisabled === true && fs.lockNote === true, JSON.stringify(fs));
         await typeMax(20); await save();
         const td = await testOf(13);
+        const dd = await diagnose();
         check('直せない(d): 満点を入れて保存しても、入力形式は得点のまま・文字の記録と食い違ったまま(5段階に戻せない)', td.inputMode === 'score' && td.maxScore === 20, JSON.stringify(td));
+        check('(d) 満点を入れて保存したあとも、記録の食い違いが残る限り診断に出し続ける(kind=scorestr)', (dd.detail || []).some(x => x.testId === 13 && x.kind === 'scorestr'), JSON.stringify(dd.detail && dd.detail.map(x => [x.testId, x.kind])));
     } catch (e) {
         check('テスト実行中に例外なし', false, (e && e.stack) || String(e));
     } finally {

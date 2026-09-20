@@ -332,7 +332,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         }
 
         // ============================================================
-        // M1: ダッシュボードの「テスト平均」が成績処理統合と同じ集計(欠席・学期・入力形式・遅れ係数)であること
+        // M1: ダッシュボードの「テスト平均」が成績処理統合と同じ集計(欠席・学期・入力形式。児童の記録の「遅」の印は点数に使わない=v1.56.0)であること
         // ============================================================
         if (want('M1')) {
             console.log('--- M1: ダッシュボード テスト平均 ---');
@@ -351,7 +351,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 S(1, 0, 80), S(2, 0, 100, { absent: true }), S(3, 0, 6), S(4, 0, 20), S(5, 0, 'A'), S(6, 0, 100, { lateSubmit: true })
             ];
             await seed({ students: [{ name: '甲' }], tests, scores });
-            // 期待: 現在学期の 80→8.0 / 主体性得点 6 / 5段階A→10 / 遅れ100→8.0 の平均=8.0。
+            // 期待: 現在学期の 80→8.0 / 主体性得点 6 / 5段階A→10 / 遅れの印つき100→10.0(v1.56.0: 児童の記録の遅れは0.8倍しない) の平均=8.5。
             //       欠席・別学期は含めない。
             const dash = await page.evaluate(() => {
                 showView('dashboard');
@@ -360,8 +360,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 const row = rows.find(r => /テスト平均/.test(r.textContent));
                 return row ? row.textContent.replace(/\s+/g, ' ').trim() : '(行なし)';
             });
-            evidence('M1 ダッシュボード表示', { expected: '8.0/10 ・ 4件', actual: dash });
-            check('M1 テスト平均=8.0/10（欠席・別学期を除外、主体性得点方式・5段階・遅れ係数を反映）', /8\.0\/10/.test(dash), dash);
+            evidence('M1 ダッシュボード表示', { expected: '8.5/10 ・ 4件', actual: dash });
+            check('M1 テスト平均=8.5/10（欠席・別学期を除外、主体性得点方式・5段階を反映。遅れの印つきも0.8倍しない）', /8\.5\/10/.test(dash), dash);
             check('M1 入力済み件数=4件', /4件/.test(dash), dash);
         }
 

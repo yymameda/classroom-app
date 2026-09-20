@@ -17765,7 +17765,9 @@
         var GRD_SUBJ_ORDER = ['国語','社会','算数','理科','音楽','図工','家庭','体育','英語','道徳','総合'];
 
         // 採点ルールの定数（算出根拠シートの説明文と計算ロジックで共有・二重管理を防ぐ）
-        var LATE_SUBMIT_FACTOR = 0.8;          // 期限後提出時のペナルティ係数
+        // v1.56.0 (M8): 遅れ係数0.8は「提出物チェックで入力した提出記録」(SUBMISSION_CREDIT_LATE)にだけ適用する。
+        //   児童の記録(得点入力・5段階・まとめテスト・単元テスト・主体性・授業課題・振り返り・実技記録など全種別)の
+        //   「遅」の印(record.lateSubmit)は、表示・記録としては残すが、成績の計算には使わない(旧 LATE_SUBMIT_FACTOR は廃止)。
         var SUBMISSION_CREDIT_FULL = 1.0;      // 提出済み／お直し完了した再提出
         var SUBMISSION_CREDIT_RESUBMIT = 0.8;  // 再提出（お直し前）
         var SUBMISSION_CREDIT_LATE = 0.8;      // 遅れて提出（上限。v1.14.0）
@@ -17891,6 +17893,7 @@
             return Math.min(10, (score / maxScore) * 10);
         }
         // v1.50.0: 1課題×1記録 → 10点換算(未丸め)。欠席・実技記録・入力形式・遅れ係数の判定を1箇所に集約する。
+        // (v1.56.0: 遅れ係数は児童の記録には掛けない。掛けるのは提出物の提出記録だけ=grdSubmissionCredit。)
         // 従来は知識・技能/思考・判断・表現/主体性の3ブロックが各自で分岐しており、実技記録は知識・技能でしか
         // peRecordToScore10 を通らなかった(思考・判断・表現に設定すると 得点÷9999 で約0点、主体性に設定すると
         // abcTo10 へ数値が渡って別の点数に化けた)。実技記録は観点によらず必ず peRecordToScore10 を通す
@@ -17912,7 +17915,7 @@
                 var max = (persp === 'knowledge') ? (test.maxScore || 100) : test.maxScore;
                 if (persp === 'thinking' && !(test.maxScore > 0)) return null;
                 s10 = scoreTo10(sr.score, max);
-                if (sr.lateSubmit === true && s10 !== null) s10 = Math.round(s10 * LATE_SUBMIT_FACTOR * 10) / 10;
+                // v1.56.0 (M8): 児童の記録の「遅」の印(sr.lateSubmit)は成績に使わない(0.8倍しない)。全種別で同じ扱い。
             } else if (typeof sr.score === 'string') {
                 s10 = abcTo10(sr.score);
             }
@@ -19255,7 +19258,7 @@
                  + '。遅れて提出したものは上限' + Math.round(SUBMISSION_CREDIT_LATE*100) + '%';
         }
         function grdLateSubmitText() {
-            return '期限後提出（遅れ提出）は得点を' + Math.round(LATE_SUBMIT_FACTOR*100) + '%として換算';
+            return '児童の記録の「遅」の印は表示・記録のみで、得点の換算には使わない（遅れの評価は提出物の提出記録だけ。上限' + Math.round(SUBMISSION_CREDIT_LATE*100) + '%）';
         }
         // itemKeyからテスト本体を逆引き（k_/t_/a_/mk_/mt_/ma_ プレフィックス）
         function grdFindTestByItemKey(subject, itemKey) {
@@ -19274,7 +19277,7 @@
                 if (test && kenteiGetConfig(test)) return '検定段階→10点換算（別表の変換表を参照）';
                 return '実技記録を正規化して10点満点に換算';
             }
-            if (typeof item.max === 'number' && item.max > 0) return '得点÷' + item.max + '×10（' + grdLateSubmitText() + '）';
+            if (typeof item.max === 'number' && item.max > 0) return '得点÷' + item.max + '×10';
             return 'ABC評価 → ' + grdConversionRulesText();
         }
         // その教科で検定（なわとび・泳力カード等）を使うテスト一覧

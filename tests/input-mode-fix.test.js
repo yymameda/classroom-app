@@ -118,7 +118,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         check('課題のほかの項目・ほかの課題は変わらない(対照の課題が同一・作文は inputMode だけの差)', (() => { const a = JSON.parse(pre[K.tests]), b = JSON.parse(post[K.tests]); return JSON.stringify(a[1]) === JSON.stringify(b[1]) && JSON.stringify(Object.assign({}, a[0], { inputMode: 'score' })) === JSON.stringify(b[0]); })(), '');
         const gradesAfter = await grades('国語'), itemAfter = await itemScores('国語', SAKUBUN.name);
         check('成績処理統合の値が、戻す前後で完全に同じ(27名分・遅れて提出1件を含む。成績の全結果が一致)', gradesBefore === gradesAfter && JSON.stringify(itemBefore) === JSON.stringify(itemAfter) && itemBefore.filter(x => typeof x === 'number').length === N, JSON.stringify(itemBefore.slice(0, 8)) + ' / ' + JSON.stringify(itemAfter.slice(0, 8)));
-        check('遅れて提出の児童(8番目)は、戻したあとも係数0.8倍で計算されている(3点→4.8点)', itemAfter[7] === 4.8 && itemBefore[7] === 4.8, String(itemAfter[7]));
+        check('遅れの印つきの児童(8番目)は、戻す前後とも0.8倍されない(3点→6.0点。v1.56.0: 児童の記録の遅れは点数に使わない。印は残る)', itemAfter[7] === 6 && itemBefore[7] === 6, String(itemAfter[7]));
         await page.evaluate((id) => { showView('records'); recShowSub('input'); recSelectTestGoto(id); }, SAKUBUN.id); await sleep(300);
         const inp = await page.evaluate(() => ({ v0: document.getElementById('rec-sc-0') && document.getElementById('rec-sc-0').value, v1: document.getElementById('rec-sc-1') && document.getElementById('rec-sc-1').value, max: document.getElementById('rec-sc-0') && document.getElementById('rec-sc-0').getAttribute('max'), abc: document.querySelectorAll('#rec-row-0 .rec-abc-btn').length }));
         check('入力画面: 点数入力に戻り(満点5)、入力済みの点数(1・2…)が見える', inp.v0 === '1' && inp.v1 === '2' && inp.max === '5' && inp.abc === 0, JSON.stringify(inp));

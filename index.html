@@ -3575,7 +3575,9 @@
 
                 <!-- 専科入力タブ -->
                 <div id="grd-sub-external" class="sub-sub">
+                    <div id="grdExtTermBanner" style="margin:4px 0 6px;padding:8px 12px;background:#e8f5ee;border:1.5px solid #1a6b4a;border-radius:8px;color:#1a6b4a;font-weight:700;font-size:0.9rem;"></div>
                     <div style="padding:6px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select id="grdExtTermSel" title="入力する学期(専科の値は学期ごとに持ちます)" style="padding:6px 10px;border:1.5px solid #1a6b4a;border-radius:8px;font-size:0.85rem;font-weight:700;background:var(--white);"></select>
                         <select id="grdExtSubj" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;background:var(--white);"></select>
                         <button id="grdExtRegisterBtn" class="btn btn-outline" style="padding:6px 12px;font-size:0.82rem;">＋ この教科を専科登録</button>
                         <button id="grdExtSuggestBtn" class="btn btn-outline" style="padding:6px 12px;font-size:0.82rem;">評定をABCから一括提案</button>
@@ -4684,6 +4686,20 @@
     function outputTermLabel(term) {
         return (!term || term === 'all') ? '通年' : (String(term) + '学期');
     }
+
+    // v1.61.0 (M7): 専科(外部確定)成績の表示文字。出力(成績処理の表・カルテPDF・面談テキスト・レーダーPDF・CSV・Excel)はすべてこの関数を通す。
+    //   sr: grdCalculate の1児童分の結果。key: 'k'(知識・技能)|'t'(思考・判断・表現)|'a'(主体性)|'h'(評定)。blank: 値がないときの文字(今までの '—' や '')。
+    //   専科で、その学期(通年のときはどの学期にも)に値が1つもない児童は「未入力」(他の学期の値で埋めない)。
+    //   通年のときは、値のある項目に、その値の学期名をつける(例: B（2学期）。最新の入力済み学期の値。学期の平均は取らない)。
+    //   専科でない教科・1学期などの単一の学期の値は、今までどおりの値をそのまま返す(型も変えない)。
+    function grdExtShow(sr, key, blank) {
+        var val = key === 'k' ? sr.knowledge.abc : key === 't' ? sr.thinking.abc : key === 'a' ? sr.attitude.abc : sr.hyoutei;
+        if (sr.external && sr.extMissing) return '未入力';
+        if (!val) return blank;
+        if (sr.external && sr.extTerms && sr.extTerms[key]) return String(val) + '（' + outputTermLabel(sr.extTerms[key]) + '）';
+        return val;
+    }
+    window.grdExtShow = grdExtShow;
 
     // v1.8.98: HTMLページ配列→PDF共通変換（html2canvas+jsPDF、出力は共有シート）
     // pageHtmls: 各要素が1ページ分のルートdiv文字列（インラインスタイル前提）
@@ -6667,7 +6683,8 @@
             if (!srIsPlainObject(data)) throw new Error('shape: object expected');
             if (!srIsPlainObject(data.data)) data.data = {};
             Object.keys(piece).forEach(function(subj) {
-                if (!Array.isArray(data.subjects) || data.subjects.indexOf(subj) === -1) { skipped++; return; } // 専科でなくなった教科には戻さない
+                var baseSubj = subj.replace(/@[23]$/, ''); // v1.61.0 (M7): 学期別の値のキー('音楽@2'＝2学期)は、元の教科('音楽')が専科登録されているかで判定する
+                if (!Array.isArray(data.subjects) || data.subjects.indexOf(baseSubj) === -1) { skipped++; return; } // 専科でなくなった教科には戻さない
                 if (!srIsPlainObject(data.data[subj])) data.data[subj] = {};
                 data.data[subj][key] = piece[subj];
             });
@@ -14314,19 +14331,21 @@
                     var res; try { res = grdCalculate(subj, kvOutputTermFilter || undefined); } catch(e) { return; } // v1.50.0: 成績も出力側の学期で計算(未指定だと成績処理画面の学期になり見出しとずれる)
                     var sr = res && res.find(function(r) { return r.index === idx; });
                     if (!sr) return;
-                    var hy = sr.hyoutei || '—';
+                    var hy = grdExtShow(sr, 'h', '—'); // v1.61.0 (M7): 専科は未入力・通年の学期名つき。専科でない教科は今までどおり
                     var hyColor = hy === '3' ? '#E65100' : hy === '2' ? '#F9A825' : hy === '1' ? '#aaa' : 'var(--success)';
                     if (hy === '5' || hy === '4') hyColor = 'var(--success)';
+                    if (sr.external && sr.extMissing) hyColor = '#aaa'; // v1.61.0 (M7): 「未入力」は良い評価の緑にしない
                     html += '<div style="background:#F8FBFF;border:1.5pt solid #D0E8F5;border-radius:8pt;padding:5pt 6pt;text-align:center;">'
                         + '<div style="font-size:7.5pt;font-weight:700;color:#1a2332;margin-bottom:3pt;">' + escapeHtml(subj) + '</div>'
-                        + '<div style="font-size:18pt;font-weight:900;line-height:1;color:' + hyColor + ';">' + hy + '</div>'
+                        + '<div style="font-size:' + ((sr.external && (sr.extMissing || sr.extTerms)) ? '9pt' : '18pt') + ';font-weight:900;line-height:1;color:' + hyColor + ';">' + hy + '</div>'
                         + '<div style="font-size:6pt;color:#888;margin-top:2pt;">評定</div>'
-                        + '<div style="display:flex;justify-content:center;gap:4pt;margin-top:4pt;">'
+                        + '<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:4pt;margin-top:4pt;">'
                         + ['知', '思', '態'].map(function(label, li) {
                             var obs = [sr.knowledge, sr.thinking, sr.attitude][li];
                             var abc = (obs && obs.abc) || '—';
                             var c = gradeColors[abc] || '#aaa';
-                            return '<span style="font-size:6pt;background:' + c + '20;color:' + c + ';border-radius:3pt;padding:1pt 3pt;font-weight:700;">' + label + ':' + abc + '</span>';
+                            var shown = sr.external && sr.extMissing ? '未入力' : grdExtShow(sr, ['k', 't', 'a'][li], '—'); // v1.61.0 (M7): 通年は「B（2学期）」
+                            return '<span style="font-size:6pt;background:' + c + '20;color:' + c + ';border-radius:3pt;padding:1pt 3pt;font-weight:700;">' + label + ':' + shown + '</span>';
                         }).join('')
                         + '</div></div>';
                 });
@@ -14493,13 +14512,14 @@
                     var res; try { res = grdCalculate(subj, kvOutputTermFilter || undefined); } catch(e) { return; } // v1.50.0: 成績も出力側の学期で計算(未指定だと成績処理画面の学期になり見出しとずれる)
                     var sr = res && res.find(function(r) { return r.index === idx; });
                     if (!sr) return;
-                    var abc = function(v) { var c = v==='A'?'var(--success)':v==='B'?'#3498DB':v==='C'?'var(--accent)':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+(v||'—')+'</span>'; };
+                    // v1.61.0 (M7): 専科は grdExtShow(値のない学期は「未入力」・通年は「B（2学期）」)。色は値(v)から決める
+                    var abc = function(v, key) { var c = v==='A'?'var(--success)':v==='B'?'#3498DB':v==='C'?'var(--accent)':'#aaa'; return '<span style="font-weight:700;color:'+c+';">'+grdExtShow(sr, key, '—')+'</span>'; };
                     gradeSec += '<tr style="border-bottom:1pt solid #eee;">'
                         + '<td style="padding:3pt 5pt;font-weight:600;">' + escapeHtml(subj) + '</td>'
-                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.knowledge.abc) + '</td>'
-                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.thinking.abc) + '</td>'
-                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.attitude.abc) + '</td>'
-                        + '<td style="padding:3pt 5pt;text-align:center;background:#f9f9f9;font-size:10pt;font-weight:900;">' + (sr.hyoutei || '—') + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.knowledge.abc, 'k') + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.thinking.abc, 't') + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;">' + abc(sr.attitude.abc, 'a') + '</td>'
+                        + '<td style="padding:3pt 5pt;text-align:center;background:#f9f9f9;font-size:10pt;font-weight:900;">' + grdExtShow(sr, 'h', '—') + '</td>'
                         + '</tr>';
                 });
                 gradeSec += '</tbody></table></div>';
@@ -14718,7 +14738,9 @@
                 subjects.forEach(function(subj) {
                     var res = gradeResults[subj]; if (!res) return;
                     var sr = res.find(function(r) { return r.index === idx; }); if (!sr) return;
-                    gradeRows.push(subj + '：知 ' + (sr.knowledge.abc || '—') + '／思 ' + (sr.thinking.abc || '—') + '／主 ' + (sr.attitude.abc || '—') + '／評定 ' + (sr.hyoutei || '—'));
+                    // v1.61.0 (M7): 専科で値のない学期は「音楽：未入力」・通年は「知 C（2学期）」のように学期名つき
+                    if (sr.external && sr.extMissing) { gradeRows.push(subj + '：未入力'); return; }
+                    gradeRows.push(subj + '：知 ' + grdExtShow(sr, 'k', '—') + '／思 ' + grdExtShow(sr, 't', '—') + '／主 ' + grdExtShow(sr, 'a', '—') + '／評定 ' + grdExtShow(sr, 'h', '—'));
                 });
                 L.push(gradeRows.length ? gradeRows.join('\n') : '（データなし）');
 
@@ -18278,27 +18300,71 @@
             if (!k || !t || !a) return '';
             return total >= 8 ? 3 : total >= 5 ? 2 : 1;
         }
-        function grdExtCalculate(subject) {
+        // v1.61.0 (M7): 専科の値は学期ごとに持つ。保存先は data[教科]＝1学期(v1.60.4 までの値は、書き換えずにそのまま1学期の値として読む)・
+        //   data['教科@2']＝2学期・data['教科@3']＝3学期。どれも {"児童の番号": {k,t,a,h}} の同じ形(付け替え・退避・復元は教科名の違いだけで同じ処理)。
+        var GRD_EXT_TERMS = ['1', '2', '3'];
+        function grdExtDataKey(subj, term) { return (term === '2' || term === '3') ? subj + '@' + term : subj; }
+        function grdExtRowHasValue(r) { return !!(r && (r.k || r.t || r.a || r.h)); }
+        function grdExtCalculate(subject, term) {
             var students = grdGetStudents();
-            var rec = (grdExtGet().data[subject]) || {};
+            var d = grdExtGet();
+            var recs = {};
+            GRD_EXT_TERMS.forEach(function(t) { recs[t] = d.data[grdExtDataKey(subject, t)] || {}; });
+            var isHy = function(v) { return v === 3 || v === 2 || v === 1; };
             var results = [];
             students.forEach(function(stu, i) {
-                var r = rec[String(i)] || {};
-                var kABC = r.k || '', tABC = r.t || '', aABC = r.a || '';
-                var hy = (r.h === 3 || r.h === 2 || r.h === 1) ? r.h : '';
+                var kABC = '', tABC = '', aABC = '', hy = '', terms = null;
+                if (term === 'all') {
+                    // 通年: 項目ごとに、値が入っている最新の学期の値を使う(学期の平均は取らない)。どの学期の値かを extTerms に持つ。
+                    terms = {};
+                    var pick = function(key, ok) {
+                        for (var n = GRD_EXT_TERMS.length - 1; n >= 0; n--) {
+                            var rr = recs[GRD_EXT_TERMS[n]][String(i)];
+                            if (rr && ok(rr[key])) { terms[key] = GRD_EXT_TERMS[n]; return rr[key]; }
+                        }
+                        return '';
+                    };
+                    kABC = pick('k', function(v) { return !!v; }); tABC = pick('t', function(v) { return !!v; }); aABC = pick('a', function(v) { return !!v; });
+                    hy = pick('h', isHy);
+                } else {
+                    var r = (recs[term] || {})[String(i)] || {};
+                    kABC = r.k || ''; tABC = r.t || ''; aABC = r.a || '';
+                    hy = isHy(r.h) ? r.h : '';
+                }
+                // 合計は3項目がそろったときだけ。通年で3項目の学期がそろわない(ばらばら)ときは、学期をまたいだ合計を作らない
+                var sameTerm = !terms || (terms.k === terms.t && terms.t === terms.a);
                 results.push({
                     index: i, name: stu.name || (i+1)+'番',
                     knowledge: { items: [], avg: null, abc: kABC },
                     thinking:  { items: [], avg: null, abc: tABC },
                     attitude:  { items: [], avg: null, abc: aABC },
                     hyoutei: hy,
-                    totalNum: (kABC && tABC && aABC) ? (abcToNum(kABC)+abcToNum(tABC)+abcToNum(aABC)) : null,
-                    external: true
+                    totalNum: (kABC && tABC && aABC && sameTerm) ? (abcToNum(kABC)+abcToNum(tABC)+abcToNum(aABC)) : null,
+                    external: true,
+                    extMissing: !kABC && !tABC && !aABC && hy === '',   // この学期(通年ならどの学期にも)値が1つもない → 出力は「未入力」
+                    extTerms: terms                                    // 通年のときだけ: 項目('k','t','a','h') → 値の学期('1'〜'3')
                 });
             });
             return results;
         }
         var GRD_EXT_ABC = ['A','B','C'];
+        // v1.61.0 (M7): 専科入力タブで「いま入力中」の学期。初期値は、タブを最初に開いたときの現在の学期(2学期制は1・2学期だけ)。
+        var grdExtInputTerm = null;
+        function grdExtTermOptions() {
+            var ts = (master && master.classInfo && master.classInfo.termSystem) || 3;
+            return Number(ts) === 2 ? ['1', '2'] : ['1', '2', '3'];
+        }
+        function grdExtCurrentTerm() {
+            var opts = grdExtTermOptions();
+            if (grdExtInputTerm && opts.indexOf(grdExtInputTerm) >= 0) return grdExtInputTerm;
+            var now = grdGetCurrentTerm();
+            return opts.indexOf(now) >= 0 ? now : '1';
+        }
+        function grdExtOnTermChange() {
+            var tsel = document.getElementById('grdExtTermSel');
+            grdExtInputTerm = tsel ? tsel.value : null;
+            grdExtRenderGrid();
+        }
         function grdExtRenderTab() {
             var sel = document.getElementById('grdExtSubj'); if (!sel) return;
             var prevVal = sel.value;
@@ -18308,11 +18374,20 @@
                 return '<option value="'+s+'">'+s+mark+'</option>';
             }).join('');
             if (prevVal && GRD_SUBJ_ORDER.indexOf(prevVal) >= 0) sel.value = prevVal;
+            var tsel = document.getElementById('grdExtTermSel');
+            if (tsel) {
+                grdExtInputTerm = grdExtCurrentTerm();
+                tsel.innerHTML = grdExtTermOptions().map(function(t) { return '<option value="'+t+'">'+outputTermLabel(t)+'</option>'; }).join('');
+                tsel.value = grdExtInputTerm;
+            }
             grdExtRenderGrid();
         }
         function grdExtRenderGrid() {
             var subj = (document.getElementById('grdExtSubj')||{}).value || '';
             var wrap = document.getElementById('grdExtGridWrap'); if (!wrap) return;
+            var term = grdExtCurrentTerm(), termLabel = outputTermLabel(term);
+            var banner = document.getElementById('grdExtTermBanner');
+            if (banner) banner.innerHTML = '📝 いま入力中：<b style="font-size:1.05rem;">'+termLabel+'</b>' + (subj ? '　'+escapeHtml(subj) : '') + '<span style="font-weight:400;font-size:0.75rem;margin-left:8px;">（入れた値は'+termLabel+'の成績・各出力にだけ使われます）</span>';
             var registered = subj ? grdIsExternalSubject(subj) : false;
             var regBtn = document.getElementById('grdExtRegisterBtn');
             var clearSubjBtn = document.getElementById('grdExtClearSubjBtn');
@@ -18320,7 +18395,7 @@
             if (clearSubjBtn) clearSubjBtn.style.display = (subj && registered) ? '' : 'none';
             if (!subj) { wrap.innerHTML = ''; return; }
             var students = grdGetStudents();
-            var rec = (grdExtGet().data[subj]) || {};
+            var rec = (grdExtGet().data[grdExtDataKey(subj, term)]) || {};
             var abcGroup = function(i, field, cur, label) {
                 var btns = GRD_EXT_ABC.map(function(v) {
                     var on = cur === v;
@@ -18347,7 +18422,8 @@
                 if (!stu || !stu.name) return '';
                 var r = rec[String(i)] || {};
                 return '<tr style="border-bottom:1px solid var(--border);">'
-                    + '<td style="padding:4px 8px;white-space:nowrap;position:sticky;left:0;background:var(--white);">'+(i+1)+'. '+escapeHtml(stu.name)+'</td>'
+                    // v1.61.0 (M7): 画面をスクロールしても「いま入力中の学期」が分かるよう、各行の名前の横にも学期の札を出す
+                    + '<td style="padding:4px 8px;white-space:nowrap;position:sticky;left:0;background:var(--white);">'+(i+1)+'. '+escapeHtml(stu.name)+' <span class="grd-ext-row-term" style="background:#1a6b4a;color:var(--white);border-radius:5px;padding:0 5px;font-size:0.65rem;font-weight:700;vertical-align:middle;">'+termLabel+'</span></td>'
                     + '<td style="padding:6px 4px;"><div style="display:flex;gap:6px;align-items:flex-start;">'
                     + abcGroup(i,'k',r.k||'','知') + abcGroup(i,'t',r.t||'','思') + abcGroup(i,'a',r.a||'','主') + hyGroup(i, r.h||'')
                     + '</div></td>'
@@ -18356,27 +18432,30 @@
             }).join('');
             wrap.innerHTML = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:0.85rem;">'
                 + '<thead><tr style="background:#1a1a2e;color:var(--white);"><th style="padding:6px 8px;text-align:left;position:sticky;left:0;background:#1a1a2e;">児童</th>'
-                + '<th style="padding:6px;text-align:left;">入力（知・思・主・評定）</th><th style="padding:6px;"></th></tr></thead>'
+                + '<th style="padding:6px;text-align:left;">入力（知・思・主・評定）　<span style="background:#1a6b4a;color:var(--white);border-radius:6px;padding:1px 8px;font-size:0.8rem;">'+termLabel+'分</span></th><th style="padding:6px;"></th></tr></thead>'
                 + '<tbody>'+rows+'</tbody></table></div>';
         }
-        function grdExtDropRowIfEmpty(d, subj, i) {
-            var row = d.data[subj][String(i)];
-            if (row && !row.k && !row.t && !row.a && !row.h) delete d.data[subj][String(i)];
+        // key: 保存先のキー(grdExtDataKey)。2・3学期のキーは、中身が空になったらキーごと消す(1学期＝教科名のキーは今までどおり残す)
+        function grdExtDropRowIfEmpty(d, key, i) {
+            var row = d.data[key][String(i)];
+            if (row && !row.k && !row.t && !row.a && !row.h) delete d.data[key][String(i)];
+            if (key.indexOf('@') > 0 && Object.keys(d.data[key]).length === 0) delete d.data[key];
         }
         function grdExtSetABC(i, field, v) {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
             var d = grdExtGet();
+            var key = grdExtDataKey(subj, grdExtCurrentTerm());   // v1.61.0 (M7): いま入力中の学期の保存先
             var justRegistered = false;
             if (d.subjects.indexOf(subj) < 0) {
                 if (!confirm('「'+subj+'」はまだ専科登録されていません。専科教科として登録して入力を続けますか?')) return;
                 d.subjects.push(subj);
                 justRegistered = true;
             }
-            if (!d.data[subj]) d.data[subj] = {};
-            if (!d.data[subj][String(i)]) d.data[subj][String(i)] = {};
-            var cur = d.data[subj][String(i)][field] || '';
-            d.data[subj][String(i)][field] = (cur === v) ? '' : v;
-            grdExtDropRowIfEmpty(d, subj, i);
+            if (!d.data[key]) d.data[key] = {};
+            if (!d.data[key][String(i)]) d.data[key][String(i)] = {};
+            var cur = d.data[key][String(i)][field] || '';
+            d.data[key][String(i)][field] = (cur === v) ? '' : v;
+            grdExtDropRowIfEmpty(d, key, i);
             grdExtSave(d);
             if (justRegistered) grdExtRenderTab(); else grdExtRenderGrid();
             grdExtFlash('保存しました');
@@ -18384,18 +18463,19 @@
         function grdExtSetHyoutei(i, v) {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
             var d = grdExtGet();
+            var key = grdExtDataKey(subj, grdExtCurrentTerm());   // v1.61.0 (M7): いま入力中の学期の保存先
             var justRegistered = false;
             if (d.subjects.indexOf(subj) < 0) {
                 if (!confirm('「'+subj+'」はまだ専科登録されていません。専科教科として登録して入力を続けますか?')) return;
                 d.subjects.push(subj);
                 justRegistered = true;
             }
-            if (!d.data[subj]) d.data[subj] = {};
-            if (!d.data[subj][String(i)]) d.data[subj][String(i)] = {};
-            var cur = d.data[subj][String(i)].h;
+            if (!d.data[key]) d.data[key] = {};
+            if (!d.data[key][String(i)]) d.data[key][String(i)] = {};
+            var cur = d.data[key][String(i)].h;
             var nv = v ? Number(v) : '';
-            d.data[subj][String(i)].h = (String(cur) === String(nv) && nv !== '') ? '' : nv;
-            grdExtDropRowIfEmpty(d, subj, i);
+            d.data[key][String(i)].h = (String(cur) === String(nv) && nv !== '') ? '' : nv;
+            grdExtDropRowIfEmpty(d, key, i);
             grdExtSave(d);
             if (justRegistered) grdExtRenderTab(); else grdExtRenderGrid();
             grdExtFlash('保存しました');
@@ -18403,7 +18483,8 @@
         function grdExtClearRow(i) {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
             var d = grdExtGet();
-            if (d.data[subj]) delete d.data[subj][String(i)];
+            var key = grdExtDataKey(subj, grdExtCurrentTerm());   // v1.61.0 (M7): いま入力中の学期の1行だけ
+            if (d.data[key]) { delete d.data[key][String(i)]; if (key.indexOf('@') > 0 && Object.keys(d.data[key]).length === 0) delete d.data[key]; }
             grdExtSave(d);
             grdExtRenderGrid();
             grdExtFlash('1行分をクリアしました');
@@ -18411,12 +18492,15 @@
         function grdExtClearSubject() {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
             var d = grdExtGet();
-            var rec = d.data[subj] || {};
-            var cnt = Object.keys(rec).filter(function(k) {
-                var r = rec[k]; return !!(r && (r.k || r.t || r.a || r.h));
-            }).length;
-            if (!confirm('「'+subj+'」の専科データ('+cnt+'名分)をすべて削除し、専科登録を解除します。\n通常の成績計算(テスト等)に戻ります。よろしいですか?')) return;
-            delete d.data[subj];
+            // v1.61.0 (M7): 1〜3学期のすべての値を数え、すべて消す
+            var withValue = {};
+            GRD_EXT_TERMS.forEach(function(t) {
+                var rec = d.data[grdExtDataKey(subj, t)] || {};
+                Object.keys(rec).forEach(function(k) { if (grdExtRowHasValue(rec[k])) withValue[k] = 1; });
+            });
+            var cnt = Object.keys(withValue).length;
+            if (!confirm('「'+subj+'」の専科データ(1〜3学期のすべて・'+cnt+'名分)をすべて削除し、専科登録を解除します。\n通常の成績計算(テスト等)に戻ります。よろしいですか?')) return;
+            GRD_EXT_TERMS.forEach(function(t) { delete d.data[grdExtDataKey(subj, t)]; });
             var ix = d.subjects.indexOf(subj);
             if (ix >= 0) d.subjects.splice(ix, 1);
             grdExtSave(d);
@@ -18430,13 +18514,14 @@
         }
         function grdExtSuggestAll() {
             var subj = (document.getElementById('grdExtSubj')||{}).value; if (!subj) return;
-            var d = grdExtGet(); var rec = d.data[subj] || {};
+            var d = grdExtGet(); var key = grdExtDataKey(subj, grdExtCurrentTerm()); var rec = d.data[key] || {};   // v1.61.0 (M7): いま入力中の学期の値から提案する
             Object.keys(rec).forEach(function(idx) {
                 var r = rec[idx];
                 var sug = grdExtSuggestHyoutei(r.k, r.t, r.a);
                 if (sug !== '') r.h = sug;
             });
-            d.data[subj] = rec; grdExtSave(d);
+            if (Object.keys(rec).length || key === subj) d.data[key] = rec;
+            grdExtSave(d);
             grdExtRenderGrid(); grdExtFlash('評定を提案で埋めました（要確認・上書き可）');
         }
         function grdExtFlash(msg) {
@@ -18606,13 +18691,20 @@
                     subjects.forEach(function(subj){
                         var res = cache[subj]; if (!res) return;
                         var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
+                        // v1.61.0 (M7): 専科で値のない学期は、表に「未入力」の行を出す(レーダーの折れ線には入れない＝評定0点として描かない)
+                        if (sr.external && sr.extMissing) {
+                            rows.push('<tr><td style="padding:3px 8px;">'+subj+'</td>'
+                                + '<td style="text-align:center;">未入力</td><td style="text-align:center;">未入力</td><td style="text-align:center;">未入力</td>'
+                                + '<td style="text-align:center;font-weight:700;">未入力</td></tr>');
+                            return;
+                        }
                         if (!sr.hyoutei && !sr.knowledge.abc) return;
                         labels.push(subj); vals.push(Number(sr.hyoutei)||0);
                         rows.push('<tr><td style="padding:3px 8px;">'+subj+'</td>'
-                            + '<td style="text-align:center;">'+(sr.knowledge.abc||'—')+'</td>'
-                            + '<td style="text-align:center;">'+(sr.thinking.abc||'—')+'</td>'
-                            + '<td style="text-align:center;">'+(sr.attitude.abc||'—')+'</td>'
-                            + '<td style="text-align:center;font-weight:700;">'+(sr.hyoutei||'—')+'</td></tr>');
+                            + '<td style="text-align:center;">'+grdExtShow(sr,'k','—')+'</td>'
+                            + '<td style="text-align:center;">'+grdExtShow(sr,'t','—')+'</td>'
+                            + '<td style="text-align:center;">'+grdExtShow(sr,'a','—')+'</td>'
+                            + '<td style="text-align:center;font-weight:700;">'+grdExtShow(sr,'h','—')+'</td></tr>');
                     });
 
                     var analysis = grdExtAnalyzeStudent(i, subjects, cache);
@@ -18769,7 +18861,8 @@
                 });
             }
 
-            var hasData = myTests.length > 0 || subInfo.total > 0 || (kjChars && kjChars.length > 0) || peLines.length > 0 || !!sr.hyoutei || !!sr.knowledge.abc;
+            var hasData = myTests.length > 0 || subInfo.total > 0 || (kjChars && kjChars.length > 0) || peLines.length > 0 || !!sr.hyoutei || !!sr.knowledge.abc
+                || (sr.external && !!sr.extMissing); // v1.61.0 (M7): 専科で値のない学期も、カードに「評定 未入力」を出す
             if (!hasData) return null;
 
             var rows = [];
@@ -18817,7 +18910,7 @@
 
             var header = '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #999;padding-bottom:2px;margin-bottom:3px;">'
                 + '<div style="font-weight:700;">' + escapeHtml(subj) + '</div>'
-                + '<div style="font-weight:700;">評定 ' + (sr.hyoutei || '—') + '</div></div>';
+                + '<div style="font-weight:700;">評定 ' + grdExtShow(sr, 'h', '—') + '</div></div>';
             var body = rows.map(function(r) { return '<div style="margin-bottom:2px;">' + escapeHtml(r) + '</div>'; }).join('');
             return '<div style="border:1px solid #ccc;border-radius:6px;padding:6px 8px;font-size:10px;line-height:1.4;">' + header + body + '</div>';
         }
@@ -18979,7 +19072,7 @@
         // ================================================================
         function grdCalculate(subject, term) {
             term = term || grdCurrentTermFilter || grdGetCurrentTerm();
-            if (grdIsExternalSubject(subject)) return grdExtCalculate(subject);
+            if (grdIsExternalSubject(subject)) return grdExtCalculate(subject, term);   // v1.61.0 (M7): 専科も学期の値を読む
             var students = grdGetStudents();
             var tests = grdGetTests().filter(function(t) {
                 return t.subject === subject && (term === 'all' || grdItemTerm(t) === term);
@@ -19429,10 +19522,11 @@
             results.forEach(function(r) {
                 var hc = r.hyoutei === 3 ? 'background:#E8F5E9;' : r.hyoutei === 1 ? 'background:#FFF3E0;' : '';
                 html += '<tr><td style="'+TD+'">'+( r.index+1)+'</td><td style="'+TD+'text-align:left;font-weight:600;">'+escapeHtml(r.name)+'</td>';
-                html += '<td style="'+TD+hc+'font-weight:700;font-size:1.1rem;">'+(r.hyoutei||'—')+'</td>';
-                html += '<td class="'+abcClass(r.knowledge.abc)+'" style="'+TD+'">'+(r.knowledge.abc||'—')+'</td>';
-                html += '<td class="'+abcClass(r.thinking.abc)+'" style="'+TD+'">'+(r.thinking.abc||'—')+'</td>';
-                html += '<td class="'+abcClass(r.attitude.abc)+'" style="'+TD+'">'+(r.attitude.abc||'—')+'</td>';
+                // v1.61.0 (M7): 専科は grdExtShow(値のない学期は「未入力」・通年は「B（2学期）」)。専科でない教科は今までどおりの文字
+                html += '<td style="'+TD+hc+'font-weight:700;font-size:1.1rem;">'+grdExtShow(r,'h','—')+'</td>';
+                html += '<td class="'+abcClass(r.knowledge.abc)+'" style="'+TD+'">'+grdExtShow(r,'k','—')+'</td>';
+                html += '<td class="'+abcClass(r.thinking.abc)+'" style="'+TD+'">'+grdExtShow(r,'t','—')+'</td>';
+                html += '<td class="'+abcClass(r.attitude.abc)+'" style="'+TD+'">'+grdExtShow(r,'a','—')+'</td>';
                 html += '<td style="'+TD+'">'+(r.totalNum !== null ? r.totalNum : '—')+'</td></tr>';
             });
             html += '</tbody></table></div>';
@@ -19907,7 +20001,7 @@
             var csvTerm = grdCurrentTermFilter || grdGetCurrentTerm(); // 成績処理画面の学期(grdCalculate の既定と同じ)。v1.60.2: ファイル名に印字する
             var results = grdCalculate(subject, csvTerm);
             var headers = ['No.','氏名','評定','合計','知識ABC','思考ABC','主体ABC','知識平均','思考平均','主体平均'];
-            var rows = results.map(function(r) { return [r.index+1, r.name, r.hyoutei||'', r.totalNum!==null?r.totalNum:'', r.knowledge.abc||'', r.thinking.abc||'', r.attitude.abc||'', r.knowledge.avg!==null?r.knowledge.avg.toFixed(1):'', r.thinking.avg!==null?r.thinking.avg.toFixed(1):'', r.attitude.avg!==null?r.attitude.avg.toFixed(1):'']; });
+            var rows = results.map(function(r) { return [r.index+1, r.name, grdExtShow(r,'h',''), r.totalNum!==null?r.totalNum:'', grdExtShow(r,'k',''), grdExtShow(r,'t',''), grdExtShow(r,'a',''), r.knowledge.avg!==null?r.knowledge.avg.toFixed(1):'', r.thinking.avg!==null?r.thinking.avg.toFixed(1):'', r.attitude.avg!==null?r.attitude.avg.toFixed(1):'']; }); // v1.61.0 (M7): 専科は未入力・通年の学期名つき
             function grdEsc(v) {
                 if (v === null || v === undefined) return '';
                 var s = String(v);
@@ -19976,12 +20070,12 @@
             // ===== シート1：評定一覧 =====
             var s1 = [[subject + '　成績評定一覧（' + xlTermLabel + '）'], [], ['No.', '氏名', '知識・技能', '知識ABC', '思考・判断・表現', '思考ABC', '主体性', '主体ABC', '合計点', '評定']];
             results.forEach(function(r) {
-                s1.push([
+                s1.push([   // v1.61.0 (M7): 専科は未入力・通年の学期名つき(grdExtShow)
                     r.index + 1, r.name,
-                    r.knowledge.avg !== null ? r.knowledge.avg : '',  r.knowledge.abc || '',
-                    r.thinking.avg  !== null ? r.thinking.avg  : '',  r.thinking.abc  || '',
-                    r.attitude.avg  !== null ? r.attitude.avg  : '',  r.attitude.abc  || '',
-                    r.totalNum !== null ? r.totalNum : '', r.hyoutei || ''
+                    r.knowledge.avg !== null ? r.knowledge.avg : '',  grdExtShow(r, 'k', ''),
+                    r.thinking.avg  !== null ? r.thinking.avg  : '',  grdExtShow(r, 't', ''),
+                    r.attitude.avg  !== null ? r.attitude.avg  : '',  grdExtShow(r, 'a', ''),
+                    r.totalNum !== null ? r.totalNum : '', grdExtShow(r, 'h', '')
                 ]);
             });
             s1.push([]);
@@ -20024,7 +20118,7 @@
                         if (!item || item.score10 === null) { row.push('', ''); }
                         else { row.push(rawLabel(item), convFormula(item)); }
                     });
-                    row.push(r[catKey].avg !== null ? r[catKey].avg : '', r[catKey].abc || '');
+                    row.push(r[catKey].avg !== null ? r[catKey].avg : '', grdExtShow(r, catKey === 'knowledge' ? 'k' : catKey === 'thinking' ? 't' : 'a', '')); // v1.61.0 (M7)
                     sheetRows.push(row);
                 });
                 sheetRows.push([]);
@@ -20341,6 +20435,7 @@
             e('grdStatsSubj', grdRenderStats);
             e('grdWeightsSubj', grdRenderWeights);
             e('grdExtSubj', grdExtRenderGrid);
+            e('grdExtTermSel', grdExtOnTermChange);
             // v1.60.1: ボタンの処理が例外で止まったときに、何も出ないまま終わらないよう通知する。
             //   async の処理(PDF・Excel の書き出しなど)の失敗は、そのままだと Unhandled rejection としてコンソールに出るだけで、画面には何も出なかった。
             var btn = function(id, fn) {
@@ -21675,8 +21770,8 @@
             var rows = [header];
             results.forEach(function(r) {
                 rows.push([
-                    r.index + 1, r.name, r.hyoutei || '', r.totalNum !== null ? r.totalNum : '',
-                    r.knowledge.abc || '', r.thinking.abc || '', r.attitude.abc || '',
+                    r.index + 1, r.name, grdExtShow(r, 'h', ''), r.totalNum !== null ? r.totalNum : '',   // v1.61.0 (M7): 専科は未入力・通年の学期名つき
+                    grdExtShow(r, 'k', ''), grdExtShow(r, 't', ''), grdExtShow(r, 'a', ''),
                     r.knowledge.avg !== null ? r.knowledge.avg.toFixed(1) : '',
                     r.thinking.avg !== null ? r.thinking.avg.toFixed(1) : '',
                     r.attitude.avg !== null ? r.attitude.avg.toFixed(1) : '',

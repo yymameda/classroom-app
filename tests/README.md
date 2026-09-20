@@ -39,10 +39,12 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 <!-- run-all:table:start -->
 | ファイル | 検査数(PASS) | FAIL |
 |---|---|---|
+| `absent-release-empty-record.test.js` | 17 | 0 |
 | `absent.test.js` | 14 | 0 |
 | `async-button-failure-notice.test.js` | 9 | 0 |
 | `attendance-snapshot.js` | 1 | 0 |
 | `attendance-stats.test.js` | 22 | 0 |
+| `audit-attitude-scorestr.test.js` | 18 | 0 |
 | `audit-inputmode-conflict.test.js` | 12 | 0 |
 | `audit-inputmode-repair.test.js` | 47 | 0 |
 | `audit-late-factor-impact.test.js` | 18 | 0 |
@@ -50,6 +52,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `audit-matome-perspective.test.js` | 23 | 0 |
 | `audit-maxscore-abc-exclusion.test.js` | 10 | 0 |
 | `audit-range-check.test.js` | 25 | 0 |
+| `audit-sub-index-over.test.js` | 16 | 0 |
 | `backup-integrity.test.js` | 37 | 0 |
 | `backup-restore.test.js` | 72 | 0 |
 | `boot-race.test.js` | 8 | 0 |
@@ -113,7 +116,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（74ファイル）** | **2340** | **0** |
+| **合計（77ファイル）** | **2391** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

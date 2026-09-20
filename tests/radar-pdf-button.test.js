@@ -44,15 +44,15 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         await page.reload({ waitUntil: 'networkidle0' });
         await sleep(400);
     }
-    // 成績処理で学期を選ぶ → 実際のボタンをクリックする。差し替えるのは「記録用の見張り」だけ(html2canvas に渡された中身を控えて、元の関数をそのまま呼ぶ)
+    // 個人カルテ(出力)の画面で学期を選ぶ → 実際のボタンをクリックする。差し替えるのは「記録用の見張り」だけ(html2canvas に渡された中身を控えて、元の関数をそのまま呼ぶ)
     async function clickRadar(term) {
         await page.evaluate((term) => {
             window.__rendered = [];
             if (!window.__origH2C) window.__origH2C = window.html2canvas;
             window.html2canvas = function(el, opts) { window.__rendered.push((el.innerText || '').replace(/\s+/g, ' ')); return window.__origH2C(el, opts); };
             const old = document.getElementById('pdfResultOverlay'); if (old) old.remove();
-            showView('grades');
-            const s = document.getElementById('grdTermSel'); s.value = term; s.dispatchEvent(new Event('change'));
+            showView('karte'); kvSetMode('output'); // v1.60.2: ボタンは個人カルテ(出力)の画面にあり、学期はその画面のセレクタ(kvTermSel)
+            const s = document.getElementById('kvTermSel'); s.value = term; s.dispatchEvent(new Event('change'));
         }, term);
         await sleep(300);
         await page.evaluate(() => { document.getElementById('grdExtRadarPdfBtn').click(); });

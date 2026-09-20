@@ -45,13 +45,14 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         await page.reload({ waitUntil: 'networkidle0' });
         await sleep(300);
     }
-    // 成績画面の学期を選び、レーダーPDFの実際のボタンを押して、PDFの各ページのHTMLを取り出す
+    // 個人カルテ(出力)の画面の学期を選び、レーダーPDFの実際のボタンを押して、PDFの各ページのHTMLを取り出す(v1.60.2 で成績処理画面から変更)
     async function radar(gradeTerm) {
         await page.evaluate((gradeTerm) => {
             window.__pdfPages = null;
             window.htmlPagesToPdf = function(pages) { window.__pdfPages = pages; return Promise.resolve(true); };
-            showView('grades');
-            const s = document.getElementById('grdTermSel'); s.value = gradeTerm; s.dispatchEvent(new Event('change'));
+            // v1.60.2: ボタンは個人カルテ(出力)の画面にある。学期はその画面の学期セレクタ(kvTermSel)
+            showView('karte'); kvSetMode('output');
+            const s = document.getElementById('kvTermSel'); s.value = gradeTerm; s.dispatchEvent(new Event('change'));
         }, gradeTerm);
         await sleep(200);
         await page.evaluate(() => { document.getElementById('grdExtRadarPdfBtn').click(); });

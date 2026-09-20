@@ -4660,6 +4660,11 @@
         }
     }
 
+    // v1.60.2: 出力(PDF・Excel・CSV・テキスト)に印字する対象学期の表記。'1'|'2'|'3' → 「1学期」、'all'・空 → 「通年」
+    function outputTermLabel(term) {
+        return (!term || term === 'all') ? '通年' : (String(term) + '学期');
+    }
+
     // v1.8.98: HTMLページ配列→PDF共通変換（html2canvas+jsPDF、出力は共有シート）
     // pageHtmls: 各要素が1ページ分のルートdiv文字列（インラインスタイル前提）
     // opts: { orientation, fileName, marginMm, quality, labels[], btnId, onPageReady(el,i) }
@@ -14239,10 +14244,10 @@
             var html = '<div style="page-break-after:' + (isLast ? 'avoid' : 'always') + ';box-sizing:border-box;background:var(--white);">';
 
             // ── ヘッダー ──────────────────────────────────────────
-            // v1.20.4: 学期を絞って出力した場合のみ、年度行の下に対象期間を一言添える（通年時は何も足さない）
+            // v1.20.4: 学期を絞って出力した場合、年度行の下に対象期間を一言添える。v1.60.2: 通年のときも「通年（１年間）」と印字する(何学期分か分からなくならないように)
             var kvTermChildLine = (kvOutputTermFilter && kvOutputTermFilter !== 'all')
                 ? '<div style="font-size:7pt;opacity:0.85;margin-top:2pt;">' + (KV_TERM_ZENKAKU[kvOutputTermFilter] || '') + '学期のきろくです</div>'
-                : '';
+                : '<div style="font-size:7pt;opacity:0.85;margin-top:2pt;">通年（１年間）のきろくです</div>';
             html += '<div style="background:linear-gradient(135deg,#1a2332 0%,var(--primary) 100%);border-radius:12pt;padding:10pt 14pt;margin-bottom:6pt;color:var(--white);display:flex;justify-content:space-between;align-items:center;">'
                 + '<div>'
                 + '<div style="font-size:7pt;opacity:0.75;letter-spacing:0.1em;margin-bottom:3pt;">' + escapeHtml(String(ci.year||'') + '年度　' + String(ci.grade||'') + '年' + String(ci.class||'') + '組') + '</div>'
@@ -14622,7 +14627,7 @@
             var attAll      = StorageManager.get(KEYS.attendance, {});
             // v1.60.0 (M3): 成績・提出物・テスト個票の学期を、出力画面で選んでいる学期(kvOutputTermFilter。カルテPDFと同じ選択)に1つに揃える。
             //   以前は成績だけがこの学期で、提出物とテスト個票は通年のままだった。'all'(通年)を選べば全学期。未初期化のときは現在の学期。
-            var confTerm = kvOutputTermFilter || ((typeof window.grdGetCurrentTerm === 'function') ? window.grdGetCurrentTerm() : 'all');
+            var confTerm = kvEffectiveTerm();
             var confPasses = function(item) { return confTerm === 'all' || typeof window.grdItemTerm !== 'function' || window.grdItemTerm(item) === confTerm; };
 
             var allAssigns  = StorageManager.get(KEYS.submissions_assignments, []).filter(confPasses);
@@ -14658,6 +14663,7 @@
                 L.push('━━━━━━━━━━━━━━━━━━━━');
                 L.push('■ 個人カルテ（面談用）');
                 L.push(classLabel);
+                L.push('対象学期：' + outputTermLabel(confTerm) + '（成績・テスト個票・提出物。出欠席・生活記録などは学期で絞りません）'); // v1.60.2
                 L.push('番号 ' + (idx + 1) + '　氏名：' + s.name + (s.gender ? '（' + s.gender + '）' : ''));
                 L.push('━━━━━━━━━━━━━━━━━━━━');
 
@@ -14992,6 +14998,12 @@
             return window.grdItemTerm(item) === kvOutputTermFilter;
         }
         var KV_TERM_ZENKAKU = { '1': '１', '2': '２', '3': '３' }; // 紙面の対象期間表記用（全角数字）
+        // v1.60.2: 個人カルテ(出力)の画面にあるボタン(カルテPDF・面談テキスト・面談用レーダーPDF)が使う学期は、すべてこの画面の学期セレクタ(kvTermSel)。
+        //   未初期化のとき(通常は無い)は現在の学期。成績モジュール(レーダーPDF)からも参照できるよう公開する。
+        function kvEffectiveTerm() {
+            return kvOutputTermFilter || ((typeof window.grdGetCurrentTerm === 'function') ? window.grdGetCurrentTerm() : 'all');
+        }
+        window.kvEffectiveTerm = kvEffectiveTerm;
 
         // --- 初期化 ---
         function initKarteView() {
@@ -18505,8 +18517,12 @@
             var subjects = grdGetAvailableSubjects();
             var ci = (master && master.classInfo) || {};
             var classLabel = (ci.year||'') + '年度　' + (ci.grade||'') + '年' + (ci.className||'') + '組';
+            // v1.60.2: このボタンは個人カルテ(出力)の画面にある。学期は、その画面の学期セレクタ(kvTermSel)に従う(成績処理画面の学期ではない)。
+            //   評定・観点別・提出物・机間巡視・教科カードのテスト・検定の行まで、すべて同じ radarTerm で計算し、1枚の中で学期が混ざらないようにする。
+            var radarTerm = (typeof window.kvEffectiveTerm === 'function') ? window.kvEffectiveTerm() : (grdCurrentTermFilter || grdGetCurrentTerm());
+            var radarTermLabel = outputTermLabel(radarTerm);
             var cache = {};
-            subjects.forEach(function(s){ try { cache[s] = grdCalculate(s); } catch(e){ cache[s] = null; } });
+            subjects.forEach(function(s){ try { cache[s] = grdCalculate(s, radarTerm); } catch(e){ cache[s] = null; } });
             var comments = grdExtGetComments();
 
             // 教科別詳細ページ(2ページ目以降)用データ準備。児童ループの外で1回だけ構築(devByTest含む)。
@@ -18517,8 +18533,7 @@
                 recTests.forEach(function(t) { var ds = recDeviationStats(t.id); if (ds) devByTest[t.id] = ds; });
             }
             var subjTestsMap = {};
-            // v1.60.0 (M4): 教科カードのテスト一覧・平均も、評定・観点別(grdCalculate の既定)と同じ「成績画面で選択中の学期」で絞る
-            var radarTerm = grdCurrentTermFilter || grdGetCurrentTerm();
+            // v1.60.0 (M4): 教科カードのテスト一覧・平均も、評定・観点別と同じ学期で絞る(学期の出所は v1.60.2 で出力画面に変更)
             subjects.forEach(function(subj) { subjTestsMap[subj] = grdExtSubjectNumericTests(subj, recTests, radarTerm); });
 
             var studentPages = students.map(function(stu, i) {
@@ -18527,7 +18542,7 @@
                 subjects.forEach(function(subj) {
                     var res = cache[subj]; if (!res) return;
                     var sr = res.find(function(r){ return r.index === i; }); if (!sr) return;
-                    var html = grdExtBuildSubjectCardHtml(i, subj, sr, subjTestsMap[subj], recTests, recScores, devByTest);
+                    var html = grdExtBuildSubjectCardHtml(i, subj, sr, subjTestsMap[subj], recTests, recScores, devByTest, radarTerm);
                     if (html) cardsHtml.push(html);
                 });
                 var chunks = cardsHtml.length ? [cardsHtml] : [];
@@ -18557,7 +18572,7 @@
                     var analysis = grdExtAnalyzeStudent(i, subjects, cache);
 
                     var subCount = 0, subTotal = 0;
-                    subjects.forEach(function(subj){ var s = grdGetSubmissionScore10(i, subj); if (s.total > 0) { subCount += s.submitted; subTotal += s.total; } });
+                    subjects.forEach(function(subj){ var s = grdGetSubmissionScore10(i, subj, radarTerm); if (s.total > 0) { subCount += s.submitted; subTotal += s.total; } });
                     var subRate = subTotal > 0 ? subCount/subTotal : null;
                     var subLine = '';
                     if (subRate !== null) {
@@ -18567,7 +18582,7 @@
 
                     var goodSum = 0, concernSum = 0, anyPatrol = false;
                     subjects.forEach(function(subj){
-                        var p = grdGetPatrolScore10(i, subj, 'attitude');
+                        var p = grdGetPatrolScore10(i, subj, 'attitude', radarTerm);
                         if ((p.good||0) + (p.concern||0) > 0) { goodSum += p.good; concernSum += p.concern; anyPatrol = true; }
                     });
                     var attLine = '';
@@ -18599,7 +18614,7 @@
                     radarJobs[pages.length] = { labels: labels, vals: vals };
                     pageLabels.push(stu.name);
                     pages.push('<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:12px;">'
-                        + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
+                        + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用　<b>対象学期：'+radarTermLabel+'</b></div>'
                         + '<h2 style="margin:2px 0 12px;font-size:19px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　学習のようす（面談資料）</h2>'
                         + '<div style="display:flex;gap:20px;align-items:flex-start;">'
                         + '<canvas id="grdRadarStage" width="360" height="360"></canvas>'
@@ -18626,10 +18641,10 @@
                         var gridHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' + chunk.join('') + '</div>';
                         pageLabels.push(stu.name);
                         pages.push('<div style="padding:24px 30px;font-family:sans-serif;color:#222;font-size:10px;">'
-                            + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用</div>'
+                            + '<div style="font-size:12px;color:#666;">'+classLabel+'　面談用　<b>対象学期：'+radarTermLabel+'</b></div>'
                             + '<h2 style="margin:2px 0 12px;font-size:17px;">'+(i+1)+'　'+escapeHtml(stu.name)+'　さん　教科別のくわしい記録'+pageLabel+'</h2>'
                             + gridHtml
-                            + '<div style="font-size:9px;color:#999;margin-top:14px;">※ 偏差値は各テストをクラス内で受験した児童の中での位置を示す参考値です。</div>'
+                            + '<div style="font-size:9px;color:#999;margin-top:14px;">※ 偏差値は各テストをクラス内で受験した児童の中での位置を示す参考値です。漢字は学期に関係なく、これまでの累計です。</div>'
                             + '</div>');
                     }
                 }
@@ -18676,7 +18691,7 @@
             var prefix = pid === 'nawatobi' ? 'なわとび' : pid === 'swimming' ? '泳力' : (test.name || '実技記録');
             return prefix + '：' + label;
         }
-        function grdExtBuildSubjectCardHtml(i, subj, sr, subjTests, recTests, recScores, devByTest) {
+        function grdExtBuildSubjectCardHtml(i, subj, sr, subjTests, recTests, recScores, devByTest, term) {
             var myTests = [];
             subjTests.forEach(function(t) {
                 var s = recScores.find(function(sc) { return sc.testId === t.id && Number(sc.studentIndex) === i; });
@@ -18687,7 +18702,7 @@
             });
             myTests.sort(function(a, b) { return a.date.localeCompare(b.date); });
 
-            var subInfo = grdGetSubmissionScore10(i, subj);
+            var subInfo = grdGetSubmissionScore10(i, subj, term);
 
             var kjChars = null, kjDone = 0;
             if (subj === '国語') {
@@ -18700,7 +18715,7 @@
             }
             var peLines = [];
             if (subj === '体育') {
-                recTests.filter(function(t) { return t.subject === '体育' && t.testType === '実技記録'; }).forEach(function(t) {
+                recTests.filter(function(t) { return t.subject === '体育' && t.testType === '実技記録' && (!term || term === 'all' || grdItemTerm(t) === term); }).forEach(function(t) { // v1.60.2: 検定の行も対象学期のものだけ
                     var s = recScores.find(function(sc) { return sc.testId === t.id && Number(sc.studentIndex) === i; });
                     if (!s) return;
                     var label = grdExtKenteiLabel(t, s);
@@ -19843,7 +19858,8 @@
         function grdExportCSV() {
             var subject = (document.getElementById('grdGradeSubj')||{}).value;
             if (!subject) { showToast('教科を選択してください'); return; }
-            var results = grdCalculate(subject);
+            var csvTerm = grdCurrentTermFilter || grdGetCurrentTerm(); // 成績処理画面の学期(grdCalculate の既定と同じ)。v1.60.2: ファイル名に印字する
+            var results = grdCalculate(subject, csvTerm);
             var headers = ['No.','氏名','評定','合計','知識ABC','思考ABC','主体ABC','知識平均','思考平均','主体平均'];
             var rows = results.map(function(r) { return [r.index+1, r.name, r.hyoutei||'', r.totalNum!==null?r.totalNum:'', r.knowledge.abc||'', r.thinking.abc||'', r.attitude.abc||'', r.knowledge.avg!==null?r.knowledge.avg.toFixed(1):'', r.thinking.avg!==null?r.thinking.avg.toFixed(1):'', r.attitude.avg!==null?r.attitude.avg.toFixed(1):'']; });
             function grdEsc(v) {
@@ -19856,7 +19872,7 @@
             var csv = '\uFEFF' + [headers.map(grdEsc).join(',')].concat(rows.map(function(r){return r.map(grdEsc).join(',');})).join('\n');
             var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
             // v1.10.0: iOS Safari 対策。PDF/バックアップと同じ universalShare 経由に統一
-            universalShare(blob, subject + '_成績_' + getLocalDateStr() + '.csv')
+            universalShare(blob, subject + '_成績_' + outputTermLabel(csvTerm) + '_' + getLocalDateStr() + '.csv')
                 .catch(function(e) { showToast('CSV出力に失敗しました', 'error'); console.error('grdExportCSV:', e); });
         }
 
@@ -19885,7 +19901,9 @@
                     return;
                 }
             }
-            var results = grdCalculate(subject);
+            var xlTerm = grdCurrentTermFilter || grdGetCurrentTerm(); // 成績処理画面の学期(grdCalculate の既定と同じ)。v1.60.2: 表題・ファイル名に印字する
+            var xlTermLabel = outputTermLabel(xlTerm);
+            var results = grdCalculate(subject, xlTerm);
             if (!results || !results.length) { showToast('データがありません', 'error'); return; }
 
             var th = grdGetThresholds();
@@ -19910,7 +19928,7 @@
             function rawLabel(item) { return (item.raw !== null && item.raw !== undefined) ? String(item.raw) : ''; }
 
             // ===== シート1：評定一覧 =====
-            var s1 = [['No.', '氏名', '知識・技能', '知識ABC', '思考・判断・表現', '思考ABC', '主体性', '主体ABC', '合計点', '評定']];
+            var s1 = [[subject + '　成績評定一覧（' + xlTermLabel + '）'], [], ['No.', '氏名', '知識・技能', '知識ABC', '思考・判断・表現', '思考ABC', '主体性', '主体ABC', '合計点', '評定']];
             results.forEach(function(r) {
                 s1.push([
                     r.index + 1, r.name,
@@ -19971,6 +19989,7 @@
                 sheetRows.push(['【換算ルール】', '数値型：得点÷満点×10', 'ABC型：' + grdConversionRulesText(), '3段階：3=10 2=7 1=3', '提出物：提出率×10', '机間巡視：○÷(○+△)×10']);
                 var aT = catKey === 'knowledge' ? cfg.knowledge.aThreshold : catKey === 'thinking' ? cfg.thinking.aThreshold : cfg.attitude.aThreshold;
                 sheetRows.push(['【A判定閾値】' + catLabel, aT + '%以上 → A']);
+                sheetRows.push(['【対象学期】', xlTermLabel]);
 
                 var ws = XLSX.utils.aoa_to_sheet(sheetRows);
                 var cols = [{wch:5},{wch:12}];
@@ -19986,7 +20005,7 @@
 
             var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
             var blob = new Blob([wbout], { type: 'application/octet-stream' });
-            var fileName = subject + '_成績根拠_' + getLocalDateStr() + '.xlsx';
+            var fileName = subject + '_成績根拠_' + xlTermLabel + '_' + getLocalDateStr() + '.xlsx';
             await universalShare(blob, fileName);
         }
 

@@ -12294,6 +12294,14 @@
             recUpdateProgress(test);
         };
 
+        // v1.60.4 (L7 案B): 中身が空の記録か。score が空文字で、id・児童・課題・作成日時(と、遅れの印なし)以外の項目が無いもの。
+        // 欠席の解除のときだけ使う(既存の空の記録を一括で消す処理はしない)。
+        function recIsEmptyShellRecord(sr) {
+            if (!sr || sr.score !== '') return false;
+            var SHELL = { id: 1, studentIndex: 1, testId: 1, score: 1, createdAt: 1 };
+            return Object.keys(sr).every(function(k) { return SHELL[k] || (k === 'lateSubmit' && sr.lateSubmit !== true); });
+        }
+
         window.recToggleAbsent = function(idx) {
             if (!recCurrentTestId) { showToast('課題を選択してください', 'warning'); return; }
             var test = recGetTests().find(function(t) { return t.id === recCurrentTestId; });
@@ -12316,8 +12324,11 @@
                     scores.push({ id: Date.now(), studentIndex: idx, testId: recCurrentTestId, score: '', absent: true, createdAt: new Date().toISOString() });
                 }
             } else {
-                // 解除: absentフラグを外すのみ。レコード自体は削除しない。
+                // 解除: absentフラグを外す。中身のある記録(点数・5段階・ルーブリック・遅れの印など)は削除しない。
                 delete scores[ei].absent;
+                // v1.60.4 (L7 案B): 外した結果が「空の殻」(score が空文字で、id・児童・課題・作成日時以外の項目が無い)なら、記録ごと消す。
+                // 記録のなかった児童の 欠席→解除 で {score:''} が残り、主体性(得点方式)では0点として成績に入っていた(調査 2026-09-20)。
+                if (recIsEmptyShellRecord(scores[ei])) scores.splice(ei, 1);
             }
             recSaveScores(scores);
             recRenderList(test);

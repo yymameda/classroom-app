@@ -197,7 +197,9 @@ const MAT_CONFIG = {
 
     check('6. 旧形式の欠席レコードを読んでも例外が出ない', legacyFlow.threw === false, JSON.stringify(legacyFlow));
     check('6. 旧形式の欠席レコードもgrdCalculate()でscore10=null扱いになる', legacyFlow.grdItemScore10 === null, 'got=' + JSON.stringify(legacyFlow.grdItemScore10));
-    check('6. 旧形式の欠席レコードも解除後はレコードが残りabsentキーが消える', legacyFlow.afterShape && !('absent' in legacyFlow.afterShape), JSON.stringify(legacyFlow.afterShape));
+    // v1.60.4 (L7 案B): 旧形式の欠席レコード(score:'' と欠席の印だけ)は、解除すると中身が空の記録になるので、記録ごと消える
+    //   (以前は {score:''} が残り、主体性の得点方式では0点として成績に入っていた。詳細は absent-release-empty-record.test.js)。
+    check('6. 旧形式の欠席レコードも解除後は欠席の印も空の記録も残らない(記録ごと消える。v1.60.4)', legacyFlow.afterShape === undefined, JSON.stringify(legacyFlow.afterShape));
 
     check('ページ読み込み・全操作中にコンソールエラーなし(favicon.ico除く)', consoleErrors.length === 0, JSON.stringify(consoleErrors));
 

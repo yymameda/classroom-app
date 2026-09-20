@@ -21889,6 +21889,52 @@
             if (/主体|態度/.test(n)) out.push('主');
             return out;
         }
+        // v1.57.1: 遅れ係数の変更(v1.56.0)で成績の値が変わる記録(読み取り専用・氏名なし)。
+        //   以前は、児童の記録の「遅」の印(lateSubmit)がある数値の記録(知識・技能／思考・判断・表現)を成績で0.8倍していた。v1.56.0 で0.8倍をやめたので、
+        //   その記録の成績の値が上がる。ここでは、成績計算(grdCalculate)と同じ条件で、対象の記録を課題ごとに数える。
+        //   対象外: 提出物チェックの記録(lateOnDue。0.8上限は変わらない)・まとめテスト・主体性・実技記録・授業態度・専科(外部)の教科(以前から0.8倍されていない)・
+        //           欠席・数値でない記録(5段階の文字)・名簿の範囲外の児童・同じ児童の2件目以降の記録・値が変わらない記録(0点)。
+        function analyzeLateFactorImpact() {
+            var tests = StorageManager.get(KEYS.tests, []), scores = StorageManager.get(KEYS.scores, []);
+            var nStudents = (master && Array.isArray(master.students)) ? master.students.length : 0;
+            var extRaw = StorageManager.get(KEYS.grades_external, null);
+            var extSubjects = (extRaw && Array.isArray(extRaw.subjects)) ? extRaw.subjects : [];
+            var byId = {};
+            tests.forEach(function(t) { if (t && t.id !== undefined) byId[t.id] = t; });
+            var seen = {}, per = {}, allStudents = {};
+            var round1 = function(x) { return Math.round(x * 10) / 10; };
+            scores.forEach(function(sr) {
+                if (!sr) return;
+                var idx = (typeof sr.studentIndex === 'number') ? sr.studentIndex : parseInt(sr.studentIndex, 10);
+                if (!(idx >= 0 && idx < nStudents) || Math.floor(idx) !== idx) return;
+                var key = sr.testId + '|' + idx;
+                if (seen[key]) return;               // 成績計算は、同じ児童・同じ課題の最初の記録だけを使う
+                seen[key] = true;
+                if (sr.lateSubmit !== true || sr.absent === true || typeof sr.score !== 'number') return;
+                var t = byId[sr.testId];
+                if (!t || t.type === 'matome' || t.testType === '実技記録') return;
+                var persp = t.category === '知識・技能' ? 'knowledge' : (t.category === '思考・判断・表現' ? 'thinking' : null);
+                if (!persp) return;                  // 主体性・その他の観点は、以前から0.8倍されていない
+                if (extSubjects.indexOf(t.subject) >= 0) return;   // 専科(外部確定)の教科は、成績計算が項目を持たない
+                var now = null;
+                try { now = grdItemScore10(t, sr, persp); } catch (e) { now = null; }
+                if (typeof now !== 'number') return;
+                var before = round1(now * 0.8);      // 以前の値(0.8倍。1桁に丸め)
+                if (round1(now) === before) return;  // 値が変わらない(0点など)
+                var e = per[t.id];
+                if (!e) {
+                    var term = (typeof window.grdItemTerm === 'function') ? window.grdItemTerm(t) : '';
+                    e = per[t.id] = { testId: t.id, name: t.name || '', subject: t.subject || '', testType: t.testType || '', term: term, termLabel: term ? term + '学期' : '', count: 0 };
+                }
+                e.count++;
+                allStudents[idx] = true;
+            });
+            var list = Object.keys(per).map(function(k) { return per[k]; });
+            list.sort(function(a, b) { return String(a.term).localeCompare(String(b.term)) || String(a.subject).localeCompare(String(b.subject), 'ja') || String(a.name).localeCompare(String(b.name), 'ja'); });
+            var total = 0; list.forEach(function(e) { total += e.count; });
+            return { list: list, testCount: list.length, recordCount: total, studentCount: Object.keys(allStudents).length };
+        }
+
         function analyzeMatomeBalance() {
             var tests      = StorageManager.get(KEYS.tests, []);
             var matomeQAll = StorageManager.get(KEYS.matome_questions, {});
@@ -22682,6 +22728,23 @@
             }
             html += '</div>';
 
+            // v1.57.1: 遅れ係数の変更で値が変わる記録(読み取り専用・氏名なし)
+            var lf = result.lateFactorImpact;
+            html += '<div class="audit-result-subsection" id="audit-late-factor">';
+            html += '<h4>🕒 遅れの印がある数値の記録（遅れ係数の変更で成績の値が変わる記録）</h4>';
+            html += '<p style="font-size:0.85em;margin:0 0 6px;">v1.56.0 から、児童の記録の「遅」の印は点数を下げません（提出物チェックの遅れだけ、提出の評価を8割までにします）。以前は、知識・技能／思考・判断・表現の数値の記録に「遅」の印があると成績で0.8倍していたので、次の記録は成績の値が<b>上がります</b>。氏名は表示しません。提出物チェックの記録は含みません。</p>';
+            if (!lf || lf.testCount === 0) {
+                html += '<p style="margin-left:1em;">該当なし（この変更で成績の値が変わる記録はありません）</p>';
+            } else {
+                html += '<div style="overflow-x:auto;"><table class="audit-table"><tr><th>課題名</th><th>教科</th><th>学期</th><th>該当の児童数</th></tr>';
+                lf.list.forEach(function(e) {
+                    html += '<tr class="audit-late-row" data-test-id="' + escapeHtml(String(e.testId)) + '"><td>' + escapeHtml(e.name) + '</td><td>' + escapeHtml(e.subject) + '</td><td>' + escapeHtml(e.termLabel) + '</td><td>' + e.count + '人</td></tr>';
+                });
+                html += '</table></div>';
+                html += '<p style="margin:6px 0 0;"><b>合計: ' + lf.testCount + '課題・のべ' + lf.recordCount + '人分の記録（児童 実' + lf.studentCount + '人）</b></p>';
+            }
+            html += '</div>';
+
             html += '<div class="audit-result-subsection">';
             html += '<h4>10. 異常検出サマリー</h4>';
             html += '<p><b>' + an.overallStatus + '</b></p>';
@@ -22957,6 +23020,15 @@
                 lines.push('');
             }
 
+            var lfT = r.lateFactorImpact;
+            lines.push('【遅れの印がある数値の記録（遅れ係数の変更で成績の値が変わる記録）】');
+            if (!lfT || lfT.testCount === 0) lines.push('  該当なし');
+            else {
+                lfT.list.forEach(function(e) { lines.push('  ・' + e.termLabel + ' ' + e.subject + ' 「' + e.name + '」 : ' + e.count + '人'); });
+                lines.push('  合計: ' + lfT.testCount + '課題・のべ' + lfT.recordCount + '人分の記録（児童 実' + lfT.studentCount + '人）');
+            }
+            lines.push('');
+
             lines.push('【異常検出サマリー】');
             lines.push(an.overallStatus);
             lines.push('');
@@ -22992,6 +23064,7 @@
                         testDistribution:    analyzeTestDistribution(),
                         structuralIntegrity: checkStructuralIntegrity(),
                         matomeBalance:       analyzeMatomeBalance(),
+                        lateFactorImpact:    analyzeLateFactorImpact(),
                         submissionStatus:    analyzeSubmissionStatus(),
                         answersFormat:       analyzeAnswersFormat(),
                         migrationFlags:      collectMigrationFlags(),

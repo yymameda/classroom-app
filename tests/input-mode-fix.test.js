@@ -29,7 +29,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
     await sleep(300);
     const K = await page.evaluate(() => KEYS);
     const realBackup = await page.evaluate(() => { const o = {}; StorageManager.getAllKeys().forEach(k => { o[k] = StorageManager.getRaw(k); }); return o; });
-    const INFRA = [K.roster_snapshot, K.roster_txn];
+    const INFRA = [K.roster_snapshot, K.roster_txn, K.undo_imf_snapshot, K.undo_imf_txn]; // 入力形式の変更は専用の取り消しの枠(v1.57.0)
 
     const N = 27;
     const names = Array.from({ length: N }, (_, i) => '秘匿' + i + '氏');
@@ -74,7 +74,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         window.__fault = { state, restore() { Storage.prototype.setItem = oSet; Storage.prototype.removeItem = oRem; } };
         Storage.prototype.setItem = function(k, v) {
             if (mode === 'probe' && k === 'spa_capacity_probe') throw new DOMException('quota', 'QuotaExceededError');
-            if (mode === 'snapshot' && k === 'spa_roster_snapshot') throw new DOMException('quota', 'QuotaExceededError');
+            if (mode === 'snapshot' && k === 'spa_undo_input_mode_fix_snapshot') throw new DOMException('quota', 'QuotaExceededError');
             if (set.has(k) && (mode === 'quota' || mode === 'corrupt' || mode === 'crash')) {
                 if (mode === 'crash' && state.n >= at) throw new Error('crash');
                 const i = state.n++;
@@ -114,7 +114,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         const t1 = await testOf(SAKUBUN.id);
         check('課題: 入力形式が得点(印 inputMode=score)になり、満点は5のまま', t1.inputMode === 'score' && t1.maxScore === 5 && t1.testType === '作文' && t1.category === '思考・判断・表現', JSON.stringify(t1));
         check('記録(spa_scores)は1バイトも変わらない(変換しない)', post[K.scores] === pre[K.scores], '');
-        check('全キー比較: 変わったのは課題(spa_tests)と、取り消し用のスナップショット・ジャーナルだけ(名簿・記録・別アプリ等は不変)', JSON.stringify(diffKeys(pre, post).sort()) === JSON.stringify([K.tests, K.roster_snapshot, K.roster_txn].sort()), diffKeys(pre, post).join(','));
+        check('全キー比較: 変わったのは課題(spa_tests)と、取り消し用のスナップショット・ジャーナルだけ(名簿・記録・別アプリ等は不変)', JSON.stringify(diffKeys(pre, post).sort()) === JSON.stringify([K.tests, K.undo_imf_snapshot, K.undo_imf_txn].sort()), diffKeys(pre, post).join(','));
         check('課題のほかの項目・ほかの課題は変わらない(対照の課題が同一・作文は inputMode だけの差)', (() => { const a = JSON.parse(pre[K.tests]), b = JSON.parse(post[K.tests]); return JSON.stringify(a[1]) === JSON.stringify(b[1]) && JSON.stringify(Object.assign({}, a[0], { inputMode: 'score' })) === JSON.stringify(b[0]); })(), '');
         const gradesAfter = await grades('国語'), itemAfter = await itemScores('国語', SAKUBUN.name);
         check('成績処理統合の値が、戻す前後で完全に同じ(27名分・遅れて提出1件を含む。成績の全結果が一致)', gradesBefore === gradesAfter && JSON.stringify(itemBefore) === JSON.stringify(itemAfter) && itemBefore.filter(x => typeof x === 'number').length === N, JSON.stringify(itemBefore.slice(0, 8)) + ' / ' + JSON.stringify(itemAfter.slice(0, 8)));
@@ -126,16 +126,18 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
         check('診断: この課題が矛盾一覧から消える', !(d1.detail || []).some(x => x.testId === SAKUBUN.id) && d1.count === 0, JSON.stringify(d1.detail && d1.detail.map(x => x.name)));
         await openEdit(SAKUBUN.id);
         check('編集画面を開き直すと、ボタンは出ない(食い違いがなくなったため)', (await formState()).fixVisible === false, '');
+        // v1.57.0: 入力形式の変更の取り消しボタンは課題の編集画面に出る(設定の名簿カードには出ない。名簿変更などの取り消し点とは別の枠)
+        const ub = await page.evaluate(() => { const w = document.getElementById('recInputModeUndoWrap'), b = document.getElementById('recInputModeUndoBtn'); return { shown: !!w && getComputedStyle(w).display !== 'none', text: b ? b.textContent : '', h: b ? b.getBoundingClientRect().height : 0 }; });
+        check('編集画面に「直前の入力形式の変更を取り消す（「作文_運動会なりきり」・日時）」ボタンが出る(44px以上)', ub.shown && ub.text.indexOf('直前の入力形式の変更を取り消す') !== -1 && ub.text.indexOf('作文_運動会なりきり') !== -1 && ub.h >= 44, JSON.stringify(ub));
         await page.evaluate(() => { showView('settings'); }); await sleep(400);
-        check('設定の名簿カードの取り消しボタンは「直前の入力形式の変更を取り消す」', await page.evaluate(() => { const b = document.getElementById('rosterUndoBtn'); return !!b && b.textContent.indexOf('入力形式の変更を取り消す') !== -1; }), '');
+        check('設定の名簿カードには、入力形式の変更の取り消しボタンは出ない(専用の枠なので、名簿変更の取り消しと混ざらない)', await page.evaluate(() => !document.getElementById('rosterUndoBtn') && !/入力形式/.test(document.getElementById('rosterUndoBar').textContent)), '');
         // 取り消し(実際のタップ): 戻す前の状態に1バイトも変わらず戻る
         await openEdit(SAKUBUN.id);
-        await page.evaluate(() => { showView('settings'); }); await sleep(300);
-        await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.click('#rosterUndoBtn')]);
+        await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.click('#recInputModeUndoBtn')]);
         check('取り消し(実際のタップ): 再読み込み後に「入力形式の変更を取り消しました」と表示される', await toastHas('入力形式の変更を取り消しました', 4000), '');
         await sleep(1500);
         const undone = await dump();
-        check('取り消し後: 課題・記録を含む全キーが、戻す前と1バイトも変わらない(スナップショット・ジャーナルも残らない)', diffKeys(pre, undone).length === 0 && undone[K.roster_snapshot] === undefined && undone[K.roster_txn] === undefined, diffKeys(pre, undone).join(','));
+        check('取り消し後: 課題・記録を含む全キーが、戻す前と1バイトも変わらない(スナップショット・ジャーナルも残らない)', diffKeys(pre, undone).length === 0 && undone[K.undo_imf_snapshot] === undefined && undone[K.undo_imf_txn] === undefined && undone[K.roster_snapshot] === undefined && undone[K.roster_txn] === undefined, diffKeys(pre, undone).join(','));
         check('取り消し後: 成績の値も戻す前と同じ', (await grades('国語')) === gradesBefore, '');
 
         // 「元に戻す」トーストの実際のタップ(戻した直後の8秒以内)
@@ -230,7 +232,7 @@ const NOISE = /^(migration_|scoreDataMigrated|scoreDataBackup_|spa_storage_persi
             if (mode === 'crash') await page.evaluate(() => window.recoverRosterTxnOnStartup());
             const p1 = await dump();
             const shape = mode === 'crash' ? (r.ok === false) : (r.ok === false && r.rolledBack === true);
-            check(label + ' を課題の書き込みで注入: 元に戻り、全キーが変更前と1バイトも変わらない(スナップショット・ジャーナルも残らない)', shape && diffKeys(p0, p1).length === 0 && p1[K.roster_txn] === undefined && p1[K.roster_snapshot] === undefined, JSON.stringify(r).slice(0, 100) + ' ' + diffKeys(p0, p1).join(','));
+            check(label + ' を課題の書き込みで注入: 元に戻り、全キーが変更前と1バイトも変わらない(スナップショット・ジャーナルも残らない)', shape && diffKeys(p0, p1).length === 0 && p1[K.undo_imf_txn] === undefined && p1[K.undo_imf_snapshot] === undefined && p1[K.roster_txn] === undefined && p1[K.roster_snapshot] === undefined, JSON.stringify(r).slice(0, 100) + ' ' + diffKeys(p0, p1).join(','));
         }
         for (const [mode, label, code] of [['probe', '容量確認が失敗', 'insufficient-storage'], ['snapshot', 'スナップショットが書けない', 'snapshot-failed']]) {
             await seed([SAKUBUN, CONTROL], sakubunScores.concat(controlScores));

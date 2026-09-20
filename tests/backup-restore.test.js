@@ -70,11 +70,11 @@ const OTHER_APP = 'doc-index-v1';
         }, K, raws, extras, pf, students, tag, opts.otherApp, opts.omit || []);
     }
     const dump = () => page.evaluate(() => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return o; });
-    const diffKeys = (a, b, ignoreInfra) => Array.from(new Set(Object.keys(a).concat(Object.keys(b)))).filter(k => !NOISE.test(k) && (!ignoreInfra || (k !== K.roster_snapshot && k !== K.roster_txn)) && a[k] !== b[k]);
+    const diffKeys = (a, b, ignoreInfra) => Array.from(new Set(Object.keys(a).concat(Object.keys(b)))).filter(k => !NOISE.test(k) && (!ignoreInfra || (k !== K.roster_snapshot && k !== K.roster_txn && k !== K.undo_br_snapshot && k !== K.undo_br_txn)) && a[k] !== b[k]);
     const makeBackup = () => page.evaluate(() => JSON.parse(JSON.stringify(window.buildBackupObject())));
     const plan = (backup) => page.evaluate((b) => { const dev = { get: k => localStorage.getItem(k), keys: () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)) }; return window.brPlanRestore(b, dev); }, backup);
     const restore = (backup) => page.evaluate((b) => window.brRestoreFromBackup(b), backup);
-    const journal = () => page.evaluate((k) => { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; }, K.roster_txn);
+    const journal = () => page.evaluate((k) => { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; }, K.undo_br_txn); // バックアップの復元の取り消し点(v1.57.0: 種類ごとの専用の枠)
     const toastHas = (t, ms) => page.waitForFunction((t) => { const box = document.getElementById('toast'), el = document.getElementById('toastMsg') || box; return !!el && !!box && box.classList.contains('show') && el.textContent.indexOf(t) !== -1; }, { timeout: ms || 2000, polling: 50 }, t).then(() => true).catch(() => false);
     const reloadWait = async () => { await page.reload({ waitUntil: 'networkidle0' }); await sleep(1200); };
     // 失敗注入: keys(復元が書く・消すキー)への書き込み/削除を、mode に従って失敗させる。順番(ordinal)で指定。
@@ -86,7 +86,7 @@ const OTHER_APP = 'doc-index-v1';
         window.__fault = { state, restore() { Storage.prototype.setItem = oSet; Storage.prototype.removeItem = oRem; } };
         Storage.prototype.setItem = function(k, v) {
             if (mode === 'probe' && k === 'spa_capacity_probe') throw new DOMException('quota', 'QuotaExceededError');
-            if (mode === 'snapshot' && k === K.roster_snapshot) throw new DOMException('quota', 'QuotaExceededError');
+            if (mode === 'snapshot' && k === K.undo_br_snapshot) throw new DOMException('quota', 'QuotaExceededError');
             if (mode === 'quotaKey' && k === keyName) throw new DOMException('quota', 'QuotaExceededError');
             if (set.has(k) && (mode === 'quota' || mode === 'corrupt' || mode === 'crash')) {
                 if (mode === 'crash' && state.n >= at) throw new Error('crash');
@@ -125,7 +125,7 @@ const OTHER_APP = 'doc-index-v1';
         for (const [label, b] of bads) {
             const r = await restore(b);
             const post = await dump();
-            check('不正な形式(' + label + '): 復元を中止(ok:false)し、全キーが1バイトも変わらない・退避もジャーナルも作らない', r && r.ok === false && /^invalid-/.test(r.error) && diffKeys(pre1, post).length === 0 && post[K.roster_snapshot] === undefined && post[K.roster_txn] === undefined, JSON.stringify(r).slice(0, 120) + ' diff=' + diffKeys(pre1, post).join(','));
+            check('不正な形式(' + label + '): 復元を中止(ok:false)し、全キーが1バイトも変わらない・退避もジャーナルも作らない', r && r.ok === false && /^invalid-/.test(r.error) && diffKeys(pre1, post).length === 0 && post[K.roster_snapshot] === undefined && post[K.roster_txn] === undefined && post[K.undo_br_snapshot] === undefined && post[K.undo_br_txn] === undefined, JSON.stringify(r).slice(0, 120) + ' diff=' + diffKeys(pre1, post).join(','));
         }
         const pl = await plan(bk);
         check('計画は書き込まない: 計画だけ呼んでも全キー不変', diffKeys(pre1, await dump()).length === 0, '');
@@ -153,7 +153,7 @@ const OTHER_APP = 'doc-index-v1';
         const post2 = await dump();
         check('復元: mode=snapshot・ok', r2.ok && r2.mode === 'snapshot', JSON.stringify(r2).slice(0, 200));
         const bkData = Object.assign({}, bk2.rawLocalStorage, bk2.data);
-        const skipSet = new Set([K.roster_snapshot, K.roster_txn]);
+        const skipSet = new Set([K.roster_snapshot, K.roster_txn, K.undo_br_snapshot, K.undo_br_txn]);
         const diffBk = Object.keys(bkData).filter(k => !skipSet.has(k) && k !== OTHER_APP && !NOISE.test(k) && post2[k] !== bkData[k]);
         check('復元: バックアップの全キー(別アプリのキーを除く)が、端末の値と1バイトも違わない', diffBk.length === 0, diffBk.join(','));
         check('復元: バックアップに無い非児童別キー(seating_groups)は触らない', post2[K.seating_groups] === pre2[K.seating_groups], '');
@@ -161,14 +161,14 @@ const OTHER_APP = 'doc-index-v1';
         check('別アプリのキー: 端末に既にある場合は上書きしない(バックアップの古い値で壊さない)', post2[OTHER_APP] === pre2[OTHER_APP] && post2[OTHER_APP] === 'other-app-new', post2[OTHER_APP]);
         const j2 = await journal();
         check('復元後: ジャーナルは committed・kind=backup-restore・ハッシュあり', j2 && j2.state === 'committed' && j2.kind === 'backup-restore' && j2.hashes && Object.keys(j2.hashes).length === r2.written + r2.removed, JSON.stringify(j2).slice(0, 160));
-        const snap2 = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), K.roster_snapshot);
+        const snap2 = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), K.undo_br_snapshot);
         check('復元後: スナップショットに復元前の値(復元前に無かったキーは null)が入っている', snap2 && snap2.kind === 'backup-restore' && Object.keys(snap2.keys).every(k => snap2.keys[k] === (pre2[k] === undefined ? null : pre2[k])), '');
 
         // 取り消し: 復元前と1バイトも変わらない
         const ur = await page.evaluate(() => window.undoRosterChange({ reload: false }));
         const post2u = await dump();
         check('復元の取り消し: ok・全キーが復元前と1バイトも変わらない(復元で増えたキーも消える)', ur.ok && diffKeys(pre2, post2u, true).length === 0, diffKeys(pre2, post2u, true).join(','));
-        check('復元の取り消し後: スナップショット・ジャーナルは残らない', post2u[K.roster_snapshot] === undefined && post2u[K.roster_txn] === undefined, '');
+        check('復元の取り消し後: スナップショット・ジャーナルは残らない', post2u[K.undo_br_snapshot] === undefined && post2u[K.undo_br_txn] === undefined, '');
         // 取り消しの拒否(復元後に入力があった)
         await seed(A, 'new'); await page.evaluate((K) => { storageVerifiedWrite(K.seating_groups, '["g"]'); }, K);
         await restore(bk2);
@@ -258,7 +258,7 @@ const OTHER_APP = 'doc-index-v1';
             await reloadWait();                     // 再起動 → 起動時の自動復旧
             const post = await dump();
             const sane = await page.evaluate(() => typeof master !== 'undefined' && Array.isArray(master.students));
-            if (!(diffKeys(pre, post).length === 0 && post[K.roster_txn] === undefined && post[K.roster_snapshot] === undefined && sane)) badCrash.push(i + ':' + diffKeys(pre, post).slice(0, 3).join(',') + ':' + r.error);
+            if (!(diffKeys(pre, post).length === 0 && post[K.undo_br_txn] === undefined && post[K.undo_br_snapshot] === undefined && post[K.roster_txn] === undefined && post[K.roster_snapshot] === undefined && sane)) badCrash.push(i + ':' + diffKeys(pre, post).slice(0, 3).join(',') + ':' + r.error);
         }
         check('強制終了を各書き込み・削除の位置(' + nAll + '通り)で再現: 再起動で自動的に復元前へ戻り、全キーが1バイトも変わらない(ジャーナル・スナップショットも消える)', badCrash.length === 0, badCrash.slice(0, 3).join(' | '));
         await seed(Brev, 'new');
@@ -266,13 +266,16 @@ const OTHER_APP = 'doc-index-v1';
         await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(600);
         check('強制終了からの復旧: 「バックアップの復元が途中で中断したため、復元前の状態に戻しました」を起動時に表示', await toastHas('バックアップの復元が途中で中断'), '');
 
+        const sk2 = await plan({ appType: 'classroom-spa', data: Object.assign({ [K.tests]: '[]' }, ...['undo_br', 'undo_pft', 'undo_pfr', 'undo_imf', 'undo_pfm'].map(p => ({ [K[p + '_snapshot']]: '{"keys":{}}', [K[p + '_txn']]: JSON.stringify({ state: 'applying' }) }))) });
+        check('復元しないキー: 種類別の取り消し点(バックアップの復元・引き継ぎ・pfの復元・入力形式・pf移行)のスナップショット・ジャーナルも計画に入らない', sk2.ok && sk2.skipped.length === 10 && sk2.writes.every(w => !/^spa_undo_/.test(w[0])), JSON.stringify(sk2.skipped).slice(0, 200));
+
         // ================= 5. 容量が足りず退避できない → 警告して続行 =================
         console.log('--- 5. 退避できないとき: 警告して復元を続行 ---');
         for (const [mode, label] of [['probe', '容量確認が失敗'], ['snapshot', 'スナップショットの書き込みが失敗']]) {
             await seed(Brev, 'new');
             const prevSnap = JSON.stringify({ v: 1, txnId: 'prev', at: '2026-01-01T00:00:00.000Z', kind: 'roster', keys: {} });
             const prevJ = JSON.stringify({ id: 'prev', state: 'committed', at: '2026-01-01T00:00:00.000Z', kind: 'roster', hashes: {} });
-            await page.evaluate((K, a, b) => { storageVerifiedWrite(K.roster_snapshot, a); storageVerifiedWrite(K.roster_txn, b); }, K, prevSnap, prevJ);
+            await page.evaluate((K, a, b) => { storageVerifiedWrite(K.undo_br_snapshot, a); storageVerifiedWrite(K.undo_br_txn, b); }, K, prevSnap, prevJ);
             const pre = await dump();
             await fault(mode, 0, []);
             const r = await restore(bkF);
@@ -282,7 +285,7 @@ const OTHER_APP = 'doc-index-v1';
             const wrong = pF.writes.filter(w => post[w[0]] !== w[1]).map(w => w[0]);
             check('退避できない(' + label + '): 復元は続行される(ok・mode=no-snapshot・書くキーがすべてバックアップの値になる)', r.ok && r.mode === 'no-snapshot' && wrong.length === 0, JSON.stringify(r).slice(0, 160) + ' wrong=' + wrong.join(','));
             check('退避できない(' + label + '): 消す操作はしない(バックアップに無い児童別キーは残り、staleKept に報告)', r.staleKept.length === pF.stale.length && pF.stale.every(k => post[k] === pre[k]), JSON.stringify(r.staleKept));
-            check('退避できない(' + label + '): 以前の取り消し点(スナップショット・ジャーナル)は壊さない', post[K.roster_snapshot] === prevSnap && post[K.roster_txn] === prevJ, '');
+            check('退避できない(' + label + '): 以前の取り消し点(スナップショット・ジャーナル)は壊さない', post[K.undo_br_snapshot] === prevSnap && post[K.undo_br_txn] === prevJ, '');
         }
         // 退避なし + あるキーが常に書けない → 部分的な失敗として報告(ok:false, partial-restore)、他のキーは書かれる
         await seed(Brev, 'new');
@@ -407,9 +410,9 @@ const OTHER_APP = 'doc-index-v1';
         // ================= 10. バックアップの書き出し(変更なしの確認) =================
         console.log('--- 10. 書き出し ---');
         await seed(A, 'new');
-        await page.evaluate((K, s, t) => { storageVerifiedWrite(K.roster_snapshot, s); storageVerifiedWrite(K.roster_txn, t); }, K, '{"v":1,"keys":{}}', '{"state":"committed"}');
+        await page.evaluate((K, s, t) => { Object.keys(K).filter(k => /^(roster_|undo_)/.test(k)).forEach(k => { storageVerifiedWrite(K[k], /snapshot$/.test(k) ? s : t); }); }, K, '{"v":1,"keys":{}}', '{"state":"committed"}');
         const ex = await makeBackup();
-        check('書き出し: version 10・appType・スナップショット/ジャーナルを含めない・pf を含める', ex.version === 10 && ex.appType === 'classroom-spa' && ex.data[K.roster_snapshot] === undefined && ex.rawLocalStorage[K.roster_txn] === undefined && ex.rawLocalStorage['pf_roster'] !== undefined, '');
+        check('書き出し: version 10・appType・スナップショット/ジャーナルを含めない・pf を含める', ex.version === 10 && ex.appType === 'classroom-spa' && Object.keys(K).filter(k => /^(roster_|undo_)/.test(k)).every(k => ex.data[K[k]] === undefined && ex.rawLocalStorage[K[k]] === undefined) && ex.rawLocalStorage['pf_roster'] !== undefined, '');
     } catch (e) {
         check('テスト実行中に例外なし', false, (e && e.stack) || String(e));
     } finally {

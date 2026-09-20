@@ -2962,6 +2962,10 @@
                                 <div id="recInputModeFixText" style="font-size:0.78rem;margin-bottom:6px;"></div>
                                 <button type="button" class="btn-rec-small" id="recInputModeFixBtn" onclick="recFixInputModeClick()" style="min-height:var(--tap-min);"></button>
                             </div>
+                            <!-- v1.57.0: 直前の入力形式の変更の取り消し(取り消せるときだけ表示。名簿変更などの取り消し点とは別の枠) -->
+                            <div id="recInputModeUndoWrap" style="display:none;grid-column:1/-1;">
+                                <button type="button" class="btn-rec-small" id="recInputModeUndoBtn" onclick="recInputModeUndoClick()" style="min-height:var(--tap-min);width:100%;"></button>
+                            </div>
                             <input type="number" id="recTestMaxScore" placeholder="満点（例：100）" min="1" inputmode="numeric">
                             <input type="date" id="recTestDate">
                             <select id="recTestTerm" title="成績の学期分け（空欄なら実施日から自動判定）">
@@ -5088,6 +5092,13 @@
         // スナップショットとジャーナルはバックアップには含めない(exportBackup で除外)。退避は含める。
         roster_snapshot: 'spa_roster_snapshot',   // 名簿変更前の全キーの写し(1世代)
         roster_txn:      'spa_roster_txn',        // ジャーナル(applying / committed / rollback-failed)
+        // v1.57.0: 取り消し点を種類ごとの別の枠に分ける(互いに上書きしない)。名簿変更(apply/restore)は上の roster_* をそのまま使う。
+        //   氏名・記録を含むため、端末データ消去(退勤モード)の対象。バックアップには含めない。
+        undo_br_snapshot:  'spa_undo_backup_restore_snapshot',  undo_br_txn:  'spa_undo_backup_restore_txn',   // バックアップの復元
+        undo_pft_snapshot: 'spa_undo_pf_takeover_snapshot',     undo_pft_txn: 'spa_undo_pf_takeover_txn',      // 新体力テストの引き継ぎ
+        undo_pfr_snapshot: 'spa_undo_pf_restore_snapshot',      undo_pfr_txn: 'spa_undo_pf_restore_txn',       // 新体力テストの記録の復元
+        undo_imf_snapshot: 'spa_undo_input_mode_fix_snapshot',  undo_imf_txn: 'spa_undo_input_mode_fix_txn',   // 入力形式の変更
+        undo_pfm_snapshot: 'spa_undo_pf_migration_snapshot',    undo_pfm_txn: 'spa_undo_pf_migration_txn',     // 起動時の新体力テストの自動移行(成功すると消える)
         student_archive: 'spa_student_archive'    // 名簿から削除した児童のデータの退避(無期限)
     };
 
@@ -5716,6 +5727,10 @@
     NOT_STUDENT_KEYED[KEYS.migration_backup_studentId] = '名簿の写し(段階1の退避コピー。付け替え対象外)';
     NOT_STUDENT_KEYED[KEYS.roster_snapshot] = '名簿変更前の全キーの写し(トランザクション用。付け替え対象外)';
     NOT_STUDENT_KEYED[KEYS.roster_txn] = '名簿変更のジャーナル(トランザクション用)';
+    ['undo_br', 'undo_pft', 'undo_pfr', 'undo_imf', 'undo_pfm'].forEach(function(p) {
+        NOT_STUDENT_KEYED[KEYS[p + '_snapshot']] = '取り消し点(種類別の枠)の変更前の写し(トランザクション用。付け替え対象外)';
+        NOT_STUDENT_KEYED[KEYS[p + '_txn']] = '取り消し点(種類別の枠)のジャーナル(トランザクション用)';
+    });
     NOT_STUDENT_KEYED[KEYS.student_archive] = '削除した児童のデータの退避(studentIdで持つので添字の付け替え対象外)';
 
     // 添字として読める値(0以上の整数、または先頭ゼロなしの数字列)。それ以外は null(児童に紐づかない扱い)。
@@ -6034,6 +6049,58 @@
         try { localStorage.removeItem(ROSTER_PROBE_KEY); } catch (e2) { console.error('capacity probe cleanup failed:', e2); }
         return { ok: ok, needed: neededChars, probed: size, detail: detail };
     }
+    // ---- 取り消し点の枠(v1.57.0): 種類ごとに別のスナップショット・ジャーナルのキー。互いに上書きしない ----
+    //   名簿変更(apply / restore)は従来のキー(spa_roster_*)、ほかは spa_undo_*。1つの枠には1世代だけ(同じ種類の次の変更で置き換わる)。
+    //   pf-migration は起動時の自動移行用で、取り消し点にはしない(成功すると消える)。
+    function srSlots() {
+        return [
+            { id: 'roster', kinds: ['apply', 'restore'], snap: KEYS.roster_snapshot, txn: KEYS.roster_txn, undoable: true },
+            { id: 'backup-restore', kinds: ['backup-restore'], snap: KEYS.undo_br_snapshot, txn: KEYS.undo_br_txn, undoable: true },
+            { id: 'pf-takeover', kinds: ['pf-takeover'], snap: KEYS.undo_pft_snapshot, txn: KEYS.undo_pft_txn, undoable: true },
+            { id: 'pf-restore', kinds: ['pf-restore'], snap: KEYS.undo_pfr_snapshot, txn: KEYS.undo_pfr_txn, undoable: true },
+            { id: 'input-mode-fix', kinds: ['input-mode-fix'], snap: KEYS.undo_imf_snapshot, txn: KEYS.undo_imf_txn, undoable: true },
+            { id: 'pf-migration', kinds: ['pf-migration'], snap: KEYS.undo_pfm_snapshot, txn: KEYS.undo_pfm_txn, undoable: false }
+        ];
+    }
+    function srSlotForKind(kind) { var a = srSlots(); for (var i = 0; i < a.length; i++) if (a[i].kinds.indexOf(kind) >= 0) return a[i]; return a[0]; }
+    function srSlotById(id) { var a = srSlots(); for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i]; return null; }
+    function srIsUndoKey(k) { return srSlots().some(function(sl) { return sl.snap === k || sl.txn === k; }); }
+    function srUndoKeys() { var out = []; srSlots().forEach(function(sl) { out.push(sl.snap, sl.txn); }); return out; }
+    // どれかの枠で、変更が途中(applying)または元に戻せていない(rollback-failed)か
+    function srPendingTxn() {
+        return srSlots().some(function(sl) { var j = srParse(storageDirect(sl.txn)); return !!j && (j.state === 'applying' || j.state === 'rollback-failed'); });
+    }
+    // 1つの枠の取り消しの状態。確定済み(committed)で、確定後に対象キーが1つも変わっていなければ取り消せる
+    function srSlotStatus(sl) {
+        var j = srParse(storageDirect(sl.txn)), snap = srParse(storageDirect(sl.snap));
+        if (!j || j.state !== 'committed' || !snap || !snap.keys) return { available: false, reason: 'nothing', slot: sl.id };
+        var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
+        return { available: changed.length === 0, reason: changed.length ? 'changed' : '', changed: changed, at: j.at, kind: j.kind, slot: sl.id, name: j.name, testId: j.testId };
+    }
+    // 取り消しの状態。slotId を指定するとその枠、指定なしなら「最後に確定した枠」(互換: 以前は枠が1つだった)
+    function srUndoStatus(slotId) {
+        if (slotId) { var sl = srSlotById(slotId); return sl ? srSlotStatus(sl) : { available: false, reason: 'nothing' }; }
+        var best = null;
+        srSlots().forEach(function(sl) {
+            if (!sl.undoable) return;
+            var st = srSlotStatus(sl);
+            if (st.reason === 'nothing') return;
+            if (!best || String(st.at || '') > String(best.at || '')) best = st;
+        });
+        return best || { available: false, reason: 'nothing' };
+    }
+    // 変更が確定したあとに対象キーが変わって、もう取り消せない枠は、写しが端末の容量を占めるだけなので消す(ほかの枠の書き込みの前に呼ぶ。exceptId=いま書く枠)
+    function srPruneDeadSlots(exceptId) {
+        srSlots().forEach(function(sl) {
+            if (sl.id === exceptId) return;
+            var j = srParse(storageDirect(sl.txn));
+            if (!j || j.state !== 'committed') return;
+            var st = srSlotStatus(sl);
+            if (st.available) return;
+            try { storageVerifiedRemove(sl.txn); storageVerifiedRemove(sl.snap); } catch (e) {}
+        });
+    }
+
     // スナップショット/取り消し/付け替えの対象キー: 登録表の全ストア + 名簿 + 退避
     function srSnapshotKeys(extraKeys) { return STUDENT_KEYED_STORES.map(function(st) { return st.key; }).concat([KEYS.master, KEYS.student_archive]).concat(extraKeys || []); }
 
@@ -6053,17 +6120,20 @@
         }
         return { ok: errors.length === 0, errors: errors };
     }
-    function srCleanupTxn() {
+    function srCleanupSlot(sl) {
         var ok = true;
-        try { storageVerifiedRemove(KEYS.roster_txn); } catch (e) { ok = false; }
-        if (ok) { try { storageVerifiedRemove(KEYS.roster_snapshot); } catch (e) { ok = false; } }
+        try { storageVerifiedRemove(sl.txn); } catch (e) { ok = false; }
+        if (ok) { try { storageVerifiedRemove(sl.snap); } catch (e) { ok = false; } }
         return ok;
     }
+    function srCleanupTxn(kind) { return srCleanupSlot(srSlotForKind(kind)); }
 
     // ジョブ: {kind, storesNext:{キー:新しい生JSON}, archiveNext:string|null(null=変更なし), masterNext:string,
     //         verify(persistedRaws)→違反の配列}。戻り値 {ok, txnId, writes} または {ok:false, error, ...}
     function srRunTransaction(job) {
-        var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+        var slot = srSlotForKind(job.kind);
+        srPruneDeadSlots(slot.id); // もう取り消せない別の枠の写しを先に消して、容量を空ける
+        var prevSnap = storageDirect(slot.snap), prevJournal = storageDirect(slot.txn);
         var txnId = srNewId('txn_'), now = new Date().toISOString();
         var pfKeys = Object.keys(job.pfNext || {}); // 新体力テスト(pf)も同じトランザクション(スナップショット・ジャーナル・ロールバック)に含める
         var snapKeys = srSnapshotKeys(pfKeys);
@@ -6082,12 +6152,12 @@
         var room = srRoomCheck(need);
         if (!room.ok) return { ok: false, error: 'insufficient-storage', needed: room.needed, probed: room.probed, detail: room.detail };
         var restorePrev = function() {
-            try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
-            try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+            try { if (prevSnap === null) storageVerifiedRemove(slot.snap); else storageVerifiedWrite(slot.snap, prevSnap); } catch (e) {}
+            try { if (prevJournal === null) storageVerifiedRemove(slot.txn); else storageVerifiedWrite(slot.txn, prevJournal); } catch (e) {}
         };
         // 1) スナップショット / 2) ジャーナル(ここまでは名簿・記録に一切触れない。失敗したら直前の取り消し点も含めて元の状態へ)
-        try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); } catch (e) { restorePrev(); return { ok: false, error: 'snapshot-failed', detail: srMsg(e) }; }
-        try { storageVerifiedWrite(KEYS.roster_txn, journalStr); } catch (e) { restorePrev(); return { ok: false, error: 'journal-failed', detail: srMsg(e) }; }
+        try { storageVerifiedWrite(slot.snap, snapStr); } catch (e) { restorePrev(); return { ok: false, error: 'snapshot-failed', detail: srMsg(e) }; }
+        try { storageVerifiedWrite(slot.txn, journalStr); } catch (e) { restorePrev(); return { ok: false, error: 'journal-failed', detail: srMsg(e) }; }
         // 3) 適用 → 検証 → 確定。失敗したらスナップショットへ書き戻す
         try {
             writes.forEach(function(w) { storageVerifiedWrite(w[0], w[1]); });
@@ -6099,11 +6169,11 @@
             if (viol && viol.length) throw new Error('invariant violated: ' + JSON.stringify(viol[0]));
             var hashes = {};
             snapKeys.forEach(function(k) { hashes[k] = srHash(storageDirect(k)); });
-            storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: job.kind, hashes: hashes }));
+            storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: job.kind, hashes: hashes }));
         } catch (e) {
             var rb = srRollbackToSnapshot(snap);
-            if (rb.ok) { srCleanupTxn(); return { ok: false, error: 'apply-failed', rolledBack: true, detail: srMsg(e) }; }
-            try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, errors: rb.errors.slice(0, 5) })); } catch (e2) {}
+            if (rb.ok) { srCleanupTxn(job.kind); return { ok: false, error: 'apply-failed', rolledBack: true, detail: srMsg(e) }; }
+            try { storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, errors: rb.errors.slice(0, 5) })); } catch (e2) {}
             return { ok: false, error: 'apply-failed', rolledBack: false, rollbackFailed: true, detail: srMsg(e), errors: rb.errors };
         }
         return { ok: true, txnId: txnId, writes: writes.map(function(w) { return w[0]; }) };
@@ -6423,8 +6493,7 @@
         var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
         if (masterLoadFailed) return fail('master-load-failed');
         if (!Array.isArray(newStudents)) return fail('not-array');
-        var j = srParse(storageDirect(KEYS.roster_txn));
-        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        if (srPendingTxn()) return fail('txn-pending');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var masterRaw = storageDirect(KEYS.master);
@@ -6579,8 +6648,7 @@
         opts = opts || {};
         var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
         if (masterLoadFailed) return fail('master-load-failed');
-        var j = srParse(storageDirect(KEYS.roster_txn));
-        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        if (srPendingTxn()) return fail('txn-pending');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var archive = readStudentArchive();
@@ -6695,28 +6763,25 @@
     // ---- 取り消し ----
     // 名簿変更(確定済み)の直前へ戻す。名簿変更のあとに(対象キーへの)入力があれば取り消さず、トーストで理由を表示する。
     // 取り消せるか(確定済みのジャーナルとスナップショットがあり、確定後に対象キーが1つも変わっていない)。UIのボタン表示にも使う。
-    function srUndoStatus() {
-        var j = srParse(storageDirect(KEYS.roster_txn)), snap = srParse(storageDirect(KEYS.roster_snapshot));
-        if (!j || j.state !== 'committed' || !snap || !snap.keys) return { available: false, reason: 'nothing' };
-        var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
-        return { available: changed.length === 0, reason: changed.length ? 'changed' : '', changed: changed, at: j.at, kind: j.kind };
-    }
+    // opts.slot: 取り消す枠(roster / backup-restore / pf-takeover / pf-restore / input-mode-fix)。省略すると、最後に確定した枠(互換)。
     function undoRosterChange(opts) {
         opts = opts || {};
-        var j = srParse(storageDirect(KEYS.roster_txn));
-        var snap = srParse(storageDirect(KEYS.roster_snapshot));
+        var slotId = opts.slot || srUndoStatus().slot;
+        var slot = (slotId && srSlotById(slotId)) || srSlots()[0];
+        var j = srParse(storageDirect(slot.txn));
+        var snap = srParse(storageDirect(slot.snap));
         var refuse = function(error, msg, extra) { try { showToast(msg, 'warning'); } catch (e) {} return Object.assign({ ok: false, error: error, message: msg }, extra || {}); };
         var isRestore = !!j && j.kind === BR_KIND;
         var isTakeover = !!j && j.kind === 'pf-takeover';
         var isImFix = !!j && j.kind === 'input-mode-fix';
-        if (!j || j.state !== 'committed' || !snap || !snap.keys) return refuse('nothing-to-undo', '取り消せる名簿の変更がありません');
+        if (!j || j.state !== 'committed' || !snap || !snap.keys) return refuse('nothing-to-undo', slot.id === 'input-mode-fix' ? '取り消せる入力形式の変更がありません' : '取り消せる名簿の変更がありません');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var changed = Object.keys(snap.keys).filter(function(k) { return srHash(storageDirect(k)) !== (j.hashes || {})[k]; });
         if (changed.length) return refuse('changed-since', isRestore ? 'バックアップを復元したあとに入力があったため、取り消せません' : isTakeover ? '新体力テストの記録を引き継いだあとに入力があったため、取り消せません' : isImFix ? '入力形式を直したあとに課題の変更があったため、取り消せません' : (j && j.kind === 'pf-restore') ? '新体力テストの記録を戻したあとに入力があったため、取り消せません' : '名簿を変更したあとに入力があったため、取り消せません', { keys: changed });
         var rb = srRollbackToSnapshot(snap);
         if (!rb.ok) return { ok: false, error: 'rollback-failed', errors: rb.errors };
-        srCleanupTxn();
+        srCleanupSlot(slot);
         if (isRestore || isTakeover || isImFix) {
             try { sessionStorage.setItem(BR_NOTICE_KEY, JSON.stringify({ title: isTakeover ? '✅ 新体力テストの引き継ぎを取り消しました' : isImFix ? '✅ 入力形式の変更を取り消しました' : '✅ バックアップの復元を取り消しました', msgs: [] })); } catch (e) {}
             srFinishAndReload(storageDirect(KEYS.master), Object.assign({}, opts, { openSettings: false }));
@@ -6738,32 +6803,65 @@
         } catch (e) {}
         console.error('recoverRosterTxnOnStartup failed:', detail);
     }
-    function recoverRosterTxnOnStartup() {
-        // 容量確認用の一時キーが(書き込み直後の強制終了などで)残っていれば消す
-        if (storageDirect(ROSTER_PROBE_KEY) !== null) { try { storageVerifiedRemove(ROSTER_PROBE_KEY); } catch (e) {} }
-        var raw = storageDirect(KEYS.roster_txn);
+    // v1.57.0: 旧版(〜v1.56)は取り消し点が1つの共用の枠(spa_roster_*)だった。確定済みで、名簿変更以外の種類のものは、その種類の枠へ移す
+    //   (移せなければそのまま残す。次の起動でもう一度試す)。途中(applying)のものは、共用の枠のまま、下の復旧が元に戻す。
+    function srMigrateLegacyUndoSlot() {
+        var roster = srSlots()[0], j = srParse(storageDirect(roster.txn));
+        if (!j || j.state !== 'committed') return;
+        var target = srSlotForKind(j.kind);
+        if (target.id === roster.id) return;
+        var snapRaw = storageDirect(roster.snap);
+        if (snapRaw === null) return;
+        try {
+            if (storageDirect(target.txn) === null && storageDirect(target.snap) === null) {
+                storageVerifiedWrite(target.snap, snapRaw);
+                storageVerifiedWrite(target.txn, storageDirect(roster.txn));
+            }
+            storageVerifiedRemove(roster.txn);
+            storageVerifiedRemove(roster.snap);
+        } catch (e) { console.error('srMigrateLegacyUndoSlot failed:', e); }
+    }
+    // 1つの枠の復旧。戻り値 {recovered, failed}
+    function srRecoverSlot(sl) {
+        var raw = storageDirect(sl.txn);
         if (raw === null) {
             // ジャーナルが無いスナップショット(スナップショットを書いた直後、ジャーナルを書く前に中断した残り)は、
             // 取り消し点にもならず(取り消しは committed のジャーナルが必要)、名簿・記録の全データの写しが端末に残るだけなので消す。
             // この時点で名簿・記録には一切触れていない。
-            if (storageDirect(KEYS.roster_snapshot) !== null) { try { storageVerifiedRemove(KEYS.roster_snapshot); } catch (e) {} }
+            if (storageDirect(sl.snap) !== null) { try { storageVerifiedRemove(sl.snap); } catch (e) {} }
             return { recovered: false };
         }
         var j = srParse(raw);
         if (!j) { showRosterRecoveryFailure('journal unreadable'); return { recovered: false, failed: true }; }
         if (j.state === 'committed') return { recovered: false };            // 取り消し用に残す
-        if (j.state === 'rolled-back') { srCleanupTxn(); return { recovered: false }; }
-        var snap = srParse(storageDirect(KEYS.roster_snapshot));
+        if (j.state === 'rolled-back') { srCleanupSlot(sl); return { recovered: false }; }
+        var snap = srParse(storageDirect(sl.snap));
         if (!snap || !snap.keys) { showRosterRecoveryFailure('snapshot missing'); return { recovered: false, failed: true }; }
         var rb = srRollbackToSnapshot(snap);
         if (!rb.ok) {
-            try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: j.id, state: 'rollback-failed', at: j.at, errors: rb.errors.slice(0, 5) })); } catch (e) {}
+            try { storageVerifiedWrite(sl.txn, JSON.stringify({ id: j.id, state: 'rollback-failed', at: j.at, errors: rb.errors.slice(0, 5) })); } catch (e) {}
             showRosterRecoveryFailure(rb.errors.join(' | '));
             return { recovered: false, failed: true, errors: rb.errors };
         }
-        srCleanupTxn();
-        try { showToast(j.kind === BR_KIND ? '⚠️ バックアップの復元が途中で中断したため、復元前の状態に戻しました（データは復元前のままです）' : '⚠️ 名簿の変更が途中で中断したため、元に戻しました（名簿・記録は変更前のままです）', 'warning'); } catch (e) {}
+        srCleanupSlot(sl);
+        try {
+            showToast(j.kind === BR_KIND ? '⚠️ バックアップの復元が途中で中断したため、復元前の状態に戻しました（データは復元前のままです）'
+                : j.kind === 'input-mode-fix' ? '⚠️ 入力形式の変更が途中で中断したため、元に戻しました（課題・記録は変更前のままです）'
+                : '⚠️ 名簿の変更が途中で中断したため、元に戻しました（名簿・記録は変更前のままです）', 'warning');
+        } catch (e) {}
         return { recovered: true };
+    }
+    function recoverRosterTxnOnStartup() {
+        // 容量確認用の一時キーが(書き込み直後の強制終了などで)残っていれば消す
+        if (storageDirect(ROSTER_PROBE_KEY) !== null) { try { storageVerifiedRemove(ROSTER_PROBE_KEY); } catch (e) {} }
+        srMigrateLegacyUndoSlot();
+        var out = { recovered: false };
+        srSlots().forEach(function(sl) {
+            var r = srRecoverSlot(sl);
+            if (r.recovered) out.recovered = true;
+            if (r.failed) { out.failed = true; out.errors = (out.errors || []).concat(r.errors || []); }
+        });
+        return out;
     }
     // ---- 起動時: 新体力テスト(pf)の旧方式(v1)→新方式(v2)への移行 (H4 案B 段階4b) ----
     // 児童ID(migrateStudentIdsV1)の付与のあとに呼ぶ。pf_roster がSPA名簿と一致するときだけ変換する(planPfMigration)。
@@ -6773,14 +6871,13 @@
     // 途中で強制終了しても、次の起動の recoverRosterTxnOnStartup(loadMaster より前)が自動で元に戻す。
     // 完了の印 migration_pfStudentId_v1 には結果(記録数・比較したキー数)を残し、設定の診断カードに表示する。
     function pmLocalKeys() { var out = []; try { for (var i = 0; i < localStorage.length; i++) out.push(localStorage.key(i)); } catch (e) {} return out; }
-    function pmIgnoreKey(k) { return k === KEYS.roster_snapshot || k === KEYS.roster_txn || k === ROSTER_PROBE_KEY || k === '_hb' || k === PF_MIGRATION_FLAG; }
+    function pmIgnoreKey(k) { return srIsUndoKey(k) || k === ROSTER_PROBE_KEY || k === '_hb' || k === PF_MIGRATION_FLAG; }
     function migratePfStudentIdV1() {
         var plan;
         try {
             if (window.__spaSkipPfMigration === true) return { status: 'skip', reason: 'disabled' }; // テスト専用(旧方式の動作を再読み込みをまたいで検証するため。画面や保存には現れない)
             if (masterLoadFailed) return { status: 'skip', reason: 'master-load-failed' };
-            var jn = srParse(storageDirect(KEYS.roster_txn));
-            if (jn && (jn.state === 'applying' || jn.state === 'rollback-failed')) return { status: 'skip', reason: 'txn-pending' };
+            if (srPendingTxn()) return { status: 'skip', reason: 'txn-pending' };
             var m = srParse(storageDirect(KEYS.master));
             plan = planPfMigration(srReadPfRaws(), (m && Array.isArray(m.students)) ? m.students : []);
         } catch (e) { console.error('migratePfStudentIdV1 plan failed:', e); return { status: 'skip', reason: 'exception: ' + srMsg(e) }; }
@@ -6792,7 +6889,8 @@
         var before = {}, others = {};
         affected.forEach(function(k) { before[k] = storageDirect(k); });
         pmLocalKeys().forEach(function(k) { if (!aff[k] && !pmIgnoreKey(k)) others[k] = srHash(storageDirect(k)); });
-        var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+        var slot = srSlotForKind('pf-migration'); // 起動時の自動移行は専用の枠(名簿変更などの取り消し点を上書きしない)
+        var prevSnap = storageDirect(slot.snap), prevJournal = storageDirect(slot.txn);
         var txnId = srNewId('pfm_'), now = new Date().toISOString();
         var snap = { v: 1, txnId: txnId, at: now, kind: 'pf-migration', keys: {} };
         affected.forEach(function(k) { snap.keys[k] = before[k]; });
@@ -6801,12 +6899,12 @@
         var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + 8192;
         writes.forEach(function(w) { need += Math.max(0, w[1].length - (before[w[0]] ? before[w[0]].length : 0)); });
         var restorePrev = function() {
-            try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
-            try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+            try { if (prevSnap === null) storageVerifiedRemove(slot.snap); else storageVerifiedWrite(slot.snap, prevSnap); } catch (e) {}
+            try { if (prevJournal === null) storageVerifiedRemove(slot.txn); else storageVerifiedWrite(slot.txn, prevJournal); } catch (e) {}
         };
         var room = srRoomCheck(need);
         if (!room.ok) return { status: 'skip', reason: 'insufficient-storage' }; // 何も書かない(旧方式のまま動く)。空きができたら次の起動で移行する
-        try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); storageVerifiedWrite(KEYS.roster_txn, journalStr); }
+        try { storageVerifiedWrite(slot.snap, snapStr); storageVerifiedWrite(slot.txn, journalStr); }
         catch (e) { restorePrev(); return { status: 'skip', reason: 'snapshot-failed' }; }
         try {
             writes.forEach(function(w) { storageVerifiedWrite(w[0], w[1]); });
@@ -6821,14 +6919,14 @@
             mv.forEach(function(x) { viol.push(JSON.stringify(x)); });
             if (viol.length) throw new Error('pf migration verify failed: ' + viol[0]);
             try { storageVerifiedWrite(PF_MIGRATION_FLAG, JSON.stringify({ at: now, records: plan.records, keys: plan.keys, compared: compared, unchanged: true })); } catch (eFlag) { console.warn('pf migration flag write failed', eFlag); }
-            srCleanupTxn(); restorePrev();
+            srCleanupTxn('pf-migration'); restorePrev();
             try { showToast('新体力テストの記録を、児童ごとに管理する新しい方式に更新しました（内容は変わっていません）', 'info'); } catch (e) {}
             return { status: 'migrated', records: plan.records, keys: plan.keys, compared: compared };
         } catch (e) {
             console.error('migratePfStudentIdV1 failed, rolling back:', e);
             var rb = srRollbackToSnapshot(snap);
-            if (rb.ok) { srCleanupTxn(); restorePrev(); try { showToast('⚠️ 新体力テストの記録の更新に失敗したため元に戻しました（記録は変更されていません）。次に開いたときにもう一度試します', 'warning'); } catch (e2) {} return { status: 'failed', rolledBack: true, reason: srMsg(e) }; }
-            try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: 'pf-migration', errors: rb.errors.slice(0, 5) })); } catch (e3) {}
+            if (rb.ok) { srCleanupTxn('pf-migration'); restorePrev(); try { showToast('⚠️ 新体力テストの記録の更新に失敗したため元に戻しました（記録は変更されていません）。次に開いたときにもう一度試します', 'warning'); } catch (e2) {} return { status: 'failed', rolledBack: true, reason: srMsg(e) }; }
+            try { storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: 'pf-migration', errors: rb.errors.slice(0, 5) })); } catch (e3) {}
             try { showToast('⚠️ 新体力テストの記録の更新に失敗し、元に戻せませんでした。アプリを開き直してください（自動で元に戻します）', 'error'); } catch (e4) {}
             return { status: 'failed', rolledBack: false, reason: srMsg(e), errors: rb.errors };
         }
@@ -6966,8 +7064,7 @@
         opts = opts || {};
         var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
         if (masterLoadFailed) return fail('master-load-failed');
-        var j = srParse(storageDirect(KEYS.roster_txn));
-        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        if (srPendingTxn()) return fail('txn-pending');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var masterRaw = storageDirect(KEYS.master), m = srParse(masterRaw);
@@ -7007,8 +7104,7 @@
         opts = opts || {};
         var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
         if (masterLoadFailed) return fail('master-load-failed');
-        var j = srParse(storageDirect(KEYS.roster_txn));
-        if (j && (j.state === 'applying' || j.state === 'rollback-failed')) return fail('txn-pending');
+        if (srPendingTxn()) return fail('txn-pending');
         try { uiFlushPending(); } catch (e) {}
         try { flushSaveQueue(); } catch (e) {}
         var archive = readStudentArchive();
@@ -7088,7 +7184,8 @@
                 // 取り消せる名簿変更があれば、トーストに「元に戻す」を付ける(名簿設定の画面の取り消しボタンでも取り消せる)
                 var title = '✅ 名簿を更新しました';
                 try { var ft = sessionStorage.getItem(SETTINGS_FLASH_KEY); sessionStorage.removeItem(SETTINGS_FLASH_KEY); if (ft) title = ft; } catch (e) {}
-                if (srUndoStatus().available) showUndoToast(title, function() { rosterUndoClick(); });
+                var lastU = srUndoStatus(); // 最後に確定した枠(名簿変更・新体力テストの記録の復元など)
+                if (lastU.available && lastU.slot !== 'input-mode-fix') showUndoToast(title, function() { rosterUndoClick(lastU.slot); });
                 else showToast(title, 'success');
             } catch (e) {}
         }, 400);
@@ -7332,19 +7429,29 @@
         box.innerHTML = html;
     }
     // 「直前の名簿変更を取り消す」ボタン(取り消せるときだけ表示)
+    // 取り消せる枠ごとに1つずつボタンを出す(名簿変更・バックアップの復元・新体力テストの引き継ぎ・新体力テストの記録の復元)。
+    // 入力形式の変更の取り消しは、課題の編集画面に出す(recRefreshInputModeUndo)。
+    var ROSTER_UNDO_SLOTS = ['roster', 'backup-restore', 'pf-takeover', 'pf-restore'];
+    function srUndoLabel(u) {
+        var t = u.at ? new Date(u.at) : null;
+        var when = t ? (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') : '';
+        return (u.kind === BR_KIND) ? '↩ 直前のバックアップの復元を取り消す' + (when ? '（' + when + ' の復元）' : '')
+            : (u.kind === 'pf-takeover') ? '↩ 直前の新体力テストの引き継ぎを取り消す' + (when ? '（' + when + '）' : '')
+            : (u.kind === 'pf-restore') ? '↩ 直前の新体力テストの記録の復元を取り消す' + (when ? '（' + when + '）' : '')
+            : (u.kind === 'input-mode-fix') ? '↩ 直前の入力形式の変更を取り消す' + (u.name ? '（「' + u.name + '」・' + when + '）' : (when ? '（' + when + '）' : ''))
+            : '↩ 直前の名簿変更を取り消す' + (when ? '（' + when + ' の変更）' : '');
+    }
     function renderRosterUndoBar() {
         var el = document.getElementById('rosterUndoBar');
         if (!el) return;
-        var u = srUndoStatus();
-        if (!u.available) { el.innerHTML = ''; return; }
-        var t = u.at ? new Date(u.at) : null;
-        var when = t ? (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') : '';
-        var label = (u.kind === BR_KIND) ? '↩ 直前のバックアップの復元を取り消す' + (when ? '（' + when + ' の復元）' : '')
-            : (u.kind === 'pf-takeover') ? '↩ 直前の新体力テストの引き継ぎを取り消す' + (when ? '（' + when + '）' : '')
-            : (u.kind === 'pf-restore') ? '↩ 直前の新体力テストの記録の復元を取り消す' + (when ? '（' + when + '）' : '')
-            : (u.kind === 'input-mode-fix') ? '↩ 直前の入力形式の変更を取り消す' + (when ? '（' + when + '）' : '')
-            : '↩ 直前の名簿変更を取り消す' + (when ? '（' + when + ' の変更）' : '');
-        el.innerHTML = '<button type="button" class="rl-btn" id="rosterUndoBtn" data-act="undo" style="width:100%;">' + label + '</button>';
+        var html = '', first = true;
+        ROSTER_UNDO_SLOTS.forEach(function(id) {
+            var u = srUndoStatus(id);
+            if (!u.available) return;
+            html += '<button type="button" class="rl-btn" id="' + (first ? 'rosterUndoBtn' : 'rosterUndoBtn_' + id) + '" data-act="undo" data-slot="' + id + '" style="width:100%;' + (first ? '' : 'margin-top:6px;') + '">' + srUndoLabel(u) + '</button>';
+            first = false;
+        });
+        el.innerHTML = html;
     }
     // 退避中の児童の一覧・復元・完全削除
     function renderArchiveList() {
@@ -7412,16 +7519,16 @@
         }
         else if (act === 'discard') { rosterDraftInit(); }
         else if (act === 'backup') { if (typeof openBackupModal === 'function') openBackupModal(); return; }
-        else if (act === 'undo') { rosterUndoClick(); return; }
+        else if (act === 'undo') { rosterUndoClick(el && el.getAttribute ? el.getAttribute('data-slot') : undefined); return; }
         else return;
         renderRosterEditor();
         rosterMarkChanged();
         if (act === 'discard') { renderRosterBanner(); renderRosterCount(); }
         if (focus >= 0) rosterFocusName(focus);
     }
-    function rosterUndoClick() {
+    function rosterUndoClick(slotId) {
         if (rosterDraftChanged()) { showToast('先に、未保存の名簿の変更を保存するか破棄してください', 'warning'); return; }
-        undoRosterChange();
+        undoRosterChange(slotId ? { slot: slotId } : undefined);
     }
     function archiveHandleAct(act, id, el) {
         if (act === 'restore') {
@@ -8384,7 +8491,7 @@
         }
         // v1.51.2: 名簿変更のスナップショット(全データの写し)とジャーナルはバックアップに含めない(容量が倍になり、
         // 復元先で古い取り消し点として誤動作するため)。退避(spa_student_archive)は含める。
-        [KEYS.roster_snapshot, KEYS.roster_txn].forEach(function(k) { delete backup.data[k]; delete backup.rawLocalStorage[k]; });
+        srUndoKeys().forEach(function(k) { delete backup.data[k]; delete backup.rawLocalStorage[k]; });
         return backup;
     }
     window.buildBackupObject = buildBackupObject;
@@ -8439,7 +8546,7 @@
     //     中断の印が復元先で誤動作するため)
     var BR_KIND = 'backup-restore';
     var BR_NOTICE_KEY = 'spa_restore_notice_after_reload'; // sessionStorage: 再読み込み後に表示する通知
-    function brSkipKey(k) { return k === KEYS.roster_snapshot || k === KEYS.roster_txn || k === ROSTER_PROBE_KEY || k === 'spa_wiped'; }
+    function brSkipKey(k) { return srIsUndoKey(k) || k === ROSTER_PROBE_KEY || k === 'spa_wiped'; }
     function brIsAppKey(k) { return isClassroomOwnedKey(k) || /^(spa_|migration_|scoreData|gradeIntegration|gradeItemWeights)/.test(k); }
     // 名簿(児童の氏名の並び)が同じか。両方に studentId があれば、それも同じであること
     function brSameRoster(a, b) {
@@ -8524,7 +8631,9 @@
         var others = {}; // 変えないキーの現在値のハッシュ(適用後に不変を確認する)
         var affSet = {}; affected.forEach(function(k) { affSet[k] = true; });
         brDeviceView().keys().forEach(function(k) { if (!affSet[k] && !brSkipKey(k) && brIsAppKey(k)) others[k] = srHash(storageDirect(k)); }); // 別アプリのキー・_hb(定期更新)は対象外
-        var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+        var slot = srSlotForKind(BR_KIND);
+        srPruneDeadSlots(slot.id); // もう取り消せない別の枠の写しを先に消して、容量を空ける
+        var prevSnap = storageDirect(slot.snap), prevJournal = storageDirect(slot.txn);
         var txnId = srNewId('rst_'), now = new Date().toISOString();
         var snap = { v: 1, txnId: txnId, at: now, kind: BR_KIND, keys: {} };
         affected.forEach(function(k) { snap.keys[k] = before[k]; });
@@ -8533,14 +8642,14 @@
         var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + 8192;
         writes.forEach(function(w) { need += Math.max(0, w[1].length - (before[w[0]] ? before[w[0]].length : 0)); });
         var restorePrev = function() {
-            try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
-            try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+            try { if (prevSnap === null) storageVerifiedRemove(slot.snap); else storageVerifiedWrite(slot.snap, prevSnap); } catch (e) {}
+            try { if (prevJournal === null) storageVerifiedRemove(slot.txn); else storageVerifiedWrite(slot.txn, prevJournal); } catch (e) {}
         };
         var mode = 'snapshot';
         var room = srRoomCheck(need);
         if (!room.ok) { mode = 'no-snapshot'; result.noSnapshotReason = 'insufficient-storage'; }
         else {
-            try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); storageVerifiedWrite(KEYS.roster_txn, journalStr); }
+            try { storageVerifiedWrite(slot.snap, snapStr); storageVerifiedWrite(slot.txn, journalStr); }
             catch (e) { restorePrev(); mode = 'no-snapshot'; result.noSnapshotReason = 'snapshot-failed'; }
         }
         result.mode = mode;
@@ -8556,11 +8665,11 @@
                 if (viol.length) throw new Error('restore verify failed: ' + viol[0]);
                 var hashes = {};
                 affected.forEach(function(k) { hashes[k] = srHash(storageDirect(k)); });
-                storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: BR_KIND, hashes: hashes }));
+                storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: BR_KIND, hashes: hashes }));
             } catch (e) {
                 var rb = srRollbackToSnapshot(snap);
-                if (rb.ok) { srCleanupTxn(); restorePrev(); return { ok: false, error: 'apply-failed', rolledBack: true, detail: srMsg(e) }; }
-                try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: BR_KIND, errors: rb.errors.slice(0, 5) })); } catch (e2) {}
+                if (rb.ok) { srCleanupTxn(BR_KIND); restorePrev(); return { ok: false, error: 'apply-failed', rolledBack: true, detail: srMsg(e) }; }
+                try { storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: BR_KIND, errors: rb.errors.slice(0, 5) })); } catch (e2) {}
                 return { ok: false, error: 'apply-failed', rolledBack: false, rollbackFailed: true, detail: srMsg(e), errors: rb.errors };
             }
             result.removed = removals.length;
@@ -8604,25 +8713,26 @@
     // 復元後の最初の起動で、起動時の移行(児童IDの付与など)が復元したキーを書き換えていても取り消せるように、
     // 取り消し用のハッシュを取り直す(利用者の入力ではない変更を「入力があった」と誤判定しないため。再読み込み直後の1回だけ)。
     function brRebaseUndoHashes() {
-        var j = srParse(storageDirect(KEYS.roster_txn)), snap = srParse(storageDirect(KEYS.roster_snapshot));
+        var slot = srSlotForKind(BR_KIND);
+        var j = srParse(storageDirect(slot.txn)), snap = srParse(storageDirect(slot.snap));
         if (!j || j.kind !== BR_KIND || j.state !== 'committed' || !snap || !snap.keys) return;
         var hashes = {};
         Object.keys(snap.keys).forEach(function(k) { hashes[k] = srHash(storageDirect(k)); });
-        try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify(Object.assign({}, j, { hashes: hashes, rebased: true }))); } catch (e) {}
+        try { storageVerifiedWrite(slot.txn, JSON.stringify(Object.assign({}, j, { hashes: hashes, rebased: true }))); } catch (e) {}
     }
     function brShowNoticeAfterReload() {
         var raw = null;
         try { raw = sessionStorage.getItem(BR_NOTICE_KEY); sessionStorage.removeItem(BR_NOTICE_KEY); } catch (e) {}
         var n = srParse(raw);
         if (!n) return;
-        if (n.undoable) brRebaseUndoHashes();
+        if (n.undoable && (!n.kind || n.kind === BR_KIND)) brRebaseUndoHashes(); // 復元の通知のときだけ(ほかの種類の枠のハッシュは取り直さない)
         var msgs = Array.isArray(n.msgs) ? n.msgs : [];
         var t = 400;
         msgs.forEach(function(m) { setTimeout(function() { try { showToast(m, 'warning'); } catch (e) {} }, t); t += 2700; });
         setTimeout(function() {
             try {
-                var u = srUndoStatus();
-                if (n.title && n.undoable && u.available && u.kind === (n.kind || BR_KIND)) showUndoToast(n.title, function() { undoRosterChange(); });
+                var nSlot = srSlotForKind(n.kind || BR_KIND), u = srUndoStatus(nSlot.id);
+                if (n.title && n.undoable && u.available && u.kind === (n.kind || BR_KIND)) showUndoToast(n.title, function() { undoRosterChange({ slot: nSlot.id }); });
                 else if (n.title) showToast(n.title, 'success');
             } catch (e) {}
         }, t);
@@ -12286,8 +12396,7 @@
         window.recFixInputMode = function(testId, maxScoreVal) {
             var fail = function(error, extra) { return Object.assign({ ok: false, error: error }, extra || {}); };
             if (masterLoadFailed) return fail('master-load-failed');
-            var jn = srParse(storageDirect(KEYS.roster_txn));
-            if (jn && (jn.state === 'applying' || jn.state === 'rollback-failed')) return fail('txn-pending');
+            if (srPendingTxn()) return fail('txn-pending');
             try { uiFlushPending(); } catch (e) {}
             try { flushSaveQueue(); } catch (e) {}
             var raw = storageDirect(KEYS.tests), tests = srParse(raw);
@@ -12304,20 +12413,22 @@
                 next.maxScore = mx;
             } else next.maxScore = 0;
             var nextRaw = JSON.stringify(tests.map(function(t) { return t === test ? next : t; }));
-            var prevSnap = storageDirect(KEYS.roster_snapshot), prevJournal = storageDirect(KEYS.roster_txn);
+            var slot = srSlotForKind('input-mode-fix'); // 入力形式の変更の専用の枠(名簿変更などの取り消し点を上書きしない)
+            srPruneDeadSlots(slot.id); // もう取り消せない別の枠の写しを先に消して、容量を空ける
+            var prevSnap = storageDirect(slot.snap), prevJournal = storageDirect(slot.txn);
             var txnId = srNewId('imf_'), now = new Date().toISOString();
             var snap = { v: 1, txnId: txnId, at: now, kind: 'input-mode-fix', keys: {} };
             snap.keys[KEYS.tests] = raw;
             var snapStr = JSON.stringify(snap);
-            var journalStr = JSON.stringify({ id: txnId, state: 'applying', at: now, kind: 'input-mode-fix', order: [KEYS.tests] });
+            var journalStr = JSON.stringify({ id: txnId, state: 'applying', at: now, kind: 'input-mode-fix', order: [KEYS.tests], testId: testId, name: test.name });
             var need = Math.max(0, snapStr.length - (prevSnap ? prevSnap.length : 0)) + Math.max(0, nextRaw.length - raw.length) + 8192;
             var restorePrev = function() {
-                try { if (prevSnap === null) storageVerifiedRemove(KEYS.roster_snapshot); else storageVerifiedWrite(KEYS.roster_snapshot, prevSnap); } catch (e) {}
-                try { if (prevJournal === null) storageVerifiedRemove(KEYS.roster_txn); else storageVerifiedWrite(KEYS.roster_txn, prevJournal); } catch (e) {}
+                try { if (prevSnap === null) storageVerifiedRemove(slot.snap); else storageVerifiedWrite(slot.snap, prevSnap); } catch (e) {}
+                try { if (prevJournal === null) storageVerifiedRemove(slot.txn); else storageVerifiedWrite(slot.txn, prevJournal); } catch (e) {}
             };
             var room = srRoomCheck(need);
             if (!room.ok) return fail('insufficient-storage');
-            try { storageVerifiedWrite(KEYS.roster_snapshot, snapStr); storageVerifiedWrite(KEYS.roster_txn, journalStr); }
+            try { storageVerifiedWrite(slot.snap, snapStr); storageVerifiedWrite(slot.txn, journalStr); }
             catch (e) { restorePrev(); return fail('snapshot-failed', { detail: srMsg(e) }); }
             try {
                 storageVerifiedWrite(KEYS.tests, nextRaw);
@@ -12327,11 +12438,11 @@
                 if (storageDirect(KEYS.scores) !== scoresRaw) viol.push('scores changed');
                 if (viol.length) throw new Error('verify failed: ' + viol[0]);
                 var hashes = {}; hashes[KEYS.tests] = srHash(storageDirect(KEYS.tests));
-                storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: 'input-mode-fix', hashes: hashes }));
+                storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'committed', at: now, kind: 'input-mode-fix', hashes: hashes, testId: testId, name: test.name }));
             } catch (e) {
                 var rb = srRollbackToSnapshot(snap);
-                if (rb.ok) { srCleanupTxn(); restorePrev(); return fail('apply-failed', { rolledBack: true, detail: srMsg(e) }); }
-                try { storageVerifiedWrite(KEYS.roster_txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: 'input-mode-fix', errors: rb.errors.slice(0, 5) })); } catch (e2) {}
+                if (rb.ok) { srCleanupTxn('input-mode-fix'); restorePrev(); return fail('apply-failed', { rolledBack: true, detail: srMsg(e) }); }
+                try { storageVerifiedWrite(slot.txn, JSON.stringify({ id: txnId, state: 'rollback-failed', at: now, kind: 'input-mode-fix', errors: rb.errors.slice(0, 5) })); } catch (e2) {}
                 return fail('apply-failed', { rolledBack: false, rollbackFailed: true, detail: srMsg(e), errors: rb.errors });
             }
             try { window.recInvalidateCache && window.recInvalidateCache(); } catch (e) {}
@@ -12354,8 +12465,10 @@
             var r = window.recFixInputMode(id, mx);
             if (!r.ok) { showToast(recFixErrorMessage(r), r.error === 'max-required' ? 'warning' : 'error'); return; }
             recEditTest(id); // 保存済みの内容で編集画面を開き直す
-            showUndoToast('✅ 「' + r.name + '」を' + (r.to === 'score' ? '得点' : '5段階') + '入力に戻しました（記録は変えていません）', function() { undoRosterChange(); });
+            showUndoToast('✅ 「' + r.name + '」を' + (r.to === 'score' ? '得点' : '5段階') + '入力に戻しました（記録は変えていません）', function() { undoRosterChange({ slot: 'input-mode-fix' }); });
         };
+        // 編集画面の「直前の入力形式の変更を取り消す」ボタン(取り消せるときだけ表示)
+        window.recInputModeUndoClick = function() { undoRosterChange({ slot: 'input-mode-fix' }); };
 
         window.recSetInputMode = function(mode) {
             if (mode !== 'score' && mode !== 'abc5') return;
@@ -12369,7 +12482,15 @@
         // 得点/5段階タブの見た目とmaxScore欄の状態をまとめて同期する唯一の関数。
         // 得点が1件でも入力済みの項目を編集中か(入力形式ロック中か)。recSyncInputModeUiと自動既定値の抑制で共有する。
         // 記録と入力形式が食い違っている課題の編集画面に、記録に合う形式へ戻すボタンを出す(保存済みの課題と記録で判定。診断と同じ inputModeFixInfo)。
+        function recRefreshInputModeUndo() {
+            var uw = document.getElementById('recInputModeUndoWrap'), ub = document.getElementById('recInputModeUndoBtn');
+            if (!uw || !ub) return;
+            var u = recEditingTestId !== null ? srUndoStatus('input-mode-fix') : { available: false };
+            uw.style.display = u.available ? 'block' : 'none';
+            if (u.available) ub.textContent = srUndoLabel(u);
+        }
         function recRefreshInputModeFix() {
+            recRefreshInputModeUndo();
             var wrap = document.getElementById('recInputModeFixWrap');
             if (!wrap) return null;
             var info = null, t = null;

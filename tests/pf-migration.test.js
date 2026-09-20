@@ -37,7 +37,7 @@ const isPf = (k) => /^pf_/.test(k);
     await sleep(300);
     const K = await page.evaluate(() => KEYS);
     const realBackup = await page.evaluate(() => { const o = {}; StorageManager.getAllKeys().forEach(k => { o[k] = StorageManager.getRaw(k); }); return o; });
-    const INFRA = [K.roster_snapshot, K.roster_txn];
+    const INFRA = [K.roster_snapshot, K.roster_txn, K.undo_pfm_snapshot, K.undo_pfm_txn]; // 起動時の自動移行は専用の枠(v1.57.0)
 
     // ---------- 端末の状態を作る ----------
     // 旧方式(v1)の pf: pf_roster(id=位置+1・age・note)・記録(2年度)・集計。値に持ち主(studentId)の目印(_owner)を埋め込む。氏名が空の児童は pf が除外する。
@@ -98,7 +98,7 @@ const isPf = (k) => /^pf_/.test(k);
         window.__fault = { state, restore() { Storage.prototype.setItem = oSet; Storage.prototype.removeItem = oRem; } };
         Storage.prototype.setItem = function(k, v) {
             if (mode === 'probe' && k === 'spa_capacity_probe') throw new DOMException('quota', 'QuotaExceededError');
-            if (mode === 'snapshot' && k === K.roster_snapshot) throw new DOMException('quota', 'QuotaExceededError');
+            if (mode === 'snapshot' && k === K.undo_pfm_snapshot) throw new DOMException('quota', 'QuotaExceededError');
             if (mode === 'sneak' && k === 'pf_roster') { oSet.call(this, sneak.key, sneak.value); }
             if (set.has(k) && (mode === 'quota' || mode === 'corrupt' || mode === 'crash')) {
                 if (mode === 'crash' && state.n >= at) throw new Error('crash');
@@ -168,7 +168,7 @@ const isPf = (k) => /^pf_/.test(k);
             const rec = JSON.parse(post.pf_records_2026);
             check('移行: 記録26名分(氏名が空の1名は除外)がすべて持ち主のキーに付いている(_owner=キー)・数字のキーが残らない', Object.keys(rec).length === 26 && Object.keys(rec).every(k => rec[k]._owner === k && /^stu_/.test(k)), Object.keys(rec).length + '');
             check('移行: pf_roster は id(位置+1・欠番あり)・age・note を保ち studentId が付く', JSON.parse(post.pf_roster).every(e => e.note === 'n' + (e.id - 1) && e.age === 10 + ((e.id - 1) % 2) && e.studentId === s.students[e.id - 1].studentId), '');
-            check('移行: スナップショット・ジャーナルは残らない(確定後に掃除)', post[K.roster_snapshot] === undefined && post[K.roster_txn] === undefined, '');
+            check('移行: スナップショット・ジャーナルは残らない(確定後に掃除)', post[K.undo_pfm_snapshot] === undefined && post[K.undo_pfm_txn] === undefined && post[K.roster_snapshot] === undefined && post[K.roster_txn] === undefined, '');
             const flag = JSON.parse(post.migration_pfStudentId_v1 || 'null');
             check('移行: 完了の印に結果(記録数・比較した他のキー数)が残る', flag && flag.records === 26 * 3 && flag.keys === 3 && flag.compared >= 20 && flag.unchanged === true, JSON.stringify(flag));
             const mirror = await page.evaluate(() => new Promise((res) => { const q = indexedDB.open('spa_classroom_db'); q.onsuccess = (e) => { const db = e.target.result; const g = db.transaction('kv', 'readonly').objectStore('kv').getAll(); g.onsuccess = () => { db.close(); res(g.result); }; }; }));
@@ -233,7 +233,7 @@ const isPf = (k) => /^pf_/.test(k);
                         const midOk = r.status === 'failed';
                         await page.evaluate(() => window.recoverRosterTxnOnStartup());
                         const post2 = await dump();
-                        if (!(midOk && diffKeys(pre, post2).length === 0 && post2[K.roster_txn] === undefined && post2[K.roster_snapshot] === undefined)) bad.push(i + ':' + r.status + ':' + diffKeys(pre, post2).join(','));
+                        if (!(midOk && diffKeys(pre, post2).length === 0 && post2[K.undo_pfm_txn] === undefined && post2[K.undo_pfm_snapshot] === undefined && post2[K.roster_txn] === undefined && post2[K.roster_snapshot] === undefined)) bad.push(i + ':' + r.status + ':' + diffKeys(pre, post2).join(','));
                     } else if (!(r.status === 'failed' && r.rolledBack === true && diffKeys(pre, post).length === 0)) bad.push(i + ':' + JSON.stringify(r).slice(0, 80) + ':' + diffKeys(pre, post).join(','));
                 }
                 check(label + '(pf の各書き込み位置 ' + N + '通り): 記録は移行前のまま(全キー同一)・スナップショットもジャーナルも残らない', bad.length === 0, bad.slice(0, 3).join(' | '));
@@ -249,10 +249,10 @@ const isPf = (k) => /^pf_/.test(k);
             const s = await seed(27); const exp = expectV2(s.pf, s.students);
             await fault('crash', 2, PF_KEYS); await migrate(); await unfault();
             const mid = await dump();
-            check('強制終了の直後: ジャーナル(applying/rollback-failed)とスナップショットが残っている(途中の状態)', !!mid[K.roster_txn] && !!mid[K.roster_snapshot], '');
+            check('強制終了の直後: ジャーナル(applying/rollback-failed)とスナップショットが残っている(途中の状態)', !!mid[K.undo_pfm_txn] && !!mid[K.undo_pfm_snapshot], '');
             await reload('domcontentloaded'); await sleep(2500);
             const fin = await dump();
-            check('再起動: 起動時の復旧で元に戻ったあと、同じ起動で移行がやり直され、pf が期待値になり、ジャーナルは残らない', PF_KEYS.every(k => JSON.stringify(JSON.parse(fin[k])) === JSON.stringify(exp[k])) && fin[K.roster_txn] === undefined && fin[K.roster_snapshot] === undefined, '');
+            check('再起動: 起動時の復旧で元に戻ったあと、同じ起動で移行がやり直され、pf が期待値になり、ジャーナルは残らない', PF_KEYS.every(k => JSON.stringify(JSON.parse(fin[k])) === JSON.stringify(exp[k])) && fin[K.undo_pfm_txn] === undefined && fin[K.undo_pfm_snapshot] === undefined && fin[K.roster_txn] === undefined && fin[K.roster_snapshot] === undefined, '');
             // 容量不足: 何も書かない
             await seed(27); const preP = await dump();
             await fault('probe'); const rp = await migrate(); await unfault();

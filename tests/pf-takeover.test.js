@@ -33,7 +33,7 @@ const isPf = (k) => /^pf_(roster|records_|fitness_)/.test(k);
     await sleep(300);
     const K = await page.evaluate(() => KEYS);
     const realBackup = await page.evaluate(() => { const o = {}; StorageManager.getAllKeys().forEach(k => { o[k] = StorageManager.getRaw(k); }); return o; });
-    const INFRA = [K.roster_snapshot, K.roster_txn];
+    const INFRA = [K.roster_snapshot, K.roster_txn, K.undo_pft_snapshot, K.undo_pft_txn, K.undo_pfr_snapshot, K.undo_pfr_txn]; // 引き継ぎ・pf の復元は専用の取り消しの枠(v1.57.0)
 
     // ---------- 端末の状態を作る ----------
     // pfList: pf 名簿 [{id, name, age, note}](順序どおり)。記録は pf の id をキーにし、値に持ち主の目印 _owner(氏名で決まる児童の studentId、いなければ 'X:氏名')
@@ -172,7 +172,7 @@ const isPf = (k) => /^pf_(roster|records_|fitness_)/.test(k);
         check('退避: pf-unlinked が2件(氏名つき1・氏名なし1)。studentId を持たず、記録の値も目印つきでそのまま', ar.length === 2 && ar.every(e => e.reason === 'pf-unlinked' && !e.studentId) && ar.some(e => e.name === '転出した子' && e.data.pf_fitness_2026._owner === 'X:転出した子') && ar.some(e => e.name === null && e.data.pf_records_2026._owner === 'X:orphan'), JSON.stringify(ar.map(e => [e.name, Object.keys(e.data)])));
         check('退避中の児童の数には数えない(studentArchiveSummary は 0 名)', (await page.evaluate(() => studentArchiveSummary().length)) === 0, '');
         check('診断: 引き継ぎ後の pf は新方式(児童ごと)で、名簿は一致している', await page.evaluate(() => { const d = pfDiagnose(); return d.mode === 'v2' && d.state === 'match'; }), '');
-        const jr = JSON.parse(post[K.roster_txn]);
+        const jr = JSON.parse(post[K.undo_pft_txn]);
         check('確定済みのジャーナルは kind=pf-takeover', jr.state === 'committed' && jr.kind === 'pf-takeover', JSON.stringify(jr).slice(0, 100));
         // 取り消し
         const un = await page.evaluate(() => window.undoRosterChange({ reload: false }));
@@ -204,7 +204,7 @@ const isPf = (k) => /^pf_(roster|records_|fitness_)/.test(k);
                     if (mode === 'crash') await page.evaluate(() => window.recoverRosterTxnOnStartup());
                     const p1 = await dump();
                     const okShape = mode === 'crash' ? r.ok === false : (r.ok === false && r.rolledBack === true);
-                    if (!(okShape && diffKeys(p0, p1).length === 0 && p1[K.roster_txn] === undefined && p1[K.roster_snapshot] === undefined)) bad.push(i + ':' + JSON.stringify(r).slice(0, 70) + ':' + diffKeys(p0, p1).join(','));
+                    if (!(okShape && diffKeys(p0, p1).length === 0 && p1[K.undo_pft_txn] === undefined && p1[K.undo_pft_snapshot] === undefined && p1[K.roster_txn] === undefined && p1[K.roster_snapshot] === undefined)) bad.push(i + ':' + JSON.stringify(r).slice(0, 70) + ':' + diffKeys(p0, p1).join(','));
                 }
                 check(label + ' を各書き込み位置(' + N + '通り)で注入: 元に戻り、全キー(pf・退避・名簿)が引き継ぎ前と1バイトも変わらない(ジャーナル・スナップショットも残らない)', bad.length === 0, bad.slice(0, 3).join(' | '));
             }

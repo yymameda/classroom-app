@@ -19898,7 +19898,8 @@
                 if (item.raw === 'B' || item.raw === '○') return 'B→7点';
                 if (item.raw === 'B-') return 'B-→5点';
                 if (item.raw === 'C' || item.raw === '△') return 'C→3点';
-                if (item.raw === 3) return '3→10点'; if (item.raw === 2) return '2→7点'; if (item.raw === 1) return '1→4点';
+                // v1.60.0 (M5): 数値3/2/1の換算値は abcTo10 が決める(3→10・2→7・1→3)。以前の「1→4点」は旧データ用の古い表記で実際の値(3点)と違っていた。
+                if (item.raw === 3 || item.raw === 2 || item.raw === 1) return item.raw + '→' + abcTo10(item.raw) + '点';
                 if (item.type === '提出物') return '提出率×10';
                 if (item.type === '机間巡視') return '○÷(○+△)×10';
                 return '—';
@@ -20010,7 +20011,10 @@
 
             var th = grdGetThresholds();
             var cfg = th[subject] || th.default;
-            var tests = grdGetTests().filter(function(t) { return t.subject === subject; });
+            // v1.60.0 (M5): 列にするテスト・まとめテストは、成績画面で選んでいる学期のものだけ(以前は学期で絞らず通年)。'all' は通年。
+            var tplTerm = grdCurrentTermFilter || grdGetCurrentTerm();
+            var tplTermLabel = tplTerm === 'all' ? '通年' : tplTerm + '学期';
+            var tests = grdGetTests().filter(function(t) { return t.subject === subject && (tplTerm === 'all' || grdItemTerm(t) === tplTerm); });
             var PJ = { knowledge: '知識', thinking: '思考', attitude: '主体性' };
             var items = { knowledge: [], thinking: [], attitude: [] };
 
@@ -20021,7 +20025,8 @@
                 var kc = (test.testType === '実技記録') ? kenteiGetConfig(test) : null;
                 if (kc) {
                     items[persp].push({ label: test.name, weight: w, kind: 'kentei', table: (kc.conversionTable || []) });
-                } else if (persp === 'attitude' || test.testType === '授業態度' || test.testType === 'ルーブリック' || !test.maxScore) {
+                // v1.60.0 (M5): 主体性でも、得点方式(getItemInputMode==='score'。v1.49.0〜)は A/B/C ではなく得点入力(得点÷満点×10)の列にする(成績の計算 grdItemScore10 と同じ分け方)。
+                } else if ((persp === 'attitude' && getItemInputMode(test) !== 'score') || test.testType === '授業態度' || test.testType === 'ルーブリック' || !test.maxScore) {
                     items[persp].push({ label: test.name, weight: w, kind: 'abc' });
                 } else {
                     items[persp].push({ label: test.name, weight: w, kind: 'num', max: test.maxScore });
@@ -20072,7 +20077,7 @@
                 ws[AD({ r: r, c: c })] = cell;
             }
             // 設定ブロック（しきい値）: 行1タイトル、行2-5 観点しきい値、行5 評定
-            put(0, 0, subject + '　成績計算（同僚用）');
+            put(0, 0, subject + '　成績計算（同僚用）（' + tplTermLabel + '）');
             put(1, 0, '観点別しきい値（変更可）');
             put(2, 0, '知識  A%≧ / B%≧'); put(2, 1, cfg.knowledge.aThreshold); put(2, 2, cfg.knowledge.bThreshold);
             put(3, 0, '思考  A%≧ / B%≧'); put(3, 1, cfg.thinking.aThreshold); put(3, 2, cfg.thinking.bThreshold);
@@ -20210,6 +20215,7 @@
             var guide = XLSX.utils.aoa_to_sheet([
                 ['同僚用 成績計算テンプレート'],
                 [subject + ' の現在の設定（しきい値・テスト項目・満点・重み）を反映しています。'],
+                ['対象の学期：' + tplTermLabel + '（出力したときに成績画面で選んでいた学期。テスト・まとめテストは、この学期のものだけを列にしています）'],
                 [''],
                 ['■ 入力するのは「' + subject + '」シートの番号下のセルだけ'],
                 ['　・氏名と、各テストの素点（または A/B/C）を入力'],

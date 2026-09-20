@@ -130,8 +130,23 @@ const NAMES = ['秘匿甲氏', '秘匿乙氏', '秘匿丙氏', '秘匿丁氏'];
 
         // ================= 3. 直し方(実際のクリック・入力で確認) =================
         console.log('--- 3. 直し方の確認(画面操作) ---');
-        check('案内: 満点なしの状態(記録が数値)は「満点を入れて保存」の一行が出る', d.lines.some(l => l.guide === 'fix-max' && /満点を入れて保存/.test(l.text)), '');
-        check('案内: 満点ありの5段階(記録が文字)は「そのまま保存(満点欄が消えます)」の一行が出る', d.lines.some(l => l.guide === 'fix-save' && /そのまま保存/.test(l.text)), '');
+        check('案内: 満点なしの状態(記録が数値)は「満点の欄に満点を入れて「更新を保存」を押してください」の一行が出る', d.lines.some(l => l.guide === 'fix-max' && /満点の欄に満点を入れて「更新を保存」/.test(l.text)), '');
+        check('案内: 満点ありの5段階(記録が文字)は「何も変えずに「更新を保存」を押してください(満点欄が消えます)」の一行が出る', d.lines.some(l => l.guide === 'fix-save' && /何も変えずに「更新を保存」/.test(l.text) && /満点欄が消えます/.test(l.text)), '');
+        // 案内の経路が、実際の画面の表示文字と一致する: 案内に書かれた文字を、実際の画面の要素から取り出して照合し、案内のとおりに実際にたどって編集画面に着く
+        const ui = await page.evaluate(() => ({ nav: document.getElementById('nav-records').getAttribute('data-tooltip'), navIcon: document.getElementById('nav-records').textContent.trim(), sub: Array.from(document.querySelectorAll('.rec-subnav-btn')).map(b => b.textContent.trim()), fixScore: window.INPUT_MODE_FIX_LABELS.score, fixAbc: window.INPUT_MODE_FIX_LABELS.abc5 }));
+        const routeLine = (d.lines.find(l => l.guide === 'switch-score') || {}).text || '';
+        check('案内の経路の文字が、画面の表示と一致する(左の列の📝「児童の記録」・上の「📋 授業課題の管理」・行の「編集」)', routeLine.indexOf('📝「' + ui.nav + '」') !== -1 && ui.navIcon.indexOf('📝') !== -1 && ui.sub.indexOf('📋 授業課題の管理') !== -1 && routeLine.indexOf('「📋 授業課題の管理」') !== -1 && routeLine.indexOf('「編集」') !== -1, JSON.stringify({ nav: ui.nav, sub: ui.sub, line: routeLine.slice(0, 80) }));
+        check('案内の切り替えボタンの文字が、編集画面のボタンの文字と同じ(得点入力に戻す・5段階入力に戻す)', routeLine.indexOf('「' + ui.fixScore + '」') !== -1 && ((d.lines.find(l => l.guide === 'switch-abc5') || {}).text || '').indexOf('「' + ui.fixAbc + '」') !== -1, ui.fixScore);
+        // 案内どおりに実際にたどる: 📝児童の記録 → 📋授業課題の管理 → 一覧のこの課題の行の「編集」 → 編集画面に切り替えボタン(案内と同じ文字)と「更新を保存」
+        await page.click('#nav-records'); await sleep(300);
+        await page.evaluate(() => { Array.from(document.querySelectorAll('.rec-subnav-btn')).find(b => b.textContent.trim() === '📋 授業課題の管理').click(); }); await sleep(300);
+        const termSel = await page.evaluate(() => ({ heading: Array.from(document.querySelectorAll('#view-records h3')).map(h => h.textContent.trim()), opts: Array.from(document.getElementById('recTermSel').options).map(o => o.value + ':' + o.textContent), cur: document.getElementById('recTermSel').value }));
+        check('案内の経路の学期の選択: 「課題一覧」の見出しと学期の選択に「通年」があり、初めは今の学期の課題だけが出る(前の学期の課題は通年にしないと一覧に出ない)', termSel.heading.some(h => /課題一覧/.test(h)) && termSel.opts.indexOf('all:通年') !== -1 && /「通年」にして/.test(routeLine), JSON.stringify(termSel));
+        await page.select('#recTermSel', 'all'); await sleep(300);
+        const clicked = await page.evaluate(() => { const row = Array.from(document.querySelectorAll('.rec-test-item')).find(r => r.textContent.indexOf('L2旧-主体性-満点20-数値13') !== -1); if (!row) return 'row-not-found'; const b = Array.from(row.querySelectorAll('button')).find(x => x.textContent.trim() === '編集'); if (!b) return 'edit-not-found'; b.click(); return 'ok'; });
+        await sleep(400);
+        const edit = await page.evaluate(() => ({ fixBtn: document.getElementById('recInputModeFixBtn').textContent, fixShown: getComputedStyle(document.getElementById('recInputModeFixWrap')).display !== 'none', save: document.getElementById('recAddTestBtn').textContent }));
+        check('案内どおりにたどると編集画面に着き、案内と同じ文字の切り替えボタンが出て、保存ボタンは「更新を保存」(案内の文言と一致)', clicked === 'ok' && edit.fixShown && edit.fixBtn === ui.fixScore && edit.save === '更新を保存', JSON.stringify({ clicked, edit }));
         check('案内: 記録の型と入力形式が食い違う状態は「画面の操作では直せない状態です」と出る', d.lines.some(l => l.guide === 'none' && /画面の操作では直せない/.test(l.text)), '');
         check('案内の対応: 満点を入れる(L1)・そのまま保存(L3)・記録に合わせて戻す(数値の記録=switch-score: L2・L4・F2・L5・L6・L7、有効な文字の記録=switch-abc5: F1・F6・F7)・記録が混在/有効でない文字(L10)は none', L('L1旧-知識-満点0-数値').guide === 'fix-max' && L('L3旧-主体性-満点20-A').guide === 'fix-save' && ['L2旧-主体性-満点20-数値13', 'L4旧-主体性-満点0-数値13', 'F2印あり-abc5-満点30-数値', 'L5旧-主体性-満点0-数値2', 'L6旧-知識-記述-満点0-数値13', 'L7旧-思考-作文-満点0-数値13'].every(n => L(n).guide === 'switch-score') && ['F1印あり-score-満点0-A', 'F6印あり-score-満点20-文字(主体性)', 'F7印あり-score-満点20-文字(知識)'].every(n => L(n).guide === 'switch-abc5') && L('L10旧-主体性-満点0-X').guide === 'none', JSON.stringify(d.detail.map(x => [x.name.slice(0, 4), x.guide])));
         check('案内: 記録に合わせて戻す状態には「記録に合わせて、得点入力に戻す／5段階入力に戻す」と「取り消せます」の一行が出る', d.lines.some(l => l.guide === 'switch-score' && /得点入力に戻す/.test(l.text) && /取り消せます/.test(l.text)) && d.lines.some(l => l.guide === 'switch-abc5' && /5段階入力に戻す/.test(l.text)), '');

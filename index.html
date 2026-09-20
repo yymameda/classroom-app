@@ -9966,6 +9966,8 @@
 
         // v1.54.4: 5段階として有効な値(ボタンの値 A/B+/B/B-/C と、abcTo10 が読める旧記号)。診断と入力形式の修正で共有する。
         var ABC5_VALID_VALUES = ['A', 'B+', 'B', 'B-', 'C', '◎', '○', '△'];
+        // v1.55.1: 入力形式を戻すボタンの表示文字(編集画面のボタンと、診断の「直し方」の案内で同じ文字を使う)
+        var INPUT_MODE_FIX_LABELS = { score: '🔁 記録（数値の点数）に合わせて、得点入力に戻す', abc5: '🔁 記録（A・B・C…）に合わせて、5段階入力に戻す' };
         // v1.54.4: 記録と入力形式が食い違っている課題を、記録に合う形式へ戻せるか。診断(案内)と課題の編集画面(ボタン)で共有する唯一の判定。
         //   記録(欠席・空欄を除く)がすべて数値なら 'score'、すべて有効な5段階の値なら 'abc5'。混在・有効でない文字があれば戻せない(null)。
         //   戻せるのは「記録に合う形式」の方向だけ。戻し先がいまの入力形式と同じなら食い違いなし(null)。
@@ -12377,10 +12379,10 @@
                 var txt = document.getElementById('recInputModeFixText'), btn = document.getElementById('recInputModeFixBtn');
                 if (info.to === 'score') {
                     if (txt) txt.textContent = 'この課題の入力形式は5段階になっていますが、入力済みの記録は数値の点数です。押すと得点入力に戻ります（記録は変換せず、成績の計算は記録の数値のまま。取り消せます）。' + (info.needsMax ? '先に満点を入力してください。' : '');
-                    if (btn) btn.textContent = '🔁 記録（数値の点数）に合わせて、得点入力に戻す';
+                    if (btn) btn.textContent = INPUT_MODE_FIX_LABELS.score;
                 } else {
                     if (txt) txt.textContent = 'この課題の入力形式は得点になっていますが、入力済みの記録はA・B・Cなどの文字です。押すと5段階入力に戻ります（記録は変換せず、満点は0になります。取り消せます）。';
-                    if (btn) btn.textContent = '🔁 記録（A・B・C…）に合わせて、5段階入力に戻す';
+                    if (btn) btn.textContent = INPUT_MODE_FIX_LABELS.abc5;
                 }
             }
             return info;
@@ -13511,6 +13513,7 @@
         window.getItemInputMode = getItemInputMode;
         window.inputModeFixInfo = inputModeFixInfo; // v1.54.4: 診断(別モジュール)と共有する判定
         window.ABC5_VALID_VALUES = ABC5_VALID_VALUES;
+        window.INPUT_MODE_FIX_LABELS = INPUT_MODE_FIX_LABELS;
 
     })();
 
@@ -21752,6 +21755,16 @@
             };
         }
 
+        // v1.55.1: 課題名が示す観点(知識・技能=知/思考・判断・表現=思/主体的に学習に取り組む態度=主)。まとめテストを観点ごとに分けて作る使い方
+        // (例「まテ_1学期　思考」)では、全問が単一観点なのが意図どおりなので、診断の「全問が単一観点」から外す判定に使う。
+        // (作成時の観点設定は保存されていない: 「観点一括」ボタンは各設問の観点を書き込むだけで、テストに設定値は残らない。課題名だけが手がかり)
+        function matomeNamePerspectives(name) {
+            var n = String(name || ''), out = [];
+            if (/知識|技能|知・技|知技/.test(n)) out.push('知');
+            if (/思考|判断|表現|思・判・表|思判表/.test(n)) out.push('思');
+            if (/主体|態度/.test(n)) out.push('主');
+            return out;
+        }
         function analyzeMatomeBalance() {
             var tests      = StorageManager.get(KEYS.tests, []);
             var matomeQAll = StorageManager.get(KEYS.matome_questions, {});
@@ -21771,7 +21784,7 @@
                     types  = t.matomeQuestionTypes;
                     points = t.matomePoints || types.map(function() { return 1; });
                 } else {
-                    perTest.push({ testId: t.id, chi: 0, shi: 0, shu: 0, unset: 0, total: 0 });
+                    perTest.push({ testId: t.id, name: t.name || '', chi: 0, shi: 0, shu: 0, unset: 0, total: 0 });
                     return;
                 }
 
@@ -21785,7 +21798,7 @@
                 });
 
                 var total = cnt['知'] + cnt['思'] + cnt['主'] + cnt.unset;
-                perTest.push({ testId: t.id, chi: cnt['知'], shi: cnt['思'], shu: cnt['主'], unset: cnt.unset, total: total });
+                perTest.push({ testId: t.id, name: t.name || '', chi: cnt['知'], shi: cnt['思'], shu: cnt['主'], unset: cnt.unset, total: total });
             });
 
             return {
@@ -21897,12 +21910,15 @@
 
         // v1.54.2: 入力形式の矛盾の1行表示(画面・コピー用テキスト共通)。氏名は出さない(課題名・件数・児童数のみ)。
         var IMC_KIND_LABEL = { score: '得点方式なのに満点なし', abc5: '5段階なのに満点あり', abc5num: '5段階(印のない旧課題)なのに数値の点数が入っている', scorestr: '得点方式なのに文字(5段階)の記録が入っている' };
+        // 課題の編集画面までの経路(画面に表示される文字どおり): 左の列の📝「児童の記録」→ 上の「📋 授業課題の管理」→「課題一覧」の右の学期の選択を「通年」に(一覧は初めは今の学期の課題だけを表示するため、前の学期の課題は通年にしないと出ない)→ 一覧のこの課題の行の「編集」。
+        // 編集画面の保存ボタンは「更新を保存」。(v1.55.1: 以前は「授業課題の管理でこの課題を開き」と書き、入力画面の「✏️ この課題を編集」からの経路と食い違っていた)
+        var IMC_ROUTE = '左の列の📝「児童の記録」→ 上の「📋 授業課題の管理」→「課題一覧」の右の学期の選択を「通年」にして → 一覧のこの課題の行の「編集」を押し';
         function imcGuideText(item) {
-            if (item.guide === 'switch-score') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、「記録に合わせて、得点入力に戻す」を押してください' + (item.maxScore > 0 ? '' : '（先に満点を入れます）') + '。記録は変わらず、取り消せます。';
-            if (item.guide === 'switch-abc5') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、「記録に合わせて、5段階入力に戻す」を押してください。記録は変わらず、取り消せます。';
-            if (item.guide === 'fix-max') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、満点を入れて保存してください。';
-            if (item.guide === 'fix-save') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、そのまま保存してください（満点欄が消えます）。';
-            return '画面の操作では直せない状態です（記録の型と入力形式が食い違い、入力形式が固定されています）。お知らせください。';
+            if (item.guide === 'switch-score') return '直し方: ' + IMC_ROUTE + '、出てくるボタン「' + INPUT_MODE_FIX_LABELS.score + '」を押してください' + (item.maxScore > 0 ? '' : '（先に満点の欄に満点を入れます）') + '。記録は変わらず、取り消せます。';
+            if (item.guide === 'switch-abc5') return '直し方: ' + IMC_ROUTE + '、出てくるボタン「' + INPUT_MODE_FIX_LABELS.abc5 + '」を押してください。記録は変わらず、取り消せます。';
+            if (item.guide === 'fix-max') return '直し方: ' + IMC_ROUTE + '、満点の欄に満点を入れて「更新を保存」を押してください。';
+            if (item.guide === 'fix-save') return '直し方: ' + IMC_ROUTE + '、何も変えずに「更新を保存」を押してください（満点欄が消えます）。';
+            return '画面の操作では直せない状態です（記録が数値と文字の混在、または5段階として読めない文字があります）。お知らせください。';
         }
         function imcImpactText(item) {
             if (!(item.invalid5Scores > 0)) return '';
@@ -22176,7 +22192,15 @@
                 if (total === 0) return;
                 var maxPct = Math.max(pt.chi, pt.shi, pt.shu) / total;
                 if (maxPct >= 1.0) {
-                    info.push('まとめテスト testId=' + pt.testId + ': 全問が単一観点(観点不均衡の可能性)');
+                    // 課題名がちょうど1つの観点を示し、全問がその観点なら、意図どおり(観点ごとに分けて作ったまとめテスト)として表示しない。
+                    // 名前が示す観点と全問の観点が違うとき・名前に観点の語が無いときは、これまでどおり表示する(違うときは、その旨を添える)。
+                    var soleName = pt.chi >= total ? '知' : (pt.shi >= total ? '思' : (pt.shu >= total ? '主' : ''));
+                    var declared = matomeNamePerspectives(pt.name);
+                    var LBL = { '知': '知識・技能', '思': '思考・判断・表現', '主': '主体的に学習に取り組む態度' };
+                    if (soleName && declared.length === 1 && declared[0] === soleName) return;
+                    var nm = pt.name ? ' 「' + pt.name + '」' : '';
+                    if (declared.length > 0) info.push('まとめテスト testId=' + pt.testId + nm + ': 全問が「' + (LBL[soleName] || '単一') + '」の観点ですが、課題名は「' + declared.map(function(d) { return LBL[d]; }).join('・') + '」を示しています(観点の付け間違いの可能性)');
+                    else info.push('まとめテスト testId=' + pt.testId + nm + ': 全問が単一観点(観点不均衡の可能性)');
                 }
             });
 
@@ -22360,7 +22384,7 @@
             var imcCell = si.inputModeConflicts === 0 ? 'なし' : '<span class="audit-status-warn">' + si.inputModeConflicts + '件</span>';
             if (si.inputModeConflicts > 0) {
                 imcCell += '<details class="audit-detail-block" open><summary>詳細を表示</summary><div class="audit-detail-body">';
-                imcCell += '<div style="margin-bottom:4px;">入力形式と満点が矛盾しています。<b>自動では修正しません</b>。児童の記録 &gt; 授業課題の管理で該当課題を開き、入力形式（得点/5段階）と満点を確認して保存し直してください。得点が入力済みの課題は入力形式を変更できないため、満点だけを入れ直してください。</div>';
+                imcCell += '<div style="margin-bottom:4px;">入力形式と満点が矛盾しています。<b>自動では修正しません</b>。直し方は、下の各課題の一行を見てください（経路: 左の列の📝「児童の記録」→ 上の「📋 授業課題の管理」→「課題一覧」の右の学期の選択を「通年」に → 一覧の課題の行の「編集」）。</div>';
                 si.inputModeConflictDetail.forEach(function(item) {
                     imcCell += 'testId="' + item.testId + '" 「' + escapeHtml(item.name) + '」 ' + escapeHtml(item.subject) + '／' + escapeHtml(item.testType) + '／' + escapeHtml(item.category)
                         + ' : ' + (IMC_KIND_LABEL[item.kind] || item.kind) + '（満点=' + item.maxScore + '・入力形式=' + escapeHtml(item.inputMode) + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）<br>'

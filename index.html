@@ -18514,7 +18514,9 @@
                 recTests.forEach(function(t) { var ds = recDeviationStats(t.id); if (ds) devByTest[t.id] = ds; });
             }
             var subjTestsMap = {};
-            subjects.forEach(function(subj) { subjTestsMap[subj] = grdExtSubjectNumericTests(subj, recTests); });
+            // v1.60.0 (M4): 教科カードのテスト一覧・平均も、評定・観点別(grdCalculate の既定)と同じ「成績画面で選択中の学期」で絞る
+            var radarTerm = grdCurrentTermFilter || grdGetCurrentTerm();
+            subjects.forEach(function(subj) { subjTestsMap[subj] = grdExtSubjectNumericTests(subj, recTests, radarTerm); });
 
             var studentPages = students.map(function(stu, i) {
                 if (!stu || !stu.name) return null;
@@ -18649,10 +18651,12 @@
             if (ok) showToast('面談用レーダーPDFを出力しました', 'success');
         }
         // ===== 面談用PDF 2ページ目: 教科別のくわしい記録 =====
-        // 教科の「数値テスト」一覧(recDeviationStatsと同じ除外条件: 主体性/ルーブリック/実技記録を除く)
-        function grdExtSubjectNumericTests(subj, recTests) {
+        // 教科の「数値テスト」一覧(5段階の項目・ルーブリック・実技記録を除く。recDeviationStats と同じく入力形式(getItemInputMode)で分ける)
+        // v1.60.0 (M4): 得点方式の主体性(v1.49.0〜)は数値なので含める(以前は category==='主体性' を無条件に除いていた)。term で学期を絞る('all'・省略は通年)。
+        function grdExtSubjectNumericTests(subj, recTests, term) {
             return recTests.filter(function(t) {
-                return t.subject === subj && t.category !== '主体性' && t.testType !== 'ルーブリック' && t.testType !== '実技記録';
+                return t.subject === subj && !(t.category === '主体性' && getItemInputMode(t) === 'abc5') && t.testType !== 'ルーブリック' && t.testType !== '実技記録'
+                    && (!term || term === 'all' || grdItemTerm(t) === term);
             });
         }
         function grdExtKenteiLabel(test, sr) {

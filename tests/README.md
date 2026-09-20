@@ -45,6 +45,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `audit-inputmode-conflict.test.js` | 12 | 0 |
 | `audit-inputmode-repair.test.js` | 47 | 0 |
 | `audit-late-factor-impact.test.js` | 18 | 0 |
+| `audit-matome-noq-warning.test.js` | 12 | 0 |
 | `audit-matome-perspective.test.js` | 23 | 0 |
 | `audit-maxscore-abc-exclusion.test.js` | 10 | 0 |
 | `audit-range-check.test.js` | 25 | 0 |
@@ -53,6 +54,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `boot-race.test.js` | 8 | 0 |
 | `category-edit-inputmode.test.js` | 14 | 0 |
 | `composition-5rank.test.js` | 28 | 0 |
+| `conference-text-term.test.js` | 13 | 0 |
 | `data-load-failure-guard.test.js` | 10 | 0 |
 | `data-reflection.test.js` | 45 | 0 |
 | `descriptive-item-5rank.test.js` | 26 | 0 |
@@ -77,6 +79,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `pf-landing.test.js` | 63 | 0 |
 | `pf-migration.test.js` | 116 | 0 |
 | `pf-takeover.test.js` | 72 | 0 |
+| `radar-card-term.test.js` | 10 | 0 |
 | `rec-edit-return-flow.test.js` | 36 | 0 |
 | `rec-input-term-filter.test.js` | 14 | 0 |
 | `rec-save-inline-btn.test.js` | 8 | 0 |
@@ -91,6 +94,8 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `student-remap.test.js` | 53 | 0 |
 | `sub-progress-filter-merge-v1.47.0.test.js` | 56 | 0 |
 | `sub-tile-fit.test.js` | 8 | 0 |
+| `submission-rate-unify.test.js` | 18 | 0 |
+| `template-xlsx-term.test.js` | 19 | 0 |
 | `test_grades.js` | 89 | 0 |
 | `tile-btns-oneline.test.js` | 14 | 0 |
 | `tile-vheight-v1.41.0.test.js` | 28 | 0 |
@@ -103,7 +108,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（64ファイル）** | **2208** | **0** |
+| **合計（69ファイル）** | **2280** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

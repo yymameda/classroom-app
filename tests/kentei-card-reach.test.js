@@ -261,7 +261,10 @@ const NAWA_STAGE = (i) => (i * 3) % 22;
         check('検定に戻ると、行の高さは中身の高さ(max-content)になる', swAgain === 'max-content' || /^\d/.test(swAgain), swAgain);
 
         const sw = await page.evaluate(async () => (await (await fetch('./sw.js?nocache=' + Date.now())).text()).match(/CACHE_VERSION = '([^']*)'/)[1]);
-        check('sw.js の CACHE_VERSION が v1.62.0', sw === 'v1.62.0', sw);
+        // 版は「この変更を入れた v1.62.0 以上」であること(次の版に上げても、この検査は通り続ける。上げ忘れ=v1.61.2 以下は失敗する)
+        const vparts = String(sw).replace(/^v/, '').split('.').map(Number);
+        const swAtLeast = vparts.length === 3 && vparts.every(n => !isNaN(n)) && (vparts[0] > 1 || (vparts[0] === 1 && (vparts[1] > 62 || (vparts[1] === 62 && vparts[2] >= 0))));
+        check('sw.js の CACHE_VERSION が v1.62.0 以上', swAtLeast, sw);
     } catch (e) {
         check('テスト実行中に例外なし', false, (e && e.stack) || String(e));
     } finally {

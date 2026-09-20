@@ -87,7 +87,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         check('単元テストは単一観点の判定から除外する(課題名に観点の語が無い「単元_かけ算」・名前が思考で全問が知識の「単元_思考力を問う」とも表示しない)', has(13).length === 0 && has(14).length === 0 && !info.some(i => /単元テスト testId=/.test(i)), JSON.stringify(info.map(i => i.slice(0, 40))));
         check('種別は診断の結果(内訳)に入る(まとめテスト・単元テスト・その他)', spy.perTest.find(p => p[0] === 13)[3] === '単元テスト' && spy.perTest.find(p => p[0] === 1)[3] === 'まとめテスト' && spy.perTest.find(p => p[0] === 16)[3] === 'その他', JSON.stringify(spy.perTest.filter(p => [1, 13, 16].indexOf(p[0]) >= 0)));
         check('まとめ形式の内訳: 全体16件＝まとめテスト12＋単元テスト3＋その他1(通常のテストは含めない)', JSON.stringify(spy.kinds) === JSON.stringify({ total: 16, matome: 12, unit: 3, other: 1 }) && JSON.stringify(spy.balanceKinds) === JSON.stringify(spy.kinds), JSON.stringify(spy.kinds));
-        // 注: collectAnomalies の警告「まとめ形式のテスト…のうち問題定義のないもの N件」は result.matomeBalance.matomeNoQ を読むが、その値は structuralIntegrity 側にしか無く、この警告は今は出ない(既存の状態。HANDOFF の L10)。画面に出る構造の行で確認する。
+        // 注: 警告「まとめ形式のテスト…のうち問題定義のないもの N件」は L10(v1.60.0)で出るようになった(audit-matome-noq-warning.test.js で確認)。ここでは画面の構造の行で件数を見る。
         const ui = await page.evaluate(() => {
             const root = document.getElementById('audit-result-container');
             const rows = Array.from(root.querySelectorAll('tr')).map(tr => Array.from(tr.children).map(c => c.textContent.trim()));

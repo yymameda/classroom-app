@@ -22512,8 +22512,9 @@
             }
 
             // --- matome 問題定義なし(注意) ---
-            if (result.matomeBalance.matomeNoQ > 0) {
-                warn.push('まとめ形式のテスト(まとめテスト・単元テスト)のうち問題定義のないもの ' + result.matomeBalance.matomeNoQ + '件');
+            // v1.60.0 (L10): 件数は structuralIntegrity にしか無い(analyzeMatomeBalance は返さない)。以前は matomeBalance を読んでいて、警告が一度も出なかった。
+            if (result.structuralIntegrity.matomeNoQ > 0) {
+                warn.push('まとめ形式のテスト(まとめテスト・単元テスト)のうち問題定義のないもの ' + result.structuralIntegrity.matomeNoQ + '件');
             }
 
             // --- 観点バランス偏り(情報) ---

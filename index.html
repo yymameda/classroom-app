@@ -14617,7 +14617,12 @@
 
             var subjects    = (typeof grdGetAvailableSubjects === 'function') ? grdGetAvailableSubjects() : [];
             var attAll      = StorageManager.get(KEYS.attendance, {});
-            var allAssigns  = StorageManager.get(KEYS.submissions_assignments, []);
+            // v1.60.0 (M3): 成績・提出物・テスト個票の学期を、出力画面で選んでいる学期(kvOutputTermFilter。カルテPDFと同じ選択)に1つに揃える。
+            //   以前は成績だけがこの学期で、提出物とテスト個票は通年のままだった。'all'(通年)を選べば全学期。未初期化のときは現在の学期。
+            var confTerm = kvOutputTermFilter || ((typeof window.grdGetCurrentTerm === 'function') ? window.grdGetCurrentTerm() : 'all');
+            var confPasses = function(item) { return confTerm === 'all' || typeof window.grdItemTerm !== 'function' || window.grdItemTerm(item) === confTerm; };
+
+            var allAssigns  = StorageManager.get(KEYS.submissions_assignments, []).filter(confPasses);
             var subsData    = StorageManager.get(KEYS.submissions_data, []);
             var lifeAll     = StorageManager.get(KEYS.karte_life, {});
             var parentAll   = StorageManager.get(KEYS.karte_parent, {});
@@ -14629,7 +14634,7 @@
             var methodLabels = { phone: '電話', meeting: '面談', note: '連絡帳', other: 'その他' };
 
             // テスト個票用（学習データ）
-            var recTests  = (typeof recGetTests === 'function')  ? recGetTests()  : [];
+            var recTests  = ((typeof recGetTests === 'function')  ? recGetTests()  : []).filter(confPasses);
             var recScores = (typeof recGetScores === 'function') ? recGetScores() : [];
             var devByTest = {};
             if (typeof recDeviationStats === 'function') {
@@ -14639,7 +14644,7 @@
             // 成績は教科ごとに1回だけ計算
             var gradeResults = {};
             subjects.forEach(function(subj) {
-                try { gradeResults[subj] = grdCalculate(subj, kvOutputTermFilter || undefined); } catch (e) { gradeResults[subj] = null; } // v1.50.0: 出力側の学期で計算
+                try { gradeResults[subj] = grdCalculate(subj, confTerm); } catch (e) { gradeResults[subj] = null; } // v1.50.0: 出力側の学期で計算(v1.60.0: 提出物・個票と同じ confTerm)
             });
 
             var blocks = [];

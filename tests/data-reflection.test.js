@@ -457,6 +457,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             // --- 面談用テキスト ---
             await page.evaluate(() => {
                 showView('karte'); kvSetMode('output');
+                // v1.60.0 (M3): 面談テキストの提出物は出力画面の学期で絞られる(既定は現在の学期)。この題材は1学期の課題なので「通年」を選ぶ
+                const tsel = document.getElementById('kvTermSel'); tsel.value = 'all'; tsel.dispatchEvent(new Event('change'));
                 document.querySelectorAll('.kv-student-chk').forEach(c => { c.checked = true; });
                 window.__clip = null; document.getElementById('kvCopyTextBtn').click();
             });

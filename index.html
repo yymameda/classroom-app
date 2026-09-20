@@ -21947,6 +21947,9 @@
             var gradeSubjSet = {};
             tests.forEach(function(t) { if (t.subject) gradeSubjSet[t.subject] = 1; });
             assigns.forEach(function(a) { if (a.subject) gradeSubjSet[a.subject] = 1; });
+            // 専科(外部確定)の教科は、テストも提出物もなくても選べる(成績処理画面の教科の選択肢と同じ)
+            var extCfg = StorageManager.get(KEYS.grades_external, null);
+            if (extCfg && Array.isArray(extCfg.subjects)) extCfg.subjects.forEach(function(s) { if (s) gradeSubjSet[s] = 1; });
             var gradeTerm = document.getElementById('expGradeTerm');
             if (gradeTerm && !gradeTerm.dataset.init) { // 初回のみ現在学期を既定にする(以降は選択を保持)
                 if (typeof window.grdGetCurrentTerm === 'function') gradeTerm.value = window.grdGetCurrentTerm();

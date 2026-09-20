@@ -19885,6 +19885,8 @@
 
         // Phase 8 から参照できるよう公開
         window.grdCalculate = grdCalculate;
+        window.grdItemScore10 = grdItemScore10; // v1.54.2: 診断(入力形式の矛盾の成績への影響)が、成績処理と同じ換算を読み取り専用で使う
+        window.grdGetItemWeight = grdGetItemWeight;
         window.grdGetAvailableSubjects = grdGetAvailableSubjects;
         window.grdItemTerm = grdItemTerm; // v1.16.0: 提出物モジュール（学期フィルタ）と共有
         window.grdGetCurrentTerm = grdGetCurrentTerm; // 同上
@@ -21480,26 +21482,49 @@
             // 課題名・教科などのみ記録し、児童の氏名は含めない(既存の「個人情報は表示・出力されない」方針を維持)。
             var INPUT_MODE_CONFLICT_CAP = 20;
             var inputModeConflictAll = [];
+            // v1.54.2: 5段階として有効な値(ボタンの値 A/B+/B/B-/C と、abcTo10 が読める旧記号)。それ以外(数値の点数など)は5段階として読めない。
+            var ABC5_VALID = ['A', 'B+', 'B', 'B-', 'C', '◎', '○', '△'];
+            var PERSP_OF = { '知識・技能': ['knowledge', 'k_'], '思考・判断・表現': ['thinking', 't_'], '主体性': ['attitude', 'a_'] };
+            var gradeAffectedStudents = {};
             tests.forEach(function(t) {
                 if (t.type === 'matome' || t.testType === 'まとめテスト' || t.testType === '単元テスト' ||
                     t.testType === '実技記録' || t.testType === '授業態度') return;
                 var mode = getItemInputMode(t);
+                var numeric = 0, str = 0, invalid5 = 0, affected = {}, affectedN = 0;
+                var pp = PERSP_OF[t.category], weight = null;
+                if (pp && typeof grdGetItemWeight === 'function') { try { weight = grdGetItemWeight(t.subject, pp[0], pp[1] + t.id); } catch (e) { weight = null; } }
+                scores.forEach(function(sc) {
+                    if (sc.testId !== t.id || sc.absent === true) return;
+                    var isNum = typeof sc.score === 'number', isStr = typeof sc.score === 'string' && sc.score !== '';
+                    if (isNum) numeric++; else if (isStr) str++;
+                    if (mode === 'abc5' && (isNum || (isStr && ABC5_VALID.indexOf(sc.score) === -1))) {
+                        invalid5++;
+                        // 成績処理統合(grdItemScore10。カルテ・出力の成績も同じ計算)が、この記録を「数値の点数として読んだ換算」と同じに扱えているか
+                        // (満点が無ければ換算できない=正しく入らない)。重みが0の項目は成績に入らないので数えない。氏名は扱わない(児童の番号だけ)。
+                        if (pp && weight !== 0 && typeof grdItemScore10 === 'function') {
+                            var actual = null; try { actual = grdItemScore10(t, sc, pp[0]); } catch (e) { actual = null; }
+                            var intended = (isNum && t.maxScore > 0) ? Math.min(10, sc.score / t.maxScore * 10) : null;
+                            if (!(intended !== null && actual !== null && Math.abs(actual - intended) < 0.1)) { affected[sc.studentIndex] = true; }
+                        }
+                    }
+                });
+                Object.keys(affected).forEach(function(k) { affectedN++; gradeAffectedStudents[k] = true; });
                 var kind = null;
                 if (mode === 'score' && !(t.maxScore > 0)) kind = 'score';
                 else if (mode === 'abc5' && t.maxScore > 0) kind = 'abc5';
+                else if (mode === 'abc5' && invalid5 > 0) kind = 'abc5num'; // 判定上は5段階(満点なし)なのに、数値の点数など5段階として読めない値が入っている(印のない旧課題が主。印付きでも同じ矛盾なので対象)
                 if (!kind) return;
-                var numeric = 0, str = 0;
-                scores.forEach(function(sc) {
-                    if (sc.testId !== t.id || sc.absent === true) return;
-                    if (typeof sc.score === 'number') numeric++;
-                    else if (typeof sc.score === 'string' && sc.score !== '') str++;
-                });
+                // 画面操作での直し方(v1.54.2 で実UIで確認): 'fix-max'=課題の編集で満点を入れて保存 / 'fix-save'=課題の編集でそのまま保存(満点欄が消える) / 'none'=記録の型と入力形式が食い違い、入力形式が固定されているため画面では直せない
+                var guide = 'none';
+                if (kind === 'score' && str === 0) guide = 'fix-max';
+                else if (kind === 'abc5' && invalid5 === 0) guide = 'fix-save';
                 inputModeConflictAll.push({
                     testId: t.id, name: t.name || '', subject: t.subject || '', testType: t.testType || '', category: t.category || '',
                     maxScore: t.maxScore, inputMode: (t.inputMode === 'score' || t.inputMode === 'abc5') ? t.inputMode : '(未設定・観点から推定)',
-                    kind: kind, numericScores: numeric, stringScores: str
+                    kind: kind, numericScores: numeric, stringScores: str, invalid5Scores: invalid5, gradeAffectedStudents: affectedN, gradeWeight: weight, guide: guide
                 });
             });
+            var inputModeConflictAffected = Object.keys(gradeAffectedStudents).length;
 
             // まとめテスト × matome_questions 対応
             var matomeTests = tests.filter(function(t) { return t.type === 'matome'; });
@@ -21570,6 +21595,7 @@
                 inputModeConflicts:        inputModeConflictAll.length,
                 inputModeConflictDetail:   inputModeConflictAll.slice(0, INPUT_MODE_CONFLICT_CAP),
                 inputModeConflictOverflow: Math.max(0, inputModeConflictAll.length - INPUT_MODE_CONFLICT_CAP),
+                inputModeConflictAffectedStudents: inputModeConflictAffected,
                 matomeTotal:            matomeTests.length,
                 matomeNoQ:              matomeNoQ,
                 negativeScores:               negativeScoreList.length,
@@ -21726,6 +21752,19 @@
             };
         }
 
+        // v1.54.2: 入力形式の矛盾の1行表示(画面・コピー用テキスト共通)。氏名は出さない(課題名・件数・児童数のみ)。
+        var IMC_KIND_LABEL = { score: '得点方式なのに満点なし', abc5: '5段階なのに満点あり', abc5num: '5段階(印のない旧課題)なのに数値の点数が入っている' };
+        function imcGuideText(item) {
+            if (item.guide === 'fix-max') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、満点を入れて保存してください。';
+            if (item.guide === 'fix-save') return '直し方: 児童の記録＞授業課題の管理でこの課題を開き、そのまま保存してください（満点欄が消えます）。';
+            return '画面の操作では直せない状態です（記録の型と入力形式が食い違い、入力形式が固定されています）。お知らせください。';
+        }
+        function imcImpactText(item) {
+            if (!(item.invalid5Scores > 0)) return '';
+            if (item.gradeWeight === 0) return '成績への影響: 成績の重みが0のため、いまは成績に入っていません。';
+            if (item.gradeAffectedStudents > 0) return '成績への影響: 成績処理統合・カルテ・出力の成績で、' + item.gradeAffectedStudents + '人分の記録が正しく入っていません（数値の点数は5段階として読めないため）。';
+            return '成績への影響: 数値の点数のまま計算されているため、成績の値は変わりません（入力画面の表示だけが5段階になっています）。';
+        }
         function collectMigrationFlags() {
             var flags = {};
             // StorageManager のキャッシュ or localStorage を全スキャン
@@ -21957,7 +21996,7 @@
 
             // --- 入力形式と満点の矛盾(注意。検出のみで自動修正はしない) ---
             if (result.structuralIntegrity.inputModeConflicts > 0) {
-                warn.push('入力形式と満点が矛盾する課題 ' + result.structuralIntegrity.inputModeConflicts + '件(得点なのに満点なし／5段階なのに満点あり。課題管理で確認)');
+                warn.push('入力形式と満点が矛盾する課題 ' + result.structuralIntegrity.inputModeConflicts + '件(得点なのに満点なし／5段階なのに満点あり／5段階なのに数値の点数)' + (result.structuralIntegrity.inputModeConflictAffectedStudents > 0 ? '。成績に正しく入っていない児童 ' + result.structuralIntegrity.inputModeConflictAffectedStudents + '人' : '') + '。課題管理で確認');
             }
 
             // --- studentIndex 超過(注意) ---
@@ -22179,8 +22218,10 @@
                 imcCell += '<div style="margin-bottom:4px;">入力形式と満点が矛盾しています。<b>自動では修正しません</b>。児童の記録 &gt; 授業課題の管理で該当課題を開き、入力形式（得点/5段階）と満点を確認して保存し直してください。得点が入力済みの課題は入力形式を変更できないため、満点だけを入れ直してください。</div>';
                 si.inputModeConflictDetail.forEach(function(item) {
                     imcCell += 'testId="' + item.testId + '" 「' + escapeHtml(item.name) + '」 ' + escapeHtml(item.subject) + '／' + escapeHtml(item.testType) + '／' + escapeHtml(item.category)
-                        + ' : ' + (item.kind === 'score' ? '得点方式なのに満点なし' : '5段階なのに満点あり') + '（満点=' + item.maxScore + '・入力形式=' + escapeHtml(item.inputMode) + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）<br>';
+                        + ' : ' + (IMC_KIND_LABEL[item.kind] || item.kind) + '（満点=' + item.maxScore + '・入力形式=' + escapeHtml(item.inputMode) + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）<br>'
+                        + '<span class="imc-line" data-imc-guide="' + item.guide + '" style="display:block;margin:0 0 6px 1em;">' + escapeHtml(imcGuideText(item)) + (imcImpactText(item) ? ' ' + escapeHtml(imcImpactText(item)) : '') + '</span>';
                 });
+                if (si.inputModeConflictAffectedStudents > 0) imcCell += '<b>成績に正しく入っていない児童: 計' + si.inputModeConflictAffectedStudents + '人</b>（氏名は表示しません）<br>';
                 if (si.inputModeConflictOverflow > 0) imcCell += '他' + si.inputModeConflictOverflow + '件<br>';
                 imcCell += '</div></details>';
             }
@@ -22562,8 +22603,10 @@
             if (si.inputModeConflicts > 0) {
                 si.inputModeConflictDetail.forEach(function(item) {
                     lines.push('  testId="' + item.testId + '" 「' + item.name + '」 ' + item.subject + '／' + item.testType + '／' + item.category
-                        + ' : ' + (item.kind === 'score' ? '得点方式なのに満点なし' : '5段階なのに満点あり') + '（満点=' + item.maxScore + '・入力形式=' + item.inputMode + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）');
+                        + ' : ' + (IMC_KIND_LABEL[item.kind] || item.kind) + '（満点=' + item.maxScore + '・入力形式=' + item.inputMode + '・入力済み 数値' + item.numericScores + '件/文字' + item.stringScores + '件）');
+                    lines.push('    ' + imcGuideText(item) + (imcImpactText(item) ? ' ' + imcImpactText(item) : ''));
                 });
+                if (si.inputModeConflictAffectedStudents > 0) lines.push('  成績に正しく入っていない児童: 計' + si.inputModeConflictAffectedStudents + '人(氏名は出しません)');
                 if (si.inputModeConflictOverflow > 0) lines.push('  他' + si.inputModeConflictOverflow + '件');
             }
             lines.push('maxScore欠損/0なのに数値スコアあり: ' + si.numericScoreNoMaxScore + '件');

@@ -5495,12 +5495,12 @@
                             attRenderGrid();
                             attUpdateStats();
                         }
+                        // v1.60.2: 別モジュールの関数は window 経由で呼ぶ(以前は直接呼んで ReferenceError。復旧バーが出ていた)。1つの失敗で他の更新を止めない
                         if (vid === 'view-forgotten') {
-                            fgtDate = new Date();
-                            fgtShowSub('input');
+                            try { if (typeof window.fgtGoToday === 'function') window.fgtGoToday(); window.fgtShowSub('input'); } catch (e) { console.error('[日付更新] 忘れ物の再描画に失敗:', e); showToast('⚠️ 忘れ物の画面の日付の更新に失敗しました: ' + (e && e.message ? e.message : e), 'error'); }
                         }
                         if (vid === 'view-submissions') {
-                            subRenderDiary();
+                            try { window.subRenderDiary(); } catch (e) { console.error('[日付更新] 提出物の再描画に失敗:', e); showToast('⚠️ 提出物の画面の更新に失敗しました: ' + (e && e.message ? e.message : e), 'error'); }
                         }
                     }
                     showToast('📅 日付が更新されました', 'info');
@@ -16234,6 +16234,8 @@
         // v1.20.5: printAllKarte(一括PDF)の提出物モードから参照するため公開する。
         // 公開はこの関数のみとし、subCurrentTermFilter自体はモジュール内に閉じたままにする。
         window.subPassesTermFilter = subPassesTermFilter;
+        // v1.60.2: INIT の日付更新の再描画(日付が変わって画面に戻ったとき)が呼ぶ。公開されておらず ReferenceError になっていた
+        window.subRenderDiary = subRenderDiary;
         // 学期フィルタで除外された件数を「他の学期の課題 N件は表示していません」として表示する
         function subSetTermNotice(elId, excludedCount) {
             var el = document.getElementById(elId);
@@ -20425,6 +20427,10 @@
             if (!fgtRoot) fgtRoot = document.getElementById('view-forgotten');
             return fgtRoot;
         }
+        // v1.60.2: INIT の日付更新の再描画(日付が変わって画面に戻ったとき)が呼ぶ。以前は fgtShowSub が未公開で ReferenceError、
+        //   INIT 側の `fgtDate = new Date()` はこのモジュールの fgtDate ではない別のグローバル変数に代入していて、画面の日付が更新されなかった
+        window.fgtGoToday = function() { fgtDate = new Date(); };
+        window.fgtShowSub = fgtShowSub;
         function fgtShowSub(name) {
             var root = fgtGetRoot();
             if (!root) return;

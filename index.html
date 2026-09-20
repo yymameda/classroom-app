@@ -21917,6 +21917,14 @@
             };
         }
 
+        // v1.60.4 (L7 案C): 得点方式の score が文字列のとき、成績計算(scoreTo10 が JavaScript の数値変換に任せる)がどう読むかで分類する。
+        //   'empty'=空文字・空白だけ(0点になる。「欠席→解除」で残る) / 'numeric'=数字の文字列(数値と同じ点数になる) / 'text'=それ以外(NaN になり、その児童の主体性が観点Cになる)
+        function attScoreStrKind(v) {
+            var t = String(v).trim();
+            if (t === '') return 'empty';
+            return isFinite(Number(t)) ? 'numeric' : 'text';
+        }
+
         function checkStructuralIntegrity() {
             var tests       = StorageManager.get(KEYS.tests, []);
             var scores      = StorageManager.get(KEYS.scores, []);
@@ -22005,7 +22013,8 @@
                     var isNum = typeof sc.score === 'number', isStr = typeof sc.score === 'string' && sc.score !== '';
                     if (isNum) numeric++; else if (isStr) str++;
                     // 入力形式と食い違う記録: 5段階なのに数値・有効でない文字 / 得点方式なのに文字
-                    var mismatchRec = (mode === 'abc5') ? (isNum || (isStr && ABC5_VALID.indexOf(sc.score) === -1)) : isStr;
+                    // v1.60.4 (L7 案C): 得点方式で、数字の文字列("8")は成績が数値と同じになる(JavaScript が数値に読む)ので、食い違いに数えない
+                    var mismatchRec = (mode === 'abc5') ? (isNum || (isStr && ABC5_VALID.indexOf(sc.score) === -1)) : (isStr && attScoreStrKind(sc.score) !== 'numeric');
                     if (!mismatchRec) return;
                     invalid5++;
                     // 成績への影響。重みが0の項目は成績に入らないので数えない。氏名は扱わない(児童の番号だけ)。
@@ -22039,6 +22048,30 @@
                 });
             });
             var inputModeConflictAffected = Object.keys(gradeAffectedStudents).length;
+
+            // v1.60.4 (L7 案C): 主体性(得点方式)の課題で、score が空文字・数字でない文字の記録を数える(読み取り専用。成績の値は変えない)。
+            //   主体性の得点方式は grdItemScore10 が score の型を見ずに scoreTo10 へ渡すため、空文字は0点、数字でない文字は NaN(観点C)として成績に入る(調査 2026-09-20)。
+            //   空文字は「欠席→解除」で残る。数字の文字列("8")は数値と同じ点数になるので数えない。欠席の記録・null・5段階・知識・思考・授業態度・実技・まとめ形式は対象外。
+            var attScoreStrAll = [], attScoreStrStudents = {}, attScoreStrRecords = 0;
+            tests.forEach(function(t) {
+                if (t.category !== '主体性' || t.type === 'matome' || t.testType === 'まとめテスト' || t.testType === '単元テスト' ||
+                    t.testType === '実技記録' || t.testType === '授業態度') return;
+                if (getItemInputMode(t) !== 'score') return;
+                var emptyN = 0, textN = 0, stuSet = {}, stuN = 0;
+                scores.forEach(function(sc) {
+                    if (sc.testId !== t.id || sc.absent === true || typeof sc.score !== 'string') return;
+                    var kind = attScoreStrKind(sc.score);
+                    if (kind === 'numeric') return;
+                    if (kind === 'empty') emptyN++; else textN++;
+                    if (!stuSet[String(sc.studentIndex)]) { stuSet[String(sc.studentIndex)] = true; stuN++; }
+                    attScoreStrStudents[String(sc.studentIndex)] = true;
+                });
+                if (emptyN + textN === 0) return;
+                attScoreStrRecords += emptyN + textN;
+                var asWeight = null;
+                if (typeof grdGetItemWeight === 'function') { try { asWeight = grdGetItemWeight(t.subject, 'attitude', 'a_' + t.id); } catch (e) { asWeight = null; } }
+                attScoreStrAll.push({ testId: t.id, name: t.name || '', subject: t.subject || '', emptyCount: emptyN, textCount: textN, studentCount: stuN, gradeWeight: asWeight });
+            });
 
             // まとめテスト × matome_questions 対応
             var matomeTests = tests.filter(function(t) { return t.type === 'matome'; });
@@ -22110,6 +22143,11 @@
                 inputModeConflictDetail:   inputModeConflictAll.slice(0, INPUT_MODE_CONFLICT_CAP),
                 inputModeConflictOverflow: Math.max(0, inputModeConflictAll.length - INPUT_MODE_CONFLICT_CAP),
                 inputModeConflictAffectedStudents: inputModeConflictAffected,
+                attitudeScoreStrTests:     attScoreStrAll.length,
+                attitudeScoreStrRecords:   attScoreStrRecords,
+                attitudeScoreStrStudents:  Object.keys(attScoreStrStudents).length,
+                attitudeScoreStrDetail:    attScoreStrAll.slice(0, INPUT_MODE_CONFLICT_CAP),
+                attitudeScoreStrOverflow:  Math.max(0, attScoreStrAll.length - INPUT_MODE_CONFLICT_CAP),
                 matomeTotal:            matomeTests.length,
                 matomeNoQ:              matomeNoQ,
                 negativeScores:               negativeScoreList.length,
@@ -22591,6 +22629,13 @@
                 warn.push('入力形式と満点が矛盾する課題 ' + result.structuralIntegrity.inputModeConflicts + '件(得点なのに満点なし／5段階なのに満点あり／5段階なのに数値の点数)' + (result.structuralIntegrity.inputModeConflictAffectedStudents > 0 ? '。成績に正しく入っていない児童 ' + result.structuralIntegrity.inputModeConflictAffectedStudents + '人' : '') + '。課題管理で確認');
             }
 
+            // --- 主体性(得点方式)の空文字・数字でない文字(情報。v1.60.4 L7 案C。総合判定は変えない。成績の値も変えない) ---
+            (result.structuralIntegrity.attitudeScoreStrDetail || []).forEach(function(d) {
+                info.push('主体性（得点方式）の課題「' + d.name + '」（' + d.subject + '・testId=' + d.testId + '）: 空文字' + d.emptyCount + '件' + (d.textCount > 0 ? '・数字でない文字' + d.textCount + '件' : '') + '（児童' + d.studentCount + '人）。'
+                    + '成績には、空文字は「0点」、数字でない文字は「計算できず観点C」として入ります' + (d.gradeWeight === 0 ? '（この課題は重み0のため、成績には入りません）' : '') + '。児童の記録の画面で、その児童の点数を確認してください');
+            });
+            if (result.structuralIntegrity.attitudeScoreStrOverflow > 0) info.push('主体性（得点方式）の空欄・文字の記録がある課題は、ほかに' + result.structuralIntegrity.attitudeScoreStrOverflow + '課題あります');
+
             // --- studentIndex 超過(注意) ---
             if (result.structuralIntegrity.studentIndexOver > 0) {
                 warn.push('studentIndex 範囲超過スコア ' + result.structuralIntegrity.studentIndexOver + '件(児童数:' + result.structuralIntegrity.studentCount + ')');
@@ -22830,6 +22875,8 @@
                 imcCell += '</div></details>';
             }
             html += '<tr><td>' + _sts(si.inputModeConflicts === 0) + ' 入力形式と満点が矛盾する課題</td><td>' + imcCell + '</td></tr>';
+            // v1.60.4 (L7 案C): 主体性(得点方式)の空文字・数字でない文字の記録。0件なら OK。詳しい課題ごとの行は下の「情報」に出る
+            html += '<tr><td>' + _sts(si.attitudeScoreStrRecords === 0) + ' 主体性（得点方式）の空欄・文字の記録</td><td>' + (si.attitudeScoreStrRecords === 0 ? '0件' : '<span class="audit-status-warn">' + si.attitudeScoreStrRecords + '件</span>（課題' + si.attitudeScoreStrTests + '件・児童' + si.attitudeScoreStrStudents + '人。課題ごとの内訳は下の「情報（参考）」）') + '</td></tr>';
             html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめ形式テスト(まとめテスト・単元テスト)問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
 
             // 段階0.5: 範囲外スコアの検出（負の点数／maxScore超過／maxScore欠損なのに数値スコアあり）
@@ -23213,6 +23260,7 @@
             lines.push('studentIndex 範囲超過: ' + si.studentIndexOver + '件 (児童数:' + si.studentCount + ')');
             lines.push('課題 id 重複: ' + si.assignIdDups + '件');
             lines.push('orphan 提出記録: ' + si.subOrphans + '件');
+            lines.push('主体性（得点方式）の空欄・文字の記録: ' + si.attitudeScoreStrRecords + '件（課題' + si.attitudeScoreStrTests + '件・児童' + si.attitudeScoreStrStudents + '人）');
             lines.push('category 欠損テスト: ' + si.categoryMissing + '件');
             lines.push('maxScore 欠損または0: ' + si.maxScoreMissing + '件');
             if (si.maxScoreMissing > 0 && si.maxScoreEmptyBreakdown && si.maxScoreEmptyBreakdown.length > 0) {

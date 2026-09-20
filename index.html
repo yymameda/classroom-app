@@ -2599,6 +2599,15 @@
                     <div id="pfDiagBody"></div>
                     <button type="button" class="rl-btn" data-act="pfdiag-refresh" style="margin-top:8px;">🔄 もう一度確認する</button>
                 </div>
+                <!-- データの整合性の確認(v1.58.0 H4 段階4d-2: 読み取り専用。氏名は表示しない。設定画面だけに出す) -->
+                <div class="card" id="integrityCard">
+                    <h3>🩺 データの整合性の確認（確認用）</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 8px;">
+                        見るだけの表示です（データは変わりません。氏名も表示しません）。バックアップの復元のあとなどに、名簿・新体力テスト・退避のデータに食い違いがないかを確認できます。
+                    </p>
+                    <div id="integrityBody"></div>
+                    <button type="button" class="rl-btn" data-act="integrity-refresh" style="margin-top:8px;">🔄 もう一度確認する</button>
+                </div>
                 <!-- 身体データ -->
                 <div class="card" id="physicalDataCard" style="display:none;">
                     <h3>📏 身体データ（視力・身長）</h3>
@@ -7258,6 +7267,99 @@
         out.reason = mt.ok ? '' : mt.reason;
         return out;
     }
+    // ================================================================
+    // データの整合性の検査 — H4 案B 段階4d-2(DATA_FLOW_AUDIT.md 16.6・27章)
+    // 読み取り専用(何も書かない・直さない)。氏名は結果に含めない(件数だけ)。バックアップの復元のあと(起動時の移行が済んだ状態)と、
+    // 設定の確認カードから使う。**保護者向けの出力(PDF・帳票)からは呼ばない**(教員向けの表示は設定画面の中だけ)。
+    // 見るもの(問題にするのは「壊れている」ものだけ。旧方式のままの pf は連携状態のカード(pfDiagnose)の担当なので問題にしない):
+    //   student-id-missing   名簿に児童ID(studentId)を持たない児童がいる(起動時に付与されるはずの状態が残っている)
+    //   student-id-duplicate 名簿で児童IDが重なっている(重なった分の人数)
+    //   pf-mixed             pf の名簿・記録に、新方式(児童ID)と旧方式(位置番号)が混ざっている
+    //   archive-duplicate    名簿にいる児童が、退避にもある(二重)
+    //   archive-invalid      退避のファイルまたは項目が読み取れない
+    //   master-unreadable    名簿が読み取れない
+    // ================================================================
+    function spaIntegrityCheck() {
+        var issues = [];
+        var add = function(code, count) { issues.push(count === undefined ? { code: code } : { code: code, count: count }); };
+        var m = srParse(storageDirect(KEYS.master));
+        var students = (m && Array.isArray(m.students)) ? m.students : null;
+        var rosterIds = {};
+        if (!students) add('master-unreadable');
+        else {
+            var missing = 0, dup = 0;
+            students.forEach(function(s) {
+                if (!s || typeof s !== 'object') return;
+                if (!hasStudentId(s)) { missing++; return; }
+                if (rosterIds[s.studentId]) dup++; else rosterIds[s.studentId] = true;
+            });
+            if (missing) add('student-id-missing', missing);
+            if (dup) add('student-id-duplicate', dup);
+        }
+        // pf: 新方式の印(名簿の studentId・児童IDのキー)と旧方式の印(名簿の項目に studentId がない・位置番号のキー)が両方あれば混在
+        var raws = srReadPfRaws(), roster = srParse(raws.roster), v2Sign = false, v1Sign = false;
+        if (Array.isArray(roster)) roster.forEach(function(e) {
+            if (!e || typeof e !== 'object') return;
+            if (typeof e.studentId === 'string' && e.studentId !== '') v2Sign = true; else v1Sign = true;
+        });
+        Object.keys(raws.keyed).forEach(function(k) {
+            var d = srParse(raws.keyed[k]);
+            if (!srIsPlainObject(d)) return;
+            Object.keys(d).forEach(function(x) { if (/^\d+$/.test(x)) v1Sign = true; else v2Sign = true; });
+        });
+        if (v2Sign && v1Sign) add('pf-mixed');
+        // 退避
+        var rawArch = storageDirect(KEYS.student_archive);
+        if (rawArch !== null && rawArch !== undefined && rawArch !== '') {
+            var arch = srParse(rawArch);
+            if (!srIsPlainObject(arch) || !Array.isArray(arch.entries)) add('archive-invalid', 1);
+            else {
+                var bad = 0, twice = 0;
+                arch.entries.forEach(function(e) {
+                    if (!srIsPlainObject(e) || typeof e.archiveId !== 'string' || e.archiveId === '' || !srIsPlainObject(e.data)) { bad++; return; }
+                    if (typeof e.studentId === 'string' && rosterIds[e.studentId]) twice++;
+                });
+                if (bad) add('archive-invalid', bad);
+                if (twice) add('archive-duplicate', twice);
+            }
+        }
+        return { ok: issues.length === 0, issues: issues };
+    }
+    var INTEGRITY_LABEL = { 'master-unreadable': '名簿', 'student-id-missing': '名簿', 'student-id-duplicate': '名簿', 'pf-mixed': '新体力テスト', 'archive-duplicate': '退避', 'archive-invalid': '退避' };
+    function spaIntegrityText(i) {
+        var n = i.count;
+        if (i.code === 'master-unreadable') return '名簿のデータが読み取れません';
+        if (i.code === 'student-id-missing') return '名簿の' + n + '名に、児童ごとの番号（児童ID）がありません';
+        if (i.code === 'student-id-duplicate') return '名簿で、児童ごとの番号（児童ID）が重なっている児童が' + n + '名います';
+        if (i.code === 'pf-mixed') return '新体力テストの記録に、新しい方式と古い方式が混ざっています';
+        if (i.code === 'archive-duplicate') return '退避中の児童' + n + '名が、名簿にも載っています';
+        if (i.code === 'archive-invalid') return '退避のデータに読み取れないものが' + n + '件あります';
+        return i.code;
+    }
+    function spaIntegrityTexts(res) { return res.issues.map(spaIntegrityText); }
+    function renderIntegrityCard() {
+        var box = document.getElementById('integrityBody');
+        if (!box) return;
+        var res;
+        try { res = spaIntegrityCheck(); } catch (e) { box.innerHTML = '<div class="pfd-row"><span class="pfd-ng">確認できませんでした</span></div>'; console.error('spaIntegrityCheck failed:', e); return; }
+        var row = function(k, v, key) { return '<div class="pfd-row" data-integrity="' + key + '"><span class="pfd-k">' + k + '</span><span class="pfd-v">' + v + '</span></div>'; };
+        var html;
+        if (res.ok) html = row('結果', '<span class="pfd-ok">問題は見つかりませんでした</span>', 'ok');
+        else {
+            html = res.issues.map(function(i) { return row(INTEGRITY_LABEL[i.code] || '', '<span class="pfd-ng">' + escapeHtml(spaIntegrityText(i)) + '</span>', i.code); }).join('');
+            html += '<p style="font-size:0.8rem;color:var(--text-light);margin:8px 0 0;">見るだけの確認で、データは変えていません。復元の直後なら、名簿のカードの「↩ 直前のバックアップの復元を取り消す」で元に戻せます。</p>';
+        }
+        box.innerHTML = html;
+        var card = document.getElementById('integrityCard');
+        if (card && !card._integBound) {
+            card._integBound = true;
+            card.addEventListener('click', function(e) {
+                var b = e.target.closest ? e.target.closest('button[data-act="integrity-refresh"]') : null;
+                if (b) { renderIntegrityCard(); showToast('確認しました', 'success'); }
+            });
+        }
+    }
+    window.spaIntegrityCheck = spaIntegrityCheck;
     var PF_TAKEOVER_REASONS = {
         'no-pf-data': '新体力テストのデータがありません', 'already-v2': 'すでに新しい方式です', 'no-student-id': '名簿に児童IDがありません',
         'roster-invalid': '新体力テストの名簿が読み取れません', 'roster-ids-duplicate': '新体力テストの名簿の番号が重なっています',
@@ -7323,6 +7425,7 @@
         var _t3El = document.getElementById('setTerm3Start'); if (_t3El) _t3El.value = ci.term3Start || '01-01';
         renderRosterUi();
         renderPfDiagCard();
+        renderIntegrityCard();
         renderPhysicalTable();
     }
 
@@ -8466,15 +8569,22 @@
         }
     }
 
+    // バックアップの版(v1.58.0・H4 4d-2)。10: 児童ID導入前後を区別しない旧い印 / 11: studentIdSchema・pfSchema の印つき。
+    // 中身(data・rawLocalStorage)の形は10と同じ。復元側は版の数字ではなく中身(児童IDの有無・pf の方式)で扱いを決める(brBackupFormat)。
+    var BACKUP_VERSION = 11;
     function buildBackupObject() {
         flushSaveQueue();
         var backup = {
-            version: 10,
+            version: BACKUP_VERSION,
+            studentIdSchema: 1, // 名簿の各児童が studentId を持つ(v1.51.0〜)
             appType: 'classroom-spa',
             exportDate: new Date().toISOString(),
             exportDateLocal: new Date().toLocaleString('ja-JP'),
             data: {}
         };
+        // pfSchema: 書き出した端末の新体力テストの記録の方式(2=児童IDキー(新) / 1=位置番号キー(旧))。データが無ければ印を付けない。
+        // 「あるべき方式」ではなく端末の実際の状態を書く(旧方式の端末で 2 と書くと、復元先で誤って新方式として扱われるため)。
+        try { var pfMode = srPfMode(srReadPfRaws()); if (pfMode === 'v2') backup.pfSchema = 2; else if (pfMode === 'v1') backup.pfSchema = 1; } catch (ePf) {}
         // 全SPAキーを収集
         Object.keys(KEYS).forEach(function(k) {
             var raw = StorageManager.getRaw(KEYS[k]);
@@ -8559,6 +8669,25 @@
         }
         return true;
     }
+    // バックアップの版と中身の判別(書き込みなし)。復元の可否は変えない(災害復旧の道を塞がない)。分けるのは復元後の案内だけ。
+    //   kind: 'current'(11) / 'legacy'(10以下) / 'newer'(12以上=より新しい版のアプリで作られた) / 'unknown'(版が数字でない・無い)
+    //   legacyStudentId: 名簿に児童IDを持たない児童がいる(復元後の起動時に自動で付与される)
+    //   legacyPf: pf が旧方式(位置番号キー)または混在(復元後の起動時に、名簿が一致するときだけ新方式へ自動で移行される)
+    // 版の数字ではなく中身で判別する: v1.53.0〜v1.57.1 が書いた version 10 のバックアップは、中身はすでに新方式のため。
+    function brBackupFormat(backup, merged, bm) {
+        var v = backup.version, num = typeof v === 'number' && isFinite(v);
+        var kind = !num ? 'unknown' : (v > BACKUP_VERSION ? 'newer' : (v >= 11 ? 'current' : 'legacy'));
+        var keyed = {}, hasKeyed = false;
+        Object.keys(merged).forEach(function(k) { if (PF_KEYED_RE.test(k)) { keyed[k] = merged[k]; hasKeyed = true; } });
+        var hasRoster = merged[PF_ROSTER_KEY] !== undefined;
+        return {
+            kind: kind, version: num ? v : null,
+            studentIdSchema: typeof backup.studentIdSchema === 'number' ? backup.studentIdSchema : null,
+            pfSchema: typeof backup.pfSchema === 'number' ? backup.pfSchema : null,
+            legacyStudentId: !!bm && bm.students.some(function(s) { return !!s && typeof s === 'object' && !hasStudentId(s); }),
+            legacyPf: (hasRoster || hasKeyed) && srPfMode({ roster: hasRoster ? merged[PF_ROSTER_KEY] : null, keyed: keyed }) === 'v1'
+        };
+    }
     // dev: {get(key)→生の文字列|null, keys()→端末の全キー}。何も書かない。
     function brPlanRestore(backup, dev) {
         var fail = function(error, detail) { return { ok: false, error: error, detail: detail || '' }; };
@@ -8601,7 +8730,7 @@
             if (byRoster || byPf) stale.push(k); else kept.push(k);
         });
         return { ok: true, writes: writes, foreignFill: foreignFill, foreignSkipped: foreignSkipped, unchanged: unchanged,
-                 skipped: skipped, stale: stale, kept: kept, rosterChanged: rosterChanged, hasMaster: !!bm };
+                 skipped: skipped, stale: stale, kept: kept, rosterChanged: rosterChanged, hasMaster: !!bm, format: brBackupFormat(backup, merged, bm) };
     }
     function brDeviceView() {
         return { get: function(k) { return storageDirect(k); }, keys: function() {
@@ -8705,6 +8834,14 @@
     // 復元後(再読み込み後)に表示する通知の文言。warnings は先に、取り消しできるときの「元に戻す」付きトーストは最後に出す。
     function brNoticeFor(r) {
         var msgs = [];
+        var fmt = r.plan && r.plan.format;
+        if (fmt && fmt.kind === 'newer') msgs.push('このバックアップは、より新しい版のアプリで作られています。復元はしましたが、一部の内容が正しく扱えない可能性があります');
+        if (fmt && (fmt.legacyStudentId || fmt.legacyPf)) {
+            var legacyParts = [];
+            if (fmt.legacyStudentId) legacyParts.push('児童ごとの番号（児童ID）は、再読み込みのあと自動で付けます');
+            if (fmt.legacyPf) legacyParts.push('新体力テストの記録は、名簿が一致するときだけ新しい方式へ自動で更新します');
+            msgs.push('古い形式のバックアップです。' + legacyParts.join('。'));
+        }
         if (r.mode === 'no-snapshot') msgs.push('復元前のデータを残せる空き容量がなかったため、復元前の状態は保存されていません（取り消せません）。復元は完了しました');
         if (r.staleKept && r.staleKept.length) msgs.push('バックアップに含まれていない児童別データ' + r.staleKept.length + '件が端末に残っています。名簿が違う場合、別の児童のデータとして表示される可能性があります');
         if (r.mode === 'snapshot' && r.removed) msgs.push('バックアップに含まれていない児童別データ' + r.removed + '件は、名簿が違うため消去しました（「復元を取り消す」で戻せます）');
@@ -8726,7 +8863,12 @@
         var n = srParse(raw);
         if (!n) return;
         if (n.undoable && (!n.kind || n.kind === BR_KIND)) brRebaseUndoHashes(); // 復元の通知のときだけ(ほかの種類の枠のハッシュは取り直さない)
-        var msgs = Array.isArray(n.msgs) ? n.msgs : [];
+        var msgs = Array.isArray(n.msgs) ? n.msgs.slice() : [];
+        // v1.58.0 (4d-2): 復元のあと(起動時の移行が済んだ状態で)、名簿・新体力テスト・退避の整合性を検査し、問題があれば知らせる。
+        // 検査は読み取り専用。復元の通知のときだけ行う(設定の確認カードは、いつでも同じ検査を表示する)。
+        if (!n.kind || n.kind === BR_KIND) {
+            try { var integ = spaIntegrityCheck(); if (!integ.ok) msgs.push('復元したデータに気になる点があります：' + spaIntegrityTexts(integ).join('、') + '。設定の「データの整合性の確認」で見られます'); } catch (eInteg) { console.error('spaIntegrityCheck failed:', eInteg); }
+        }
         var t = 400;
         msgs.forEach(function(m) { setTimeout(function() { try { showToast(m, 'warning'); } catch (e) {} }, t); t += 2700; });
         setTimeout(function() {

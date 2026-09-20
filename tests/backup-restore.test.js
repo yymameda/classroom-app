@@ -412,7 +412,7 @@ const OTHER_APP = 'doc-index-v1';
         await seed(A, 'new');
         await page.evaluate((K, s, t) => { Object.keys(K).filter(k => /^(roster_|undo_)/.test(k)).forEach(k => { storageVerifiedWrite(K[k], /snapshot$/.test(k) ? s : t); }); }, K, '{"v":1,"keys":{}}', '{"state":"committed"}');
         const ex = await makeBackup();
-        check('書き出し: version 10・appType・スナップショット/ジャーナルを含めない・pf を含める', ex.version === 10 && ex.appType === 'classroom-spa' && Object.keys(K).filter(k => /^(roster_|undo_)/.test(k)).every(k => ex.data[K[k]] === undefined && ex.rawLocalStorage[K[k]] === undefined) && ex.rawLocalStorage['pf_roster'] !== undefined, '');
+        check('書き出し: version 11(v1.58.0・4d-2)・appType・スナップショット/ジャーナルを含めない・pf を含める', ex.version === 11 && ex.appType === 'classroom-spa' && Object.keys(K).filter(k => /^(roster_|undo_)/.test(k)).every(k => ex.data[K[k]] === undefined && ex.rawLocalStorage[K[k]] === undefined) && ex.rawLocalStorage['pf_roster'] !== undefined, '');
     } catch (e) {
         check('テスト実行中に例外なし', false, (e && e.stack) || String(e));
     } finally {

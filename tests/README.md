@@ -43,7 +43,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `attendance-snapshot.js` | 1 | 0 |
 | `attendance-stats.test.js` | 22 | 0 |
 | `audit-inputmode-conflict.test.js` | 12 | 0 |
-| `audit-inputmode-repair.test.js` | 38 | 0 |
+| `audit-inputmode-repair.test.js` | 42 | 0 |
 | `audit-maxscore-abc-exclusion.test.js` | 10 | 0 |
 | `audit-range-check.test.js` | 25 | 0 |
 | `backup-restore.test.js` | 71 | 0 |
@@ -97,7 +97,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（58ファイル）** | **1972** | **0** |
+| **合計（58ファイル）** | **1976** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

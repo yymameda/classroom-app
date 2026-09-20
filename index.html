@@ -21973,6 +21973,19 @@
             assignments.forEach(function(a) { assignIdMap[a.id] = true; });
             var subOrphans = subs.filter(function(s) { return !assignIdMap[s.assignmentId]; }).length;
 
+            // v1.60.4 (L5 案D): 提出記録の範囲外 studentIndex(名簿の人数以上・負)。読み取り専用・成績は変えない。
+            //   名簿を減らす操作は今は必ず退避される(範囲外の記録は残らない)が、過去の版で取り残された記録があると、
+            //   提出物統計の課題別の人数・課題カードの○△×が名簿より多く出る(成績・提出率は名簿の人数までしか数えないので変わらない)。
+            //   番号は氏名を含まない。grdCalculate と同じく Number() で読む(数字の文字列も番号として読める)。番号のない記録は数えない。
+            var subIndexOver = 0, subIndexOverSet = {};
+            subs.forEach(function(s) {
+                if (!s || s.studentIndex === undefined || s.studentIndex === null || s.studentIndex === '') return;
+                var sIdx = Number(s.studentIndex);
+                if (!isFinite(sIdx)) return;
+                if (sIdx < 0 || sIdx >= studentCount) { subIndexOver++; subIndexOverSet[sIdx] = true; }
+            });
+            var subIndexOverAll = Object.keys(subIndexOverSet).map(Number).sort(function(a, b) { return a - b; });
+
             // category 欠損テスト数
             var categoryMissing = tests.filter(function(t) { return !t.category; }).length;
 
@@ -22147,6 +22160,9 @@
                 studentCount:           studentCount,
                 assignIdDups:           assignIdDups,
                 subOrphans:             subOrphans,
+                subIndexOver:           subIndexOver,
+                subIndexOverValues:     subIndexOverAll.slice(0, 10),
+                subIndexOverValueCount: subIndexOverAll.length,
                 categoryMissing:        categoryMissing,
                 maxScoreMissing:        maxScoreMissing,
                 maxScoreEmptyBreakdown: maxScoreEmptyBreakdown,
@@ -22647,6 +22663,13 @@
             });
             if (result.structuralIntegrity.attitudeScoreStrOverflow > 0) info.push('主体性（得点方式）の空欄・文字の記録がある課題は、ほかに' + result.structuralIntegrity.attitudeScoreStrOverflow + '課題あります');
 
+            // --- 提出記録の範囲外 studentIndex(情報。v1.60.4 L5 案D。総合判定は変えない。成績・提出率の値も変えない) ---
+            if (result.structuralIntegrity.subIndexOver > 0) {
+                var _sv = result.structuralIntegrity.subIndexOverValues || [], _svn = result.structuralIntegrity.subIndexOverValueCount || _sv.length;
+                info.push('提出記録に、名簿（' + result.structuralIntegrity.studentCount + '名）の範囲外の番号（studentIndex）が' + result.structuralIntegrity.subIndexOver + '件あります（番号: '
+                    + _sv.join('・') + (_svn > _sv.length ? '・ほか' + (_svn - _sv.length) + '個' : '') + '）。成績・提出率の数字には入りません（名簿の人数までしか数えていないため）。課題ごとの人数の表示が、名簿より多く出ることがあります');
+            }
+
             // --- studentIndex 超過(注意) ---
             if (result.structuralIntegrity.studentIndexOver > 0) {
                 warn.push('studentIndex 範囲超過スコア ' + result.structuralIntegrity.studentIndexOver + '件(児童数:' + result.structuralIntegrity.studentCount + ')');
@@ -22860,6 +22883,8 @@
             html += '<tr><td>' + _sts(si.studentIndexOver === 0) + ' studentIndex 範囲超過</td><td>' + (si.studentIndexOver === 0 ? '0件 (児童数:' + si.studentCount + ')' : '<span class="audit-status-warn">' + si.studentIndexOver + '件</span>') + '</td></tr>';
             html += '<tr><td>' + _sts(si.assignIdDups === 0) + ' 課題 id 重複</td><td>' + (si.assignIdDups === 0 ? 'なし' : '<span class="audit-status-warn">' + si.assignIdDups + '件</span>') + '</td></tr>';
             html += '<tr><td>' + _sts(si.subOrphans === 0) + ' orphan 提出記録</td><td>' + (si.subOrphans === 0 ? '0件' : '<span class="audit-status-warn">' + si.subOrphans + '件</span>') + '</td></tr>';
+            // v1.60.4 (L5 案D): 提出記録の範囲外 studentIndex。0件なら OK。番号は下の「情報（参考）」に出る
+            html += '<tr><td>' + _sts(si.subIndexOver === 0) + ' 提出記録の studentIndex 範囲超過</td><td>' + (si.subIndexOver === 0 ? '0件 (児童数:' + si.studentCount + ')' : '<span class="audit-status-warn">' + si.subIndexOver + '件</span>（児童数:' + si.studentCount + '。番号は下の「情報（参考）」）') + '</td></tr>';
             html += '<tr><td>' + _sts(si.categoryMissing === 0) + ' category 欠損テスト</td><td>' + (si.categoryMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.categoryMissing + '件</span>') + '</td></tr>';
             var maxScoreCell = si.maxScoreMissing === 0 ? 'なし' : '<span class="audit-status-warn">' + si.maxScoreMissing + '件</span>';
             if (si.maxScoreMissing > 0 && si.maxScoreEmptyBreakdown && si.maxScoreEmptyBreakdown.length > 0) {
@@ -23271,6 +23296,7 @@
             lines.push('studentIndex 範囲超過: ' + si.studentIndexOver + '件 (児童数:' + si.studentCount + ')');
             lines.push('課題 id 重複: ' + si.assignIdDups + '件');
             lines.push('orphan 提出記録: ' + si.subOrphans + '件');
+            lines.push('提出記録の studentIndex 範囲超過: ' + si.subIndexOver + '件 (児童数:' + si.studentCount + ')');
             lines.push('主体性（得点方式）の空欄・文字の記録: ' + si.attitudeScoreStrRecords + '件（課題' + si.attitudeScoreStrTests + '件・児童' + si.attitudeScoreStrStudents + '人）');
             lines.push('category 欠損テスト: ' + si.categoryMissing + '件');
             lines.push('maxScore 欠損または0: ' + si.maxScoreMissing + '件');

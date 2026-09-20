@@ -57,7 +57,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `data-reflection.test.js` | 45 | 0 |
 | `descriptive-item-5rank.test.js` | 26 | 0 |
 | `emptystate.test.js` | 7 | 0 |
-| `idb-residue.test.js` | 27 | 0 |
+| `idb-residue.test.js` | 28 | 0 |
 | `input-mode-fix.test.js` | 50 | 0 |
 | `isabc-consolidation.test.js` | 18 | 0 |
 | `isabc-editform-fix.test.js` | 10 | 0 |
@@ -74,7 +74,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `pe-score10.test.js` | 25 | 0 |
 | `person.test.js` | 34 | 0 |
 | `pf-diagnosis.test.js` | 37 | 0 |
-| `pf-guard.test.js` | 46 | 0 |
+| `pf-landing.test.js` | 63 | 0 |
 | `pf-migration.test.js` | 116 | 0 |
 | `pf-takeover.test.js` | 72 | 0 |
 | `rec-edit-return-flow.test.js` | 36 | 0 |
@@ -103,7 +103,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（64ファイル）** | **2182** | **0** |
+| **合計（64ファイル）** | **2200** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。
@@ -112,7 +112,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 
 `pf-takeover.test.js`(v1.54.0)は、旧方式の記録の「氏名で引き継ぐ」(計画・実行・全キー比較・失敗注入・画面)と、退避した pf-residual の単体復元を検証する。
 
-`toast-passthrough.test.js`(v1.53.1)は、通知(トースト)が保存ボタンなどへのタップを受けないことを、保存ボタンの真上に通知を重ねた状態で確認する(全体実行で一度だけ失敗した原因の再現テスト)。`boot-race.test.js` は IndexedDB の準備を遅らせた起動で、準備前に書き直されたキーが消されないことを確認する。`pf-guard.test.js` は新方式の端末で pf.html を開いても何も書き込まないこと(案内だけ表示)を確認する。
+`toast-passthrough.test.js`(v1.53.1)は、通知(トースト)が保存ボタンなどへのタップを受けないことを、保存ボタンの真上に通知を重ねた状態で確認する(全体実行で一度だけ失敗した原因の再現テスト)。`boot-race.test.js` は IndexedDB の準備を遅らせた起動で、準備前に書き直されたキーが消されないことを確認する。`pf-landing.test.js`(v1.59.0。旧 `pf-guard.test.js` の後継)は、pf.html が案内だけのページで、どの端末の状態で開いても localStorage・IndexedDB を読みも書きもしないこと、案内どおりの操作(リンク → 📝児童の記録 → 🏃新体力)で新体力テストの画面に着くことを確認する。
 
 `pf-migration.test.js`(v1.53.0)は新体力テストの児童ID化を検証する。起動時の移行(全キー比較・失敗注入)・新方式の名簿変更6操作・取り込み・pf画面の実操作・旧方式のバックアップの復元後の再移行。`PFM_ONLY=2,4 node pf-migration.test.js` のように章を指定して実行できる(変異テスト用)。`roster-pf.test.js` は旧方式(v1)の動作の検証のため、テスト専用フック `window.__spaSkipPfMigration` で起動時の移行を無効にしている。
 

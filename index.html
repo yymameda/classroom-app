@@ -21742,6 +21742,7 @@
                 testCount:       tests.length,
                 scoreRecordCount: scores.length,
                 matomeTestCount: matomeCount,
+                matomeKinds:     matomeKindCounts(tests),
                 assignmentCount: assignments.length,
                 submissionCount: subs.length,
                 patrolCount:     Array.isArray(patrol) ? patrol.length : 0,
@@ -22031,6 +22032,22 @@
             if (/主体|態度/.test(n)) out.push('主');
             return out;
         }
+        // v1.59.1 (L9): 「まとめ形式」＝設問ごとに観点・配点を持つテスト(type==='matome')。作成時に「まとめテスト」と「単元テスト」の両方に付く。
+        //   サマリーの件数(type で数える)と testType の分布(testType ごと)で数え方が違って見えたので、内訳を一緒に表示する。表示専用(成績・記録は変えない)。
+        function matomeKindCounts(tests) {
+            var k = { total: 0, matome: 0, unit: 0, other: 0 };
+            (Array.isArray(tests) ? tests : []).forEach(function(t) {
+                if (!t || t.type !== 'matome') return;
+                k.total++;
+                if (t.testType === '単元テスト') k.unit++;
+                else if (t.testType === 'まとめテスト') k.matome++;
+                else k.other++;
+            });
+            return k;
+        }
+        function matomeKindLabel(k) {
+            return 'まとめ形式 ' + k.total + '件＝まとめテスト' + k.matome + '＋単元テスト' + k.unit + (k.other > 0 ? '＋その他' + k.other : '');
+        }
         // v1.57.1: 遅れ係数の変更(v1.56.0)で成績の値が変わる記録(読み取り専用・氏名なし)。
         //   以前は、児童の記録の「遅」の印(lateSubmit)がある数値の記録(知識・技能／思考・判断・表現)を成績で0.8倍していた。v1.56.0 で0.8倍をやめたので、
         //   その記録の成績の値が上がる。ここでは、成績計算(grdCalculate)と同じ条件で、対象の記録を課題ごとに数える。
@@ -22096,7 +22113,7 @@
                     types  = t.matomeQuestionTypes;
                     points = t.matomePoints || types.map(function() { return 1; });
                 } else {
-                    perTest.push({ testId: t.id, name: t.name || '', chi: 0, shi: 0, shu: 0, unset: 0, total: 0 });
+                    perTest.push({ testId: t.id, name: t.name || '', testType: t.testType || '', chi: 0, shi: 0, shu: 0, unset: 0, total: 0 });
                     return;
                 }
 
@@ -22110,11 +22127,12 @@
                 });
 
                 var total = cnt['知'] + cnt['思'] + cnt['主'] + cnt.unset;
-                perTest.push({ testId: t.id, name: t.name || '', chi: cnt['知'], shi: cnt['思'], shu: cnt['主'], unset: cnt.unset, total: total });
+                perTest.push({ testId: t.id, name: t.name || '', testType: t.testType || '', chi: cnt['知'], shi: cnt['思'], shu: cnt['主'], unset: cnt.unset, total: total });
             });
 
             return {
                 matomeCount: matomeTests.length,
+                kinds:       matomeKindCounts(tests),
                 totalByType: totalByType,
                 perTest:     perTest
             };
@@ -22495,13 +22513,15 @@
 
             // --- matome 問題定義なし(注意) ---
             if (result.matomeBalance.matomeNoQ > 0) {
-                warn.push('まとめテストのうち問題定義のないもの ' + result.matomeBalance.matomeNoQ + '件');
+                warn.push('まとめ形式のテスト(まとめテスト・単元テスト)のうち問題定義のないもの ' + result.matomeBalance.matomeNoQ + '件');
             }
 
             // --- 観点バランス偏り(情報) ---
             result.matomeBalance.perTest.forEach(function(pt) {
                 var total = pt.total;
                 if (total === 0) return;
+                // v1.59.1 (L9): 単元テストは1単元の知識・技能を問うので、全問が同じ観点なのが普通。単一観点の判定の対象にしない。
+                if (pt.testType === '単元テスト') return;
                 var maxPct = Math.max(pt.chi, pt.shi, pt.shu) / total;
                 if (maxPct >= 1.0) {
                     // 課題名がちょうど1つの観点を示し、全問がその観点なら、意図どおり(観点ごとに分けて作ったまとめテスト)として表示しない。
@@ -22511,8 +22531,9 @@
                     var LBL = { '知': '知識・技能', '思': '思考・判断・表現', '主': '主体的に学習に取り組む態度' };
                     if (soleName && declared.length === 1 && declared[0] === soleName) return;
                     var nm = pt.name ? ' 「' + pt.name + '」' : '';
-                    if (declared.length > 0) info.push('まとめテスト testId=' + pt.testId + nm + ': 全問が「' + (LBL[soleName] || '単一') + '」の観点ですが、課題名は「' + declared.map(function(d) { return LBL[d]; }).join('・') + '」を示しています(観点の付け間違いの可能性)');
-                    else info.push('まとめテスト testId=' + pt.testId + nm + ': 全問が単一観点(観点不均衡の可能性)');
+                    var kindName = pt.testType || 'まとめテスト';
+                    if (declared.length > 0) info.push(kindName + ' testId=' + pt.testId + nm + ': 全問が「' + (LBL[soleName] || '単一') + '」の観点ですが、課題名は「' + declared.map(function(d) { return LBL[d]; }).join('・') + '」を示しています(観点の付け間違いの可能性)');
+                    else info.push(kindName + ' testId=' + pt.testId + nm + ': 全問が同じ観点です。観点ごとに分けて作ったテストならこのままで問題ありません');
                 }
             });
 
@@ -22604,7 +22625,7 @@
             // 新規の収集ロジックは追加せず、既存collectMeta()のappVersionを表示するのみ。
             html += _aRow('診断実行時のバージョン', escapeHtml(meta.appVersion || '(取得できませんでした)'));
             html += _aRow('児童数',               d.studentCount + '名');
-            html += _aRow('テスト総数',            d.testCount + '件 (まとめテスト: ' + d.matomeTestCount + '件)');
+            html += _aRow('テスト総数',            d.testCount + '件（うち ' + matomeKindLabel(d.matomeKinds) + '）');
             html += _aRow('得点レコード総数',       d.scoreRecordCount.toLocaleString() + '件');
             html += _aRow('提出物課題数',           d.assignmentCount + '件');
             html += _aRow('提出記録数',             d.submissionCount.toLocaleString() + '件');
@@ -22707,7 +22728,7 @@
                 imcCell += '</div></details>';
             }
             html += '<tr><td>' + _sts(si.inputModeConflicts === 0) + ' 入力形式と満点が矛盾する課題</td><td>' + imcCell + '</td></tr>';
-            html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめテスト問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
+            html += '<tr><td>' + _sts(si.matomeNoQ === 0) + ' まとめ形式テスト(まとめテスト・単元テスト)問題定義なし</td><td>' + (si.matomeNoQ === 0 ? 'なし' : '<span class="audit-status-warn">' + si.matomeNoQ + '件</span>') + '</td></tr>';
 
             // 段階0.5: 範囲外スコアの検出（負の点数／maxScore超過／maxScore欠損なのに数値スコアあり）
             var negCell = si.negativeScores === 0 ? '0件' : '<span class="audit-status-error">' + si.negativeScores + '件</span>';
@@ -22739,8 +22760,8 @@
 
             // 5. まとめテストの観点バランス
             html += '<div class="audit-result-subsection">';
-            html += '<h4>5. まとめテストの観点バランス</h4>';
-            html += '<p style="margin:4px 0;">まとめテスト数: ' + mb.matomeCount + '件</p>';
+            html += '<h4>5. まとめ形式テスト(まとめテスト・単元テスト)の観点バランス</h4>';
+            html += '<p style="margin:4px 0;">' + matomeKindLabel(mb.kinds) + '</p>';
             var tb = mb.totalByType;
             var tbTotal = tb['知'] + tb['思'] + tb['主'] + tb.unset;
             html += '<table class="audit-table">';
@@ -22752,12 +22773,12 @@
             }
             html += '</table>';
             if (mb.perTest.length > 0) {
-                html += '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:0.9em;">各まとめテストの内訳を表示</summary>';
+                html += '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:0.9em;">各まとめ形式テスト(まとめテスト・単元テスト)の内訳を表示</summary>';
                 html += '<table class="audit-table" style="margin-top:6px;">';
-                html += '<tr><th>testId</th><th>知</th><th>思</th><th>主</th><th>未設定</th><th>合計</th></tr>';
+                html += '<tr><th>testId</th><th>課題名</th><th>種別</th><th>知</th><th>思</th><th>主</th><th>未設定</th><th>合計</th></tr>';
                 mb.perTest.forEach(function(pt) {
-                    var flag = (pt.total > 0 && (pt.chi / pt.total >= 1.0)) ? ' <span class="audit-status-error">❌全問単一観点</span>' : '';
-                    html += '<tr><td>' + pt.testId + '</td><td>' + pt.chi + '</td><td>' + pt.shi + '</td><td>' + pt.shu + '</td><td>' + (pt.unset > 0 ? '<span class="audit-status-warn">' + pt.unset + '</span>' : '0') + '</td><td>' + pt.total + flag + '</td></tr>';
+                    // v1.59.1 (L9): 全問が単一観点でも赤い印は付けない(観点ごとに分けて作るのが普通の使い方)。課題名と種別で見分けられるようにする。
+                    html += '<tr><td>' + pt.testId + '</td><td>' + escapeHtml(pt.name) + '</td><td>' + escapeHtml(pt.testType || '(未設定)') + '</td><td>' + pt.chi + '</td><td>' + pt.shi + '</td><td>' + pt.shu + '</td><td>' + (pt.unset > 0 ? '<span class="audit-status-warn">' + pt.unset + '</span>' : '0') + '</td><td>' + pt.total + '</td></tr>';
                 });
                 html += '</table></details>';
             }
@@ -23044,7 +23065,7 @@
 
             lines.push('【データ量サマリー】');
             lines.push('児童数: ' + d.studentCount + '名');
-            lines.push('テスト総数: ' + d.testCount + '件 (まとめテスト: ' + d.matomeTestCount + '件)');
+            lines.push('テスト総数: ' + d.testCount + '件（うち ' + matomeKindLabel(d.matomeKinds) + '）');
             lines.push('得点レコード総数: ' + d.scoreRecordCount.toLocaleString() + '件');
             lines.push('提出物課題数: ' + d.assignmentCount + '件');
             lines.push('提出記録数: ' + d.submissionCount.toLocaleString() + '件');
@@ -23114,11 +23135,11 @@
                 });
                 if (si.numericScoreNoMaxScoreByTestOverflow > 0) lines.push('  他' + si.numericScoreNoMaxScoreByTestOverflow + '件');
             }
-            lines.push('まとめテスト問題定義なし: ' + si.matomeNoQ + '件');
+            lines.push('まとめ形式テスト(まとめテスト・単元テスト)問題定義なし: ' + si.matomeNoQ + '件');
             lines.push('');
 
-            lines.push('【まとめテストの観点バランス】');
-            lines.push('まとめテスト数: ' + mb.matomeCount + '件');
+            lines.push('【まとめ形式テスト(まとめテスト・単元テスト)の観点バランス】');
+            lines.push(matomeKindLabel(mb.kinds));
             var tb = mb.totalByType;
             var tbTotal = tb['知'] + tb['思'] + tb['主'] + tb.unset;
             lines.push('知(合算): ' + tb['知'] + '問 (' + _pct(tb['知'], tbTotal) + ')');

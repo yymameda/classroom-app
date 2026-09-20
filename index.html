@@ -19056,7 +19056,8 @@
             });
             if (!counted) return { score10: null, detail: '提出物なし', submitted: 0, total: 0 };
             var rate = submitted / counted;
-            return { score10: Math.round(rate * 100) / 10, detail: Math.floor(submitted)+'/'+counted+'件（'+Math.round(rate*100)+'%）', submitted: submitted, total: counted };
+            // 説明文は評価点ベース(例: 評価点 3.6/6（60%）)。以前は評価点の合計を切り捨てて「3/6件（60%）」と出し、60%と合わないように見えた。成績の値(score10)は変えていない。
+            return { score10: Math.round(rate * 100) / 10, detail: '評価点 '+(Math.round(submitted * 10) / 10)+'/'+counted+'（'+Math.round(rate*100)+'%）', submitted: submitted, total: counted };
         }
 
         // 机間巡視→10点

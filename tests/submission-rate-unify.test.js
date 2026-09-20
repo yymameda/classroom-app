@@ -88,7 +88,10 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             const snap = res.map(r => [r.knowledge.abc, r.thinking.abc, r.attitude.avg, r.attitude.abc, r.hyoutei, r.totalNum]);
             return { sub, snap: JSON.stringify(snap) };
         });
-        check('成績画面: 提出物の10点換算は 甲7.2・乙9.3・丙0・丁10(評価点3.6/5・5.6/6・0/6・6/6)', JSON.stringify(grade.sub.map(x => x.s10)) === '[7.2,9.3,0,10]' && JSON.stringify(grade.sub.map(x => x.detail)) === '["3/5件（72%）","5/6件（93%）","0/6件（0%）","6/6件（100%）"]', JSON.stringify(grade.sub));
+        check('成績画面: 提出物の10点換算は 甲7.2・乙9.3・丙0・丁10(評価点3.6/5・5.6/6・0/6・6/6)', JSON.stringify(grade.sub.map(x => x.s10)) === '[7.2,9.3,0,10]', JSON.stringify(grade.sub));
+        // v1.61.0: 提出物の説明文は評価点ベース。以前は「3/5件（72%）」(評価点の合計3.6を切り捨てて表示)で、72%と合わないように見えた
+        check('成績画面: 提出物の説明文は評価点ベース(評価点 3.6/5（72%）など)。評価点の合計を切り捨てない', JSON.stringify(grade.sub.map(x => x.detail)) === '["評価点 3.6/5（72%）","評価点 5.6/6（93%）","評価点 0/6（0%）","評価点 6/6（100%）"]', JSON.stringify(grade.sub.map(x => x.detail)));
+        check('成績画面: 提出物の説明文の「評価点÷分母」の割合が、その横の%と一致する(以前は3/5=60%なのに72%と出ていた)', grade.sub.every(x => { const m = /^評価点 ([\d.]+)\/(\d+)（(\d+)%）$/.exec(x.detail); return m && Math.round(Number(m[1]) / Number(m[2]) * 100) === Number(m[3]); }), '');
         const GRADE_SNAP = '[["","",7.2,"B","",null],["","",9.3,"A","",null],["","",0,"C","",null],["","",10,"A","",null]]';
         check('成績画面: 観点別の平均・ABC・評定が変更前と完全に同じ', grade.snap === GRADE_SNAP, grade.snap);
 

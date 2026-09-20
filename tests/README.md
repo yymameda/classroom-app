@@ -80,6 +80,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `pf-migration.test.js` | 116 | 0 |
 | `pf-takeover.test.js` | 72 | 0 |
 | `radar-card-term.test.js` | 10 | 0 |
+| `radar-pdf-button.test.js` | 9 | 0 |
 | `rec-edit-return-flow.test.js` | 36 | 0 |
 | `rec-input-term-filter.test.js` | 14 | 0 |
 | `rec-save-inline-btn.test.js` | 8 | 0 |
@@ -108,7 +109,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（69ファイル）** | **2280** | **0** |
+| **合計（70ファイル）** | **2289** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

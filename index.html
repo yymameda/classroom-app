@@ -4540,8 +4540,10 @@
             if (maskBtn) maskBtn.addEventListener('click', async function() {
                 if (masked) { showToast('すでに氏名を伏せた状態です', 'info'); return; }
                 ov.style.display = 'none';
-                var nb = await rebuildMasked();
-                ov.style.display = 'flex';
+                var nb = null;
+                try { nb = await rebuildMasked(); }
+                catch (err) { console.error('rebuildMasked error:', err); showToast('⚠️ 氏名を伏せたPDFの作成に失敗しました: ' + ((err && err.message) ? err.message : String(err)), 'error'); }
+                ov.style.display = 'flex'; // v1.60.2: 失敗しても結果ダイアログを消したままにしない
                 if (!nb) return;
                 masked = true;
                 if (!openedExternally) URL.revokeObjectURL(url);
@@ -4660,6 +4662,24 @@
         }
     }
 
+    // v1.60.2: ボタンから直接呼ばれる処理(特に async)が失敗したとき、何も出ないまま終わらないよう通知する。
+    //   async の処理の失敗は、そのままだと Unhandled rejection としてコンソールに出るだけで、画面には何も出ない(成績画面は v1.60.1 で同じ方式にした)。
+    //   label は文字列か、失敗したときに名前を返す関数。失敗したときは undefined を返す(呼び出し側は続きの処理をしない前提の、ボタン専用)。
+    function uiNotifyFailure(label, err) {
+        var name = (typeof label === 'function') ? label() : label;
+        console.error('[ui] 処理の失敗:', name, err);
+        try { showToast('⚠️ 「' + name + '」に失敗しました: ' + ((err && err.message) ? err.message : String(err)), 'error'); } catch (e) {}
+    }
+    function uiGuard(label, fn) {
+        return function() {
+            try {
+                var r = fn.apply(this, arguments);
+                if (r && typeof r.then === 'function') return r.then(null, function(err) { uiNotifyFailure(label, err); });
+                return r;
+            } catch (err) { uiNotifyFailure(label, err); }
+        };
+    }
+
     // v1.60.2: 出力(PDF・Excel・CSV・テキスト)に印字する対象学期の表記。'1'|'2'|'3' → 「1学期」、'all'・空 → 「通年」
     function outputTermLabel(term) {
         return (!term || term === 'all') ? '通年' : (String(term) + '学期');
@@ -4679,12 +4699,19 @@
             showToast('出力できるデータがありません', 'warning');
             return false;
         }
-        var blob = await pdfRenderPages(pageHtmls, opts, false);
-        if (!blob) return false;
-        await pdfPresentResult(blob, fileName, function() {
-            return pdfRenderPages(pageHtmls, opts, true);
-        });
-        return true;
+        // v1.60.2: 呼び出し側が待たずに呼ぶ経路(カルテ出力など)でも、失敗が画面に出ないまま終わらないよう、ここで通知する
+        try {
+            var blob = await pdfRenderPages(pageHtmls, opts, false);
+            if (!blob) return false;
+            await pdfPresentResult(blob, fileName, function() {
+                return pdfRenderPages(pageHtmls, opts, true);
+            });
+            return true;
+        } catch (err) {
+            console.error('htmlPagesToPdf error:', err);
+            showToast('⚠️ PDFの作成に失敗しました: ' + ((err && err.message) ? err.message : String(err)), 'error');
+            return false;
+        }
     }
 
     // --- universalShare: Web Share API + Blobフォールバック ---
@@ -8441,6 +8468,8 @@
             marginMm: 8
         });
     }
+    // v1.60.2: ボタン(onclick)から直接呼ばれるので、失敗したときに何も出ないまま終わらないようトーストで通知する(uiGuard)
+    printSeating = uiGuard('座席表のPDF出力', printSeating);
 
     function toggleSeatingEdit() {
         seatEditing = !seatEditing;
@@ -8638,6 +8667,8 @@
             recordBackupMeta(false);
         }
     }
+    // v1.60.2: ボタン(onclick)から直接呼ばれるので、失敗したときに何も出ないまま終わらないようトーストで通知する(uiGuard)
+    exportBackup = uiGuard('バックアップの保存', exportBackup);
 
     // ================================================================
     // バックアップの復元の安全化 — H4 案B 段階4d-1 (DATA_FLOW_AUDIT.md 16.12・18章)
@@ -8939,6 +8970,8 @@
             showToast('復元に失敗しました: ' + e.message, 'error');
         }
     }
+    // v1.60.2: ボタン(onclick)から直接呼ばれるので、失敗したときに何も出ないまま終わらないようトーストで通知する(uiGuard)
+    importBackup = uiGuard('バックアップの復元', importBackup);
     // --- 退勤モード: 端末データ消去 ---
     // v1.51.2 (H8): KEYS に無い個人データのキー。新体力テスト(pf_*: 名簿=氏名・記録)と、移行時の旧バックアップ類。
     // (同じオリジンの別アプリのキー(doc-index-v1・task系など)は含めない)
@@ -20288,17 +20321,7 @@
             var btn = function(id, fn) {
                 var el = document.getElementById(id);
                 if (!el) return;
-                var notifyFail = function(err) {
-                    console.error('[grades] ボタン処理の失敗:', id, err);
-                    var label = (el.textContent || '').replace(/\s+/g, ' ').trim() || id;
-                    showToast('⚠️ 「' + label + '」に失敗しました: ' + ((err && err.message) ? err.message : String(err)), 'error');
-                };
-                el.addEventListener('click', function(ev) {
-                    try {
-                        var r = fn.call(el, ev);
-                        if (r && typeof r.then === 'function') r.then(null, notifyFail);
-                    } catch (err) { notifyFail(err); }
-                });
+                el.addEventListener('click', uiGuard(function() { return (el.textContent || '').replace(/\s+/g, ' ').trim() || id; }, fn));
             };
             btn('grdSaveThreshBtn', grdSaveAllThresholds);
             btn('grdSaveWeightsBtn', grdSaveWeights);

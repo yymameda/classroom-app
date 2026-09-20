@@ -99,6 +99,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `sub-progress-filter-merge-v1.47.0.test.js` | 56 | 0 |
 | `sub-tile-fit.test.js` | 8 | 0 |
 | `submission-rate-unify.test.js` | 18 | 0 |
+| `template-abc5-conversion.test.js` | 16 | 0 |
 | `template-xlsx-term.test.js` | 19 | 0 |
 | `test_grades.js` | 89 | 0 |
 | `tile-btns-oneline.test.js` | 14 | 0 |
@@ -112,7 +113,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（73ファイル）** | **2324** | **0** |
+| **合計（74ファイル）** | **2340** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

@@ -47,7 +47,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `audit-matome-perspective.test.js` | 15 | 0 |
 | `audit-maxscore-abc-exclusion.test.js` | 10 | 0 |
 | `audit-range-check.test.js` | 25 | 0 |
-| `backup-restore.test.js` | 71 | 0 |
+| `backup-restore.test.js` | 72 | 0 |
 | `boot-race.test.js` | 8 | 0 |
 | `category-edit-inputmode.test.js` | 14 | 0 |
 | `composition-5rank.test.js` | 28 | 0 |
@@ -56,7 +56,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `descriptive-item-5rank.test.js` | 26 | 0 |
 | `emptystate.test.js` | 7 | 0 |
 | `idb-residue.test.js` | 27 | 0 |
-| `input-mode-fix.test.js` | 49 | 0 |
+| `input-mode-fix.test.js` | 50 | 0 |
 | `isabc-consolidation.test.js` | 18 | 0 |
 | `isabc-editform-fix.test.js` | 10 | 0 |
 | `item-input-mode.test.js` | 27 | 0 |
@@ -93,6 +93,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `tile-btns-oneline.test.js` | 14 | 0 |
 | `tile-vheight-v1.41.0.test.js` | 28 | 0 |
 | `toast-passthrough.test.js` | 8 | 0 |
+| `undo-slots.test.js` | 52 | 0 |
 | `undo.test.js` | 32 | 0 |
 | `v1.8.49.test.js` | 24 | 0 |
 | `v1.8.51.test.js` | 8 | 0 |
@@ -100,7 +101,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.51_commit3.test.js` | 14 | 0 |
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
-| **合計（61ファイル）** | **2073** | **0** |
+| **合計（62ファイル）** | **2127** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

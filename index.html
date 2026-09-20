@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>教室管理SPA</title>
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -16,6 +16,13 @@
     <meta http-equiv="Expires" content="0">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* v1.61.2: iPad の画面拡大を止める。ダブルタップでの拡大は touch-action: manipulation で(ピンチの拡大は末尾のスクリプトの gesture 処理・viewport の meta で止める。
+           座席表のドラッグなどの touch-action:none は、子の指定がそのまま効く) */
+        html, body { touch-action: manipulation; }
+        /* v1.61.2: 入力欄を押したときの自動拡大を防ぐ。iOS Safari は、文字が16px未満の入力欄を押すと画面を拡大する。
+           JS が組み立てる入力欄の style="font-size:…" にも勝つよう !important。チェックボックス等(文字を入れない種類)は対象外 */
+        input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+        select, textarea { font-size: 16px !important; }
         :root {
             --primary: #2D7D9A;
             --primary-dark: #1E5A70;
@@ -24886,6 +24893,27 @@
     }
     // ▲▲▲ 新体力テスト (pf) モジュール ▲▲▲
 
+    </script>
+
+    <!-- v1.61.2: iPad の2本指ピンチでの拡大を止める。iOS Safari は viewport の user-scalable=no を無視するため、gesture イベントを止める。 -->
+    <script>
+    (function() {
+        // タッチ端末でのみ登録する(パソコンでは gesture イベントは起きない)
+        if (!(('ontouchstart' in window) || (navigator.maxTouchPoints > 0))) return;
+        // すでに拡大された状態(入力欄の自動拡大など)から始まったピンチは止めない。止めると2本指で元の大きさに戻せなくなるため。
+        // visualViewport が無い古い端末も止めない(戻せなくなるより、拡大できるほうが安全)。
+        var passThrough = false;
+        function onGesture(e) {
+            if (e.type === 'gesturestart') {
+                var vv = window.visualViewport;
+                passThrough = !vv || vv.scale > 1.001;
+            }
+            if (!passThrough) e.preventDefault();
+        }
+        ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(type) {
+            document.addEventListener(type, onGesture, { passive: false });
+        });
+    })();
     </script>
 
     <!-- PWA: Service Worker 登録 + 更新通知 -->

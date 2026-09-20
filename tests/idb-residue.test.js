@@ -5,7 +5,7 @@
 // **キーの削除は鏡に反映されない**ため、localStorage だけから消したキーが IndexedDB に残り、次回起動でキャッシュに
 // 復活し、バックアップ(exportAll はキャッシュのキーを使う)に入り、復元すると localStorage に戻る。
 //   (1) 退勤モードの端末データ消去は KEYS の全キーしか消さず、新体力テスト(pf_*)の名簿・記録・旧バックアップが残る。
-//   (2) pf の「名簿リセット」「記録データ削除」(index.html 内蔵版と pf.html)は localStorage.removeItem だけ。
+//   (2) pf の「名簿リセット」「記録データ削除」(index.html 内蔵版。単体ページ pf.html は v1.59.0 で案内ページになり削除操作を持たない)は localStorage.removeItem だけ。
 //   (3) 過去に(2)で消した pf キーの鏡が、実機の IndexedDB に既に残っている可能性がある。
 // 課題の削除・記録の削除は IndexedDB の値も更新されるため残存しない(回帰確認として含める)。
 //
@@ -187,11 +187,11 @@ const withName = (obj) => Object.keys(obj).filter(k => String(obj[k]).indexOf(NA
     await page.evaluate(() => { try { StorageManager.getAllKeys().slice().forEach(k => StorageManager.remove(k)); localStorage.clear(); } catch (e) {} }).catch(() => {});
     await browser.close();
 
-    // ================= 5. pf.html(単体ページ)の削除操作 =================
-    console.log('--- 5. pf.html の名簿リセット・記録データ削除 ---');
+    // ================= 5. pf.html(単体ページ。v1.59.0 から案内ページ) =================
+    console.log('--- 5. pf.html(案内ページ)は鏡(IndexedDB)・localStorage に触れない ---');
     browser = await launch();
     try {
-        // 5a: index.html を先に開いて鏡ができている状態で、pf.html から削除
+        // 5a: index.html を先に開いて鏡ができている状態で pf.html を開いても、pf のキーは残る(削除操作は pf.html に無い)
         let pg = await browser.newPage(); pg.on('dialog', d => d.accept());
         await pg.goto(BASE + 'index.html', { waitUntil: 'networkidle0' });
         await pg.evaluate((NAME) => {
@@ -200,13 +200,14 @@ const withName = (obj) => Object.keys(obj).filter(k => String(obj[k]).indexOf(NA
         }, NAME);
         await pg.reload({ waitUntil: 'networkidle0' }); await sleep(600);
         check('前提: 鏡(IndexedDB)に pf_roster がある', (await idbAll(pg)).some(x => x.key === 'pf_roster'), '');
+        const before5 = { ls: await lsAll(pg), idb: await idbAll(pg) };
         await pg.goto(BASE + 'pf.html', { waitUntil: 'networkidle0' }); await sleep(400);
-        await pg.evaluate(() => { clearRoster(); confirmClearData(); });
-        await sleep(600);
+        const gone = await pg.evaluate(() => ({ clearRoster: typeof window.clearRoster, confirmClearData: typeof window.confirmClearData, scripts: document.scripts.length }));
+        check('pf.html に削除操作(名簿リセット・記録データ削除)の関数もスクリプトも無い', gone.clearRoster === 'undefined' && gone.confirmClearData === 'undefined' && gone.scripts === 0, JSON.stringify(gone));
         await pg.goto(BASE + 'index.html', { waitUntil: 'networkidle0' }); await sleep(900);
-        const idb5 = await idbAll(pg), ls5 = await lsAll(pg);
-        const cache5 = await pg.evaluate(() => Object.keys(StorageManager._cache));
-        check('pf.html の名簿リセット・記録データ削除: localStorage・IndexedDB・キャッシュのどれにも残らない', !('pf_roster' in ls5) && !idb5.some(x => /^pf_(roster|records)/.test(x.key)) && !cache5.some(k => /^pf_(roster|records)/.test(k)), JSON.stringify({ ls: Object.keys(ls5).filter(k => /^pf_/.test(k)), idb: idb5.filter(x => /^pf_/.test(x.key)).map(x => x.key), cache: cache5.filter(k => /^pf_/.test(k)) }));
+        const after5 = { ls: await lsAll(pg), idb: await idbAll(pg) };
+        const sameKeys = (a, b) => JSON.stringify(Object.keys(a).sort().map(k => [k, a[k]])) === JSON.stringify(Object.keys(b).sort().map(k => [k, b[k]]));
+        check('pf.html を開いて戻っても、pf_roster・pf_records は localStorage と鏡に残ったまま(案内ページは何も消さない)', 'pf_roster' in after5.ls && 'pf_records_2026' in after5.ls && after5.idb.some(x => x.key === 'pf_roster') && sameKeys(before5.ls, after5.ls), JSON.stringify({ ls: Object.keys(after5.ls).filter(k => before5.ls[k] !== after5.ls[k]) }));
         await pg.close();
         await browser.close();
 
@@ -214,7 +215,7 @@ const withName = (obj) => Object.keys(obj).filter(k => String(obj[k]).indexOf(NA
         browser = await launch();
         pg = await browser.newPage(); pg.on('dialog', d => d.accept());
         await pg.goto(BASE + 'pf.html', { waitUntil: 'networkidle0' }); await sleep(300);
-        await pg.evaluate(() => { localStorage.setItem('pf_roster', JSON.stringify([{ id: 1, name: 'x' }])); clearRoster(); confirmClearData(); });
+        await pg.evaluate(() => { localStorage.setItem('pf_roster', JSON.stringify([{ id: 1, name: 'x' }])); });
         await sleep(500);
         await pg.goto(BASE + 'index.html', { waitUntil: 'networkidle0' }); await sleep(900);
         const phase = await pg.evaluate(() => ({ phase: StorageManager._phase, idb: !!StorageManager._idb, loaded: StorageManager._cacheLoaded }));

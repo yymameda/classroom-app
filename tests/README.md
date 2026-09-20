@@ -72,6 +72,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `isabc-consolidation.test.js` | 18 | 0 |
 | `isabc-editform-fix.test.js` | 10 | 0 |
 | `item-input-mode.test.js` | 27 | 0 |
+| `kentei-card-reach.test.js` | 48 | 0 |
 | `kentei-nw-delete-on-zero.test.js` | 21 | 0 |
 | `late-factor-scope.test.js` | 28 | 0 |
 | `list-scroll-cutoff.test.js` | 33 | 0 |
@@ -121,7 +122,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
 | `zoom-disable.test.js` | 28 | 0 |
-| **合計（82ファイル）** | **2519** | **0** |
+| **合計（83ファイル）** | **2567** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

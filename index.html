@@ -1080,7 +1080,7 @@
         .rec-nw-skill-btn.passed { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; font-weight: 700; }
         .rec-nw-skill-btn.uncounted { background: #F5F5F5; border-color: #E0E0E0; color: #BDBDBD; }
         .rec-nw-skill-btn.uncounted.passed { background: #FFF9C4; border-color: #FBC02D; color: #F57F17; font-weight: 700; }
-        /* 横向き6列×5行（スクロールなし） */
+        /* 横向き6列・縦向き4列。人数が多いと一覧は縦にスクロールする(v1.62.0) */
         /* 縦向き・横向き共通：カードサイズを縦向き4列基準に統一 */
         .rec-list.nw-mode {
             gap: 6px;
@@ -1091,6 +1091,9 @@
             height: auto;
             overflow-y: auto;
             align-content: start;
+            /* v1.62.0: 行の高さを「カードの中身の高さ」にする。指定が無いと、v1.38.0 で一覧が内側スクロールになって以降、
+               行が一覧の高さを分け合って縮み(25〜30人で泳力の技が12/24しか見えない)、overflow:hidden のカードの下の区分が切れていた */
+            grid-auto-rows: max-content;
         }
         @media (orientation: landscape) and (min-width: 900px) {
             .rec-list.nw-mode {

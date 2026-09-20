@@ -138,7 +138,10 @@ const SPY = () => {
         check('アプリの全画面の入力欄(text・number・date・month・select・textarea)が、すべて16px以上(' + scan.n + '個を検査)', scan.n > 300 && scan.badN === 0, scan.badN + '個が16px未満: ' + scan.bad.join(', '));
         check('検査した入力欄に、行の入力欄(点数入力・新体力の表)・まとめの設問グリッドが含まれる(件数の下限)', await pn.evaluate(() => document.querySelectorAll('.rec-row input, .rec-mq-cell input, .pf-sg-table input').length) >= 100, '');
         const sw = await pn.evaluate(async () => (await (await fetch('./sw.js?nocache=' + Date.now())).text()).match(/CACHE_VERSION = '([^']*)'/)[1]);
-        check('sw.js の CACHE_VERSION が v1.61.2', sw === 'v1.61.2', sw);
+        // 版は「この変更を入れた v1.61.2 以上」であること(次の版に上げても、この検査は通り続ける。上げ忘れ=v1.61.1 以下は失敗する)
+        const vparts = String(sw).replace(/^v/, '').split('.').map(Number);
+        const swAtLeast = vparts.length === 3 && vparts.every(n => !isNaN(n)) && (vparts[0] > 1 || (vparts[0] === 1 && (vparts[1] > 61 || (vparts[1] === 61 && vparts[2] >= 2))));
+        check('sw.js の CACHE_VERSION が v1.61.2 以上', swAtLeast, sw);
         await pn.close();
 
         // ================= B. iPad 相当(タッチあり) =================

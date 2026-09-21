@@ -134,9 +134,6 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
                     + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth)
                     + hd.getBoundingClientRect().height + parseFloat(cs.rowGap)
                     + btnsWrap.getBoundingClientRect().height;
-                // v1.63.0: 5段階の取り消しボタンの行(margin-top＋gap＋ボタン高)も中身に数える
-                var cancelBtn = row.querySelector('.rec-cancel-btn');
-                if (cancelBtn) contentHeight += parseFloat(cs.rowGap) + parseFloat(getComputedStyle(cancelBtn).marginTop) + cancelBtn.getBoundingClientRect().height;
                 return {
                     contentHeight: contentHeight,
                     minHeight: parseFloat(cs.minHeight),
@@ -145,9 +142,9 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
                     btnHeights: btns.map(function(b) { return b.getBoundingClientRect().height; })
                 };
             });
-            // v1.63.0: 取り消しの行を足したので、下限(min-height)も 86→126px に。判定は「中身 ≤ 実際のmin-height」で、
-            // 下限を中身より小さくすると、グリッドの行が一覧の高さを分け合って縮み、カードが重なる(abc-cancel.test.js が30人で確認)。
-            check('①' + o.n + ' .rec-row.abc-row の内容量(padding+border+hd+gap+btns+取り消しの行)がmin-height以内',
+            // v1.63.1: 「取消」ボタンは見出し行(欠席ボタンの隣)に置いたので、中身も下限(min-height)も v1.62.0 と同じ(86px)。
+            // 判定は「中身 ≤ 実際のmin-height」(高さが v1.62.0 と一致することは abc-row-height.test.js が固定)。
+            check('①' + o.n + ' .rec-row.abc-row の内容量(padding+border+hd+gap+btns)がmin-height(86px)以内',
                 abc.contentHeight <= abc.minHeight + 0.01, 'contentHeight=' + abc.contentHeight.toFixed(1) + 'px / min-height=' + abc.minHeight + 'px');
             check('②' + o.n + ' .rec-abc-btn 全ボタンが44px以上',
                 abc.btnHeights.every(function(h) { return h >= 44; }), JSON.stringify(abc.btnHeights));

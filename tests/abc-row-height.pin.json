@@ -1,0 +1,482 @@
+{
+ "27人|iPad Air 横 1180x820|list": {
+  "n": 27,
+  "rowH": [
+   92
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 492,
+  "listClientH": 492,
+  "fullyVisible": 27
+ },
+ "27人|iPad Air 横 1180x820|continuous": {
+  "n": 27,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 494,
+  "wrapClientH": 494,
+  "expandedH": 70,
+  "gridHExpanded": 374
+ },
+ "27人|iPad Air 横 1180x820|seat": {
+  "n": 27,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 494,
+  "wrapClientH": 494
+ },
+ "27人|iPad Air 縦 820x1180|list": {
+  "n": 27,
+  "rowH": [
+   116.3
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 856,
+  "listClientH": 856,
+  "fullyVisible": 27
+ },
+ "27人|iPad Air 縦 820x1180|continuous": {
+  "n": 27,
+  "cellH": [
+   70
+  ],
+  "gridH": 678,
+  "wrapScrollH": 858,
+  "wrapClientH": 858,
+  "expandedH": 77,
+  "gridHExpanded": 761
+ },
+ "27人|iPad Air 縦 820x1180|seat": {
+  "n": 27,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 858,
+  "wrapClientH": 858
+ },
+ "27人|iPad 10世代 横 1080x810|list": {
+  "n": 27,
+  "rowH": [
+   90
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 482,
+  "listClientH": 482,
+  "fullyVisible": 27
+ },
+ "27人|iPad 10世代 横 1080x810|continuous": {
+  "n": 27,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 484,
+  "wrapClientH": 484,
+  "expandedH": 70,
+  "gridHExpanded": 374
+ },
+ "27人|iPad 10世代 横 1080x810|seat": {
+  "n": 27,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 484,
+  "wrapClientH": 484
+ },
+ "27人|iPad mini 横 1133x744|list": {
+  "n": 27,
+  "rowH": [
+   86
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 462,
+  "listClientH": 416,
+  "fullyVisible": 24
+ },
+ "27人|iPad mini 横 1133x744|continuous": {
+  "n": 27,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 418,
+  "wrapClientH": 418,
+  "expandedH": 70,
+  "gridHExpanded": 374
+ },
+ "27人|iPad mini 横 1133x744|seat": {
+  "n": 27,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 418,
+  "wrapClientH": 418
+ },
+ "27人|iPad Pro13 横 1366x1024|list": {
+  "n": 27,
+  "rowH": [
+   132.8
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 696,
+  "listClientH": 696,
+  "fullyVisible": 27
+ },
+ "27人|iPad Pro13 横 1366x1024|continuous": {
+  "n": 27,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 698,
+  "wrapClientH": 698,
+  "expandedH": 70,
+  "gridHExpanded": 374
+ },
+ "27人|iPad Pro13 横 1366x1024|seat": {
+  "n": 27,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 698,
+  "wrapClientH": 698
+ },
+ "30人|iPad Air 横 1180x820|list": {
+  "n": 30,
+  "rowH": [
+   92
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 492,
+  "listClientH": 492,
+  "fullyVisible": 30
+ },
+ "30人|iPad Air 横 1180x820|continuous": {
+  "n": 30,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 494,
+  "wrapClientH": 494,
+  "expandedH": 70,
+  "gridHExpanded": 450
+ },
+ "30人|iPad Air 横 1180x820|seat": {
+  "n": 30,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 494,
+  "wrapClientH": 494
+ },
+ "30人|iPad Air 縦 820x1180|list": {
+  "n": 30,
+  "rowH": [
+   101.1
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 856,
+  "listClientH": 856,
+  "fullyVisible": 30
+ },
+ "30人|iPad Air 縦 820x1180|continuous": {
+  "n": 30,
+  "cellH": [
+   70
+  ],
+  "gridH": 754,
+  "wrapScrollH": 858,
+  "wrapClientH": 858,
+  "expandedH": 77,
+  "gridHExpanded": 837
+ },
+ "30人|iPad Air 縦 820x1180|seat": {
+  "n": 30,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 858,
+  "wrapClientH": 858
+ },
+ "30人|iPad 10世代 横 1080x810|list": {
+  "n": 30,
+  "rowH": [
+   90
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 482,
+  "listClientH": 482,
+  "fullyVisible": 30
+ },
+ "30人|iPad 10世代 横 1080x810|continuous": {
+  "n": 30,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 484,
+  "wrapClientH": 484,
+  "expandedH": 70,
+  "gridHExpanded": 450
+ },
+ "30人|iPad 10世代 横 1080x810|seat": {
+  "n": 30,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 484,
+  "wrapClientH": 484
+ },
+ "30人|iPad mini 横 1133x744|list": {
+  "n": 30,
+  "rowH": [
+   86
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 462,
+  "listClientH": 416,
+  "fullyVisible": 24
+ },
+ "30人|iPad mini 横 1133x744|continuous": {
+  "n": 30,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 418,
+  "wrapClientH": 418,
+  "expandedH": 70,
+  "gridHExpanded": 450
+ },
+ "30人|iPad mini 横 1133x744|seat": {
+  "n": 30,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 418,
+  "wrapClientH": 418
+ },
+ "30人|iPad Pro13 横 1366x1024|list": {
+  "n": 30,
+  "rowH": [
+   132.8
+  ],
+  "hdH": [
+   24
+  ],
+  "nameH": [
+   15
+  ],
+  "btnsH": [
+   44
+  ],
+  "listScrollH": 696,
+  "listClientH": 696,
+  "fullyVisible": 30
+ },
+ "30人|iPad Pro13 横 1366x1024|continuous": {
+  "n": 30,
+  "cellH": [
+   70
+  ],
+  "gridH": 374,
+  "wrapScrollH": 698,
+  "wrapClientH": 698,
+  "expandedH": 70,
+  "gridHExpanded": 450
+ },
+ "30人|iPad Pro13 横 1366x1024|seat": {
+  "n": 30,
+  "cellH": [
+   73
+  ],
+  "numH": [
+   14
+  ],
+  "nameH": [
+   18
+  ],
+  "statusH": [
+   21
+  ],
+  "tops": 5,
+  "gridH": 405,
+  "wrapScrollH": 698,
+  "wrapClientH": 698
+ }
+}

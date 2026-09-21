@@ -1,4 +1,7 @@
-// v1.63.0: 児童の記録(点数入力)の A〜C・5段階を、児童1人ずつ取り消せる(「✕ 取り消し」ボタン)。
+// v1.63.0: 児童の記録(点数入力)の A〜C・5段階を、児童1人ずつ取り消せる(「取消」ボタン)。
+//   v1.63.1: ボタンを「欠席ボタンの隣」に、欠席ボタンと同じ見た目・同じ大きさ(38×24)で置く(v1.63.0 の専用の行は、27人が1画面に収まらなくなったため廃止)。
+//           取り消しの動作(記録を削除・元に戻す・競合なら書き戻さない・進捗・成績・欠席)は v1.63.0 のまま(この試験の動作の検査は変えていない)。
+//           高さの検査は abc-row-height.test.js(v1.62.0 と一致)。
 //   「取り消し」＝その児童のその課題の記録を消して未入力に戻す(score:'' の空の殻は残さない。v1.60.4 L7 案B と同じ考え方)。
 //   元に戻す: 8秒のトースト(uiUndoable。点数のキー1つだけ。名簿変更などの「取り消し点の枠」は使わない・触らない)。
 //   欠席中の児童は取り消せない(A〜Cの入力も欠席中は押せないのと同じ)。対象は A〜C・5段階だけ(数値入力・まとめテスト等は変えない)。
@@ -92,8 +95,10 @@ const without = (arr, testId, i) => arr.filter(s => !(s.testId === testId && s.s
         const b = document.querySelector(sel); if (!b) return null;
         const r = b.getBoundingClientRect(), cs = getComputedStyle(b);
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-        return { w: r.width, h: r.height, disabled: b.disabled, text: b.textContent.trim(), borderStyle: cs.borderTopStyle, inAbcBtns: !!b.closest('.rec-abc-btns'), isAbcBtn: b.classList.contains('rec-abc-btn'), hitSelf: hit === b || b.contains(hit) };
+        const prev = b.previousElementSibling;
+        return { w: r.width, h: r.height, disabled: b.disabled, text: b.textContent.trim(), borderStyle: cs.borderTopStyle, opacity: cs.opacity, inAbcBtns: !!b.closest('.rec-abc-btns'), isAbcBtn: b.classList.contains('rec-abc-btn'), asAbsent: b.classList.contains('sub-absent-btn'), afterAbsent: !!(prev && prev.classList.contains('sub-absent-btn')), hitSelf: hit === b || b.contains(hit) };
     }, sel);
+    let ABSENT_REF = null; // 欠席ボタン(リスト)の大きさ。取り消しボタンは、どの表示モードでもこれと同じ大きさ
 
     try {
         // ===== 準備: 成績の「対照」= 発言の乙(B+)を、はじめから入力していない場合の成績 =====
@@ -112,17 +117,30 @@ const without = (arr, testId, i) => arr.filter(s => !(s.testId === testId && s.s
             await openTest(1, mode);
 
             // ---- ボタンの見た目・大きさ・区別 ----
+            if (mode === 'list') ABSENT_REF = await page.evaluate(() => { const b = document.querySelector('#rec-row-1 .sub-absent-btn'); const r = b.getBoundingClientRect(); return { w: r.width, h: r.height, bg: getComputedStyle(b).backgroundColor, border: getComputedStyle(b).borderTopColor, color: getComputedStyle(b).color }; });
             const selOk = await openCancel(mode, 1);
             const bi = await btnInfo(selOk);
             check(M + '入力済み(乙B+)の児童に「取り消し」ボタンがあり、押せる', bi && bi.disabled === false, JSON.stringify(bi));
-            check(M + 'タップ領域が 44×44px 以上', bi && bi.w >= 44 && bi.h >= 44, bi ? bi.w.toFixed(1) + '×' + bi.h.toFixed(1) : 'なし');
-            check(M + '選択肢(A〜C)と区別できる(選択肢のボタンではない・点線の枠・「取り消し」の文字)', bi && !bi.isAbcBtn && !bi.inAbcBtns && bi.borderStyle === 'dashed' && /取り消し/.test(bi.text), JSON.stringify(bi));
+            check(M + '欠席ボタンと同じ大きさ(v1.63.1: 欠席ボタンが 38×24)', bi && ABSENT_REF && Math.abs(bi.w - ABSENT_REF.w) < 0.5 && Math.abs(bi.h - ABSENT_REF.h) < 0.5, bi ? bi.w.toFixed(1) + '×' + bi.h.toFixed(1) + ' / 欠席 ' + JSON.stringify(ABSENT_REF) : 'なし');
+            check(M + '選択肢(A〜C)と区別できる(選択肢のボタンではない・A〜Cの並びの外・「取消」の文字)。欠席ボタンと同じ見た目(class 共用)', bi && !bi.isAbcBtn && !bi.inAbcBtns && bi.asAbsent && /^取消$/.test(bi.text), JSON.stringify(bi));
+            if (mode === 'list') check(M + '欠席ボタンの隣(すぐ右)に並ぶ', bi && bi.afterAbsent === true, JSON.stringify(bi));
             check(M + 'ボタンの中心をタップすると、ボタン自身に当たる(ほかの要素に隠れていない)', bi && bi.hitSelf === true);
             if (mode !== 'continuous') {
                 const bUnfilled = await btnInfo(cancelSel(mode, 6));
                 check(M + '未入力(庚)の児童は「取り消し」が押せない(薄い)', bUnfilled && bUnfilled.disabled === true, JSON.stringify(bUnfilled));
                 const bAbsent = await btnInfo(cancelSel(mode, 5));
                 check(M + '欠席中(己)の児童も「取り消し」が押せない', bAbsent && bAbsent.disabled === true, JSON.stringify(bAbsent));
+                if (mode === 'list') {
+                    // 欠席中の行: 「欠席中」(濃く塗られた押された状態)と「取消」(薄い・押せない)が並んで、どちらが押されているか分かる
+                    const v = await page.evaluate(() => {
+                        const row = document.getElementById('rec-row-5');
+                        const a = row.querySelector('.sub-absent-btn:not(.rec-cancel-btn)'), c = row.querySelector('.rec-cancel-btn');
+                        const ca = getComputedStyle(a), cc = getComputedStyle(c);
+                        return { aOn: a.classList.contains('absent-on'), aText: a.textContent, aBg: ca.backgroundColor, cBg: cc.backgroundColor, aOpacity: parseFloat(ca.opacity), cOpacity: parseFloat(cc.opacity), aRight: a.getBoundingClientRect().right, cLeft: c.getBoundingClientRect().left };
+                    });
+                    check(M + '欠席中の行: 「欠席中」は濃く塗られて押された状態、「取消」は薄くて押せない状態(背景が違い、取消は薄い)', v.aOn && /欠席中/.test(v.aText) && v.aBg !== v.cBg && v.aOpacity === 1 && v.cOpacity < 0.6, JSON.stringify(v));
+                    check(M + '  → 「欠席中」と「取消」は重ならず並ぶ(欠席中の右に取消)', v.aRight <= v.cLeft + 0.5, JSON.stringify(v));
+                }
             }
             const P0 = await progress(), CP0 = await contProgress();
             check(M + '取り消す前の進捗は「6 / 7 人入力済み」(欠席の記録も数える。今までどおり)', /^6 \/ 7 人入力済み/.test(P0), P0);
@@ -232,19 +250,19 @@ const without = (arr, testId, i) => arr.filter(s => !(s.testId === testId && s.s
             await sleep(300);
             for (const mode of ['list', 'seat']) {
                 await openTest(1, mode);
-                const g = await page.evaluate((mode) => {
+                const g = await page.evaluate((mode, ref) => {
                     const cells = Array.from(document.querySelectorAll(mode === 'list' ? '#recList .rec-row.abc-row' : '#recSeatGrid .rec-seat-cell'));
                     const rects = cells.map(c => c.getBoundingClientRect());
                     let overflow = 0, overlap = 0, small = 0, btnOutside = 0, textCut = 0, textOverBtn = 0;
                     cells.forEach((c, i) => {
                         const cr = rects[i];
                         const b = c.querySelector('.rec-cancel-btn'); const br = b.getBoundingClientRect();
-                        if (br.width < 43.5 || br.height < 43.5) small++;
+                        if (Math.abs(br.width - ref.w) > 0.5 || Math.abs(br.height - ref.h) > 0.5) small++; // 欠席ボタンと同じ大きさ
                         if (br.bottom > cr.bottom + 0.5 || br.top < cr.top - 0.5 || br.right > cr.right + 0.5 || br.left < cr.left - 0.5) btnOutside++;
                         Array.from(c.children).forEach(ch => { const r = ch.getBoundingClientRect(); if (r.bottom > cr.bottom + 0.5 || r.top < cr.top - 0.5) overflow++; });
                         if (b.scrollWidth > b.clientWidth + 1) textCut++; // ボタンの文字が、ボタンの枠から切れていない
                         // 座席: 氏名・入力の文字が、取り消しボタンに重ならず、セルの中に収まる(狭いセルでは折り返してボタンを下に置く)
-                        c.querySelectorAll('.sub-seat-name, .sub-seat-status, .sub-row-name').forEach(el => {
+                        c.querySelectorAll('.sub-seat-num, .sub-seat-name, .sub-seat-status, .sub-row-name').forEach(el => {
                             const rg = document.createRange(); rg.selectNodeContents(el); const tr = rg.getBoundingClientRect();
                             if (tr.width && (tr.right > cr.right + 0.5 || tr.left < cr.left - 0.5)) textOverBtn++;
                             if (tr.width && tr.left < br.right - 0.5 && br.left < tr.right - 0.5 && tr.top < br.bottom - 0.5 && br.top < tr.bottom - 0.5) textOverBtn++;
@@ -252,9 +270,9 @@ const without = (arr, testId, i) => arr.filter(s => !(s.testId === testId && s.s
                         for (let j = i + 1; j < cells.length; j++) { const o = rects[j]; if (cr.left < o.right - 1 && o.left < cr.right - 1 && cr.top < o.bottom - 1 && o.top < cr.bottom - 1) overlap++; }
                     });
                     return { n: cells.length, overflow, overlap, small, btnOutside, textCut, textOverBtn };
-                }, mode);
+                }, mode, ABSENT_REF);
                 const M2 = '[' + vp.n + ' ' + (mode === 'list' ? 'リスト' : '座席') + '・30人] ';
-                check(M2 + '30人ぶんのカードがあり、どのカードもボタンが 44×44px 以上', g.n === 30 && g.small === 0, JSON.stringify(g));
+                check(M2 + '30人ぶんのカードがあり、どのカードもボタンが欠席ボタンと同じ大きさ', g.n === 30 && g.small === 0, JSON.stringify(g));
                 check(M2 + 'カードが重ならない・中身がカードからはみ出さない・ボタンがカードの中にある', g.overlap === 0 && g.overflow === 0 && g.btnOutside === 0, JSON.stringify(g));
                 check(M2 + '氏名・入力の文字が「取り消し」ボタンに重ならず、ボタンの文字も枠から切れない', g.textOverBtn === 0 && g.textCut === 0, JSON.stringify(g));
             }
@@ -269,7 +287,7 @@ const without = (arr, testId, i) => arr.filter(s => !(s.testId === testId && s.s
                 const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
                 return { inside: b.top >= list.top - 0.5 && b.bottom <= list.bottom + 0.5, front: hit === document.querySelector('#rec-row-29 .rec-cancel-btn') };
             });
-            check('[' + vp.n + '] リスト(30人): 縦になぞると最後の児童(30番)の「取り消し」まで届き、最前面でタップできる', reach.inside && reach.front, JSON.stringify(reach));
+            check('[' + vp.n + '] リスト(30人): 縦になぞると最後の児童(30番)の「取消」まで届き、最前面でタップできる', reach.inside && reach.front, JSON.stringify(reach));
             await cdp.detach();
         }
         await page.setViewport({ width: 1180, height: 820 });

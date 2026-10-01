@@ -1032,6 +1032,19 @@
         /* UI設計基準書v2 基準1: タップ最小値の共通クラス */
         .tappable { min-height: var(--tap-min); min-width: var(--tap-min); }
 
+        /* v1.63.2: 縦スクロールするリストの末尾余白(共通)。最下段のボタンが画面下端に
+           貼り付いて押しにくい不具合の修正。付与先はスクロール主体そのもの
+           (#view-kanji / 出席簿グリッドの外枠)。flex子のスクロールコンテナでは
+           padding-bottom が末尾に効かないことがあるため、::after で高さを確保する
+           (gridに付けた場合は1行ぶん全幅を占有)。
+           #recList / #subListWrap には付けない: 行を引き伸ばして30人を1画面に収める設計で、
+           末尾に高さを足すと行が縮み・リストがスクロールし始める(abc-row-height /
+           sub-progress-filter-merge-v1.47.0 の v1.62.0 高さ固定と衝突)。 */
+        .list-scroll-end::after {
+            content: ''; display: block; grid-column: 1 / -1; flex-shrink: 0;
+            height: calc(var(--tap-min) * 2 + env(safe-area-inset-bottom));
+        }
+
         /* なわとびカード */
         .rec-nawatobi-card {
             background: #FAFAFA; border: 2px solid var(--border);
@@ -2687,7 +2700,7 @@
                         <div class="att-stat-item">        <div class="val" id="attStatNoSchool">0</div> <div class="lbl">学閉・休校</div></div>
                         <div class="att-stat-item">        <div class="val" id="attStatTotal">0/0</div><div class="lbl">入力済</div></div>
                     </div>
-                    <div style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0;">
+                    <div class="list-scroll-end" style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0;">
                         <div class="attendance-grid" id="attGrid"></div>
                     </div>
                     <div class="att-quick-bar">
@@ -3623,7 +3636,7 @@
         </div>
 
         <!-- ===== 漢字チェック ===== -->
-        <div id="view-kanji" class="view">
+        <div id="view-kanji" class="view list-scroll-end">
             <div class="view-header" id="kanjiListHeader" style="align-items:center;gap:8px;flex-shrink:0;">
                 <h2 style="color:var(--white);margin:0;">✍️ 漢字チェック</h2>
                 <div class="hdr-actions" style="margin-left:auto;">

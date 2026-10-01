@@ -19,6 +19,12 @@
 //   5. 退行確認: 児童の記録(課題管理/統計/机間巡視)、提出物チェック(入力(個人)/
 //      統計/修養日誌/課題管理)、忘れ物チェック、成績処理統合が表示できる
 //
+// v1.63.2 追加: 最下段のボタンが画面下端に貼り付いて押しにくい不具合(.list-scroll-end)。
+//   ((A)(B)の #recList / #subListWrap は30人を1画面に収める設計のため対象外。index.html の .list-scroll-end 参照)
+//   (C) 漢字チェック(児童1人の入力層・漢字200字)で、スクロール主体の #view-kanji を最下部まで
+//       スクロールした時、最下段のチェックボタン(.kanji-grid-cell)の下端が可視領域の下端から
+//       --tap-min 以上離れている
+//
 // 実運用に近い負荷(教科複数でフィルタタブが折り返す・ルーブリック参照パネル展開)、
 // 縦横両向きで検証する(最小データでは42px/45px程度の超過に留まり不十分だったため)。
 //
@@ -63,7 +69,8 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
 
     const REAL_KEYS = await page.evaluate(() => ({
         master: KEYS.master, tests: KEYS.tests, scores: KEYS.scores,
-        submissions_assignments: KEYS.submissions_assignments, submissions_data: KEYS.submissions_data
+        submissions_assignments: KEYS.submissions_assignments, submissions_data: KEYS.submissions_data,
+        kanji: KEYS.kanji
     }));
     async function getKey(k) { return page.evaluate((kk) => StorageManager.getRaw(kk), k); }
     async function restoreKey(k, raw) {
@@ -95,15 +102,24 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
         });
         const openAssignId = assignments[0].id;
 
-        await page.evaluate(({ students, tests, assignments }) => {
+        // 漢字チェック: 1学年ぶん相当(200字)。入力層は横8列なので25行になり、縦横どちらでもスクロールする。
+        const KANJI_BASE = '一右雨円王音下火花貝学気九休玉金空月犬見五口校左三山子四糸字耳七車手十出女小上森人水正生青夕石赤千川先早草足村大男竹中虫町天田土二日入年白八百文木本名目立力林六';
+        const kanjiChars = [];
+        for (let i = 0; i < 200; i++) kanjiChars.push(KANJI_BASE[i % KANJI_BASE.length]);
+
+        await page.evaluate(({ students, tests, assignments, kanjiChars }) => {
             StorageManager.set(KEYS.master, JSON.stringify({ students: students, classInfo: { year: 2026, grade: 5, class: 1, termSystem: 3 } }));
             StorageManager.set(KEYS.tests, JSON.stringify(tests));
             StorageManager.set(KEYS.scores, JSON.stringify([]));
             StorageManager.set(KEYS.submissions_assignments, JSON.stringify(assignments));
             StorageManager.set(KEYS.submissions_data, JSON.stringify([]));
-        }, { students, tests: abcTests, assignments });
+            StorageManager.set(KEYS.kanji, JSON.stringify({ chars: kanjiChars, checks: {} }));
+        }, { students, tests: abcTests, assignments, kanjiChars });
         await page.reload({ waitUntil: 'networkidle0' });
         await new Promise(r => setTimeout(r, 200));
+
+        const TAP_MIN = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tap-min')));
+        check('--tap-min が数値で取得できる', TAP_MIN > 0, 'tap-min=' + TAP_MIN);
 
         // ------------------------------------------------------------
         // ヘルパー
@@ -246,6 +262,32 @@ const SUBJECTS = ['国語', '算数', '理科', '社会', '音楽', '図工', '�
                 rowSel: '.sub-input-row',
                 fixedSels: ['.view-header', '.sub-subnav', '#subFilterBar', '.sub-input-top', '#subProgressWrap']
             });
+
+            // (C) 漢字チェック: 一覧のタイルを実際にタップして入力層を開き、#view-kanji を最下部までスクロール
+            await page.evaluate(() => { showView('kanji'); });
+            await new Promise(r => setTimeout(r, 200));
+            await page.click('#kanjiTileGrid .kanji-tile-cell');
+            await new Promise(r => setTimeout(r, 200));
+            await scrollListToBottom('#view-kanji');
+            const kj = await page.evaluate(() => {
+                var sc = document.getElementById('view-kanji');
+                var cells = sc.querySelectorAll('#kanjiGrid .kanji-grid-cell');
+                var last = cells.length ? cells[cells.length - 1] : null;
+                var r = sc.getBoundingClientRect();
+                return {
+                    cellCount: cells.length,
+                    overflows: sc.scrollHeight > sc.clientHeight,
+                    atBottom: Math.abs(sc.scrollTop + sc.clientHeight - sc.scrollHeight) <= 1,
+                    visBottom: Math.min(r.top + sc.clientTop + sc.clientHeight, window.innerHeight),
+                    lastBottom: last ? last.getBoundingClientRect().bottom : null
+                };
+            });
+            check('(C)' + o.name + ' 漢字チェック入力層に200字ぶんのボタンが描画され、#view-kanji がスクロールする',
+                kj.cellCount === 200 && kj.overflows && kj.atBottom, JSON.stringify(kj));
+            const kjGap = kj.lastBottom === null ? -1 : kj.visBottom - kj.lastBottom;
+            check('(C)' + o.name + ' 漢字チェック: 最下段ボタンの下端がスクロールコンテナ可視領域の下端から --tap-min 以上離れている',
+                kjGap >= TAP_MIN, 'gap=' + kjGap.toFixed(1) + ' tap-min=' + TAP_MIN);
+            await page.evaluate(() => { kanjiBackToList(); });
         }
 
         // 横向きに戻す

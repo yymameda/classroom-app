@@ -416,9 +416,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 return { rows, cards };
             });
             evidence('M6 統計タブ 児童別% [甲,乙,丙,丁]', stats.rows.map(r => r.pct));
-            check('M6 提出物統計(児童別): 100/100/0/90%', stats.rows.map(r => r.pct).join() === '100,100,0,90', stats.rows.map(r => r.pct).join());
+            check('M6 提出物統計(児童別): 100/100/0/100%(v1.64.0: 提出率は全画面で件数ベース。丁は後日提出＋お直し前の再提出=2件÷2)', stats.rows.map(r => r.pct).join() === '100,100,0,100', stats.rows.map(r => r.pct).join());
             check('M6 提出物統計(児童別): 乙・丙の欠席分は未提出×に数えない(×0 / ×1)', stats.rows[1].ng === 0 && stats.rows[2].ng === 1, '乙×' + stats.rows[1].ng + ' 丙×' + stats.rows[2].ng);
-            check('M6 提出物統計(クラス): 提出率80%（credit4.8÷対象6）', stats.cards['提出率'] === '80%', stats.cards['提出率']);
+            check('M6 提出物統計(クラス): 提出率（件数）83%（提出5件÷対象6。v1.64.0）・評価点（10点換算）は成績と同じ8.0（評価点4.8÷対象6）のまま', stats.cards['提出率（件数）'] === '83%' && stats.cards['評価点（10点換算）'] === '8.0', JSON.stringify(stats.cards));
 
             // --- 提出物画面 入力タブの進捗(宿題1) ---
             const prog = await page.evaluate(() => {
@@ -441,7 +441,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 }, i));
             }
             evidence('M6 個人カルテ提出率 [甲,乙,丙,丁]', karte.map(k => k.rate));
-            check('M6 個人カルテ 提出率: 100/100/0/90%(v1.60.0 M2: 丁は後日提出1.0＋お直し前の再提出0.8=1.8÷2。成績と同じ数え方)', karte.map(k => k.rate).join() === '100%,100%,0%,90%', karte.map(k => k.rate).join());
+            check('M6 個人カルテ 提出率: 100/100/0/100%(v1.64.0: カルテは件数ベース。丁は後日提出＋お直し前の再提出=2件÷2。成績・面談テキスト・ダッシュボードは評価点の90%のまま)', karte.map(k => k.rate).join() === '100%,100%,0%,100%', karte.map(k => k.rate).join());
             check('M6 個人カルテ: 丁(期限日欠席の後日提出)は提出遅れにならない', karte[3].late === false, String(karte[3].late));
             check('M6 個人カルテ: 乙の未提出は0件・丙は1件(欠席分は数えない)', karte[1].miss === '0' && karte[2].miss === '1', '乙' + karte[1].miss + ' 丙' + karte[2].miss);
 
@@ -451,7 +451,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 return { rate: st.rate, labels: st.rows.map(r => r.label).join('/') };
             }), assigns, subs);
             evidence('M6 PDF提出率 [甲,乙,丙,丁]', pdf.map(x => x.rate));
-            check('M6 PDF個票 提出率: 100/100/0/90%(v1.60.0 M2: 成績と同じ数え方)', pdf.map(x => x.rate).join() === '100%,100%,0%,90%', pdf.map(x => x.rate).join());
+            check('M6 PDF個票 提出率: 100/100/0/100%(v1.64.0: カルテPDFは件数ベース)', pdf.map(x => x.rate).join() === '100%,100%,0%,100%', pdf.map(x => x.rate).join());
             check('M6 PDF個票: 乙の宿題1は「欠席(対象外)」表示で★未提出にならない', /対象外/.test(pdf[1].labels) && !/★未提出/.test(pdf[1].labels.split('/')[0]), pdf[1].labels);
 
             // --- 面談用テキスト ---
@@ -466,7 +466,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             const clip = await page.evaluate(() => window.__clip || '');
             const conf = names.map(n => { const m = new RegExp('氏名：' + n + '[\\s\\S]*?【提出物（(\\d+)%）】').exec(clip); return m ? m[1] : '?'; });
             evidence('M6 面談テキスト提出率 [甲,乙,丙,丁]', conf);
-            check('M6 面談テキスト 提出率: 100/100/0/90%(v1.60.0 M2: 成績と同じ数え方)', conf.join() === '100,100,0,90', conf.join());
+            check('M6 面談テキスト 提出率: 100/100/0/100%(v1.64.0: 件数ベース)', conf.join() === '100,100,0,100', conf.join());
 
             // --- ダッシュボード ---
             const dash = await page.evaluate(() => {
@@ -481,8 +481,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 return { cls: cls, one: one };
             });
             evidence('M6 ダッシュボード 児童別 [甲,乙,丙,丁] / クラス', { one: dash.one, cls: dash.cls });
-            check('M6 ダッシュボード(児童): 100/100/0/90%(v1.60.0 M2: 成績と同じ数え方)', dash.one.join() === '100,100,0,90', dash.one.join());
-            check('M6 ダッシュボード(クラス): 80%（評価点4.8÷対象6。v1.60.0 M2で数え方を成績に揃えたが、この題材では同じ値）', dash.cls === '80%', dash.cls);
+            check('M6 ダッシュボード(児童): 100/100/0/100%(v1.64.0: 件数ベース)', dash.one.join() === '100,100,0,100', dash.one.join());
+            check('M6 ダッシュボード(クラス): 83%（v1.64.0: 件数ベース＝提出5件÷対象6。期限日欠席の未提出は分母から除外のまま）', dash.cls === '83%', dash.cls);
 
             // --- データ出力 提出物CSV ---
             await page.evaluate(() => { showView('export'); });

@@ -3,6 +3,9 @@
 //   提出率 = 評価点の合計 ÷ 対象件数。期限日に欠席かつ未提出は分母から除外(M6)・後日提出は「提出」扱いで遅れ係数を掛けない(M6)・
 //   遅れ係数は提出物チェックの提出記録だけ(M8)。これらの既存方針は変えない。成績画面の値は変えない。
 //   対象: 個人カルテ画面・カルテPDF(児童用/教員用)・提出物の一括PDF・面談用テキスト・ダッシュボード(児童別/クラス)。
+//   v1.64.0(先生の方針): 提出率の表示は全画面で件数ベース(提出した件数÷対象。遅れて提出・お直し前の再提出も1件)に統一。
+//   0.8倍(お直し前・遅れ上限)は成績の評価点だけ(成績処理・提出物統計の「評価点（10点換算）」・レーダーPDFの「評価点 x/y」)。
+//   提出率の期待値は EXPECT_KARTE(件数)、成績の期待値は EXPECT(評価点)。詳細は karte-submission-count-checkedat.test.js。
 //   以前は「(提出+再提出)÷課題数」(お直し済み・遅れを見ない)や「(提出+再提出×0.8)÷対象」(お直し済み・遅れを見ない)で、画面ごとに値が違った。
 //
 // 実行前提: リポジトリルートで `python3 -m http.server 8123` を起動しておくこと
@@ -72,8 +75,11 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ];
     const att = { '2026-05-18': { '0': '×', '3': '×' } };
     const names = ['甲', '乙', '丙', '丁'];
-    const EXPECT = [72, 93, 0, 100];
-    const EXPECT_CLASS = 66;
+    const EXPECT = [72, 93, 0, 100];   // 評価点の割合(成績の10点換算の元。v1.63.x までは提出率にも使っていた)。クラスは評価点15.2÷23=66%
+    // v1.64.0: 提出率は全画面で件数ベース 甲(提出2+再提出2)÷対象5=80%・乙6/6=100%(遅れ2件も1件ずつ)・丙0%・丁6/6=100%
+    //   クラス: (4+6+0+6=16)÷23 = 70%
+    const EXPECT_KARTE = [80, 100, 0, 100];
+    const EXPECT_CLASS_COUNT = 70;
     const asPct = (arr) => arr.map(x => x + '%').join(',');
 
     try {
@@ -106,7 +112,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
                 return (c.querySelector('.ks-card.submission .ks-card-value') || {}).textContent;
             }, i));
         }
-        check('個人カルテ画面: 提出率 甲72・乙93・丙0・丁100%(成績の数え方)', karte.join() === asPct(EXPECT), karte.join());
+        check('個人カルテ画面: 提出率 甲80・乙100・丙0・丁100%(v1.64.0: 件数ベース)', karte.join() === asPct(EXPECT_KARTE), karte.join());
 
         // ============ 2. カルテPDF(児童用・教員用) ============
         const pdf = async (design, idx) => page.evaluate((design, idx) => {
@@ -124,8 +130,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const rateOfTeacher = (html) => { const m = /提出物（提出率 (\d+%|-)）/.exec(html); return m ? m[1] : '?'; };
         const pdfChild = [], pdfTeacher = [];
         for (let i = 0; i < 4; i++) { pdfChild.push(rateOfChild(await pdf('child', i))); pdfTeacher.push(rateOfTeacher(await pdf('teacher', i))); }
-        check('カルテPDF(児童用): 提出率 甲72・乙93・丙0・丁100%', pdfChild.join() === asPct(EXPECT), pdfChild.join());
-        check('カルテPDF(教員用): 提出物の見出しの提出率 甲72・乙93・丙0・丁100%', pdfTeacher.join() === asPct(EXPECT), pdfTeacher.join());
+        check('カルテPDF(児童用): 提出率 甲80・乙100・丙0・丁100%(v1.64.0: 件数ベース)', pdfChild.join() === asPct(EXPECT_KARTE), pdfChild.join());
+        check('カルテPDF(教員用): 提出物の見出しの提出率 甲80・乙100・丙0・丁100%(v1.64.0: 件数ベース)', pdfTeacher.join() === asPct(EXPECT_KARTE), pdfTeacher.join());
         const pdfHtml = await pdf('child', 0);
         check('カルテPDF: 課題数・提出済・再提出の件数の表示は今までどおり(課題数6件・提出済2件・再提出2件)', /課題数<\/div><div[^>]*>6<span/.test(pdfHtml) && /提出済<\/div><div[^>]*>2<span/.test(pdfHtml) && /再提出<\/div><div[^>]*>2<span/.test(pdfHtml), '');
 
@@ -137,7 +143,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             printAllKarte('submissions');
             return (window.__pdfPages || []).map(h => { const m = /提出率<\/div><div[^>]*>(\d+%|-)</.exec(h); return m ? m[1] : '?'; });
         });
-        check('提出物の一括PDF: 提出率 甲72・乙93・丙0・丁100%', bulk.join() === asPct(EXPECT), bulk.join());
+        check('提出物の一括PDF: 提出率 甲80・乙100・丙0・丁100%(v1.64.0: カルテなので件数ベース)', bulk.join() === asPct(EXPECT_KARTE), bulk.join());
 
         // 一括PDFの全項目モード(画面のボタンからは呼ばれない旧経路。同じ計算に揃えてある)
         const bulkAll = await page.evaluate(() => {
@@ -145,7 +151,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             printAllKarte();
             return (window.__pdfPages || []).map(h => { const m = /提出率<\/td><td[^>]*>(\d+%|-)</.exec(h); return m ? m[1] : '?'; });
         });
-        check('一括PDFの全項目モード(旧経路): 提出率 甲72・乙93・丙0・丁100%(提出物モードと同じ計算)', bulkAll.join() === asPct(EXPECT), bulkAll.join());
+        check('一括PDFの全項目モード(旧経路): 提出率 甲80・乙100・丙0・丁100%(提出物モードと同じ計算)', bulkAll.join() === asPct(EXPECT_KARTE), bulkAll.join());
 
         // ============ 4. 面談用テキスト ============
         await page.evaluate(() => {
@@ -157,7 +163,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         await sleep(150);
         const clip = await page.evaluate(() => window.__clip || '');
         const conf = names.map(n => { const m = new RegExp('氏名：' + n + '[\\s\\S]*?【提出物（(\\d+)%）】').exec(clip); return m ? m[1] + '%' : '?'; });
-        check('面談用テキスト: 提出物の提出率 甲72・乙93・丙0・丁100%', conf.join() === asPct(EXPECT), conf.join());
+        check('面談用テキスト: 提出物の提出率 甲80・乙100・丙0・丁100%(v1.64.0: 件数ベース)', conf.join() === asPct(EXPECT_KARTE), conf.join());
         const confCounts = names.map(n => { const m = new RegExp('氏名：' + n + '[\\s\\S]*?提出済 (\\d+)件／再提出 (\\d+)件／未提出 (\\d+)件').exec(clip); return m ? m.slice(1, 4).join('/') : '?'; });
         check('面談用テキスト: 提出済・再提出・未提出の件数の表示は今までどおり(甲2/2/1・乙6/0/0・丙0/0/6・丁6/0/0)', confCounts.join() === '2/2/1,6/0/0,0/0/6,6/0/0', confCounts.join());
 
@@ -173,22 +179,26 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             }
             return { cls, one };
         });
-        check('ダッシュボード(児童別): 提出率 甲72・乙93・丙0・丁100%', dash.one.join() === asPct(EXPECT), dash.one.join());
-        check('ダッシュボード(クラス): 提出率 66%(評価点15.2÷対象23)', dash.cls === EXPECT_CLASS + '%', dash.cls);
+        check('ダッシュボード(児童別): 提出率 甲80・乙100・丙0・丁100%(v1.64.0: 件数ベース)', dash.one.join() === asPct(EXPECT_KARTE), dash.one.join());
+        check('ダッシュボード(クラス): 提出率 70%(v1.64.0: 提出16件÷対象23。以前は評価点15.2÷23=66%)', dash.cls === EXPECT_CLASS_COUNT + '%', dash.cls);
 
-        // ============ 6. すでに成績の数え方の画面(提出物統計)とも、クラス・児童別が一致する ============
+        // ============ 6. 提出物統計: 提出率（件数）はほかの画面と一致・評価点（10点換算）は成績のまま ============
         const stats = await page.evaluate(() => {
             showView('submissions');
             const t = document.getElementById('subTermSel'); t.value = 'all'; t.dispatchEvent(new Event('change'));
             document.querySelector('.sub-subnav-btn[data-sub="stats"]').click();
             const rows = Array.from(document.querySelectorAll('#subStudentStats .sub-student-row')).map(r => { const b = r.querySelector('.sub-stu-badges'); const p = b && b.querySelector('span:last-child'); return p ? parseInt(p.textContent, 10) + '%' : '?'; });
+            const scores = Array.from(document.querySelectorAll('#subStudentStats .sub-student-row .sub-stu-score')).map(e => e.textContent);
             const cards = {};
             document.querySelectorAll('#subStatsCards .sub-stat-card').forEach(c => { cards[(c.querySelector('.sub-stat-label') || {}).textContent] = (c.querySelector('.sub-stat-val') || {}).textContent; });
-            return { rows, cls: cards['提出率'] };
+            const legend = (document.querySelector('#subStudentStats .sub-stu-legend') || {}).textContent || '';
+            return { rows, scores, cls: cards['提出率（件数）'], cls10: cards['評価点（10点換算）'], labels: Object.keys(cards), legend };
         });
-        check('提出物統計(元から成績の数え方): 児童別・クラスが、ダッシュボード・カルテと同じ数字(72/93/0/100・66%)', stats.rows.join() === asPct(EXPECT) && stats.cls === EXPECT_CLASS + '%', stats.rows.join() + ' / ' + stats.cls);
+        check('提出物統計: 児童別・クラスの提出率（件数）が、カルテ・ダッシュボード・面談テキストと同じ数字(80/100/0/100・70%)', stats.rows.join() === asPct(EXPECT_KARTE) && stats.cls === EXPECT_CLASS_COUNT + '%', stats.rows.join() + ' / ' + stats.cls);
+        check('提出物統計: 10点換算は成績と同じ評価点のまま(児童別 7.2/9.3/0.0/10.0・クラス 6.6＝評価点15.2÷23)', stats.scores.join() === '7.2,9.3,0.0,10.0' && stats.cls10 === '6.6', stats.scores.join() + ' / ' + stats.cls10);
+        check('提出物統計: ラベルで「提出率（件数）」と「評価点（10点換算）」を区別し、「提出率」だけの曖昧なラベルは無い・児童別に見出し', stats.labels.indexOf('提出率（件数）') >= 0 && stats.labels.indexOf('評価点（10点換算）') >= 0 && stats.labels.indexOf('提出率') < 0 && /提出率（件数）/.test(stats.legend) && /評価点（10点換算）/.test(stats.legend), JSON.stringify(stats.labels) + ' / ' + stats.legend);
 
-        // ============ 7. PDF個票の計算関数(calcSubmissionStats)は、成績の提出評価と同じ ============
+        // ============ 7. PDF個票の計算関数(calcSubmissionStats): 分母・件数と、成績の提出評価の規則(評価点) ============
         const calc = await page.evaluate((assigns, subs) => [0, 1, 2, 3].map(i => calcSubmissionStats(i, assigns, subs)), assigns, subs);
         check('カルテの提出状況の計算: 対象(分母)は 甲5・乙6・丙6・丁6(期限日欠席の未提出は対象外)、件数は今までどおり', JSON.stringify(calc.map(c => [c.counted, c.excused, c.ok, c.re, c.miss])) === '[[5,1,2,2,1],[6,0,6,0,0],[6,0,0,0,6],[6,0,6,0,0]]', JSON.stringify(calc.map(c => [c.counted, c.excused, c.ok, c.re, c.miss])));
         // 成績の提出評価の関数と同じ規則(お直し済み1.0・お直し前0.8・遅れ上限0.8・期限日欠席の後日提出は遅れなし)

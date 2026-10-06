@@ -1428,6 +1428,10 @@
         .ks-missing-status { flex:none; font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; color:var(--white); white-space:nowrap; }
         .ks-missing-subj { flex:none; font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:4px; background:var(--secondary); color:var(--primary); white-space:nowrap; }
         .ks-missing-checked { flex:none; font-size:0.64rem; color:var(--text-light); white-space:nowrap; }
+        /* v1.64.0: 課題ごとの記録(提出状況)。遅れて提出の小さな札・チェック日時。色は既存の変数だけ */
+        .ks-late-tag { flex:none; font-size:0.6rem; font-weight:700; padding:0 5px; border-radius:4px; border:1px solid var(--accent); color:var(--accent); white-space:nowrap; }
+        .ks-sub-checked { flex:none; font-size:0.64rem; color:var(--text-light); white-space:nowrap; font-variant-numeric:tabular-nums; }
+        .ks-sub-all > summary { font-size:0.72rem; font-weight:700; color:var(--text-light); cursor:pointer; min-height:var(--tap-min); display:flex; align-items:center; }
         .ks-recent { margin-top: 0.5rem; }
         .ks-recent-title { font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 0.4rem; }
         /* 生活記録 */
@@ -7929,7 +7933,7 @@
                 return a.date && a.date.slice(0, 7) === ym; // v1.8.88: 実フィールド名は date
             });
             if (monthAssigns.length === 0) monthAssigns = assigns; // なければ全件
-            var ok = 0, credit2 = 0, total2 = 0;
+            var ok = 0, tlC = window.grdSubmissionTallyNew();
             if (monthAssigns.length && master.students.length) {
                 // v1.50.0: 期限日に欠席かつ未提出の児童×課題は分母から除外する(判定は grdSubmissionJudge に集約)
                 var attC = StorageManager.get(KEYS.attendance, {});
@@ -7939,13 +7943,11 @@
                     for (var si = 0; si < master.students.length; si++) {
                         var s = recC[String(a.id) + '_' + si] || null;
                         var jdC = window.grdSubmissionJudge(si, a, s, attC);
-                        if (jdC.excused) continue;
-                        total2++;
-                        credit2 += jdC.credit; // v1.60.0 (M2): 提出率は成績と同じ数え方(評価点の合計÷対象。お直し済み1.0・お直し前0.8・遅れ上限0.8)
-                        if (s && s.status === 'submitted') ok++;
+                        window.grdSubmissionTallyAdd(tlC, jdC); // v1.64.0: 提出率は件数ベース(提出した件数÷対象。0.8倍は成績の評価点だけ)
+                        if (!jdC.excused && s && s.status === 'submitted') ok++;
                     }
                 });
-                var subPct = total2 ? Math.round(credit2 / total2 * 100) : 0;
+                var subPct = window.grdSubmissionRatePct(tlC) || 0;
                 document.getElementById('statSubmission').textContent = subPct + '%';
                 document.getElementById('statSubmissionDetail').textContent =
                     ok + '件提出 / ' + monthAssigns.length + '課題';
@@ -8025,7 +8027,7 @@
         try {
             var assigns2 = StorageManager.get(KEYS.submissions_assignments, []);
             var subs2    = StorageManager.get(KEYS.submissions_data, []);
-            var ok2 = 0, credit3 = 0, cnt2 = 0;
+            var ok2 = 0, tl2 = window.grdSubmissionTallyNew();
             var att2 = StorageManager.get(KEYS.attendance, {});
             assigns2.forEach(function(a) {
                 var sub = subs2.find(function(s2) {
@@ -8033,12 +8035,11 @@
                            (s2.studentIndex === idx || String(s2.studentIndex) === String(idx));
                 });
                 var jd2 = window.grdSubmissionJudge(idx, a, sub, att2);
-                if (jd2.excused) return; // v1.50.0: 期限日欠席の未提出は分母から除外
-                cnt2++;
-                credit3 += jd2.credit; // v1.60.0 (M2): 提出率は成績と同じ数え方
-                if (sub && sub.status === 'submitted') ok2++;
+                window.grdSubmissionTallyAdd(tl2, jd2); // v1.50.0: 期限日欠席の未提出は分母から除外。v1.64.0: 提出率は件数ベース
+                if (!jd2.excused && sub && sub.status === 'submitted') ok2++;
             });
-            var subPct2 = cnt2 ? Math.round(credit3 / cnt2 * 100) : null;
+            var cnt2 = tl2.counted;
+            var subPct2 = window.grdSubmissionRatePct(tl2);
             html += dashKarteRow('📚 提出率', subPct2 !== null ? subPct2 + '%' : '—',
                 ok2 + '件提出 / ' + cnt2 + '課題',
                 subPct2 !== null ? (subPct2 >= 80 ? 'var(--success)' : subPct2 >= 60 ? '#B7950B' : 'var(--danger)') : '#888');
@@ -14877,19 +14878,19 @@
                 L.push('出席停止・忌引等 ' + att.excused + '日'); // v1.8.95
 
                 // 提出物（全教科）
-                var subOk = 0, subRe = 0, subMiss = 0, subEx = 0, subCredit = 0, missList = [];
+                var subOk = 0, subRe = 0, subMiss = 0, missList = [], tlS = window.grdSubmissionTallyNew();
                 allAssigns.forEach(function(a) {
                     var r = subsData.find(function(r2) { return Number(r2.studentIndex) === idx && Number(r2.assignmentId) === Number(a.id); }); // v1.8.93: 型非依存に
                     var jdS = window.grdSubmissionJudge(idx, a, r, attAll);
-                    if (jdS.excused) { subEx++; return; } // v1.50.0: 期限日欠席の未提出は分母から除外
-                    subCredit += jdS.credit; // v1.60.0 (M2): 提出率は成績と同じ数え方
+                    window.grdSubmissionTallyAdd(tlS, jdS); // v1.64.0: 提出率は件数ベース(0.8倍は成績の評価点だけ)
+                    if (jdS.excused) return; // v1.50.0: 期限日欠席の未提出は分母から除外
                     if (r && r.status === 'submitted') subOk++;
                     else if (r && r.status === 'resubmit') { subRe++; missList.push(a.name + '（再提出）'); }
                     else { subMiss++; missList.push(a.name + '（未提出）'); }
                 });
-                var subT = subOk + subRe + subMiss; // 提出率の分母(対象外を除く)
+                var subEx = tlS.excused, subPctS = window.grdSubmissionRatePct(tlS);
                 L.push('');
-                L.push('【提出物' + (subT > 0 ? ('（' + Math.round(subCredit / subT * 100) + '%）') : '') + '】');
+                L.push('【提出物' + (subPctS !== null ? ('（' + subPctS + '%）') : '') + '】');
                 if (allAssigns.length > 0) {
                     L.push('提出済 ' + subOk + '件／再提出 ' + subRe + '件／未提出 ' + subMiss + '件' + (subEx > 0 ? '／欠席（対象外） ' + subEx + '件' : ''));
                     if (missList.length) L.push('未提出・再提出：' + missList.join('、'));
@@ -15515,6 +15516,8 @@
             var subOk = 0, subRe = 0, subMiss = 0, subTotal = 0, subCounted = 0, subExcused = 0, subCredit = 0; // subCounted=提出率の分母(期限日欠席の未提出を除く)。subCredit=成績と同じ評価点の合計(v1.60.0 M2)
             var subMissList = [];
             var subLate = 0, subLateList = [];
+            var subDone = 0, subAllRows = []; // v1.64.0: subDone=提出した件数(提出率の分子)。subAllRows=課題ごとの記録(状態・遅れて提出・チェック日時)
+            var subTally = window.grdSubmissionTallyNew ? window.grdSubmissionTallyNew() : { counted: 0, done: 0, excused: 0, credit: 0 };
             var subAllTotal = 0, subExcludedCount = 0; // v1.20.3: 学期フィルタで除外された件数（課題＋テスト由来の提出遅れを合算）
             try {
                 var allAssigns = karteSafeGet(KEYS.submissions_assignments, []);
@@ -15531,15 +15534,20 @@
                         return String(s2.assignmentId) === String(a.id) && String(s2.studentIndex) === String(idx);
                     });
                     var jd = window.grdSubmissionJudge(idx, a, sub, subAtt);
-                    if (jd.excused) { subExcused++; return; }
-                    subCounted++;
-                    subCredit += jd.credit;
-                    if (sub && sub.status === 'submitted') { subOk++; }
-                    else if (sub && sub.status === 'resubmit') { subRe++; subMissList.push({ name: a.name, status: '再提出', subject: a.subject || '', checkedAt: sub.createdAt || '' }); }
-                    else { subMiss++; subMissList.push({ name: a.name, status: '未提出', subject: a.subject || '', checkedAt: (sub && sub.createdAt) || '' }); }
-                    if (jd.late) { subLate++; subLateList.push({ name: a.name, subject: a.subject || '', checkedAt: sub.createdAt || '' }); }
+                    // v1.64.0: 🕑 はチェック日時(checkedAt)。以前の createdAt は自動保存のたびに今の時刻になり、チェックの時刻ではなかった
+                    var chkAt = (jd.submitted && sub && sub.checkedAt) || '';
+                    window.grdSubmissionTallyAdd(subTally, jd); // v1.64.0: 提出率は全画面共通の件数ベース
+                    if (jd.excused) { subAllRows.push({ name: a.name, subject: a.subject || '', status: '欠席（対象外）', color: '#757575', late: false, checkedAt: '' }); return; }
+                    if (sub && sub.status === 'submitted') { subOk++; subAllRows.push({ name: a.name, subject: a.subject || '', status: '提出済', color: 'var(--success)', late: jd.late, checkedAt: chkAt }); }
+                    else if (sub && sub.status === 'resubmit') { subRe++; subMissList.push({ name: a.name, status: '再提出', subject: a.subject || '', checkedAt: chkAt }); subAllRows.push({ name: a.name, subject: a.subject || '', status: '再提出', color: '#B7950B', late: jd.late, checkedAt: chkAt }); }
+                    else { subMiss++; subMissList.push({ name: a.name, status: '未提出', subject: a.subject || '', checkedAt: '' }); subAllRows.push({ name: a.name, subject: a.subject || '', status: '未提出', color: 'var(--danger)', late: false, checkedAt: '' }); }
+                    if (jd.late) { subLate++; subLateList.push({ name: a.name, subject: a.subject || '', checkedAt: chkAt }); }
                 });
-                subRate = subCounted > 0 ? Math.round(subCredit / subCounted * 100) + '%' : '-'; // v1.60.0 (M2): 成績と同じ数え方(以前は(提出+再提出)÷対象)
+                // v1.64.0: 提出率は件数ベース(提出した件数÷対象。遅れて提出・お直し前の再提出も1件)。成績の評価点(subCredit)は成績処理のまま
+                //   (v1.60.0〜v1.63.x は評価点の合計÷対象で、全部出しても遅れがあると100%にならなかった)
+                subCounted = subTally.counted; subDone = subTally.done; subExcused = subTally.excused; subCredit = subTally.credit;
+                var subPctK = window.grdSubmissionRatePct(subTally);
+                subRate = subPctK !== null ? subPctK + '%' : '-';
                 var recAllScores = karteSafeGet(KEYS.scores, []);
                 var recAllTests = karteSafeGet(KEYS.tests, []);
                 recAllScores.forEach(function(sc) {
@@ -15730,7 +15738,7 @@
                     subMissList.slice(0, 5).forEach(function(item) {
                         var col = item.status === '未提出' ? 'var(--danger)' : '#B7950B';
                         var subjTag = item.subject ? '<span class="ks-missing-subj">' + escapeHtml(item.subject) + '</span>' : '';
-                        var chk = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+                        var chk = item.checkedAt ? window.subFormatCheckedAt(item.checkedAt) : ''; // v1.64.0: M/D HH:mm にそろえる
                         var chkTag = chk ? '<span class="ks-missing-checked">🕑' + chk + '</span>' : '';
                         subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + chkTag + '<span class="ks-missing-status" style="background:' + col + ';">' + item.status + '</span></div>';
                     });
@@ -15741,12 +15749,24 @@
                     subDetailHtml += '<div style="margin-top:4px;">';
                     subLateList.slice(0, 5).forEach(function(item) {
                         var subjTag = item.subject ? '<span class="ks-missing-subj">' + escapeHtml(item.subject) + '</span>' : '';
-                        var chk = item.checkedAt ? new Date(item.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+                        var chk = item.checkedAt ? window.subFormatCheckedAt(item.checkedAt) : ''; // v1.64.0: M/D HH:mm にそろえる
                         var chkTag = chk ? '<span class="ks-missing-checked">🕑' + chk + '</span>' : '';
                         subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + chkTag + '<span class="ks-missing-status" style="background:var(--accent);">提出遅れ</span></div>';
                     });
                     if (subLateList.length > 5) subDetailHtml += '<div style="margin-top:4px;font-size:0.72rem;color:var(--text);padding:0 6px;">ほか ' + (subLateList.length - 5) + ' 件</div>';
                     subDetailHtml += '</div>';
+                }
+                // v1.64.0: 課題ごとの記録(対象学期の全課題。状態・遅れて提出・チェック日時 M/D HH:mm／日時なしは「―」)。課題が多いので折りたたむ
+                if (subAllRows.length > 0) {
+                    subDetailHtml += '<details class="ks-sub-all" style="margin-top:4px;"><summary>📋 課題ごとの記録（' + subAllRows.length + '件・チェック日時つき）</summary>';
+                    subAllRows.forEach(function(item) {
+                        var subjTag = item.subject ? '<span class="ks-missing-subj">' + escapeHtml(item.subject) + '</span>' : '';
+                        var lateTag = item.late ? '<span class="ks-late-tag">遅れて提出</span>' : '';
+                        subDetailHtml += '<div class="ks-missing-row">' + subjTag + '<span class="ks-missing-name">' + escapeHtml(item.name) + '</span>' + lateTag
+                            + '<span class="ks-sub-checked">🕑' + escapeHtml(window.subFormatCheckedAt(item.checkedAt)) + '</span>'
+                            + '<span class="ks-missing-status" style="background:' + item.color + ';">' + item.status + '</span></div>';
+                    });
+                    subDetailHtml += '</details>';
                 }
             }
             subDetailHtml += '</div></div>';
@@ -16338,6 +16358,15 @@
             return _a;
         }
         function subSaveSubmissions(arr) { StorageManager.set(KEYS.submissions_data, JSON.stringify(arr)); }
+        // v1.64.0: 提出記録のチェック日時(checkedAt・ISO文字列)＝○提出／△再提出を付けた時刻。カルテの課題ごとの記録・PDFに出す。
+        //   (createdAt は自動保存のたびにその課題の全員分が今の時刻になるため、チェックの時刻には使えない)
+        //   同じ状態のまま保存し直したとき(ほかの児童の入力・お直し・遅れの付け外し)は前の時刻を引き継ぐ。前の記録に時刻が無ければ無いまま(過去の記録に時刻を作らない)。
+        //   状態が変わったら今の時刻。未提出・欠席だけの記録には付けない(チェックを外すと記録ごと消えるか未提出になるので、時刻も消える)。
+        function subResolveCheckedAt(prev, status, nowIso) {
+            if (status !== 'submitted' && status !== 'resubmit') return undefined;
+            if (prev && prev.status === status) return prev.checkedAt || undefined;
+            return nowIso;
+        }
         function subGetDiary() {
             return StorageManager.get(KEYS.submissions_diary, {});
         }
@@ -16989,7 +17018,11 @@
         function subAutoSave() {
             if (!subCurrentAssign) return;
             var students = subGetStudents();
-            var subs = subGetSubmissions().filter(function(s) { return s.assignmentId !== subCurrentAssign; });
+            var allSubs = subGetSubmissions();
+            var prevByIdx = {}; // v1.64.0: チェック日時を引き継ぐための、保存前のこの課題の記録
+            allSubs.forEach(function(s) { if (s && s.assignmentId === subCurrentAssign) prevByIdx[s.studentIndex] = s; });
+            var subs = allSubs.filter(function(s) { return s.assignmentId !== subCurrentAssign; });
+            var nowIso = new Date().toISOString();
             students.forEach(function(_, i) {
                 var row = document.querySelector('#subListWrap .sub-input-row[data-idx="' + i + '"]');
                 if (!row) return;
@@ -17008,6 +17041,8 @@
                 var rec = { id: Date.now() + i, studentIndex: i, assignmentId: subCurrentAssign, status: st, correctionDone: corrDone, createdAt: new Date().toISOString() };
                 rec.lateOnDue = numBtn ? numBtn.classList.contains('late-on') : false;
                 if (isAbsent) rec.absent = true;
+                var checkedAt = subResolveCheckedAt(prevByIdx[i], st, nowIso);
+                if (checkedAt) rec.checkedAt = checkedAt;
                 subs.push(rec);
             });
             subSaveSubmissions(subs);
@@ -17265,24 +17300,25 @@
             // v1.50.0: 期限日に欠席かつ未提出の児童×課題は分母(対象)から除外する
             var att = StorageManager.get(KEYS.attendance, {});
             var recIdx = subBuildRecIndex(subs);
-            var total = 0, ok = 0, re = 0, credit = 0;
+            var ok = 0, re = 0, tl = window.grdSubmissionTallyNew();
             var excusedByAssign = {};
             filtered.forEach(function(a) {
                 var ex = 0;
                 for (var i = 0; i < n; i++) {
                     var rec = recIdx[a.id + '_' + i] || null;
                     var j = subJudge(i, a, rec, att);
+                    window.grdSubmissionTallyAdd(tl, j);
                     if (j.excused) { ex++; continue; }
-                    total++;
                     if (rec && rec.status === 'submitted') ok++;
                     else if (rec && rec.status === 'resubmit') re++;
-                    credit += j.credit;
                 }
                 excusedByAssign[a.id] = ex;
             });
+            var total = tl.counted;
             var ng = total - ok - re;
-            var rate = total ? Math.round(subCalcRate(credit, total)) : 0;
-            var score10 = total ? subCalc10(credit, total) : 0;
+            // v1.64.0: 提出率は件数ベース(提出した件数÷対象)。10点換算は成績と同じ評価点(お直し前0.8・遅れ上限0.8)のまま。ラベルで区別する
+            var rate = window.grdSubmissionRatePct(tl) || 0;
+            var score10 = total ? subCalc10(tl.credit, total) : 0;
             var cardsEl = document.getElementById('subStatsCards');
             if (cardsEl) {
                 cardsEl.innerHTML = [
@@ -17290,8 +17326,8 @@
                     ['○ ばっちり', ok, 'var(--success)'],
                     ['△ 再提出', re, '#F39C12'],
                     ['× 未提出', ng, 'var(--danger)'],
-                    ['提出率', rate + '%', rate >= 80 ? 'var(--success)' : 'var(--danger)'],
-                    ['10点換算', score10.toFixed(1), subScoreColor(score10)]
+                    ['提出率（件数）', rate + '%', rate >= 80 ? 'var(--success)' : 'var(--danger)'],
+                    ['評価点（10点換算）', score10.toFixed(1), subScoreColor(score10)]
                 ].map(function(c) {
                     return '<div class="sub-stat-card"><div class="sub-stat-val" style="color:' + (c[2] || 'var(--primary)') + '">' + c[1] + '</div><div class="sub-stat-label">' + c[0] + '</div></div>';
                 }).join('');
@@ -17330,17 +17366,17 @@
                 // 分子(ss)を分母(assigns.length)と同じ学期フィルタ基準に揃える
                 // （揃えないと、学期を絞った直後は未提出が過小に出て見えなくなる）
                 var stuData = students.map(function(stu, i) {
-                    var sok = 0, sre = 0, scr = 0, sex = 0;
+                    var sok = 0, sre = 0, stl = window.grdSubmissionTallyNew();
                     assigns.forEach(function(a) {
                         var rec = recIdx[a.id + '_' + i] || null;
                         var j = subJudge(i, a, rec, att);
-                        if (j.excused) { sex++; return; } // v1.50.0: 期限日欠席の未提出は対象外
+                        window.grdSubmissionTallyAdd(stl, j);
+                        if (j.excused) return; // v1.50.0: 期限日欠席の未提出は対象外
                         if (rec && rec.status === 'submitted') sok++;
                         else if (rec && rec.status === 'resubmit') sre++;
-                        scr += j.credit;
                     });
-                    var cnt = assigns.length - sex;
-                    return { i: i, name: stu.name, ok: sok, re: sre, ng: Math.max(0, cnt - sok - sre), credit: scr, cnt: cnt };
+                    var cnt = stl.counted;
+                    return { i: i, name: stu.name, ok: sok, re: sre, ng: Math.max(0, cnt - sok - sre), credit: stl.credit, cnt: cnt, pct: window.grdSubmissionRatePct(stl) || 0 };
                 });
                 if (filterVal === 'missing') stuData = stuData.filter(function(s) { return s.ng > 0; });
                 if (filterVal === 'resubmit') stuData = stuData.filter(function(s) { return s.re > 0; });
@@ -17348,9 +17384,11 @@
                     stuEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light);">該当する児童がいません</div>';
                     return;
                 }
-                stuEl.innerHTML = stuData.map(function(s) {
+                // v1.64.0: 児童ごとの % は提出率（件数）、右端の数字は評価点（10点換算・成績と同じ）。見出しで区別する
+                stuEl.innerHTML = '<div class="sub-stu-legend" style="font-size:0.72rem;color:var(--text-light);text-align:right;padding:0 8px 4px;">%＝提出率（件数）／右端＝評価点（10点換算）</div>'
+                    + stuData.map(function(s) {
                     var sc = s.cnt ? subCalc10(s.credit, s.cnt) : 0;
-                    var rt = s.cnt ? Math.round(subCalcRate(s.credit, s.cnt)) : 0;
+                    var rt = s.pct;
                     return '<div class="sub-student-row' + (s.ng > 0 ? ' has-missing' : '') + '">'
                         + '<div class="sub-stu-num">' + (s.i + 1) + '</div>'
                         + '<div class="sub-stu-name">' + escapeHtml(s.name) + '</div>'
@@ -17358,9 +17396,9 @@
                         + '<span class="sub-badge ok">○' + s.ok + '</span>'
                         + '<span class="sub-badge re">△' + s.re + '</span>'
                         + '<span class="sub-badge ng">×' + s.ng + '</span>'
-                        + '<span style="font-size:0.78rem;color:var(--text-light);">' + rt + '%</span>'
+                        + '<span style="font-size:0.78rem;color:var(--text-light);" title="提出率（件数）">' + rt + '%</span>'
                         + '</div>'
-                        + '<div class="sub-stu-score" style="color:' + subScoreColor(sc) + '">' + sc.toFixed(1) + '</div>'
+                        + '<div class="sub-stu-score" style="color:' + subScoreColor(sc) + '" title="評価点（10点換算）">' + sc.toFixed(1) + '</div>'
                         + '</div>';
                 }).join('');
             }
@@ -17702,6 +17740,8 @@
                     createdAt: new Date().toISOString()
                 };
                 if (absent) rec.absent = true; // 状態選択と欠席は排他（入力タブと同一ルール）
+                var checkedAt = subResolveCheckedAt(prev, status, rec.createdAt); // v1.64.0
+                if (checkedAt) rec.checkedAt = checkedAt;
                 subs.push(rec);
             }
             subSaveSubmissions(subs);
@@ -18271,6 +18311,21 @@
         }
         window.grdIsAbsentOnDate = grdIsAbsentOnDate;
         window.grdSubmissionJudge = grdSubmissionJudge;
+        // v1.64.0(先生の方針): 画面・出力の「提出率」はすべて件数ベース＝提出した件数(○提出・△再提出。お直し前・遅れても1件)÷対象件数。
+        //   分母は grdSubmissionJudge のまま(期限日欠席かつ未提出は除外・後日提出は提出)。0.8倍(お直し前・遅れ上限)は成績の評価点(credit)にだけ使う。
+        //   カルテ・PDF・面談テキスト・ダッシュボード・提出物統計はこの3つで数える(画面ごとに数え方を書かない)。
+        function grdSubmissionTallyNew() { return { counted: 0, done: 0, excused: 0, credit: 0 }; }
+        function grdSubmissionTallyAdd(t, j) {
+            if (j.excused) { t.excused++; return t; }
+            t.counted++;
+            if (j.submitted) t.done++;
+            t.credit += j.credit; // 評価点の合計(成績と同じ。10点換算などの併記用。提出率には使わない)
+            return t;
+        }
+        function grdSubmissionRatePct(t) { return t.counted ? Math.round(t.done / t.counted * 100) : null; } // 対象0件は null(0%にしない)
+        window.grdSubmissionTallyNew = grdSubmissionTallyNew;
+        window.grdSubmissionTallyAdd = grdSubmissionTallyAdd;
+        window.grdSubmissionRatePct = grdSubmissionRatePct;
 
         function nawatobiToScore10(grade) {
             if (grade === undefined || grade === null) return null;
@@ -23936,22 +23991,38 @@
             byMonthGrouped: byMonthGrouped
         };
     };
+    // v1.64.0: 提出物のチェック日時の表示(M/D HH:mm・端末の時刻)。日時の無い記録(v1.63.x までのチェック・未提出・欠席)は「―」。
+    window.subFormatCheckedAt = function(iso) {
+        if (!iso) return '―';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return '―';
+        var p2 = function(n) { return (n < 10 ? '0' : '') + n; };
+        return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+    };
+    // カルテ(カルテPDF 児童用/教員用・一括PDF)の提出状況。
+    // v1.64.0: 提出率は件数ベース(提出した件数÷対象件数。遅れて提出・お直し前の再提出も1件)。分母は v1.50.0 のまま(期限日欠席かつ未提出は除外・後日提出は提出)。
+    //   成績の評価点(お直し前0.8・遅れ上限0.8)は credit に残す(成績処理・ダッシュボード・面談テキストは評価点のまま。カルテだけ件数)。
     window.calcSubmissionStats = function(idx, assigns, subsData) {
-        var st = { total: assigns.length, counted: 0, excused: 0, ok: 0, re: 0, miss: 0, missAbs: 0, credit: 0, rate: '-', rows: [] };
+        var st = { total: assigns.length, counted: 0, excused: 0, ok: 0, re: 0, miss: 0, missAbs: 0, credit: 0, done: 0, rate: '-', rows: [] };
         var att = StorageManager.get(KEYS.attendance, {}); // v1.50.0: 期限日欠席の判定用
+        var tl = window.grdSubmissionTallyNew(); // v1.64.0: 提出率は全画面共通の件数ベース(counted・done・excused・credit)
         assigns.forEach(function(a) {
             var r = subsData.find(function(r2) { return Number(r2.studentIndex) === idx && Number(r2.assignmentId) === Number(a.id); }); // v1.8.93: assignmentId比較も型非依存に
             var stat = r ? r.status : 'missing';
             var jd = window.grdSubmissionJudge(idx, a, r, att);
-            if (!jd.excused) st.credit += jd.credit; // v1.60.0 (M2): 提出率は成績と同じ数え方(評価点の合計÷対象)
+            window.grdSubmissionTallyAdd(tl, jd);
             var label, color;
-            if (jd.excused) { st.excused++; st.missAbs++; label = '🏠欠席（対象外）'; color = '#757575'; } // 期限日欠席かつ未提出は提出率の分母から除外
-            else if (stat === 'submitted') { st.counted++; st.ok++; label = '提出済'; color = 'var(--success)'; }
-            else if (stat === 'resubmit') { st.counted++; st.re++; label = '再提出'; color = '#B7950B'; }
-            else { st.counted++; st.miss++; label = '★未提出'; color = 'var(--danger)'; }
-            st.rows.push({ subject: a.subject || '', name: a.name || '', label: label, color: color });
+            if (jd.excused) { st.missAbs++; label = '🏠欠席（対象外）'; color = '#757575'; } // 期限日欠席かつ未提出は提出率の分母から除外
+            else if (stat === 'submitted') { st.ok++; label = '提出済'; color = 'var(--success)'; }
+            else if (stat === 'resubmit') { st.re++; label = '再提出'; color = '#B7950B'; }
+            else { st.miss++; label = '★未提出'; color = 'var(--danger)'; }
+            st.rows.push({ subject: a.subject || '', name: a.name || '', label: label, color: color,
+                late: !jd.excused && jd.submitted && jd.late, // v1.64.0: 遅れて提出(期限日欠席の後日提出は遅れにしない＝grdSubmissionJudge)
+                checkedAt: window.subFormatCheckedAt(jd.submitted && r ? r.checkedAt : '') });
         });
-        if (st.counted > 0) st.rate = Math.round(st.credit / st.counted * 100) + '%';
+        st.counted = tl.counted; st.done = tl.done; st.excused = tl.excused; st.credit = tl.credit; // credit=成績と同じ評価点の合計(参考。提出率には使わない)
+        var pct = window.grdSubmissionRatePct(tl);
+        if (pct !== null) st.rate = pct + '%'; // v1.64.0: 件数ベース(以前 v1.60.0〜は評価点の合計÷対象)
         return st;
     };
     window.buildSubmissionSectionHtml = function(stats, headerHtml) {
@@ -23960,10 +24031,12 @@
             rowsHtml += '<tr>'
                 + '<td style="padding:3px 6px;font-size:8pt;color:#555;white-space:nowrap;border-bottom:1px solid #eee;">' + escapeHtml(rw.subject) + '</td>'
                 + '<td style="padding:3px 6px;font-size:8pt;border-bottom:1px solid #eee;">' + escapeHtml(rw.name) + '</td>'
-                + '<td style="padding:3px 6px;font-size:8pt;font-weight:700;text-align:right;color:' + rw.color + ';border-bottom:1px solid #eee;white-space:nowrap;">' + rw.label + '</td>'
+                + '<td style="padding:3px 6px;font-size:8pt;font-weight:700;text-align:right;color:' + rw.color + ';border-bottom:1px solid #eee;white-space:nowrap;">' + rw.label
+                + (rw.late ? '<span style="display:inline-block;margin-left:3pt;padding:0 3pt;font-size:6.5pt;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:3pt;">遅れて提出</span>' : '') + '</td>'
+                + '<td style="padding:3px 6px;font-size:7.5pt;color:#555;text-align:right;border-bottom:1px solid #eee;white-space:nowrap;">' + escapeHtml(rw.checkedAt || '―') + '</td>'
                 + '</tr>';
         });
-        if (!rowsHtml) rowsHtml = '<tr><td colspan="3" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">課題なし</td></tr>';
+        if (!rowsHtml) rowsHtml = '<tr><td colspan="4" style="padding:8px;font-size:8pt;color:#aaa;text-align:center;">課題なし</td></tr>';
         return '<div style="border:1.5pt solid #ddd;border-radius:8pt;padding:10pt;margin-bottom:5pt;">'
             + (headerHtml || '<div style="font-size:9pt;font-weight:700;color:#555;margin-bottom:8pt;">📚 提出状況</div>')
             + '<div style="display:flex;gap:12pt;margin-bottom:10pt;">'
@@ -23974,7 +24047,7 @@
             + '</div>'
             + '<div style="font-size:8pt;font-weight:700;color:#555;margin-bottom:4pt;">課題一覧</div>'
             + '<table style="width:100%;border-collapse:collapse;">'
-            + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">教科</th><th style="padding:3px 6px;font-size:7pt;text-align:left;">課題名</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">状況</th></tr>'
+            + '<tr style="background:#f4f6f9;"><th style="padding:3px 6px;font-size:7pt;text-align:left;">教科</th><th style="padding:3px 6px;font-size:7pt;text-align:left;">課題名</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">状況</th><th style="padding:3px 6px;font-size:7pt;text-align:right;">チェック日時</th></tr>'
             + rowsHtml
             + '</table>'
             + '</div>';

@@ -1,11 +1,11 @@
-# classroom-app 引き継ぎメモ（2026-10-06 時点・公開済みは **v1.64.1（push 済み・iPad 確認済み 2026-10-06。「→M/D提出」の1項目だけ実運用で確認予定）**＝カルテ・PDFの各課題の日付を「課題の日」に／v1.64.0（同日 push・v1.64.1 の確認で確認済み）＝提出率を全画面で件数ベースに・チェック日時の記録。検定カードのポップアップ化（案B）は保留。**2026-10-08: v1.65.0（iPad アプリ版 Kizashi への対応。Web 版の動きは変えない）を commit 済み・未 push**）
+# classroom-app 引き継ぎメモ（2026-10-06 時点・公開済みは **v1.64.1（push 済み・iPad 確認済み 2026-10-06。「→M/D提出」の1項目だけ実運用で確認予定）**＝カルテ・PDFの各課題の日付を「課題の日」に／v1.64.0（同日 push・v1.64.1 の確認で確認済み）＝提出率を全画面で件数ベースに・チェック日時の記録。検定カードのポップアップ化（案B）は保留。**2026-10-08: v1.65.0（iPad アプリ版 Kizashi への対応。Web 版の動きは変えない）を commit 済み・未 push。**push は v1.66.0 の commit 後、作業ツリーに未コミットの変更が無い状態で `node run-all.js` FAIL 0 を確認してから、v1.65.0 と v1.66.0 をまとめて行う（直前に先生に確認）**）
 
 次のセッションは、まずこのファイルと `CLAUDE.md`、`UI_WORKLOG.md`（末尾の最新セッション）、
 `DATA_FLOW_AUDIT.md`（該当章）を読む。`push` は先生の承認が出るまでしない。
 
 ## 0. Kizashi（iPad アプリ版）との関係（2026-10-08〜）
 
-- **Kizashi** は、classroom-app を WKWebView で包んだ iPad ネイティブアプリ（別リポジトリ `~/Kizashi`・GitHub の private リポジトリ「Kizashi」）。
+- **Kizashi** は、classroom-app を WKWebView で包んだ iPad ネイティブアプリ（別リポジトリ `~/Kizashi`。**ローカルの git のみ（リモートなし）**。将来 GitHub に置く場合は private で作る）。
   詳しくは `~/Kizashi/HANDOFF.md`。
 - **役割分担**: **本番のデータは Kizashi にだけ置く。** Web 版（GitHub Pages）は開発・テスト用（ダミーデータ）として今後も維持する。
 - **正本はこのリポジトリだけ。** Kizashi はビルドのたびに、このリポジトリの git 管理下のファイル（`index.html`・`pf.html`・`manifest.json`・アイコン・`libs/`。

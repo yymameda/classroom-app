@@ -4204,6 +4204,29 @@
     // 共通ユーティリティ（全機能で使用・1回だけ定義）
     // ================================================================
 
+    // --- v1.65.0: iPad アプリ版(Kizashi)の判定と、ネイティブへの受け渡し ---
+    // Kizashi は classroom-app を WKWebView で包んだ iPad アプリ(別リポジトリ)。アプリの中にだけ
+    // window.webkit.messageHandlers.kizashi(返事つき)と window.kizashiApp(版の情報)がある。Web版(Safari)の動きは変えない。
+    function kzIsNative() {
+        try { return !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.kizashi); } catch (e) { return false; }
+    }
+    window.kzIsNative = kzIsNative;
+    // blob をネイティブへ渡す。action: 'share'(共有シート。「ファイルに保存」など)/'preview'(全ページのプレビュー)。
+    // 戻り値はネイティブの返事 {ok, completed, error}(completed=false は利用者がキャンセルした)。
+    async function kzNativeSend(action, blob, fileName) {
+        var dataUrl = await new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(String(reader.result)); };
+            reader.onerror = function() { reject(reader.error || new Error('ファイルを読み取れません')); };
+            reader.readAsDataURL(blob);
+        });
+        var reply = await window.webkit.messageHandlers.kizashi.postMessage({
+            action: action, fileName: fileName, mimeType: blob.type || 'application/octet-stream',
+            base64: dataUrl.slice(dataUrl.indexOf(',') + 1)
+        });
+        return reply || { ok: false };
+    }
+
     // --- safeSetItem: debounce 500ms + QuotaExceeded対応 ---
     const _saveQueue = {};
     const _saveTimers = {};
@@ -4572,11 +4595,11 @@
                 + '<iframe id="pdfPreviewFrame" src="' + url + '" title="PDFプレビュー" '
                 + 'style="flex:1;min-height:40vh;width:100%;border:1px solid #ddd;border-radius:8px;background:#f5f5f5;"></iframe>'
                 + '<div style="font-size:11px;color:#888;line-height:1.5;">※ この枠内では1ページ目しか表示されないことがあります。'
-                + '全ページ確認するには「別のタブで開く」をお使いください。</div>'
+                + '全ページ確認するには「' + (kzIsNative() ? '全ページを見る' : '別のタブで開く') + '」をお使いください。</div>'
                 + '<button id="pdfResShareBtn" class="btn btn-primary" style="width:100%;">📤 保存 / 共有</button>'
                 + (rebuildMasked ? '<button id="pdfResMaskBtn" class="btn btn-outline" style="width:100%;">🔒 名前を伏せて作り直す</button>' : '')
                 + '<div style="display:flex;gap:8px;">'
-                + '<button id="pdfResOpenBtn" class="btn btn-outline" style="flex:1;">↗️ 別のタブで開く</button>'
+                + '<button id="pdfResOpenBtn" class="btn btn-outline" style="flex:1;">' + (kzIsNative() ? '🔍 全ページを見る' : '↗️ 別のタブで開く') + '</button>'
                 + '<button id="pdfResCloseBtn" class="btn btn-outline" style="flex:1;">✕ 閉じる</button>'
                 + '</div></div>';
             document.body.appendChild(ov);
@@ -4618,6 +4641,12 @@
                 showToast('氏名を「児童N」に置き換えました', 'success');
             });
             if (openBtn) openBtn.addEventListener('click', function() {
+                // v1.65.0: iPad アプリ版(Kizashi)には別タブが無いため、ネイティブのプレビュー(全ページ)で開く。ダイアログは閉じない
+                if (kzIsNative()) {
+                    var kzFail = function() { showToast('⚠️ プレビューを開けませんでした。「保存 / 共有」をお使いください', 'warning'); };
+                    kzNativeSend('preview', curBlob, curName).then(function(r) { if (!r || !r.ok) kzFail(); }, kzFail);
+                    return;
+                }
                 openedExternally = true;
                 var w = window.open(url, '_blank');
                 if (!w) showToast('ポップアップがブロックされました。「保存 / 共有」をお使いください', 'warning');
@@ -4791,6 +4820,21 @@
 
     // --- universalShare: Web Share API + Blobフォールバック ---
     async function universalShare(blob, fileName) {
+        // v1.65.0: iPad アプリ版(Kizashi)では、ネイティブの共有シートに渡す(WKWebView では a[download]・別タブが使えないため)
+        if (kzIsNative()) {
+            try {
+                var kzr = await kzNativeSend('share', blob, fileName);
+                if (kzr && kzr.ok) {
+                    if (kzr.completed) showToast('✅ 共有シートを開きました', 'success');
+                    else showToast('保存をキャンセルしました', 'info');
+                    return true;
+                }
+                showToast('❌ 保存に失敗しました' + (kzr && kzr.error ? ': ' + kzr.error : ''), 'error');
+            } catch (err) {
+                showToast('❌ 保存に失敗しました: ' + ((err && err.message) ? err.message : String(err)), 'error');
+            }
+            return false;
+        }
         if (navigator.share && navigator.canShare) {
             try {
                 const file = new File([blob], fileName, { type: blob.type });
@@ -22172,6 +22216,12 @@
         (function() {
             function applyVersion(v) { _VER = v; var el = document.getElementById('ver-disp'); if (el) el.textContent = v; }
             function askSW(sw) { if (sw) sw.postMessage({ type: 'GET_VERSION' }); }
+            // v1.65.0: iPad アプリ版(Kizashi)には Service Worker が無い。アプリが渡す版(同梱した sw.js の CACHE_VERSION・Kizashi の版・同梱元のコミット)を出す
+            var kz = window.kizashiApp;
+            if (kzIsNative()) {
+                if (kz && kz.webVersion) applyVersion(kz.webVersion + ' · Kizashi ' + (kz.appVersion || '?') + ' (' + (kz.webCommit || '?') + ')');
+                return;
+            }
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.addEventListener('message', function(e) {
                     if (e.data && e.data.type === 'VERSION') applyVersion(e.data.version);
@@ -25092,7 +25142,8 @@
             try { localStorage.setItem('spa_storage_persisted', granted ? '1' : '0'); } catch(e) {}
         });
     }
-    if ('serviceWorker' in navigator) {
+    // v1.65.0: iPad アプリ版(Kizashi)では登録しない(ファイルはアプリに同梱済みで、更新はアプリの更新で行うため)
+    if ('serviceWorker' in navigator && !kzIsNative()) {
         navigator.serviceWorker.register('./sw.js').then(function(reg) {
             console.log('[PWA] Service Worker registered');
             reg.update();

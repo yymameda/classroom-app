@@ -81,6 +81,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `list-scroll-cutoff.test.js` | 38 | 0 |
 | `matome-abc-deadcode-removal.test.js` | 15 | 0 |
 | `matome-abc-mode-removal.test.js` | 20 | 0 |
+| `matome-attitude-5rank.test.js` | 46 | 0 |
 | `matome-range-check.test.js` | 32 | 0 |
 | `native-bridge.test.js` | 28 | 0 |
 | `output-term-source.test.js` | 18 | 0 |
@@ -126,7 +127,7 @@ Chromeのパスは `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 | `v1.8.52.test.js` | 13 | 0 |
 | `v1.8.54_cleanup.test.js` | 13 | 0 |
 | `zoom-disable.test.js` | 28 | 0 |
-| **合計（87ファイル）** | **2805** | **0** |
+| **合計（88ファイル）** | **2851** | **0** |
 <!-- run-all:table:end -->
 
 `roster-shift.test.js` は付け替え計画レベル(有効)と実適用レベル(`applyRosterChange` 経由。v1.51.2 から有効。未実装の環境ではSKIP、`ROSTER_SHIFT_FORCE=1` で強制実行)の2部構成。共有データ生成は `helpers/roster-data.js`。

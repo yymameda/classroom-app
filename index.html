@@ -9769,6 +9769,12 @@
             all[testId] = questions;
             StorageManager.setImmediate(REC_KEYS.matomeQ, JSON.stringify(all));
         }
+        function recRemoveMatomeQ(testId) {
+            var all = StorageManager.get(REC_KEYS.matomeQ, {});
+            if (!Object.prototype.hasOwnProperty.call(all, testId)) return;
+            delete all[testId];
+            StorageManager.setImmediate(REC_KEYS.matomeQ, JSON.stringify(all));
+        }
 
         // --- 状態 ---
         var recCurrentTestId = null;
@@ -10410,6 +10416,16 @@
         function recIsInputModeToggleable(testType) {
             return !!testType && testType !== 'まとめテスト' && testType !== '単元テスト' &&
                 testType !== '実技記録' && testType !== '授業態度';
+        }
+
+        // v1.66.0: 単元テスト・まとめテストの主体性の課題(全設問が「主」)は、課題ごとに 得点(設問ごと)／5段階 を選べる。
+        //   得点＝従来どおりのまとめ形式(type:'matome'・設問ごとの配点)。5段階＝ほかの5段階の項目と同じ形
+        //   (type:'standard'・category:'主体性'・inputMode:'abc5'・maxScore:0。testType は単元テスト／まとめテストのまま)で保存し、
+        //   入力(リスト・連続入力・座席)・成績(grdItemScore10→abcTo10)・出力は getItemInputMode/recTestKind の既存の経路をそのまま通る。
+        //   既存の得点方式のテストは書き換えない(切り替えは記録が無いときだけ。recInputModeLocked)。
+        function recIsMatomeType(testType) { return testType === 'まとめテスト' || testType === '単元テスト'; }
+        function recIsMatomeAbc5(test) {
+            return !!test && test.type !== 'matome' && recIsMatomeType(test.testType) && test.category === '主体性' && test.inputMode === 'abc5';
         }
 
         // 指定テストに、値ありのスコアレコードが1件でもあるか(入力形式ロック判定用)。
@@ -12876,7 +12892,46 @@
         function recInputModeLocked() {
             return recEditingTestId !== null && recTestHasAnyScore(recEditingTestId);
         }
+        // v1.66.0: 単元テスト・まとめテストのフォームで、設問の観点がすべて「主」か(=得点／5段階を選べる主体性の課題か)。
+        function recMatomeFormAllShu() {
+            var qCount = parseInt((document.getElementById('recMatomeQCount') || {}).value) || 10;
+            for (var i = 1; i <= qCount; i++) {
+                var b = document.getElementById('rec-mq-type-' + i);
+                if (!b || b.dataset.type !== '主') return false;
+            }
+            return qCount > 0;
+        }
+        // v1.66.0: 単元テスト・まとめテストの「得点(設問ごと)／5段階」の表示を同期する(recSyncInputModeUi から呼ぶ)。
+        //   選択を出すのは全設問が「主」のときだけ。それ以外は得点(設問ごと)に戻す。初期値は得点(観点で自動では決めない)。
+        function recSyncMatomeInputModeUi() {
+            var wrap = document.getElementById('recInputModeWrap');
+            var scoreBtn = document.getElementById('recInputModeScoreBtn');
+            var abc5Btn = document.getElementById('recInputModeAbc5Btn');
+            var note = document.getElementById('recInputModeLockNote');
+            var matomeF = document.getElementById('recMatomeFields');
+            var catEl = document.getElementById('recTestCategory');
+            var maxEl = document.getElementById('recTestMaxScore');
+            var rf = document.getElementById('recRubricFields');
+            recRefreshInputModeFix(); // 戻すボタンは得点/5段階の切り替えのある種別だけ(ここでは隠れる)・取り消しボタンは編集中なら出す
+            var eligible = recMatomeFormAllShu();
+            if (!eligible || _recFormInputMode !== 'abc5') _recFormInputMode = 'score';
+            var abc = _recFormInputMode === 'abc5';
+            var locked = recInputModeLocked();
+            if (wrap) wrap.style.display = eligible ? 'flex' : 'none';
+            if (scoreBtn) { scoreBtn.classList.toggle('active', !abc); scoreBtn.disabled = locked; }
+            if (abc5Btn) { abc5Btn.classList.toggle('active', abc); abc5Btn.disabled = locked; }
+            if (note) note.style.display = (eligible && locked) ? 'block' : 'none';
+            if (matomeF) matomeF.style.display = abc ? 'none' : 'grid';
+            if (catEl) {
+                // 5段階の間は観点を「主体性」と表示する。得点に戻すときは、5段階にする前の値に戻す(既存の課題の観点を書き換えない)
+                if (abc && catEl.value !== '主体性') { catEl.dataset.matomePrevCat = catEl.value; catEl.value = '主体性'; }
+                else if (!abc && catEl.dataset.matomePrevCat !== undefined) { catEl.value = catEl.dataset.matomePrevCat; delete catEl.dataset.matomePrevCat; }
+            }
+            if (maxEl) { maxEl.disabled = true; maxEl.value = ''; maxEl.placeholder = abc ? 'ABC評価' : '配点合計で自動計算'; }
+            if (rf) rf.classList.toggle('show', abc || !!(catEl && catEl.value));
+        }
         function recSyncInputModeUi() {
+            if (recIsMatomeType((document.getElementById('recTestType') || {}).value)) { recSyncMatomeInputModeUi(); return; }
             var scoreBtn = document.getElementById('recInputModeScoreBtn');
             var abc5Btn = document.getElementById('recInputModeAbc5Btn');
             // 得点が1件でも入力済みの項目は、保存済みデータの型(数値⇔文字列)が変わって
@@ -12915,6 +12970,7 @@
             var toggleable = recIsInputModeToggleable(type);
             var modeWrap = document.getElementById('recInputModeWrap');
             if (modeWrap) modeWrap.style.display = toggleable ? 'flex' : 'none';
+            if (catEl && !recIsMatomeType(type)) delete catEl.dataset.matomePrevCat; // v1.66.0: 単元・まとめテストの5段階で一時的に変えた観点の控え
             if (type === 'まとめテスト' || type === '単元テスト') {
                 matomeF.style.display = 'grid';
                 if (catEl) { catEl.disabled = true; catEl.title = '設問ごとに観点を設定します（選択不要）'; }
@@ -12922,6 +12978,9 @@
                 if (titleEl) titleEl.textContent = type === '単元テスト' ? '📝 単元テストの設定' : '📝 まとめテストの設定';
                 maxEl.disabled = true; maxEl.placeholder = '配点合計で自動計算'; maxEl.value = '';
                 recRenderMatomePreview();
+                // v1.66.0: 全設問が「主」なら 得点(設問ごと)／5段階 を選べる。初期値は得点(手動で選んだとき・編集で開いたときはその値)。
+                if (!_recFormInputModeManual && !_recSuppressInputModeAutoDefault && !recInputModeLocked()) _recFormInputMode = 'score';
+                recSyncMatomeInputModeUi();
             } else if (type === '実技記録') {
                 peF.style.display = 'grid';
                 maxEl.disabled = true; maxEl.placeholder = '自動'; maxEl.value = '';
@@ -13092,7 +13151,11 @@
                     ' onclick="recToggleMqType(' + (i+1) + ')">' + curType + '</button>' +
                     '</div>';
             }).join('');
+            recSyncMatomeInputModeUiIfMatome(); // v1.66.0: 設問の観点が変わると「得点／5段階」を選べるかが変わる
         };
+        function recSyncMatomeInputModeUiIfMatome() {
+            if (recIsMatomeType((document.getElementById('recTestType') || {}).value)) recSyncMatomeInputModeUi();
+        }
 
         // Enterキー移動リスナー（DOMContentLoaded内で1回だけ登録）
         document.getElementById('recMatomePreview').addEventListener('keydown', function(e) {
@@ -13147,6 +13210,7 @@
             var col = colors[next];
             btn.dataset.type = next; btn.textContent = next;
             btn.style.borderColor = col.c; btn.style.background = col.bg; btn.style.color = col.c;
+            recSyncMatomeInputModeUiIfMatome();
         };
 
         window.recSetMatomeUniform = function() {
@@ -13169,6 +13233,7 @@
                 btn.dataset.type = type; btn.textContent = type;
                 btn.style.borderColor = col.c; btn.style.background = col.bg; btn.style.color = col.c;
             }
+            recSyncMatomeInputModeUiIfMatome();
         };
 
         function recGetMatomeFormData() {
@@ -13204,6 +13269,9 @@
             // isABCTestを経由しない直書き条件のコピーを避けるため残す)。
             var toggleable = recIsInputModeToggleable(testType);
             var isABC = toggleable ? (_recFormInputMode === 'abc5') : isABCTest(category, testType);
+            // v1.66.0: 単元テスト・まとめテストの主体性の課題(全設問「主」)で5段階を選んだら、ほかの5段階の項目と同じ形で保存する(設問は持たない)
+            var matomeAbc5 = isMatome && _recFormInputMode === 'abc5' && recMatomeFormAllShu();
+            if (matomeAbc5) { isMatome = false; isABC = true; category = '主体性'; }
 
             if (isMatome && !category) category = '複合';
             if (!subject || !testType || !name || !category || !date) { showToast('全項目を入力してください', 'warning'); return; }
@@ -13278,6 +13346,7 @@
                     }
                 }
             }
+            if (matomeAbc5) test.inputMode = 'abc5';
             if (isMatome) {
                 test.matomePoints = matomePoints;
                 test.matomeQuestionTypes = matomeTypes;
@@ -13329,6 +13398,8 @@
                 if (idx >= 0) {
                     // v1.50.0: 観点・教科が変わる編集では項目重みを新しいキーへ移す(成績値が既定値に戻るのを防ぐ)
                     if (typeof window.grdRelocateTestWeight === 'function') window.grdRelocateTestWeight(tests[idx], test);
+                    // v1.66.0: まとめ形式→5段階にした課題は、使わなくなった設問の定義を消す(5段階→得点は上で設問を保存し直す)
+                    if (tests[idx].type === 'matome' && test.type !== 'matome') recRemoveMatomeQ(test.id);
                     tests[idx] = test;
                 }
             } else {
@@ -13377,7 +13448,7 @@
             var _ab = document.getElementById('recInputModeAbc5Btn'); if (_ab) { _ab.classList.remove('active'); _ab.disabled = false; }
             var _ln = document.getElementById('recInputModeLockNote'); if (_ln) _ln.style.display = 'none';
             // 検定カード選択で変更されたフォーム状態を初期化
-            var _ce = document.getElementById('recTestCategory'); if (_ce) { _ce.disabled = false; _ce.title = ''; }
+            var _ce = document.getElementById('recTestCategory'); if (_ce) { _ce.disabled = false; _ce.title = ''; delete _ce.dataset.matomePrevCat; }
             var _ue = document.getElementById('recTestPeUnit');   if (_ue) _ue.value = '秒';
             var _dw = document.getElementById('recPeDirTrialWrap'); if (_dw) _dw.style.display = 'contents';
             var _kh = document.getElementById('recPeKenteiHint');   if (_kh) _kh.style.display = 'none';
@@ -13419,6 +13490,18 @@
             _recFormInputMode = _editToggleable ? getItemInputMode(test) : null;
             _recFormInputModeManual = false;
             if (_editToggleable) { ms.value = (test.maxScore || test.maxScore === 0) ? test.maxScore : ''; }
+            // v1.66.0: 単元テスト・まとめテストは 得点(設問ごと)／5段階。5段階の課題は設問を持たないので、得点に戻せるよう設問を全部「主」にしておく
+            //   (観点の欄は保存値の「主体性」を表示し、得点に戻したときは空欄＝まとめ形式の既定に戻す)。
+            var _catEl = document.getElementById('recTestCategory');
+            if (_catEl) delete _catEl.dataset.matomePrevCat;
+            if (recIsMatomeType(test.testType)) {
+                _recFormInputMode = recIsMatomeAbc5(test) ? 'abc5' : 'score';
+                if (recIsMatomeAbc5(test)) {
+                    recRenderMatomePreview();
+                    window.recSetMatomeUniformType('主');
+                    if (_catEl) _catEl.dataset.matomePrevCat = '';
+                }
+            }
             // v1.22.3: recOnTestTypeChange()はフィールド表示/disabled/placeholderの同期に
             // 編集時も必要だが、その内部で呼ばれるrecAutoPrefix()は「開いただけで課題名が
             // 無断で書き換わる」事故を起こすため、ここでの呼び出し中だけ抑制する。
@@ -13463,6 +13546,7 @@
                         typeEl.style.borderColor = col.c; typeEl.style.background = col.bg; typeEl.style.color = col.c;
                     }
                 });
+                recSyncMatomeInputModeUi(); // v1.66.0: 読み込んだ設問が全部「主」なら「得点／5段階」の選択を出す
             }
             document.getElementById('recTestFormTitle').textContent = '✏️ 課題を編集中';
             document.getElementById('recAddTestBtn').textContent = '更新を保存';
@@ -13998,6 +14082,7 @@
         // これも公開する。
         window.getItemInputMode = getItemInputMode;
         window.inputModeFixInfo = inputModeFixInfo; // v1.54.4: 診断(別モジュール)と共有する判定
+        window.recIsMatomeAbc5 = recIsMatomeAbc5; // v1.66.0: 診断・成績(別モジュール)と共有する判定
         window.ABC5_VALID_VALUES = ABC5_VALID_VALUES;
         window.INPUT_MODE_FIX_LABELS = INPUT_MODE_FIX_LABELS;
 
@@ -18266,6 +18351,19 @@
             '主体性':           { persp: 'attitude',  prefix: 'a_' }
         };
         function grdRelocateTestWeight(oldTest, newTest) {
+            // v1.66.0: 単元テスト・まとめテストの主体性の課題を 得点(設問ごと・ma_)⇔5段階(a_) に切り替えたときは、主体性の重みを引き継ぐ
+            if (oldTest && newTest && oldTest.subject === newTest.subject && (oldTest.type === 'matome') !== (newTest.type === 'matome')
+                && (recIsMatomeAbc5(oldTest) || recIsMatomeAbc5(newTest))) {
+                var allM = StorageManager.get(KEYS.grade_weights, null) || safeJsonParse(StorageManager.getRaw('gradeItemWeights'), {});
+                var ac = allM[oldTest.subject] && allM[oldTest.subject].attitude;
+                var fromKey = (oldTest.type === 'matome' ? 'ma_' : 'a_') + oldTest.id, toKey = (newTest.type === 'matome' ? 'ma_' : 'a_') + newTest.id;
+                if (!ac || ac[fromKey] === undefined) return false;
+                ac[toKey] = ac[fromKey];
+                delete ac[fromKey];
+                StorageManager.setImmediate(KEYS.grade_weights, JSON.stringify(allM));
+                _grdCacheWeights = null;
+                return true;
+            }
             var o = oldTest && GRD_WEIGHT_KEY_BY_CATEGORY[oldTest.category];
             if (!o) return false;
             var n = newTest ? GRD_WEIGHT_KEY_BY_CATEGORY[newTest.category] : null;
@@ -19920,7 +20018,8 @@
         }
         // 項目1件の「換算方法」列テキスト
         function grdItemConversionDesc(subject, item) {
-            if (item.type === 'まとめテスト' || item.type === '単元テスト') return '得点÷' + item.max + '×10（' + item.type + 'の該当観点分）';
+            // v1.66.0: 5段階の単元テスト・まとめテスト(主体性)は満点を持たない(item.max が null)ので、下の ABC評価 の説明にする
+            if ((item.type === 'まとめテスト' || item.type === '単元テスト') && typeof item.max === 'number' && item.max > 0) return '得点÷' + item.max + '×10（' + item.type + 'の該当観点分）';
             if (item.type === '机間巡視') return '○評価率×10（机間巡視記録から算出）';
             if (item.type === '提出物') return '提出率(%)÷10。' + grdSubmissionCreditText();
             if (item.type === '実技記録') {
@@ -20781,6 +20880,7 @@
         }
         window.grdDetailSubjects = grdDetailSubjects;
         window.grdBuildDetailRows = grdBuildDetailRows;
+        window.grdItemConversionDesc = grdItemConversionDesc; // v1.66.0: 算出根拠の「換算方法」(テストから確かめる)
         window.GRD_DETAIL_HEADER = GRD_DETAIL_HEADER;
 
         // Phase 8 から参照できるよう公開
@@ -22460,7 +22560,8 @@
             var PERSP_OF = { '知識・技能': ['knowledge', 'k_'], '思考・判断・表現': ['thinking', 't_'], '主体性': ['attitude', 'a_'] };
             var gradeAffectedStudents = {};
             tests.forEach(function(t) {
-                if (t.type === 'matome' || t.testType === 'まとめテスト' || t.testType === '単元テスト' ||
+                // v1.66.0: 5段階の単元テスト・まとめテスト(主体性。type:'standard')は、ほかの5段階の項目と同じく検査する
+                if (t.type === 'matome' || ((t.testType === 'まとめテスト' || t.testType === '単元テスト') && !recIsMatomeAbc5(t)) ||
                     t.testType === '実技記録' || t.testType === '授業態度') return;
                 var mode = getItemInputMode(t);
                 var numeric = 0, str = 0, invalid5 = 0, affected = {}, affectedN = 0;
